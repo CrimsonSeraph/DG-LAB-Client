@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <UI version="4.0" >
- <class>DGLABClinetClass</class>
- <widget class="QWidget" name="DGLABClinetClass" >
+ <class>DGLABClientClass</class>
+ <widget class="QWidget" name="DGLABClientClass" >
   <property name="objectName" >
-   <string notr="true">DGLABClinetClass</string>
+   <string notr="true">DGLABClientClass</string>
   </property>
   <property name="geometry" >
    <rect>
@@ -14,13 +14,11 @@
    </rect>
   </property>
   <property name="windowTitle" >
-   <string>DGLABClinet</string>
+   <string>DGLABClient</string>
   </property>$centralwidget$
  </widget>
  <layoutDefault spacing="6" margin="11" />
  <pixmapfunction></pixmapfunction>
- <resources>
-   <include location="DGLABClinet.qrc"/>
- </resources>
+
  <connections/>
 </UI>

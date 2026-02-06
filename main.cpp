@@ -1,11 +1,11 @@
-#include "./include/DGLABClinet.h"
+#include "./include/DGLABClient.h"
 #include <QtWidgets/QApplication>
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
 
-    DGLABClinet window;
+    DGLABClient window;
     window.show();
 
     return app.exec();
