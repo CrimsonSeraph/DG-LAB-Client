@@ -20,6 +20,9 @@ set(PROJECT_SOURCES
     DGLABClient.ui
     include/DGLABClient.h
     src/DGLABClient.cpp
+    include/PyExecutor.h
+    src/PyExecutor.cpp
+    include/PyExecutor_impl.h
 )
 
 qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
@@ -29,9 +32,25 @@ set_target_properties(${PROJECT_NAME}
         WIN32_EXECUTABLE TRUE
 )
 
+find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
+
+add_subdirectory(pybind11-3.0.1 pybind11)
+
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
         Qt::Core
         Qt::Gui
         Qt::Widgets
+)
+
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+        pybind11::embed
+        Python::Python
+)
+
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${PYTHON_INCLUDE_DIRS}
 )
