@@ -1,5 +1,9 @@
+#pragma once
+
+#include "../include/PyExecutor.h"
+
 template<typename ReturnType, typename... Args>
-ReturnType PythonExecutor::call_sync(const std::string& method_name, Args&&... args) {
+ReturnType PyExecutor::call_sync(const std::string& method_name, Args&&... args) {
     if (!module_loaded_) {
         throw std::runtime_error("Module not loaded. Call import_module() first.");
     }
@@ -32,12 +36,12 @@ ReturnType PythonExecutor::call_sync(const std::string& method_name, Args&&... a
 }
 
 template<typename... Args>
-void PythonExecutor::call_void(const std::string& method_name, Args&&... args) {
+void PyExecutor::call_void(const std::string& method_name, Args&&... args) {
     call_sync<void, Args...>(method_name, std::forward<Args>(args)...);
 }
 
 template<typename Func, typename... Args>
-auto PythonExecutor::execute_async(Func&& func, Args&&... args)
+auto PyExecutor::execute_async(Func&& func, Args&&... args)
 -> std::future<decltype(func(args...))> {
 
     return std::async(std::launch::async, [func = std::forward<Func>(func),
@@ -49,7 +53,7 @@ auto PythonExecutor::execute_async(Func&& func, Args&&... args)
 }
 
 template<typename ReturnType, typename... Args>
-std::future<ReturnType> PythonExecutor::call_async(const std::string& method_name,
+std::future<ReturnType> PyExecutor::call_async(const std::string& method_name,
     Args&&... args) {
     if (!module_loaded_) {
         throw std::runtime_error("Module not loaded. Call import_module() first.");
@@ -65,7 +69,7 @@ std::future<ReturnType> PythonExecutor::call_async(const std::string& method_nam
 }
 
 template<typename ReturnType, typename... Args>
-void PythonExecutor::call_with_callback(const std::string& method_name,
+void PyExecutor::call_with_callback(const std::string& method_name,
     std::function<void(ReturnType, bool, const std::string&)> callback,
     Args&&... args) {
     if (!callback) {
