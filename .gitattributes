@@ -61,3 +61,15 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+# 声明文本文件的编码
+*.cpp text charset=utf-8
+*.h text charset=utf-8
+*.hpp text charset=utf-8
+*.md text charset=utf-8
+*.txt text charset=utf-8
+CMakeLists.txt text charset=utf-8
+*.cmake text charset=utf-8
+
+# 防止 Git 自动转换行尾
+* text=auto eol=lf

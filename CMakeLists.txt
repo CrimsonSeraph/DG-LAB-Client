@@ -37,6 +37,13 @@ set(PROJECT_SOURCES
     include/PyThreadPoolExecutor.h
     src/PyThreadPoolExecutor.cpp
     include/PyThreadPoolExecutor_impl.h
+
+    include/ConfigManager.h
+    src/ConfigManager.cpp
+
+    config/AllConfig.json
+
+    include/json.hpp
 )
 
 # 创建可执行文件（使用通用函数）

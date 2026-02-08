@@ -6,40 +6,40 @@
 #include <future>
 #include <fstream>
 
-// PythonÊ¾ÀıÄ£¿é
+// Pythonç¤ºä¾‹æ¨¡å—
 const char* PYTHON_MODULE_CODE = R"(
 # example_module.py
 
 def add(a, b):
-    """¼Ó·¨ÔËËã"""
+    """åŠ æ³•è¿ç®—"""
     return a + b
 
 def multiply(a, b):
-    """³Ë·¨ÔËËã"""
+    """ä¹˜æ³•è¿ç®—"""
     return a * b
 
 def process_list(data):
-    """´¦ÀíÁĞ±íÊı¾İ"""
+    """å¤„ç†åˆ—è¡¨æ•°æ®"""
     return [x * 2 for x in data]
 
 def process_dict(data):
-    """´¦Àí×ÖµäÊı¾İ"""
+    """å¤„ç†å­—å…¸æ•°æ®"""
     result = {}
     for key, value in data.items():
         result[key] = value * 3
     return result
 
 def heavy_computation(n):
-    """Ä£ÄâºÄÊ±¼ÆËã"""
+    """æ¨¡æ‹Ÿè€—æ—¶è®¡ç®—"""
     import time
     result = 0
     for i in range(n):
         result += i * i
-        time.sleep(0.001)  # Ä£ÄâºÄÊ±
+        time.sleep(0.001)  # æ¨¡æ‹Ÿè€—æ—¶
     return result
 
 class Calculator:
-    """¼ÆËãÆ÷Àà"""
+    """è®¡ç®—å™¨ç±»"""
     def __init__(self, name):
         self.name = name
         self.history = []
@@ -60,7 +60,7 @@ class Calculator:
 )";
 
 void write_python_module() {
-    // Ğ´ÈëÊ¾ÀıPythonÄ£¿é
+    // å†™å…¥ç¤ºä¾‹Pythonæ¨¡å—
     std::ofstream file("example_module.py");
     file << PYTHON_MODULE_CODE;
     file.close();
@@ -69,17 +69,17 @@ void write_python_module() {
 void basic_usage() {
     std::cout << "=== Basic Usage ===" << std::endl;
 
-    // ´´½¨Ö´ĞĞÆ÷
+    // åˆ›å»ºæ‰§è¡Œå™¨
     PyExecutor executor("example_module");
     executor.initialize();
 
-    // µ¼ÈëÄ£¿é
+    // å¯¼å…¥æ¨¡å—
     if (!executor.import_module()) {
         std::cerr << "Failed to import module" << std::endl;
         return;
     }
 
-    // Í¬²½µ÷ÓÃ
+    // åŒæ­¥è°ƒç”¨
     try {
         int result = executor.call_sync<int>("add", 10, 20);
         std::cout << "add(10, 20) = " << result << std::endl;
@@ -110,13 +110,13 @@ void async_usage() {
         return;
     }
 
-    // Òì²½µ÷ÓÃ
+    // å¼‚æ­¥è°ƒç”¨
     auto future1 = executor.call_async<int>("heavy_computation", 1000);
     auto future2 = executor.call_async<int>("heavy_computation", 2000);
 
     std::cout << "Doing other work while Python computes..." << std::endl;
 
-    // »ñÈ¡Òì²½½á¹û
+    // è·å–å¼‚æ­¥ç»“æœ
     try {
         int result1 = future1.get();
         int result2 = future2.get();
@@ -127,7 +127,7 @@ void async_usage() {
         std::cerr << "Async error: " << e.what() << std::endl;
     }
 
-    // Ê¹ÓÃ»Øµ÷
+    // ä½¿ç”¨å›è°ƒ
     executor.call_with_callback<int>("add",
         [](int result, bool success, const std::string& error) {
             if (success) {
@@ -144,16 +144,16 @@ void thread_pool_usage() {
 
     PyThreadPoolExecutor pool_executor("example_module", 4);
 
-    // Ìá½»¶à¸öÈÎÎñ
+    // æäº¤å¤šä¸ªä»»åŠ¡
     std::vector<std::future<int>> futures;
     for (int i = 0; i < 10; ++i) {
         futures.push_back(pool_executor.submit<int>("heavy_computation", 500));
     }
 
-    // µÈ´ıËùÓĞÈÎÎñÍê³É
+    // ç­‰å¾…æ‰€æœ‰ä»»åŠ¡å®Œæˆ
     pool_executor.wait_all();
 
-    // »ñÈ¡½á¹û
+    // è·å–ç»“æœ
     int total = 0;
     for (auto& future : futures) {
         try {
@@ -179,7 +179,7 @@ void advanced_features() {
         return;
     }
 
-    // »ñÈ¡·½·¨ÁĞ±í
+    // è·å–æ–¹æ³•åˆ—è¡¨
     auto methods = executor.get_method_list();
     std::cout << "Available methods: ";
     for (const auto& method : methods) {
@@ -187,20 +187,20 @@ void advanced_features() {
     }
     std::cout << std::endl;
 
-    // ¼ì²é·½·¨ÊÇ·ñ´æÔÚ
+    // æ£€æŸ¥æ–¹æ³•æ˜¯å¦å­˜åœ¨
     if (executor.has_method("multiply")) {
         std::cout << "multiply method exists" << std::endl;
     }
 
-    // ÖØĞÂµ¼ÈëÄ£¿é£¨ÓÃÓÚÈÈÖØÔØ£©
+    // é‡æ–°å¯¼å…¥æ¨¡å—ï¼ˆç”¨äºçƒ­é‡è½½ï¼‰
     executor.reload_module();
 }
 
 int main() {
-    // ´´½¨Ê¾ÀıPythonÄ£¿é
+    // åˆ›å»ºç¤ºä¾‹Pythonæ¨¡å—
     write_python_module();
 
-    // ÑİÊ¾¸÷ÖÖÓÃ·¨
+    // æ¼”ç¤ºå„ç§ç”¨æ³•
     basic_usage();
     async_usage();
     thread_pool_usage();
