@@ -11,10 +11,10 @@ ReturnType PyExecutor::call_sync(const std::string& method_name, Args&&... args)
     try {
         py::gil_scoped_acquire acquire;
 
-        // »ñÈ¡·½·¨
+        // è·å–æ–¹æ³•
         py::object method = get_method(method_name);
 
-        // µ÷ÓÃ·½·¨²¢×ª»»·µ»ØÖµ
+        // è°ƒç”¨æ–¹æ³•å¹¶è½¬æ¢è¿”å›å€¼
         py::object result = method(std::forward<Args>(args)...);
 
         if constexpr (std::is_same_v<ReturnType, void>) {
@@ -26,7 +26,7 @@ ReturnType PyExecutor::call_sync(const std::string& method_name, Args&&... args)
 
     }
     catch (const py::error_already_set& e) {
-        // ÖØĞÂÅ×³öÎªC++Òì³£
+        // é‡æ–°æŠ›å‡ºä¸ºC++å¼‚å¸¸
         throw std::runtime_error(std::string("Python call error [") +
             method_name + "]: " + e.what());
     }
@@ -46,7 +46,7 @@ auto PyExecutor::execute_async(Func&& func, Args&&... args)
 
     return std::async(std::launch::async, [func = std::forward<Func>(func),
         args...]() mutable {
-            // ÔÚĞÂµÄÏß³ÌÖĞĞèÒª»ñÈ¡GIL
+            // åœ¨æ–°çš„çº¿ç¨‹ä¸­éœ€è¦è·å–GIL
             py::gil_scoped_acquire acquire;
             return func(args...);
         });
@@ -59,12 +59,12 @@ std::future<ReturnType> PyExecutor::call_async(const std::string& method_name,
         throw std::runtime_error("Module not loaded. Call import_module() first.");
     }
 
-    // ´´½¨Ò»¸ölambda°ü×°Í¬²½µ÷ÓÃ
+    // åˆ›å»ºä¸€ä¸ªlambdaåŒ…è£…åŒæ­¥è°ƒç”¨
     auto call_wrapper = [this, method_name, args...]() -> ReturnType {
         return this->call_sync<ReturnType>(method_name, args...);
         };
 
-    // Ê¹ÓÃexecute_asyncÖ´ĞĞ
+    // ä½¿ç”¨execute_asyncæ‰§è¡Œ
     return execute_async(call_wrapper);
 }
 
@@ -76,10 +76,10 @@ void PyExecutor::call_with_callback(const std::string& method_name,
         throw std::invalid_argument("Callback function cannot be null");
     }
 
-    // Æô¶¯Òì²½ÈÎÎñ
+    // å¯åŠ¨å¼‚æ­¥ä»»åŠ¡
     auto future = call_async<ReturnType>(method_name, std::forward<Args>(args)...);
 
-    // Ê¹ÓÃstd::async´¦Àí»Øµ÷
+    // ä½¿ç”¨std::asyncå¤„ç†å›è°ƒ
     std::async(std::launch::async, [future = std::move(future), callback]() mutable {
         try {
             ReturnType result = future.get();

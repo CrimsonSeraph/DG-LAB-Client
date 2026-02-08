@@ -20,9 +20,14 @@ set(PROJECT_SOURCES
     DGLABClient.ui
     include/DGLABClient.h
     src/DGLABClient.cpp
+
     include/PyExecutor.h
     src/PyExecutor.cpp
     include/PyExecutor_impl.h
+    
+    include/PyThreadPoolExecutor.h
+    src/PyThreadPoolExecutor.cpp
+    include/PyThreadPoolExecutor_impl.h
 )
 
 qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})

@@ -1,4 +1,4 @@
-#pragma
+#pragma once
 
 #include <iostream>
 #include <pybind11/embed.h>
@@ -12,98 +12,98 @@
 namespace py = pybind11;
 
 /**
- * @brief PythonÖ´ĞĞÆ÷Àà£¬ÓÃÓÚÍ¬²½ºÍÒì²½Ö´ĞĞPythonÄ£¿éÖĞµÄ·½·¨
+ * @brief Pythonæ‰§è¡Œå™¨ç±»ï¼Œç”¨äºåŒæ­¥å’Œå¼‚æ­¥æ‰§è¡ŒPythonæ¨¡å—ä¸­çš„æ–¹æ³•
  *
- * Õâ¸öÀà·â×°ÁËpybind11µÄPythonµ÷ÓÃ¹¦ÄÜ£¬Ìá¹©ÁË¼òµ¥Ò×ÓÃµÄAPI
- * Ö§³ÖÍ¬²½µ÷ÓÃ¡¢Òì²½µ÷ÓÃ¡¢Ïß³Ì³ØÖ´ĞĞµÈ¹¦ÄÜ
+ * è¿™ä¸ªç±»å°è£…äº†pybind11çš„Pythonè°ƒç”¨åŠŸèƒ½ï¼Œæä¾›äº†ç®€å•æ˜“ç”¨çš„API
+ * æ”¯æŒåŒæ­¥è°ƒç”¨ã€å¼‚æ­¥è°ƒç”¨ã€çº¿ç¨‹æ± æ‰§è¡Œç­‰åŠŸèƒ½
  */
 class PyExecutor {
 public:
     /**
-     * @brief ¹¹ÔìPythonÖ´ĞĞÆ÷
-     * @param module_name ÒªÖ´ĞĞµÄPythonÄ£¿éÃû³Æ
-     * @param auto_import ÊÇ·ñ×Ô¶¯µ¼ÈëÄ£¿é£¨Ä¬ÈÏtrue£©
+     * @brief æ„é€ Pythonæ‰§è¡Œå™¨
+     * @param module_name è¦æ‰§è¡Œçš„Pythonæ¨¡å—åç§°
+     * @param auto_import æ˜¯å¦è‡ªåŠ¨å¯¼å…¥æ¨¡å—ï¼ˆé»˜è®¤trueï¼‰
      */
     explicit PyExecutor(const std::string& module_name, bool auto_import = true);
 
     /**
-     * @brief Îö¹¹º¯Êı
+     * @brief ææ„å‡½æ•°
      */
     ~PyExecutor();
 
-    // É¾³ı¿½±´¹¹Ôìº¯ÊıºÍ¸³Öµ²Ù×÷·û
+    // åˆ é™¤æ‹·è´æ„é€ å‡½æ•°å’Œèµ‹å€¼æ“ä½œç¬¦
     PyExecutor(const PyExecutor&) = delete;
     PyExecutor& operator=(const PyExecutor&) = delete;
 
-    // ÔÊĞíÒÆ¶¯ÓïÒå
+    // å…è®¸ç§»åŠ¨è¯­ä¹‰
     PyExecutor(PyExecutor&&) noexcept;
     PyExecutor& operator=(PyExecutor&&) noexcept;
 
     /**
-     * @brief ³õÊ¼»¯PythonÖ´ĞĞÆ÷
-     * @param add_current_path ÊÇ·ñÌí¼Óµ±Ç°Â·¾¶µ½PythonµÄsys.path
-     * @return ³õÊ¼»¯ÊÇ·ñ³É¹¦
+     * @brief åˆå§‹åŒ–Pythonæ‰§è¡Œå™¨
+     * @param add_current_path æ˜¯å¦æ·»åŠ å½“å‰è·¯å¾„åˆ°Pythonçš„sys.path
+     * @return åˆå§‹åŒ–æ˜¯å¦æˆåŠŸ
      */
     bool initialize(bool add_current_path = true);
 
     /**
-     * @brief µ¼ÈëPythonÄ£¿é
-     * @param module_name Ä£¿éÃû³Æ£¨Èç¹û²»Îª¿ÕÔòÊ¹ÓÃĞÂÃû³Æ£¬·ñÔòÊ¹ÓÃ¹¹Ôìº¯ÊıÖĞµÄÃû³Æ£©
-     * @return µ¼ÈëÊÇ·ñ³É¹¦
+     * @brief å¯¼å…¥Pythonæ¨¡å—
+     * @param module_name æ¨¡å—åç§°ï¼ˆå¦‚æœä¸ä¸ºç©ºåˆ™ä½¿ç”¨æ–°åç§°ï¼Œå¦åˆ™ä½¿ç”¨æ„é€ å‡½æ•°ä¸­çš„åç§°ï¼‰
+     * @return å¯¼å…¥æ˜¯å¦æˆåŠŸ
      */
     bool import_module(const std::string& module_name = "");
 
     /**
-     * @brief ¼ì²éÄ£¿éÊÇ·ñÒÑµ¼Èë
+     * @brief æ£€æŸ¥æ¨¡å—æ˜¯å¦å·²å¯¼å…¥
      */
     bool is_module_loaded() const;
 
     /**
-     * @brief ¼ì²é·½·¨ÊÇ·ñ´æÔÚ
-     * @param method_name ·½·¨Ãû³Æ
-     * @return ·½·¨ÊÇ·ñ´æÔÚ
+     * @brief æ£€æŸ¥æ–¹æ³•æ˜¯å¦å­˜åœ¨
+     * @param method_name æ–¹æ³•åç§°
+     * @return æ–¹æ³•æ˜¯å¦å­˜åœ¨
      */
     bool has_method(const std::string& method_name) const;
 
     /**
-     * @brief Í¬²½µ÷ÓÃPython·½·¨
-     * @tparam ReturnType ·µ»ØÀàĞÍ
-     * @tparam Args ²ÎÊıÀàĞÍ
-     * @param method_name ·½·¨Ãû³Æ
-     * @param args ·½·¨²ÎÊı
-     * @return ·½·¨·µ»ØÖµ
-     * @throws std::runtime_error Èç¹ûµ÷ÓÃÊ§°Ü
+     * @brief åŒæ­¥è°ƒç”¨Pythonæ–¹æ³•
+     * @tparam ReturnType è¿”å›ç±»å‹
+     * @tparam Args å‚æ•°ç±»å‹
+     * @param method_name æ–¹æ³•åç§°
+     * @param args æ–¹æ³•å‚æ•°
+     * @return æ–¹æ³•è¿”å›å€¼
+     * @throws std::runtime_error å¦‚æœè°ƒç”¨å¤±è´¥
      */
     template<typename ReturnType, typename... Args>
     ReturnType call_sync(const std::string& method_name, Args&&... args);
 
     /**
-     * @brief Í¬²½µ÷ÓÃPython·½·¨£¨ÎŞ·µ»ØÖµ°æ±¾£©
-     * @tparam Args ²ÎÊıÀàĞÍ
-     * @param method_name ·½·¨Ãû³Æ
-     * @param args ·½·¨²ÎÊı
+     * @brief åŒæ­¥è°ƒç”¨Pythonæ–¹æ³•ï¼ˆæ— è¿”å›å€¼ç‰ˆæœ¬ï¼‰
+     * @tparam Args å‚æ•°ç±»å‹
+     * @param method_name æ–¹æ³•åç§°
+     * @param args æ–¹æ³•å‚æ•°
      */
     template<typename... Args>
     void call_void(const std::string& method_name, Args&&... args);
 
     /**
-     * @brief Òì²½µ÷ÓÃPython·½·¨£¨Ê¹ÓÃstd::future£©
-     * @tparam ReturnType ·µ»ØÀàĞÍ
-     * @tparam Args ²ÎÊıÀàĞÍ
-     * @param method_name ·½·¨Ãû³Æ
-     * @param args ·½·¨²ÎÊı
-     * @return std::future<ReturnType> Òì²½½á¹û
+     * @brief å¼‚æ­¥è°ƒç”¨Pythonæ–¹æ³•ï¼ˆä½¿ç”¨std::futureï¼‰
+     * @tparam ReturnType è¿”å›ç±»å‹
+     * @tparam Args å‚æ•°ç±»å‹
+     * @param method_name æ–¹æ³•åç§°
+     * @param args æ–¹æ³•å‚æ•°
+     * @return std::future<ReturnType> å¼‚æ­¥ç»“æœ
      */
     template<typename ReturnType, typename... Args>
     std::future<ReturnType> call_async(const std::string& method_name, Args&&... args);
 
     /**
-     * @brief ÅúÁ¿Òì²½µ÷ÓÃ£¨Ê¹ÓÃ»Øµ÷º¯Êı£©
-     * @tparam ReturnType ·µ»ØÀàĞÍ
-     * @tparam Args ²ÎÊıÀàĞÍ
-     * @param method_name ·½·¨Ãû³Æ
-     * @param callback »Øµ÷º¯Êı£¬²ÎÊıÎª(·µ»ØÖµ, ÊÇ·ñ³É¹¦, ´íÎóĞÅÏ¢)
-     * @param args ·½·¨²ÎÊı
+     * @brief æ‰¹é‡å¼‚æ­¥è°ƒç”¨ï¼ˆä½¿ç”¨å›è°ƒå‡½æ•°ï¼‰
+     * @tparam ReturnType è¿”å›ç±»å‹
+     * @tparam Args å‚æ•°ç±»å‹
+     * @param method_name æ–¹æ³•åç§°
+     * @param callback å›è°ƒå‡½æ•°ï¼Œå‚æ•°ä¸º(è¿”å›å€¼, æ˜¯å¦æˆåŠŸ, é”™è¯¯ä¿¡æ¯)
+     * @param args æ–¹æ³•å‚æ•°
      */
     template<typename ReturnType, typename... Args>
     void call_with_callback(const std::string& method_name,
@@ -111,31 +111,31 @@ public:
         Args&&... args);
 
     /**
-     * @brief »ñÈ¡Ä£¿éÖĞµÄº¯ÊıÁĞ±í
-     * @return º¯ÊıÃû³ÆÁĞ±í
+     * @brief è·å–æ¨¡å—ä¸­çš„å‡½æ•°åˆ—è¡¨
+     * @return å‡½æ•°åç§°åˆ—è¡¨
      */
     std::vector<std::string> get_method_list() const;
 
     /**
-     * @brief Ö´ĞĞPython´úÂë×Ö·û´®
-     * @param code Python´úÂë
-     * @return Ö´ĞĞ½á¹û
+     * @brief æ‰§è¡ŒPythonä»£ç å­—ç¬¦ä¸²
+     * @param code Pythonä»£ç 
+     * @return æ‰§è¡Œç»“æœ
      */
     py::object eval(const std::string& code);
 
     /**
-     * @brief »ñÈ¡µ×²ãpybind11Ä£¿é¶ÔÏó
-     * @warning Ö±½Ó²Ù×÷ĞèÒªĞ¡ĞÄ´¦ÀíGIL
+     * @brief è·å–åº•å±‚pybind11æ¨¡å—å¯¹è±¡
+     * @warning ç›´æ¥æ“ä½œéœ€è¦å°å¿ƒå¤„ç†GIL
      */
     py::module get_module() const;
 
     /**
-     * @brief »ñÈ¡Ä£¿éÃû³Æ
+     * @brief è·å–æ¨¡å—åç§°
      */
     std::string get_module_name() const;
 
     /**
-     * @brief ÖØĞÂµ¼ÈëÄ£¿é
+     * @brief é‡æ–°å¯¼å…¥æ¨¡å—
      */
     bool reload_module();
 
@@ -145,7 +145,7 @@ private:
     py::module module_;
     bool module_loaded_;
 
-    // GIL¹ÜÀí¸¨Öúº¯Êı
+    // GILç®¡ç†è¾…åŠ©å‡½æ•°
     class GILLocker {
     public:
         GILLocker();
@@ -154,14 +154,14 @@ private:
         bool has_gil_;
     };
 
-    // »ñÈ¡·½·¨¶ÔÏó£¨ÄÚ²¿Ê¹ÓÃ£©
+    // è·å–æ–¹æ³•å¯¹è±¡ï¼ˆå†…éƒ¨ä½¿ç”¨ï¼‰
     py::object get_method(const std::string& method_name) const;
 
-    // Òì²½Ö´ĞĞ°ü×°Æ÷
+    // å¼‚æ­¥æ‰§è¡ŒåŒ…è£…å™¨
     template<typename Func, typename... Args>
     static auto execute_async(Func&& func, Args&&... args)
         -> std::future<decltype(func(args...))>;
 };
 
-// Ä£°å·½·¨ÊµÏÖ
+// æ¨¡æ¿æ–¹æ³•å®ç°
 #include "../include/PyExecutor_impl.h"

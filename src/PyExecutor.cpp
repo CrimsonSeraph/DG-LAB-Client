@@ -7,17 +7,17 @@
 #include <queue>
 #include <memory>
 
-// È«¾Ö³õÊ¼»¯»¥³âËø£¬È·±£Python½âÊÍÆ÷Ö»³õÊ¼»¯Ò»´Î
+// å…¨å±€åˆå§‹åŒ–äº’æ–¥é”ï¼Œç¡®ä¿Pythonè§£é‡Šå™¨åªåˆå§‹åŒ–ä¸€æ¬¡
 static std::once_flag python_init_flag;
 
 PyExecutor::PyExecutor(const std::string& module_name, bool auto_import)
     : module_name_(module_name), module_loaded_(false) {
 
-    // È·±£Python½âÊÍÆ÷Ö»³õÊ¼»¯Ò»´Î
+    // ç¡®ä¿Pythonè§£é‡Šå™¨åªåˆå§‹åŒ–ä¸€æ¬¡
     std::call_once(python_init_flag, []() {
         if (!Py_IsInitialized()) {
             Py_Initialize();
-            // ³õÊ¼»¯Ïß³ÌÖ§³Ö
+            // åˆå§‹åŒ–çº¿ç¨‹æ”¯æŒ
             PyEval_InitThreads();
         }
         });
@@ -30,7 +30,7 @@ PyExecutor::PyExecutor(const std::string& module_name, bool auto_import)
 }
 
 PyExecutor::~PyExecutor() {
-    // ×¢Òâ£ºscoped_interpreter»áÔÚÎö¹¹Ê±×Ô¶¯ÇåÀí
+    // æ³¨æ„ï¼šscoped_interpreterä¼šåœ¨ææ„æ—¶è‡ªåŠ¨æ¸…ç†
 }
 
 PyExecutor::PyExecutor(PyExecutor&& other) noexcept
@@ -136,10 +136,10 @@ std::vector<std::string> PyExecutor::get_method_list() const {
 
         for (auto item : dir_list) {
             std::string name = py::str(item);
-            // ¹ıÂËµôË½ÓĞ·½·¨ºÍÌØÊâ·½·¨
+            // è¿‡æ»¤æ‰ç§æœ‰æ–¹æ³•å’Œç‰¹æ®Šæ–¹æ³•
             if (name.empty() || name[0] == '_') continue;
 
-            // ¼ì²éÊÇ·ñÊÇ¿Éµ÷ÓÃ¶ÔÏó
+            // æ£€æŸ¥æ˜¯å¦æ˜¯å¯è°ƒç”¨å¯¹è±¡
             py::object obj = module_.attr(name.c_str());
             if (py::isinstance<py::function>(obj) ||
                 py::hasattr(obj, "__call__")) {
@@ -187,7 +187,7 @@ bool PyExecutor::reload_module() {
     }
 }
 
-// GILLockerÊµÏÖ
+// GILLockerå®ç°
 PyExecutor::GILLocker::GILLocker() : has_gil_(false) {
     if (!PyGILState_Check()) {
         PyEval_InitThreads();
