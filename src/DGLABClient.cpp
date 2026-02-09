@@ -1,4 +1,4 @@
-#include "../include/DGLABClient.h"
+#include "DGLABClient.h"
 
 DGLABClient::DGLABClient(QWidget *parent)
     : QWidget(parent)

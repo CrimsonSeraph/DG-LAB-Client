@@ -1,4 +1,4 @@
-#include "./include/DGLABClient.h"
+#include "DGLABClient.h"
 #include <QtWidgets/QApplication>
 
 int main(int argc, char *argv[])

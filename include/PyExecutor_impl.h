@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../include/PyExecutor.h"
+#include "PyExecutor.h"
 
 template<typename ReturnType, typename... Args>
 ReturnType PyExecutor::call_sync(const std::string& method_name, Args&&... args) {

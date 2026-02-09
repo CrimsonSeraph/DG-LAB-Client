@@ -1,6 +1,5 @@
-// main.cpp
-#include "../include/PyExecutor.h"
-#include "../include/PyThreadPoolExecutor.h"
+#include "PyExecutor.h"
+#include "PyThreadPoolExecutor.h"
 #include <iostream>
 #include <vector>
 #include <future>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../include/PyThreadPoolExecutor.h"
+#include "PyThreadPoolExecutor.h"
 
 template<typename ReturnType, typename... Args>
 std::future<ReturnType> PyThreadPoolExecutor::submit(const std::string& method_name,

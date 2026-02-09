@@ -1,4 +1,4 @@
-#include "../include/PyExecutor.h"
+#include "PyExecutor.h"
 #include <iostream>
 #include <stdexcept>
 #include <thread>

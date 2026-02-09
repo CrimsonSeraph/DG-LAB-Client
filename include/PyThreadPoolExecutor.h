@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../include/PyExecutor.h"
+#include "PyExecutor.h"
 #include <vector>
 #include <queue>
 #include <thread>
