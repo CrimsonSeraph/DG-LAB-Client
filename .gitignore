@@ -370,4 +370,4 @@ DG-LAB-Client.vcxproj
 DG-LAB-Client.vcxproj.filters
 DG-LAB-Client.vcxproj.user
 *.slnx
-*.hpp
+json.hpp

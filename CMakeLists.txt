@@ -44,6 +44,8 @@ set(PROJECT_SOURCES
     include/MultiConfigManager.h
     src/MultiConfigManager.cpp
 
+    include/TyprConfig.hpp
+
     config/AllConfig.json
 
     include/json.hpp
