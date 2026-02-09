@@ -32,11 +32,11 @@ set(PROJECT_SOURCES
     
     include/PyExecutor.h
     src/PyExecutor.cpp
-    include/PyExecutor_impl.h
+    include/PyExecutor_impl.hpp
     
     include/PyThreadPoolExecutor.h
     src/PyThreadPoolExecutor.cpp
-    include/PyThreadPoolExecutor_impl.h
+    include/PyThreadPoolExecutor_impl.hpp
 
     include/ConfigManager.h
     src/ConfigManager.cpp
@@ -44,7 +44,14 @@ set(PROJECT_SOURCES
     include/MultiConfigManager.h
     src/MultiConfigManager.cpp
 
-    include/TyprConfig.hpp
+    include/AppConfig.h
+    src/AppConfig.cpp
+    include/AppConfig_impl.hpp
+
+    include/ConfigStructs.h
+    src/ConfigStructs.cpp
+
+    include/TypeConfig.hpp
 
     config/AllConfig.json
 

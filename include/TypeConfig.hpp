@@ -20,6 +20,8 @@ private:
     mutable std::optional<T> cached_value_;
 
 public:
+    ConfigValue() = default;
+
     ConfigValue(std::shared_ptr<ConfigManager> config,
         const std::string& key_path,
         T default_value = T{})
@@ -69,6 +71,8 @@ private:
     mutable std::optional<T> cached_value_;
 
 public:
+    ConfigObject() = default;
+
     ConfigObject(std::shared_ptr<ConfigManager> config,
         const std::string& key_path,
         const T& default_value = T{})

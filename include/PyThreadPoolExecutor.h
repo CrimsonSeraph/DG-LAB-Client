@@ -72,4 +72,4 @@ private:
     std::atomic<size_t> active_tasks_{ 0 };
 };
 
-#include "../include/PyThreadPoolExecutor_impl.h"
+#include "../include/PyThreadPoolExecutor_impl.hpp"

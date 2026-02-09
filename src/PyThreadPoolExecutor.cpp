@@ -1,4 +1,4 @@
-#include "../include/PyThreadPoolExecutor.h"
+#include "PyThreadPoolExecutor.h"
 #include <iostream>
 
 PyThreadPoolExecutor::PyThreadPoolExecutor(const std::string& module_name,
