@@ -38,9 +38,13 @@ public:
     // 获取所有配置名称
     std::vector<std::string> get_config_names() const;
 
+    ~MultiConfigManager() = default;
+
 private:
     MultiConfigManager() = default;
-    ~MultiConfigManager() = default;
+
+    // 允许 make_unique 访问
+    friend struct std::default_delete<MultiConfigManager>;
 
     struct ConfigInfo {
         std::string file_path;

@@ -36,8 +36,13 @@ std::shared_ptr<ConfigManager> MultiConfigManager::get_config(const std::string&
         throw std::runtime_error("配置未注册: " + name);
     }
 
-    // 如果是第一次获取，确保加载
-    if (!it->second.manager->raw().empty()) {
+    // 如果 manager 是空的，我们需要创建
+    if (!it->second.manager) {
+        it->second.manager = std::make_shared<ConfigManager>(it->second.file_path);
+        it->second.manager->load();
+    }
+    // 如果已经存在但未加载，确保加载
+    else if (it->second.manager->raw().empty()) {
         it->second.manager->load();
     }
 

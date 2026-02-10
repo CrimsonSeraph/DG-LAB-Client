@@ -69,64 +69,6 @@ bool ConfigManager::save() const {
     }
 }
 
-template<typename T>
-std::optional<T> ConfigManager::get(const std::string& key_path) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    try {
-        auto keys = split_key_path(key_path);
-        nlohmann::json current = config_;
-
-        for (const auto& key : keys) {
-            if (!current.contains(key)) {
-                return std::nullopt;
-            }
-            current = current.at(key);
-        }
-
-        return current.get<T>();
-
-    }
-    catch (const std::exception& e) {
-        std::cerr << "获取配置失败 [" << key_path << "]: " << e.what() << std::endl;
-        return std::nullopt;
-    }
-}
-
-template<typename T>
-T ConfigManager::get(const std::string& key_path, T default_value) const {
-    auto value = get<T>(key_path);
-    return value.has_value() ? value.value() : default_value;
-}
-
-template<typename T>
-bool ConfigManager::set(const std::string& key_path, const T& value) {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    try {
-        auto keys = split_key_path(key_path);
-        nlohmann::json* current = &config_;
-
-        // 导航到指定路径（创建不存在的中间节点）
-        for (size_t i = 0; i < keys.size() - 1; ++i) {
-            if (!current->contains(keys[i])) {
-                (*current)[keys[i]] = nlohmann::json::object();
-            }
-            current = &(*current)[keys[i]];
-        }
-
-        // 设置最终值
-        (*current)[keys.back()] = value;
-
-        return true;
-
-    }
-    catch (const std::exception& e) {
-        std::cerr << "设置配置失败 [" << key_path << "]: " << e.what() << std::endl;
-        return false;
-    }
-}
-
 bool ConfigManager::update(const nlohmann::json& patch) {
     std::lock_guard<std::mutex> lock(mutex_);
 

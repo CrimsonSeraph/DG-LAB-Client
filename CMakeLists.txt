@@ -51,8 +51,6 @@ set(PROJECT_SOURCES
     include/ConfigStructs.h
     src/ConfigStructs.cpp
 
-    include/TypeConfig.hpp
-
     config/AllConfig.json
 
     include/json.hpp

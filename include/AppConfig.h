@@ -126,7 +126,7 @@ private:
     // ================ 成员变量 ================
 
     // 配置管理器
-    std::unique_ptr<MultiConfigManager> multi_config_;
+    MultiConfigManager* multi_config_;
 
     // 配置管理器引用
     std::shared_ptr<ConfigManager> main_config_;

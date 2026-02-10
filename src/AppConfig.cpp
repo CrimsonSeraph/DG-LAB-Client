@@ -1,7 +1,6 @@
 #include "AppConfig.h"
 #include "MultiConfigManager.h"
 #include "ConfigManager.h"
-#include "TypeConfig.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -55,7 +54,7 @@ bool AppConfig::initialize(const std::string& config_dir) {
         fs::create_directories(config_dir);
 
         // 创建多配置管理器
-        multi_config_ = std::make_unique<MultiConfigManager>();
+        multi_config_ = &MultiConfigManager::instance();
 
         // 注册配置文件
         multi_config_->register_config("main", config_dir + "/main.json");
@@ -108,7 +107,7 @@ void AppConfig::shutdown() {
     config_listeners_.clear();
 
     // 重置配置项
-    multi_config_.reset();
+    multi_config_ = nullptr;
     main_config_.reset();
     user_config_.reset();
     system_config_.reset();
@@ -120,7 +119,12 @@ void AppConfig::shutdown() {
 void AppConfig::initialize_configs() {
     // 确保main_config_已经初始化
     if (!main_config_) {
-        main_config_ = multi_config_->get_config("main");
+        if (multi_config_) {
+            main_config_ = multi_config_->get_config("main");
+        }
+        else {
+            throw std::runtime_error("MultiConfigManager 未初始化");
+        }
     }
 
     // 重新构造配置项
