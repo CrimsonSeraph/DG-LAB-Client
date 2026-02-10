@@ -51,7 +51,9 @@ set(PROJECT_SOURCES
     include/ConfigStructs.h
     src/ConfigStructs.cpp
 
-    config/AllConfig.json
+    config/main.json
+    config/system.json
+    config/user.json
 
     include/json.hpp
 )
@@ -90,15 +92,39 @@ target_include_directories(${PROJECT_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# 复制 Python 模块
+# 复制所有Python文件
+file(GLOB PYTHON_FILES "${CMAKE_CURRENT_SOURCE_DIR}/python/*.py")
+
+# 复制所有配置文件
+file(GLOB CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/config/*.json")
+
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory 
-        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_modules"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/python/main.py"
-        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_modules/main.py"
-    COMMENT "Copying Python modules..."
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python"
+    COMMAND ${CMAKE_COMMAND} -E make_directory 
+        "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/config"
+    COMMENT "Copying runtime files..."
 )
+
+# 复制每个Python文件
+foreach(PY_FILE ${PYTHON_FILES})
+    get_filename_component(FILENAME ${PY_FILE} NAME)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${PY_FILE}
+            "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python/${FILENAME}"
+    )
+endforeach()
+
+# 复制每个配置文件
+foreach(CONFIG_FILE ${CONFIG_FILES})
+    get_filename_component(FILENAME ${CONFIG_FILE} NAME)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CONFIG_FILE}
+            "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/config/${FILENAME}"
+    )
+endforeach()
 
 # Windows 平台特定设置
 if(WIN32)
