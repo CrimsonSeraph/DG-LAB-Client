@@ -31,19 +31,17 @@ public:
     // 销毁配置系统
     void shutdown();
 
-    bool is_initialized() const {
-        return main_config_ != nullptr &&
-            user_config_ != nullptr &&
-            system_config_ != nullptr;
-    }
+    // 初始化检查
+    bool is_initialized() const;
 
     // 检查优先级冲突
-    bool check_priority_conflict(std::string& error_msg) const {
-        if (multi_config_) {
-            return multi_config_->has_priority_conflict(error_msg);
-        }
-        return false;
-    }
+    bool check_priority_conflict(std::string& error_msg) const;
+
+    // 线程安全检查
+    bool is_initialized_thread_safe() const { return initialized_; }
+
+    // 安全的获取配置
+    const std::string& get_app_name_safe() const;
 
     // ================ 配置项访问器 ================
 
@@ -148,6 +146,9 @@ private:
 
     // 验证配置
     bool validate_configs() const;
+
+    // 检查是否在主线程
+    bool is_called_from_main_thread() const;
 
     // ================ 成员变量 ================
 

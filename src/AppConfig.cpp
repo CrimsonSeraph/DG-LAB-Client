@@ -51,6 +51,13 @@ bool AppConfig::initialize(const std::string& config_dir) {
         return true;
     }
 
+    // 检查是否正在关闭
+    static std::atomic<bool> is_shutting_down{ false };
+    if (is_shutting_down) {
+        std::cerr << "系统正在关闭，跳过初始化" << std::endl;
+        return false;
+    }
+
     try {
         std::string actual_config_dir = config_dir; // 创建可修改的副本
 
@@ -205,6 +212,19 @@ void AppConfig::shutdown() {
     }
 }
 
+bool AppConfig::is_initialized() const {
+    return main_config_ != nullptr &&
+        user_config_ != nullptr &&
+        system_config_ != nullptr;
+}
+
+bool AppConfig::check_priority_conflict(std::string& error_msg) const {
+    if (multi_config_) {
+        return multi_config_->has_priority_conflict(error_msg);
+    }
+    return false;
+}
+
 void AppConfig::initialize_configs() {
     // 确保main_config_已经初始化
     if (!main_config_) {
@@ -244,6 +264,14 @@ void AppConfig::create_default_configs() {
 // ============================================
 // 配置项访问器实现
 // ============================================
+
+const std::string& AppConfig::get_app_name_safe() const {
+    static const std::string empty = "";
+    if (!is_initialized() || !is_called_from_main_thread()) {
+        return empty;
+    }
+    return get_app_name();
+}
 
 const std::string& AppConfig::get_app_name() const {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -473,6 +501,11 @@ void AppConfig::invalidate_caches() {
 bool AppConfig::validate_configs() const {
     std::vector<std::string> errors;
     return validate_all(errors);
+}
+
+bool AppConfig::is_called_from_main_thread() const {
+    static std::thread::id main_thread_id = std::this_thread::get_id();
+    return std::this_thread::get_id() == main_thread_id;
 }
 
 bool AppConfig::validate_all(std::vector<std::string>& errors) const {
