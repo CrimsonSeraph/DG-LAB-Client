@@ -13,7 +13,8 @@ class ConfigManager {
 private:
     nlohmann::json config_;
     std::string config_path_;
-    mutable std::mutex mutex_;
+    mutable std::recursive_mutex mutex_;
+    bool loaded_ = false;
 
     // 配置变更监听器
     std::vector<std::function<void(const nlohmann::json&)>> observers_;
@@ -70,7 +71,7 @@ private:
 
 template<typename T>
 std::optional<T> ConfigManager::get(const std::string& key_path) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
         auto keys = split_key_path(key_path);
@@ -100,7 +101,7 @@ T ConfigManager::get(const std::string& key_path, T default_value) const {
 
 template<typename T>
 bool ConfigManager::set(const std::string& key_path, const T& value) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
         auto keys = split_key_path(key_path);

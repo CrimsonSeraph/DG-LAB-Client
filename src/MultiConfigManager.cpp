@@ -12,7 +12,8 @@ void MultiConfigManager::register_config(const std::string& name,
     std::lock_guard<std::mutex> lock(registry_mutex_);
 
     if (config_registry_.find(name) != config_registry_.end()) {
-        throw std::runtime_error("配置已注册: " + name);
+        std::cout << "配置已注册，跳过: " << name << std::endl;
+        return;
     }
 
     ConfigInfo info;
@@ -74,9 +75,9 @@ bool MultiConfigManager::load_all() {
 
     // 检查优先级冲突
     std::string error_msg;
-    if (has_priority_conflict(error_msg)) {
+    if (has_priority_conflict_unsafe(error_msg)) {
         std::cerr << "警告: " << error_msg << std::endl;
-         throw std::runtime_error(error_msg);
+        throw std::runtime_error(error_msg);
     }
 
     return all_success;
@@ -138,9 +139,7 @@ std::vector<std::string> MultiConfigManager::get_config_names() const {
     return names;
 }
 
-bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
-    std::lock_guard<std::mutex> lock(registry_mutex_);
-
+bool MultiConfigManager::has_priority_conflict_unsafe(std::string& error_msg) const {
     std::set<int> priorities;
     std::map<int, std::string> priority_to_name;
 
@@ -164,6 +163,11 @@ bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
     }
 
     return false;
+}
+
+bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+    return has_priority_conflict_unsafe(error_msg);
 }
 
 std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs() const {

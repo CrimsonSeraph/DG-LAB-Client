@@ -78,28 +78,36 @@ bool AppConfig::initialize(const std::string& config_dir) {
         // 创建多配置管理器
         multi_config_ = &MultiConfigManager::instance();
 
-        // 注册配置文件前检查文件权限
-        std::vector<std::pair<std::string, std::string>> config_files = {
-            {"main", actual_config_dir + "/main.json"},
-            {"user", actual_config_dir + "/user.json"},
-            {"system", actual_config_dir + "/system.json"}
+        // 注册配置文件时设置不同的优先级
+        std::vector<std::tuple<std::string, std::string, int>> configs = {
+            {"main", actual_config_dir + "/main.json", 0},
+            {"system", actual_config_dir + "/system.json", 1},
+            {"user", actual_config_dir + "/user.json", 2}
         };
 
-        for (auto& [name, path] : config_files) {
+        for (auto& [name, path, priority] : configs) {
             try {
-                // 检查文件是否可访问
+                // 确保文件存在
                 if (!fs::exists(path)) {
-                    std::ofstream test_file(path, std::ios::out | std::ios::app);
-                    if (!test_file.is_open()) {
-                        std::cerr << "无法创建配置文件: " << path << std::endl;
-                        continue;
+                    std::ofstream file(path);
+                    if (file.is_open()) {
+                        nlohmann::json default_config;
+                        default_config["__priority"] = priority;
+                        file << default_config.dump(4);
+                        file.close();
+                        std::cout << "创建配置文件: " << path << std::endl;
                     }
-                    test_file << "{}";
-                    test_file.close();
                 }
 
+                // 注册配置
                 multi_config_->register_config(name, path);
-                std::cout << "成功注册配置: " << name << " -> " << path << std::endl;
+                std::cout << "注册配置: " << name << " -> " << path << " (优先级: " << priority << ")" << std::endl;
+
+                // 立即获取并设置优先级
+                auto config_manager = multi_config_->get_config(name);
+                if (config_manager) {
+                    config_manager->set("__priority", priority);
+                }
             }
             catch (const std::exception& e) {
                 std::cerr << "注册配置 " << name << " 失败: " << e.what() << std::endl;
@@ -111,32 +119,25 @@ bool AppConfig::initialize(const std::string& config_dir) {
             if (!multi_config_->load_all()) {
                 std::cerr << "配置加载失败，使用默认配置" << std::endl;
                 // 创建默认配置
-                if (main_config_) {
-                    main_config_->set("app.name", "DG-LAB-Client");
-                    main_config_->set("app.version", "1.0.0");
-                    main_config_->set("app.debug", false);
-                    main_config_->set("app.log_level", 2);
-                    main_config_->set("__priority", 0);
-                    main_config_->save();
-                }
+                create_default_configs();
             }
         }
         catch (const std::exception& e) {
             std::cerr << "加载配置时异常: " << e.what() << std::endl;
-            if (main_config_) {
-                main_config_->set("app.name", "DG-LAB-Client");
-                main_config_->set("app.version", "1.0.0");
-                main_config_->set("app.debug", false);
-                main_config_->set("app.log_level", 2);
-                main_config_->set("__priority", 0);
-                main_config_->save();
-            }
+            // 创建默认配置
+            create_default_configs();
         }
 
         // 获取配置管理器引用
-        main_config_ = multi_config_->get_config("main");
-        user_config_ = multi_config_->get_config("user");
-        system_config_ = multi_config_->get_config("system");
+        try {
+            main_config_ = multi_config_->get_config("main");
+            user_config_ = multi_config_->get_config("user");
+            system_config_ = multi_config_->get_config("system");
+        }
+        catch (const std::exception& e) {
+            std::cerr << "获取配置管理器失败: " << e.what() << std::endl;
+            return false;
+        }
 
         // 重新初始化配置项
         initialize_configs();

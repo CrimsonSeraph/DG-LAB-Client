@@ -6,45 +6,77 @@
 
 ConfigManager::ConfigManager(const std::string& path)
     : config_path_(path) {
-    // 尝试加载，如果失败则使用默认配置
-    if (!load()) {
-        std::cerr << "使用默认配置" << std::endl;
-        config_ = get_default_config();
-        save();
-    }
 }
 
 bool ConfigManager::load() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
+
+    if (loaded_) {
+        return true;  // 已经加载过了，直接返回
+    }
 
     try {
         std::ifstream file(config_path_);
         if (!file.is_open()) {
-            return false;
+            // 文件不存在，创建默认配置
+            config_ = get_default_config();
+            loaded_ = true;
+            std::cout << "创建默认配置: " << config_path_ << std::endl;
+            {
+                // 不持有锁，保存配置数据
+                auto temp_config = config_;
+                file.close();  // 确保文件关闭
+
+                // 创建文件并写入配置
+                std::ofstream out_file(config_path_);
+                if (out_file.is_open()) {
+                    out_file << temp_config.dump(4);
+                    out_file.flush();
+                }
+            }
+            return true;
         }
 
         config_ = nlohmann::json::parse(file);
 
         // 验证配置
         if (!validate()) {
-            std::cerr << "配置验证失败，使用默认配置" << std::endl;
+            std::cerr << "配置验证失败，使用默认配置: " << config_path_ << std::endl;
             config_ = get_default_config();
-            return false;
+            // 不持有锁，保存配置数据
+            {
+                auto temp_config = config_;
+                std::ofstream out_file(config_path_);
+                if (out_file.is_open()) {
+                    out_file << temp_config.dump(4);
+                    out_file.flush();
+                }
+            }
         }
 
+        loaded_ = true;
         std::cout << "配置加载成功: " << config_path_ << std::endl;
         return true;
-
     }
     catch (const std::exception& e) {
         std::cerr << "加载配置失败: " << e.what() << std::endl;
         config_ = get_default_config();
+        // 不持有锁，保存配置数据
+        {
+            auto temp_config = config_;
+            std::ofstream out_file(config_path_);
+            if (out_file.is_open()) {
+                out_file << temp_config.dump(4);
+                out_file.flush();
+            }
+        }
+        loaded_ = true;
         return false;
     }
 }
 
 bool ConfigManager::save() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
         std::ofstream file(config_path_);
@@ -70,7 +102,7 @@ bool ConfigManager::save() const {
 }
 
 bool ConfigManager::update(const nlohmann::json& patch) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
         config_.merge_patch(patch);
@@ -83,7 +115,7 @@ bool ConfigManager::update(const nlohmann::json& patch) {
 }
 
 bool ConfigManager::remove(const std::string& key_path) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
         auto keys = split_key_path(key_path);

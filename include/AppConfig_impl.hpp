@@ -1,6 +1,8 @@
 #pragma once
 
 #include "ConfigStructs.h"
+#include <iostream>
+#include <mutex>
 #include <memory>
 #include <optional>
 #include <functional>
@@ -20,10 +22,14 @@ private:
     T default_value_;
     mutable std::optional<T> cached_value_;
     std::function<void(const T&)> change_callback_;
+    mutable std::mutex change_mutex_;
 
 public:
     // 默认构造函数
     ConfigValue() = default;
+    ~ConfigValue() {
+        change_callback_ = nullptr;
+    }
 
     // 带参数的构造函数
     ConfigValue(std::shared_ptr<ConfigManager> config,
@@ -32,6 +38,54 @@ public:
         : config_(std::move(config))
         , key_path_(key_path)
         , default_value_(default_value) {
+    }
+
+    // 拷贝构造函数
+    ConfigValue(const ConfigValue& other)
+        : config_(other.config_)
+        , key_path_(other.key_path_)
+        , default_value_(other.default_value_)
+        , cached_value_(other.cached_value_) {
+        // change_mutex_ 不能拷贝，使用默认构造
+    }
+
+    // 拷贝赋值运算符
+    ConfigValue& operator=(const ConfigValue& other) {
+        if (this != &other) {
+            std::lock_guard<std::mutex> lock1(change_mutex_);
+            std::lock_guard<std::mutex> lock2(other.change_mutex_);
+
+            config_ = other.config_;
+            key_path_ = other.key_path_;
+            default_value_ = other.default_value_;
+            cached_value_ = other.cached_value_;
+            change_callback_ = other.change_callback_;
+        }
+        return *this;
+    }
+
+    // 移动构造函数
+    ConfigValue(ConfigValue&& other) noexcept
+        : config_(std::move(other.config_))
+        , key_path_(std::move(other.key_path_))
+        , default_value_(std::move(other.default_value_))
+        , cached_value_(std::move(other.cached_value_))
+        , change_callback_(std::move(other.change_callback_)) {
+        // change_mutex_ 不能移动，使用默认构造
+    }
+
+    // 移动赋值运算符
+    ConfigValue& operator=(ConfigValue&& other) noexcept {
+        if (this != &other) {
+            std::lock_guard<std::mutex> lock(change_mutex_);
+
+            config_ = std::move(other.config_);
+            key_path_ = std::move(other.key_path_);
+            default_value_ = std::move(other.default_value_);
+            cached_value_ = std::move(other.cached_value_);
+            change_callback_ = std::move(other.change_callback_);
+        }
+        return *this;
     }
 
     // 获取值（带缓存）
@@ -52,9 +106,26 @@ public:
         if (config_) {
             if (config_->set(key_path_, value)) {
                 cached_value_ = value;
-                config_->save();  // 自动保存
+                try {
+                    config_->save();  // 自动保存
+                }
+                catch (const std::exception& e) {
+                    std::cerr << "保存配置失败: " << e.what() << std::endl;
+                }
+                catch (...) {
+                    std::cerr << "保存配置失败: 未知异常" << std::endl;
+                }
+                // 确保回调安全
                 if (change_callback_) {
-                    change_callback_(value);
+                    try {
+                        change_callback_(value);
+                    }
+                    catch (const std::exception& e) {
+                        std::cerr << "配置变更回调失败: " << e.what() << std::endl;
+                    }
+                    catch (...) {
+                        std::cerr << "配置变更回调失败: 未知异常" << std::endl;
+                    }
                 }
             }
         }
@@ -62,6 +133,7 @@ public:
 
     // 绑定变更回调
     void on_change(std::function<void(const T&)> callback) {
+        std::lock_guard<std::mutex> lock(change_mutex_);
         change_callback_ = std::move(callback);
     }
 
@@ -108,10 +180,14 @@ private:
     T default_value_;
     mutable std::optional<T> cached_value_;
     std::function<void(const T&)> change_callback_;
+    mutable std::mutex change_mutex_;
 
 public:
     // 默认构造函数
     ConfigObject() = default;
+    ~ConfigObject() {
+        change_callback_ = nullptr;
+    }
 
     // 带参数的构造函数
     ConfigObject(std::shared_ptr<ConfigManager> config,
@@ -120,6 +196,54 @@ public:
         : config_(std::move(config))
         , key_path_(key_path)
         , default_value_(default_value) {
+    }
+
+    // 拷贝构造函数
+    ConfigObject(const ConfigObject& other)
+        : config_(other.config_)
+        , key_path_(other.key_path_)
+        , default_value_(other.default_value_)
+        , cached_value_(other.cached_value_) {
+        // change_mutex_ 不能拷贝，使用默认构造
+    }
+
+    // 拷贝赋值运算符
+    ConfigObject& operator=(const ConfigObject& other) {
+        if (this != &other) {
+            std::lock_guard<std::mutex> lock1(change_mutex_);
+            std::lock_guard<std::mutex> lock2(other.change_mutex_);
+
+            config_ = other.config_;
+            key_path_ = other.key_path_;
+            default_value_ = other.default_value_;
+            cached_value_ = other.cached_value_;
+            change_callback_ = other.change_callback_;
+        }
+        return *this;
+    }
+
+    // 移动构造函数
+    ConfigObject(ConfigObject&& other) noexcept
+        : config_(std::move(other.config_))
+        , key_path_(std::move(other.key_path_))
+        , default_value_(std::move(other.default_value_))
+        , cached_value_(std::move(other.cached_value_))
+        , change_callback_(std::move(other.change_callback_)) {
+        // change_mutex_ 不能移动，使用默认构造
+    }
+
+    // 移动赋值运算符
+    ConfigObject& operator=(ConfigObject&& other) noexcept {
+        if (this != &other) {
+            std::lock_guard<std::mutex> lock(change_mutex_);
+
+            config_ = std::move(other.config_);
+            key_path_ = std::move(other.key_path_);
+            default_value_ = std::move(other.default_value_);
+            cached_value_ = std::move(other.cached_value_);
+            change_callback_ = std::move(other.change_callback_);
+        }
+        return *this;
     }
 
     // 获取配置对象
@@ -154,9 +278,25 @@ public:
             T::to_json(j, value);
             if (config_->set(key_path_, j)) {
                 cached_value_ = value;
-                config_->save();
+                try {
+                    config_->save();
+                }
+                catch (const std::exception& e) {
+                    std::cerr << "保存配置对象失败: " << e.what() << std::endl;
+                }
+                catch (...) {
+                    std::cerr << "保存配置对象失败: 未知异常" << std::endl;
+                }
                 if (change_callback_) {
-                    change_callback_(value);
+                    try {
+                        change_callback_(value);
+                    }
+                    catch (const std::exception& e) {
+                        std::cerr << "配置对象变更回调失败: " << e.what() << std::endl;
+                    }
+                    catch (...) {
+                        std::cerr << "配置对象变更回调失败: 未知异常" << std::endl;
+                    }
                 }
             }
         }
@@ -164,6 +304,7 @@ public:
 
     // 绑定变更回调
     void on_change(std::function<void(const T&)> callback) {
+        std::lock_guard<std::mutex> lock(change_mutex_);
         change_callback_ = std::move(callback);
     }
 

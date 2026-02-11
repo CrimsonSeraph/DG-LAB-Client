@@ -33,6 +33,7 @@ public:
     std::optional<T> get_with_priority(const std::string& key_path) const;
 
     // 检查优先级冲突
+    bool has_priority_conflict_unsafe(std::string& error_msg) const;
     bool has_priority_conflict(std::string& error_msg) const;
 
     // 设置配置值（指定优先级）
