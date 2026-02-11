@@ -52,6 +52,9 @@ set(PROJECT_SOURCES
     include/ConfigStructs.h
     src/ConfigStructs.cpp
 
+    include/Console.h
+    src/Console.cpp
+
     config/main.json
     config/system.json
     config/user.json

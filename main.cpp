@@ -1,9 +1,13 @@
 #include "DGLABClient.h"
 #include "AppConfig.h"
+#include "Console.h"
 #include <QtWidgets/QApplication>
 #include <iostream>
 
 int main(int argc, char *argv[]) {
+    Console& console = Console::GetInstance();
+    console.Create();
+
     AppConfig& config = AppConfig::instance();
 
     // 初始化配置前检查目录
