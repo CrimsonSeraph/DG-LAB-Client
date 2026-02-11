@@ -11,6 +11,7 @@ namespace fs = std::filesystem;
 // ============================================
 // 单例实例
 // ============================================
+
 AppConfig& AppConfig::instance() {
     static AppConfig instance;
     return instance;
@@ -19,6 +20,7 @@ AppConfig& AppConfig::instance() {
 // ============================================
 // 构造函数和析构函数
 // ============================================
+
 AppConfig::AppConfig()
     : multi_config_(nullptr)
     , main_config_(nullptr)
@@ -35,12 +37,12 @@ AppConfig::AppConfig()
 }
 
 AppConfig::~AppConfig() {
-    shutdown();
 }
 
 // ============================================
 // 初始化方法
 // ============================================
+
 bool AppConfig::initialize(const std::string& config_dir) {
     std::lock_guard<std::mutex> lock(mutex_);
 
@@ -50,20 +52,78 @@ bool AppConfig::initialize(const std::string& config_dir) {
     }
 
     try {
-        // 创建配置目录
-        fs::create_directories(config_dir);
+        std::string actual_config_dir = config_dir; // 创建可修改的副本
+
+        // 确保目录存在
+        std::error_code ec;
+        if (!fs::exists(actual_config_dir, ec)) {
+            if (!fs::create_directories(actual_config_dir, ec)) {
+                std::cerr << "无法创建配置目录: " << actual_config_dir
+                    << " 错误: " << ec.message() << std::endl;
+                // 使用临时目录作为后备
+                auto temp_dir = fs::temp_directory_path() / "DG-LAB-Client";
+                fs::create_directories(temp_dir, ec);
+                actual_config_dir = temp_dir.string();
+                std::cout << "使用临时目录: " << actual_config_dir << std::endl;
+            }
+        }
 
         // 创建多配置管理器
         multi_config_ = &MultiConfigManager::instance();
 
-        // 注册配置文件
-        multi_config_->register_config("main", config_dir + "/main.json");
-        multi_config_->register_config("user", config_dir + "/user.json");
-        multi_config_->register_config("system", config_dir + "/system.json");
+        // 注册配置文件前检查文件权限
+        std::vector<std::pair<std::string, std::string>> config_files = {
+            {"main", actual_config_dir + "/main.json"},
+            {"user", actual_config_dir + "/user.json"},
+            {"system", actual_config_dir + "/system.json"}
+        };
 
-        // 加载所有配置
-        if (!multi_config_->load_all()) {
-            std::cerr << "配置加载失败，使用默认配置" << std::endl;
+        for (auto& [name, path] : config_files) {
+            try {
+                // 检查文件是否可访问
+                if (!fs::exists(path)) {
+                    std::ofstream test_file(path, std::ios::out | std::ios::app);
+                    if (!test_file.is_open()) {
+                        std::cerr << "无法创建配置文件: " << path << std::endl;
+                        continue;
+                    }
+                    test_file << "{}";
+                    test_file.close();
+                }
+
+                multi_config_->register_config(name, path);
+                std::cout << "成功注册配置: " << name << " -> " << path << std::endl;
+            }
+            catch (const std::exception& e) {
+                std::cerr << "注册配置 " << name << " 失败: " << e.what() << std::endl;
+            }
+        }
+
+        // 尝试加载所有配置
+        try {
+            if (!multi_config_->load_all()) {
+                std::cerr << "配置加载失败，使用默认配置" << std::endl;
+                // 创建默认配置
+                if (main_config_) {
+                    main_config_->set("app.name", "DG-LAB-Client");
+                    main_config_->set("app.version", "1.0.0");
+                    main_config_->set("app.debug", false);
+                    main_config_->set("app.log_level", 2);
+                    main_config_->set("__priority", 0);
+                    main_config_->save();
+                }
+            }
+        }
+        catch (const std::exception& e) {
+            std::cerr << "加载配置时异常: " << e.what() << std::endl;
+            if (main_config_) {
+                main_config_->set("app.name", "DG-LAB-Client");
+                main_config_->set("app.version", "1.0.0");
+                main_config_->set("app.debug", false);
+                main_config_->set("app.log_level", 2);
+                main_config_->set("__priority", 0);
+                main_config_->save();
+            }
         }
 
         // 获取配置管理器引用
@@ -77,43 +137,72 @@ bool AppConfig::initialize(const std::string& config_dir) {
         // 设置监听器
         setup_listeners();
 
-        // 验证配置
-        if (!validate_configs()) {
-            std::cerr << "配置验证失败，部分配置可能无效" << std::endl;
-        }
-
         initialized_ = true;
-        std::cout << "配置系统初始化成功" << std::endl;
+        std::cout << "配置系统初始化完成" << std::endl;
         return true;
-
     }
     catch (const std::exception& e) {
         std::cerr << "配置系统初始化失败: " << e.what() << std::endl;
+
+        // 即使初始化失败，也设置一些默认值
+        app_name_ = ConfigValue<std::string>(nullptr, "", "DG-LAB-Client");
+        app_version_ = ConfigValue<std::string>(nullptr, "", "1.0.0");
+        debug_mode_ = ConfigValue<bool>(nullptr, "", false);
+        log_level_ = ConfigValue<int>(nullptr, "", 2);
+
+        initialized_ = true; // 仍然标记为已初始化，但使用内存配置
         return false;
     }
 }
 
 void AppConfig::shutdown() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::unique_lock<std::mutex> lock(mutex_, std::defer_lock);
 
-    if (!initialized_) {
-        return;
+    // 尝试锁定，如果失败则跳过
+    if (lock.try_lock()) {
+        if (!initialized_) {
+            return;
+        }
+
+        // 先停止所有活动
+        if (multi_config_) {
+            multi_config_->enable_hot_reload(false);
+        }
+
+        // 保存配置（如果可能）
+        try {
+            if (multi_config_) {
+                multi_config_->save_all();
+            }
+        }
+        catch (const std::exception& e) {
+            std::cerr << "保存配置失败: " << e.what() << std::endl;
+        }
+        catch (...) {
+            std::cerr << "保存配置失败: 未知异常" << std::endl;
+        }
+
+        // 清空监听器
+        config_listeners_.clear();
+
+        // 重置配置项（先清空回调，避免析构时调用）
+        app_name_.on_change(nullptr);
+        app_version_.on_change(nullptr);
+        debug_mode_.on_change(nullptr);
+        log_level_.on_change(nullptr);
+
+        // 重置指针
+        multi_config_ = nullptr;
+        main_config_.reset();
+        user_config_.reset();
+        system_config_.reset();
+
+        initialized_ = false;
+        std::cout << "配置系统已关闭" << std::endl;
     }
-
-    // 保存所有配置
-    save_all();
-
-    // 清空监听器
-    config_listeners_.clear();
-
-    // 重置配置项
-    multi_config_ = nullptr;
-    main_config_.reset();
-    user_config_.reset();
-    system_config_.reset();
-
-    initialized_ = false;
-    std::cout << "配置系统已关闭" << std::endl;
+    else {
+        std::cerr << "警告: 无法获取锁进行清理，跳过配置关闭" << std::endl;
+    }
 }
 
 void AppConfig::initialize_configs() {
@@ -128,7 +217,7 @@ void AppConfig::initialize_configs() {
     }
 
     // 重新构造配置项
-    app_name_ = ConfigValue<std::string>(main_config_, "app.name", "MyApplication");
+    app_name_ = ConfigValue<std::string>(main_config_, "app.name", "DG-LAB-Client");
     app_version_ = ConfigValue<std::string>(main_config_, "app.version", "1.0.0");
     debug_mode_ = ConfigValue<bool>(main_config_, "app.debug", false);
     log_level_ = ConfigValue<int>(main_config_, "app.log_level", 2);
@@ -141,16 +230,38 @@ void AppConfig::initialize_configs() {
     // );
 }
 
+void AppConfig::create_default_configs() {
+    if (main_config_) {
+        main_config_->set("app.name", "DG-LAB-Client");
+        main_config_->set("app.version", "1.0.0");
+        main_config_->set("app.debug", false);
+        main_config_->set("app.log_level", 2);
+        main_config_->set("__priority", 0);
+        main_config_->save();
+    }
+}
+
 // ============================================
 // 配置项访问器实现
 // ============================================
 
 const std::string& AppConfig::get_app_name() const {
     std::lock_guard<std::mutex> lock(mutex_);
+
     if (!is_initialized()) {
         throw std::runtime_error("配置未初始化");
     }
-    return app_name_.get();
+
+    // 使用带优先级的查找
+    auto value = multi_config_->get_with_priority<std::string>("app.name");
+    if (value.has_value()) {
+        static thread_local std::string cached_value;
+        cached_value = value.value();
+        return cached_value;
+    }
+
+    static const std::string default_value = "DG-LAB-Client";
+    return default_value;
 }
 
 const std::string& AppConfig::get_app_version() const {
@@ -163,18 +274,24 @@ const std::string& AppConfig::get_app_version() const {
 
 bool AppConfig::is_debug_mode() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!is_initialized()) {
-        throw std::runtime_error("配置未初始化");
+
+    if (!multi_config_) {
+        return false;
     }
-    return debug_mode_.get();
+
+    auto value = multi_config_->get_with_priority<bool>("app.debug");
+    return value.has_value() ? value.value() : false;
 }
 
 int AppConfig::get_log_level() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!is_initialized()) {
-        throw std::runtime_error("配置未初始化");
+
+    if (!multi_config_) {
+        return 2;
     }
-    return log_level_.get();
+
+    auto value = multi_config_->get_with_priority<int>("app.log_level");
+    return value.has_value() ? value.value() : 2;
 }
 
 //const XXXConfig& AppConfig::get_xxx_config() const {
@@ -186,22 +303,17 @@ int AppConfig::get_log_level() const {
 // 配置项修改器实现
 // ============================================
 
+
 void AppConfig::set_app_name(const std::string& name) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    app_name_ = name;
-    save_all();
+    set_config_with_priority<std::string>("app.name", name, -1);
 }
 
 void AppConfig::set_debug_mode(bool enabled) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    debug_mode_ = enabled;
-    save_all();
+    set_config_with_priority<bool>("app.debug", enabled, -1);
 }
 
 void AppConfig::set_log_level(int level) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    log_level_ = level;
-    save_all();
+    set_config_with_priority<int>("app.log_level", level, -1);
 }
 
 //void AppConfig::update_xxx_config(const XXXConfig& config) {
@@ -209,6 +321,14 @@ void AppConfig::set_log_level(int level) {
 //    xxx_config_ = config;
 //    save_all();
 //}
+
+void AppConfig::set_app_name_with_priority(const std::string& name, int priority) {
+    set_config_with_priority<std::string>("app.name", name, priority);
+}
+
+void AppConfig::set_log_level_with_priority(int level, int priority) {
+    set_config_with_priority<int>("app.log_level", level, priority);
+}
 
 // ============================================
 // 批量操作实现

@@ -11,6 +11,7 @@ class ConfigManager;
 // ============================================
 // ConfigValue - 简单类型配置包装器
 // ============================================
+
 template<typename T>
 class ConfigValue {
 private:
@@ -92,6 +93,7 @@ public:
 // ============================================
 // ConfigObject - 复杂类型配置包装器
 // ============================================
+
 template<typename T>
 concept ConfigSerializable = requires(T t, nlohmann::json & j) {
     { T::to_json(j, t) } -> std::same_as<void>;
@@ -194,6 +196,7 @@ public:
 // ============================================
 // 配置构建器（辅助创建配置对象）
 // ============================================
+
 template<typename T>
 class ConfigBuilder {
 private:
@@ -232,6 +235,7 @@ public:
 // ============================================
 // 配置验证器
 // ============================================
+
 template<typename T>
 class ConfigValidator {
 public:
@@ -262,6 +266,7 @@ private:
 // ============================================
 // 配置监听器
 // ============================================
+
 template<typename T>
 class ConfigListener {
 public:
@@ -279,6 +284,7 @@ public:
 // ============================================
 // 配置更新器（批量更新）
 // ============================================
+
 template<typename T>
 class ConfigUpdater {
 public:

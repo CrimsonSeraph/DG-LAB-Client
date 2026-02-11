@@ -1,0 +1,11 @@
+{
+    "__priority": 0,
+    "app": {
+        "name": "DG-LAB-Client",
+        "version": "1.0.0",
+        "debug": false,
+        "log_level": 2
+    },
+    "version": "1.0",
+    "DGLABClient": "DG-LAB-Client"
+}

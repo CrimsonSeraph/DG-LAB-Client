@@ -1,7 +1,9 @@
 #pragma once
 
 #include "AppConfig_impl.hpp"
+#include "MultiConfigManager.h"
 #include "ConfigStructs.h"
+#include <iostream>
 #include <memory>
 #include <vector>
 #include <functional>
@@ -29,6 +31,20 @@ public:
     // 销毁配置系统
     void shutdown();
 
+    bool is_initialized() const {
+        return main_config_ != nullptr &&
+            user_config_ != nullptr &&
+            system_config_ != nullptr;
+    }
+
+    // 检查优先级冲突
+    bool check_priority_conflict(std::string& error_msg) const {
+        if (multi_config_) {
+            return multi_config_->has_priority_conflict(error_msg);
+        }
+        return false;
+    }
+
     // ================ 配置项访问器 ================
 
     // 应用信息
@@ -50,11 +66,23 @@ public:
     // XXX配置
     // void update_database_config(const XXXConfig& config);
 
+    void set_app_name_with_priority(const std::string& name, int priority);
+    void set_log_level_with_priority(int level, int priority);
+
     // ================ 批量操作 ================
 
     // 批量更新多个配置
     template<typename... Args>
     void batch_update(Args&&... updates);
+
+    // 获取配置（带优先级）
+    template<typename T>
+    T get_config_with_priority(const std::string& key_path, T default_value) const;
+
+    // 设置配置（带优先级）
+    template<typename T>
+    void set_config_with_priority(const std::string& key_path, const T& value, int target_priority);
+
 
     // 保存所有配置
     bool save_all();
@@ -105,11 +133,9 @@ private:
 
     // 初始化配置项
     void initialize_configs();
-    bool is_initialized() const {
-        return main_config_ != nullptr &&
-            user_config_ != nullptr &&
-            system_config_ != nullptr;
-    }
+
+    // 创建创建默认配置
+    void create_default_configs();
 
     // 设置配置变更监听
     void setup_listeners();
@@ -152,7 +178,7 @@ private:
 };
 
 // ============================================
-// 内联模板方法实现
+// 模板方法实现
 // ============================================
 
 template<typename... Args>
@@ -164,6 +190,38 @@ inline void AppConfig::batch_update(Args&&... updates) {
 
     // 保存配置
     save_all();
+}
+
+// 获取配置（带优先级）
+template<typename T>
+T AppConfig::get_config_with_priority(const std::string& key_path, T default_value) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (!multi_config_) {
+        std::cerr << "配置系统未初始化，返回默认值: " << key_path << std::endl;
+        return default_value;
+    }
+
+    auto value = multi_config_->get_with_priority<T>(key_path);
+    return value.has_value() ? value.value() : default_value;
+}
+
+// 设置配置（带优先级）
+template<typename T>
+void AppConfig::set_config_with_priority(const std::string& key_path,
+    const T& value,
+    int target_priority) {  // 移除默认参数
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if (!multi_config_) {
+        throw std::runtime_error("配置系统未初始化");
+    }
+
+    bool success = multi_config_->set_with_priority(key_path, value, target_priority);
+    if (!success) {
+        std::cerr << "设置配置失败: " << key_path
+            << " (目标优先级: " << target_priority << ")" << std::endl;
+    }
 }
 
 // ============================================

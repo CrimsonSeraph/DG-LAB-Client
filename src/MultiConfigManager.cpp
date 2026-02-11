@@ -19,6 +19,7 @@ void MultiConfigManager::register_config(const std::string& name,
     info.file_path = file_path;
     info.auto_reload = auto_reload;
     info.last_mod_time = get_file_mod_time(file_path);
+    info.priority = 0;  // 默认优先级为0
 
     // 创建但不立即加载
     info.manager = std::make_shared<ConfigManager>(file_path);
@@ -55,13 +56,27 @@ bool MultiConfigManager::load_all() {
 
     for (auto& [name, info] : config_registry_) {
         std::cout << "加载配置: " << name << std::endl;
+
         if (!info.manager->load()) {
             std::cerr << "  失败: " << name << std::endl;
             all_success = false;
+            continue;
         }
-        else {
-            info.last_mod_time = get_file_mod_time(info.file_path);
-        }
+
+        // 从JSON中读取优先级
+        auto priority_opt = info.manager->get<int>("__priority");
+        info.priority = priority_opt.has_value() ? priority_opt.value() : 0;
+
+        std::cout << "  优先级: " << info.priority << std::endl;
+
+        info.last_mod_time = get_file_mod_time(info.file_path);
+    }
+
+    // 检查优先级冲突
+    std::string error_msg;
+    if (has_priority_conflict(error_msg)) {
+        std::cerr << "警告: " << error_msg << std::endl;
+         throw std::runtime_error(error_msg);
     }
 
     return all_success;
@@ -121,6 +136,62 @@ std::vector<std::string> MultiConfigManager::get_config_names() const {
     }
 
     return names;
+}
+
+bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+
+    std::set<int> priorities;
+    std::map<int, std::string> priority_to_name;
+
+    for (const auto& [name, info] : config_registry_) {
+        if (info.manager) {
+            int priority = info.priority;
+
+            // 检查重复
+            if (priorities.find(priority) != priorities.end()) {
+                std::stringstream ss;
+                ss << "优先级冲突: 文件 '" << name
+                    << "' 和 '" << priority_to_name[priority]
+                    << "' 有相同的优先级 " << priority;
+                error_msg = ss.str();
+                return true;
+            }
+
+            priorities.insert(priority);
+            priority_to_name[priority] = name;
+        }
+    }
+
+    return false;
+}
+
+std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs() const {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+
+    std::vector<std::pair<int, std::shared_ptr<ConfigManager>>> configs_with_priority;
+
+    for (const auto& [name, info] : config_registry_) {
+        if (info.manager) {
+            configs_with_priority.emplace_back(info.priority, info.manager);
+        }
+    }
+
+    // 按优先级从低到高排序（优先级低的先执行）
+    std::sort(configs_with_priority.begin(),
+        configs_with_priority.end(),
+        [](const auto& a, const auto& b) {
+            return a.first < b.first;
+        });
+
+    // 提取配置管理器
+    std::vector<std::shared_ptr<ConfigManager>> sorted_configs;
+    sorted_configs.reserve(configs_with_priority.size());
+    for (const auto& [priority, config] : configs_with_priority) {
+        sorted_configs.push_back(config);
+    }
+
+    return sorted_configs;
 }
 
 void MultiConfigManager::start_file_watcher() {

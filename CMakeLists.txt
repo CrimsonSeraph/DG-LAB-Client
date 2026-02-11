@@ -43,6 +43,7 @@ set(PROJECT_SOURCES
 
     include/MultiConfigManager.h
     src/MultiConfigManager.cpp
+    include/MultiConfigManager_impl.hpp
 
     include/AppConfig.h
     src/AppConfig.cpp
