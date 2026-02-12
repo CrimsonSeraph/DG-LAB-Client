@@ -167,17 +167,15 @@ bool ConfigManager::validate() const {
 
 nlohmann::json ConfigManager::get_default_config() const {
     return nlohmann::json{
-        //{"version", "1.0.0"},
-        //{"app", {
-        //    {"name", "DGLABClient"},
-        //    {"debug", false},
-        //    {"log_level", "info"}
-        //}},
-        //{"server", {
-        //    {"port", 8080},
-        //    {"threads", 4},
-        //    {"timeout", 30}
-        //}},
+        {"__priority", "0"},
+        {"app", {
+            {"name", "DGLABClient"},
+            {"version","1.0.0"},
+            {"debug", false},
+            {"log_level", 2}
+        }},
+        {"version", "1.0"},
+        {"DGLABClient", "DG-LAB-Client"}
     };
 }
 

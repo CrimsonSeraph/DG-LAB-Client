@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AppConfig_impl.hpp"
+
 #include "MultiConfigManager.h"
 #include "ConfigStructs.h"
 #include <iostream>
@@ -50,21 +51,25 @@ public:
     bool is_debug_mode() const;
     int get_log_level() const;
 
-    // XXX配置
-    // const XXXConfig& get_database_config() const;
-
     // ================ 配置项修改器 ================
 
     // 应用设置
     void set_app_name(const std::string& name);
     void set_debug_mode(bool enabled);
     void set_log_level(int level);
+    void set_value(const std::string& key_path, const std::string& value);
 
-    // XXX配置
-    // void update_database_config(const XXXConfig& config);
-
+    // 应用设置（通过优先级）
     void set_app_name_with_priority(const std::string& name, int priority);
+    void set_debug_mode_with_priority(const bool enable, int priority);
     void set_log_level_with_priority(int level, int priority);
+    void set_value_with_priority(const std::string& key_path, const std::string& value, int priority);
+
+    // 应用设置（通过名称）
+    void set_app_name_with_name(const std::string& name, const std::string& key_name);
+    void set_debug_mode_with_name(const bool enable, const std::string& key_name);
+    void set_log_level_with_name(int level, const std::string& key_name);
+    void set_value_with_name(const std::string& key_path, const std::string& value, const std::string& key_name);
 
     // ================ 批量操作 ================
 
@@ -72,13 +77,29 @@ public:
     template<typename... Args>
     void batch_update(Args&&... updates);
 
-    // 获取配置（带优先级）
+    // 获取配置
     template<typename T>
-    T get_config_with_priority(const std::string& key_path, T default_value) const;
+    T get_value(const std::string& key_path, T default_value) const;
+    template<typename T>
+    T get_value_unsafe(const std::string& key_path, T default_value) const;
 
     // 设置配置（带优先级）
     template<typename T>
-    void set_config_with_priority(const std::string& key_path, const T& value, int target_priority);
+    void set_value_with_priority(const std::string& key_path, const T& value, int target_priority);
+    template<typename T>
+    void set_value_with_priority_unsafe(const std::string& key_path, const T& value, int target_priority);
+
+    // 获取配置（带名称）
+    template<typename T>
+    T get_value_with_name(const std::string& key_path, T default_value, const std::string& key_name) const;
+    template<typename T>
+    T get_value_with_name_unsafe(const std::string& key_path, T default_value, const std::string& key_name) const;
+
+    // 设置配置（带名称）
+    template<typename T>
+    void set_value_with_name(const std::string& key_path, const T& value, const std::string& key_name);
+    template<typename T>
+    void set_value_with_name_unsafe(const std::string& key_path, const T& value, const std::string& key_name);
 
 
     // 保存所有配置
@@ -130,6 +151,7 @@ private:
 
     // 初始化配置项
     void initialize_configs();
+    void initialize_configs_unsafe();
 
     // 创建创建默认配置
     void create_default_configs();
@@ -177,6 +199,7 @@ private:
     bool initialized_ = false;
 };
 
+
 // ============================================
 // 模板方法实现
 // ============================================
@@ -192,27 +215,35 @@ inline void AppConfig::batch_update(Args&&... updates) {
     save_all();
 }
 
-// 获取配置（带优先级）
+// 获取配置
 template<typename T>
-T AppConfig::get_config_with_priority(const std::string& key_path, T default_value) const {
+T AppConfig::get_value(const std::string& key_path, T default_value) const {
     std::lock_guard<std::mutex> lock(mutex_);
+    return get_value_unsafe<T>(key_path, default_value);
+}
 
+template<typename T>
+T AppConfig::get_value_unsafe(const std::string& key_path, T default_value) const {
     if (!multi_config_) {
         std::cerr << "配置系统未初始化，返回默认值: " << key_path << std::endl;
         return default_value;
     }
 
-    auto value = multi_config_->get_with_priority<T>(key_path);
+    auto value = multi_config_->get<T>(key_path);
     return value.has_value() ? value.value() : default_value;
 }
 
 // 设置配置（带优先级）
 template<typename T>
-void AppConfig::set_config_with_priority(const std::string& key_path,
-    const T& value,
-    int target_priority) {  // 移除默认参数
+void AppConfig::set_value_with_priority(const std::string& key_path,
+    const T& value, int target_priority) {
     std::lock_guard<std::mutex> lock(mutex_);
+    set_value_with_priority_unsafe<T>(key_path, value, target_priority);
+}
 
+template<typename T>
+void AppConfig::set_value_with_priority_unsafe(const std::string& key_path,
+    const T& value, int target_priority) {
     if (!multi_config_) {
         throw std::runtime_error("配置系统未初始化");
     }
@@ -221,6 +252,48 @@ void AppConfig::set_config_with_priority(const std::string& key_path,
     if (!success) {
         std::cerr << "设置配置失败: " << key_path
             << " (目标优先级: " << target_priority << ")" << std::endl;
+    }
+}
+
+// 获取配置（带名称）
+template<typename T>
+T AppConfig::get_value_with_name(const std::string& key_path,
+    T default_value, const std::string& key_name) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return get_value_with_name_unsafe<T>(key_path, default_value, key_path);
+}
+
+template<typename T>
+T AppConfig::get_value_with_name_unsafe(const std::string& key_path,
+    T default_value, const std::string& key_name) const {
+    if (!multi_config_) {
+        std::cerr << "配置系统未初始化，返回默认值: " << key_path << std::endl;
+        return default_value;
+    }
+
+    auto value = multi_config_->get_with_name<T>(key_path, key_name);
+    return value.has_value() ? value.value() : default_value;
+}
+
+// 设置配置（带名称）
+template<typename T>
+inline void AppConfig::set_value_with_name(const std::string& key_path,
+    const T& value, const std::string& key_name) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    set_value_with_name_unsafe<T>(key_path, value, key_name);
+}
+
+template<typename T>
+inline void AppConfig::set_value_with_name_unsafe(const std::string& key_path,
+    const T& value, const std::string& key_name) {
+    if (!multi_config_) {
+        throw std::runtime_error("配置系统未初始化");
+    }
+
+    bool success = multi_config_->set_with_name(key_path, value, key_name);
+    if (!success) {
+        std::cerr << "设置配置失败: " << key_path
+            << " (目标名称: " << key_name << ")" << std::endl;
     }
 }
 

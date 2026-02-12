@@ -26,12 +26,11 @@ void MultiConfigManager::register_config(const std::string& name,
     info.manager = std::make_shared<ConfigManager>(file_path);
 
     config_registry_[name] = std::move(info);
-
-    std::cout << "注册配置: " << name << " -> " << file_path << std::endl;
 }
 
 std::shared_ptr<ConfigManager> MultiConfigManager::get_config(const std::string& name) {
     std::lock_guard<std::mutex> lock(registry_mutex_);
+    std::cout << "获取配置[" << name << "]" << std::endl;
 
     auto it = config_registry_.find(name);
     if (it == config_registry_.end()) {

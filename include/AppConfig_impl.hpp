@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ConfigStructs.h"
+#include "AppConfig.h"
 #include <iostream>
 #include <mutex>
 #include <memory>

@@ -28,11 +28,17 @@ public:
     // 获取配置管理器
     std::shared_ptr<ConfigManager> get_config(const std::string& name);
 
-    // 获取带优先级的配置值
+    // 获取配置值
     template<typename T>
-    std::optional<T> get_with_priority_unsafe(const std::string& key_path) const;
+    std::optional<T> get(const std::string& key_path) const;
     template<typename T>
-    std::optional<T> get_with_priority(const std::string& key_path) const;
+    std::optional<T> get_unsafe(const std::string& key_path) const;
+
+    // 获取配置值（通过名称）
+    template<typename T>
+    std::optional<T> get_with_name(const std::string& key_path, const std::string& key_name) const;
+    template<typename T>
+    std::optional<T> get_with_name_unsafe(const std::string& key_path, const std::string& key_name) const;
 
     // 检查优先级冲突
     bool has_priority_conflict_unsafe(std::string& error_msg) const;
@@ -41,8 +47,20 @@ public:
     // 设置配置值（指定优先级）
     template<typename T>
     bool set_with_priority(const std::string& key_path,
-        const T& value,
-        int target_priority = -1);
+        const T& value, int target_priority = -1);
+
+    template<typename T>
+    bool set_with_priority_unsafe(const std::string& key_path,
+        const T& value, int target_priority);
+
+    // 设置配置值（指定名称）
+    template<typename T>
+    bool set_with_name(const std::string& key_path,
+        const T& value, const std::string& key_name);
+
+    template<typename T>
+    bool set_with_name_unsafe(const std::string& key_path,
+        const T& value, const std::string& key_name);
 
     // 加载所有配置
     bool load_all();
@@ -79,7 +97,7 @@ private:
         std::shared_ptr<ConfigManager> manager;
         bool auto_reload;
         std::time_t last_mod_time;
-        int priority = 0;  // 新增：优先级，默认0
+        int priority = 0;
     };
 
     std::unordered_map<std::string, ConfigInfo> config_registry_;

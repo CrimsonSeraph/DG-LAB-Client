@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string>
 
 namespace fs = std::filesystem;
 
@@ -140,7 +141,7 @@ bool AppConfig::initialize(const std::string& config_dir) {
         }
 
         // 重新初始化配置项
-        initialize_configs();
+        initialize_configs_unsafe();
 
         // 设置监听器
         setup_listeners();
@@ -227,25 +228,25 @@ bool AppConfig::check_priority_conflict(std::string& error_msg) const {
 }
 
 void AppConfig::initialize_configs() {
-    // 确保main_config_已经初始化
-    if (!main_config_) {
-        if (multi_config_) {
-            main_config_ = multi_config_->get_config("main");
-        }
-        else {
-            throw std::runtime_error("MultiConfigManager 未初始化");
-        }
+    std::unique_lock<std::mutex> lock(mutex_, std::defer_lock);
+    initialize_configs_unsafe();
+}
+
+void AppConfig::initialize_configs_unsafe() {
+    // 确保已经初始化
+    if (!is_initialized()) {
+        throw std::runtime_error("MultiConfigManager 未初始化");
     }
 
-    // 重新构造配置项
-    app_name_ = ConfigValue<std::string>(main_config_, "app.name", "DG-LAB-Client");
-    app_version_ = ConfigValue<std::string>(main_config_, "app.version", "1.0.0");
-    debug_mode_ = ConfigValue<bool>(main_config_, "app.debug", false);
-    log_level_ = ConfigValue<int>(main_config_, "app.log_level", 2);
+    // 构造配置项
+    app_name_ = ConfigValue<std::string>(nullptr, "", get_value_unsafe<std::string>("app.name", "DG-LAB-Client"));
+    app_version_ = ConfigValue<std::string>(nullptr, "", get_value_unsafe<std::string>("app.version", "1.0.0"));
+    debug_mode_ = ConfigValue<bool>(nullptr, "", get_value_unsafe<bool>("app.debug", false));
+    log_level_ = ConfigValue<int>(nullptr, "", get_value_unsafe<int>("app.log_level", 2));
 
-    // xxx_config_ = ConfigObject<XXXConfig>(main_config_, "xxx", 
+    // xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 
     //     XXXConfig{
-    //         .nmae = "nmae",
+    //         .nmae = get_value_unsafe<T>("name", default),
     //         // ...
     //     }
     // );
@@ -282,7 +283,7 @@ const std::string& AppConfig::get_app_name_unsafe() const {
     }
 
     // 使用带优先级的查找
-    auto value = multi_config_->get_with_priority_unsafe<std::string>("app.name");
+    auto value = multi_config_->get_unsafe<std::string>("app.name");
     if (value.has_value()) {
         static thread_local std::string cached_value;
         cached_value = value.value();
@@ -308,7 +309,7 @@ bool AppConfig::is_debug_mode() const {
         return false;
     }
 
-    auto value = multi_config_->get_with_priority<bool>("app.debug");
+    auto value = multi_config_->get<bool>("app.debug");
     return value.has_value() ? value.value() : false;
 }
 
@@ -319,14 +320,9 @@ int AppConfig::get_log_level() const {
         return 2;
     }
 
-    auto value = multi_config_->get_with_priority<int>("app.log_level");
+    auto value = multi_config_->get<int>("app.log_level");
     return value.has_value() ? value.value() : 2;
 }
-
-//const XXXConfig& AppConfig::get_xxx_config() const {
-//    std::lock_guard<std::mutex> lock(mutex_);
-//    return xxx_config_.get();
-//}
 
 // ============================================
 // 配置项修改器实现
@@ -334,29 +330,51 @@ int AppConfig::get_log_level() const {
 
 
 void AppConfig::set_app_name(const std::string& name) {
-    set_config_with_priority<std::string>("app.name", name, -1);
+    set_value_with_priority<std::string>("app.name", name, -1);
 }
 
 void AppConfig::set_debug_mode(bool enabled) {
-    set_config_with_priority<bool>("app.debug", enabled, -1);
+    set_value_with_priority<bool>("app.debug", enabled, -1);
 }
 
 void AppConfig::set_log_level(int level) {
-    set_config_with_priority<int>("app.log_level", level, -1);
+    set_value_with_priority<int>("app.log_level", level, -1);
 }
 
-//void AppConfig::update_xxx_config(const XXXConfig& config) {
-//    std::lock_guard<std::mutex> lock(mutex_);
-//    xxx_config_ = config;
-//    save_all();
-//}
+void AppConfig::set_value(const std::string& key_path, const std::string& value) {
+    set_value_with_priority<std::string>(key_path, value, -1);
+}
 
 void AppConfig::set_app_name_with_priority(const std::string& name, int priority) {
-    set_config_with_priority<std::string>("app.name", name, priority);
+    set_value_with_priority<std::string>("app.name", name, priority);
+}
+
+void AppConfig::set_debug_mode_with_priority(const bool enable, int priority) {
+    set_value_with_priority<bool>("app.debug", enable, priority);
 }
 
 void AppConfig::set_log_level_with_priority(int level, int priority) {
-    set_config_with_priority<int>("app.log_level", level, priority);
+    set_value_with_priority<int>("app.log_level", level, priority);
+}
+
+void AppConfig::set_value_with_priority(const std::string& key_path, const std::string& value, int priority) {
+    set_value_with_priority<std::string>(key_path, value, priority);
+}
+
+void AppConfig::set_app_name_with_name(const std::string& name, const std::string& key_name) {
+    set_value_with_name<std::string>("app.name", name, key_name);
+}
+
+void AppConfig::set_debug_mode_with_name(const bool enable, const std::string& key_name) {
+    set_value_with_name<bool>("app.debug", enable, key_name);
+}
+
+void AppConfig::set_log_level_with_name(int level, const std::string& key_name) {
+    set_value_with_name<int>("app.log_level", level, key_name);
+}
+
+void AppConfig::set_value_with_name(const std::string& key_path, const std::string& value, const std::string& key_name) {
+    set_value_with_name<std::string>(key_path, value, key_name);
 }
 
 // ============================================
