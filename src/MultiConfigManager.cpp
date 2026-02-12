@@ -170,9 +170,7 @@ bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
     return has_priority_conflict_unsafe(error_msg);
 }
 
-std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs() const {
-    std::lock_guard<std::mutex> lock(registry_mutex_);
-
+std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs_unsafe() const {
     std::vector<std::pair<int, std::shared_ptr<ConfigManager>>> configs_with_priority;
 
     for (const auto& [name, info] : config_registry_) {
@@ -196,6 +194,11 @@ std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_confi
     }
 
     return sorted_configs;
+}
+
+std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs() const {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+    return get_sorted_configs_unsafe();
 }
 
 void MultiConfigManager::start_file_watcher() {

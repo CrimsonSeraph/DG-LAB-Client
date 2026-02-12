@@ -30,6 +30,8 @@ public:
 
     // 获取带优先级的配置值
     template<typename T>
+    std::optional<T> get_with_priority_unsafe(const std::string& key_path) const;
+    template<typename T>
     std::optional<T> get_with_priority(const std::string& key_path) const;
 
     // 检查优先级冲突
@@ -61,6 +63,7 @@ public:
     std::mutex& get_registry_mutex() { return registry_mutex_; }
 
     // 获取排序后的配置管理器
+    std::vector<std::shared_ptr<ConfigManager>> get_sorted_configs_unsafe() const;
     std::vector<std::shared_ptr<ConfigManager>> get_sorted_configs() const;
 
     ~MultiConfigManager() = default;

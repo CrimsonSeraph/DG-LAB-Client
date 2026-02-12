@@ -40,13 +40,12 @@ public:
     // 线程安全检查
     bool is_initialized_thread_safe() const { return initialized_; }
 
-    // 安全的获取配置
-    const std::string& get_app_name_safe() const;
-
     // ================ 配置项访问器 ================
 
     // 应用信息
     const std::string& get_app_name() const;
+    const std::string& get_app_name_unsafe() const;
+
     const std::string& get_app_version() const;
     bool is_debug_mode() const;
     int get_log_level() const;

@@ -4,17 +4,14 @@
 #include <sstream>
 
 template<typename T>
-std::optional<T> MultiConfigManager::get_with_priority(const std::string& key_path) const {
+inline std::optional<T> MultiConfigManager::get_with_priority_unsafe(const std::string& key_path) const {
     if (key_path == "__priority") {
         // 特殊处理，不返回优先级字段本身
         return std::nullopt;
     }
-
-    std::lock_guard<std::mutex> lock(registry_mutex_);
-
     try {
         // 获取按优先级排序的配置
-        auto sorted_configs = get_sorted_configs();
+        auto sorted_configs = get_sorted_configs_unsafe();
 
         // 从低优先级到高优先级查找（高优先级覆盖低优先级）
         std::optional<T> result;
@@ -25,7 +22,7 @@ std::optional<T> MultiConfigManager::get_with_priority(const std::string& key_pa
                 result = value;  // 高优先级覆盖低优先级
                 std::cout << "[" << key_path << "] 从优先级 "
                     << config->get<int>("__priority").value_or(0)
-                    << " 的配置中获取值" << std::endl;
+                    << " 的配置中获取值：" << result.value() << std::endl;
             }
         }
 
@@ -37,6 +34,12 @@ std::optional<T> MultiConfigManager::get_with_priority(const std::string& key_pa
             << e.what() << std::endl;
         return std::nullopt;
     }
+}
+
+template<typename T>
+std::optional<T> MultiConfigManager::get_with_priority(const std::string& key_path) const {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+    return get_with_priority_unsafe<T>(key_path);
 }
 
 template<typename T>

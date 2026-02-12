@@ -266,23 +266,23 @@ void AppConfig::create_default_configs() {
 // 配置项访问器实现
 // ============================================
 
-const std::string& AppConfig::get_app_name_safe() const {
+const std::string& AppConfig::get_app_name() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+
     static const std::string empty = "";
     if (!is_initialized() || !is_called_from_main_thread()) {
         return empty;
     }
-    return get_app_name();
+    return get_app_name_unsafe();
 }
 
-const std::string& AppConfig::get_app_name() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-
+const std::string& AppConfig::get_app_name_unsafe() const {
     if (!is_initialized()) {
         throw std::runtime_error("配置未初始化");
     }
 
     // 使用带优先级的查找
-    auto value = multi_config_->get_with_priority<std::string>("app.name");
+    auto value = multi_config_->get_with_priority_unsafe<std::string>("app.name");
     if (value.has_value()) {
         static thread_local std::string cached_value;
         cached_value = value.value();

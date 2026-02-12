@@ -72,4 +72,4 @@ CMakeLists.txt text charset=utf-8
 *.cmake text charset=utf-8
 
 # 防止 Git 自动转换行尾
-* text=auto eol=lf
+* text=auto eol=crlf

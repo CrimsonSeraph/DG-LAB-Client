@@ -34,6 +34,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "优先级冲突: " << error_msg << std::endl;
     }
 
+    std::string app_name = config.get_app_name();
+    std::cout << app_name << std::endl;
+
     DGLABClient window;
     window.show();
 
