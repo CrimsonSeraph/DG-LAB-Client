@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../include/PyThreadPoolExecutor_impl.hpp"
+
 #include "PyExecutor.h"
 #include <vector>
 #include <queue>
@@ -71,5 +73,3 @@ private:
     std::atomic<bool> stop_{ false };
     std::atomic<size_t> active_tasks_{ 0 };
 };
-
-#include "../include/PyThreadPoolExecutor_impl.hpp"

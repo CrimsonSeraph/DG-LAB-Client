@@ -39,7 +39,7 @@ public:
     bool check_priority_conflict(std::string& error_msg) const;
 
     // 线程安全检查
-    bool is_initialized_thread_safe() const { return initialized_; }
+    inline bool is_initialized_thread_safe() const { return initialized_; }
 
     // ================ 配置项访问器 ================
 
@@ -217,13 +217,13 @@ inline void AppConfig::batch_update(Args&&... updates) {
 
 // 获取配置
 template<typename T>
-T AppConfig::get_value(const std::string& key_path, T default_value) const {
+inline T AppConfig::get_value(const std::string& key_path, T default_value) const {
     std::lock_guard<std::mutex> lock(mutex_);
     return get_value_unsafe<T>(key_path, default_value);
 }
 
 template<typename T>
-T AppConfig::get_value_unsafe(const std::string& key_path, T default_value) const {
+inline T AppConfig::get_value_unsafe(const std::string& key_path, T default_value) const {
     if (!multi_config_) {
         std::cerr << "配置系统未初始化，返回默认值: " << key_path << std::endl;
         return default_value;
@@ -235,14 +235,14 @@ T AppConfig::get_value_unsafe(const std::string& key_path, T default_value) cons
 
 // 设置配置（带优先级）
 template<typename T>
-void AppConfig::set_value_with_priority(const std::string& key_path,
+inline void AppConfig::set_value_with_priority(const std::string& key_path,
     const T& value, int target_priority) {
     std::lock_guard<std::mutex> lock(mutex_);
     set_value_with_priority_unsafe<T>(key_path, value, target_priority);
 }
 
 template<typename T>
-void AppConfig::set_value_with_priority_unsafe(const std::string& key_path,
+inline void AppConfig::set_value_with_priority_unsafe(const std::string& key_path,
     const T& value, int target_priority) {
     if (!multi_config_) {
         throw std::runtime_error("配置系统未初始化");
@@ -257,14 +257,14 @@ void AppConfig::set_value_with_priority_unsafe(const std::string& key_path,
 
 // 获取配置（带名称）
 template<typename T>
-T AppConfig::get_value_with_name(const std::string& key_path,
+inline T AppConfig::get_value_with_name(const std::string& key_path,
     T default_value, const std::string& key_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
     return get_value_with_name_unsafe<T>(key_path, default_value, key_path);
 }
 
 template<typename T>
-T AppConfig::get_value_with_name_unsafe(const std::string& key_path,
+inline T AppConfig::get_value_with_name_unsafe(const std::string& key_path,
     T default_value, const std::string& key_name) const {
     if (!multi_config_) {
         std::cerr << "配置系统未初始化，返回默认值: " << key_path << std::endl;

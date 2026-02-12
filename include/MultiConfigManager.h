@@ -1,5 +1,7 @@
 #pragma once
 
+#include "MultiConfigManager_impl.hpp"
+
 #include "ConfigManager.h"
 #include <iostream>
 #include <memory>
@@ -78,7 +80,7 @@ public:
     std::vector<std::string> get_config_names() const;
 
     // 获取互斥锁（用于线程同步）
-    std::mutex& get_registry_mutex() { return registry_mutex_; }
+    inline std::mutex& get_registry_mutex() { return registry_mutex_; }
 
     // 获取排序后的配置管理器
     std::vector<std::shared_ptr<ConfigManager>> get_sorted_configs_unsafe() const;
@@ -113,5 +115,3 @@ private:
     void file_watcher_loop();
     std::time_t get_file_mod_time(const std::string& path) const;
 };
-
-#include "MultiConfigManager_impl.hpp"

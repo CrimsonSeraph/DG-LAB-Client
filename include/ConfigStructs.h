@@ -37,7 +37,7 @@ struct ConfigTemplate {
     std::optional<int> max_count;
 
     // 必需方法：JSON序列化
-    static void to_json(nlohmann::json& j, const ConfigTemplate& config) {
+    inline static void to_json(nlohmann::json& j, const ConfigTemplate& config) {
         j = nlohmann::json{
             {"name", config.name},
             {"value", config.value},
@@ -58,7 +58,7 @@ struct ConfigTemplate {
     }
 
     // 必需方法：JSON反序列化
-    static void from_json(const nlohmann::json& j, ConfigTemplate& config) {
+    inline static void from_json(const nlohmann::json& j, ConfigTemplate& config) {
         // 必需字段
         j.at("name").get_to(config.name);
         j.at("value").get_to(config.value);
@@ -80,7 +80,7 @@ struct ConfigTemplate {
     }
 
     // 可选方法：配置验证
-    bool validate() const {
+    inline bool validate() const {
         return !name.empty() && value >= 0;
     }
 };

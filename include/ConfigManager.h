@@ -52,7 +52,7 @@ public:
     void add_listener(std::function<void(const nlohmann::json&)> listener);
 
     // 获取原始json（只读）
-    const nlohmann::json& raw() const { return config_; }
+    inline const nlohmann::json& raw() const { return config_; }
 
     // 验证配置
     virtual bool validate() const;
@@ -70,7 +70,7 @@ private:
 // ============================================
 
 template<typename T>
-std::optional<T> ConfigManager::get(const std::string& key_path) const {
+inline std::optional<T> ConfigManager::get(const std::string& key_path) const {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
@@ -94,13 +94,13 @@ std::optional<T> ConfigManager::get(const std::string& key_path) const {
 }
 
 template<typename T>
-T ConfigManager::get(const std::string& key_path, T default_value) const {
+inline T ConfigManager::get(const std::string& key_path, T default_value) const {
     auto value = get<T>(key_path);
     return value.has_value() ? value.value() : default_value;
 }
 
 template<typename T>
-bool ConfigManager::set(const std::string& key_path, const T& value) {
+inline bool ConfigManager::set(const std::string& key_path, const T& value) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {

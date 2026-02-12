@@ -1,4 +1,5 @@
 #pragma once
+
 #include <windows.h>
 #include <iostream>
 
@@ -12,7 +13,7 @@ public:
     void Destroy();
 
     // 检查控制台是否已创建
-    bool IsCreated() const { return m_isCreated; }
+    inline bool IsCreated() const { return m_isCreated; }
 
     // 禁止拷贝
     Console(const Console&) = delete;
