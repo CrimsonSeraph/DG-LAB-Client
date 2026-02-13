@@ -239,17 +239,17 @@ void AppConfig::initialize_configs_unsafe() {
     }
 
     // 构造配置项
-    app_name_ = ConfigValue<std::string>(nullptr, "", get_value_unsafe<std::string>("app.name", "DG-LAB-Client"));
-    app_version_ = ConfigValue<std::string>(nullptr, "", get_value_unsafe<std::string>("app.version", "1.0.0"));
-    debug_mode_ = ConfigValue<bool>(nullptr, "", get_value_unsafe<bool>("app.debug", false));
-    log_level_ = ConfigValue<int>(nullptr, "", get_value_unsafe<int>("app.log_level", 2));
+    app_name_ = ConfigValue<std::string>(main_config_, "", get_value_unsafe<std::string>("app.name", "DG-LAB-Client"));
+    app_version_ = ConfigValue<std::string>(main_config_, "", get_value_unsafe<std::string>("app.version", "1.0.0"));
+    debug_mode_ = ConfigValue<bool>(main_config_, "", get_value_unsafe<bool>("app.debug", false));
+    log_level_ = ConfigValue<int>(main_config_, "", get_value_unsafe<int>("app.log_level", 2));
 
-    // xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 
-    //     XXXConfig{
-    //         .nmae = get_value_unsafe<T>("name", default),
-    //         // ...
-    //     }
-    // );
+     //xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 
+     //    XXXConfig{
+     //        .nmae = get_value_unsafe<T>("name", default),
+     //        // ...
+     //    }
+     //);
 }
 
 void AppConfig::create_default_configs() {
@@ -598,9 +598,6 @@ std::vector<std::string> AppConfig::get_all_config_names() const {
     if (multi_config_) {
         names = multi_config_->get_config_names();
     }
-
-    // 添加内置配置名称
-    //names.push_back("xxx");
 
     return names;
 }

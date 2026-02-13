@@ -8,14 +8,8 @@
 #include <string>
 
 // ============================================
-// 配置结构体模板（复制此结构创建新配置）
+// 配置结构体模板
 // ============================================
-/*
- * 如何添加新配置结构体：
- * 1. 复制此模板，修改结构体名称和字段
- * 2. 实现 to_json 和 from_json 方法
- * 3. 可选：实现 validate 方法
- */
 
 template<typename Tag>
 struct ConfigTemplate {
@@ -36,7 +30,7 @@ struct ConfigTemplate {
     std::optional<std::string> description;
     std::optional<int> max_count;
 
-    // 必需方法：JSON序列化
+    // JSON序列化
     inline static void to_json(nlohmann::json& j, const ConfigTemplate& config) {
         j = nlohmann::json{
             {"name", config.name},
@@ -57,7 +51,7 @@ struct ConfigTemplate {
         }
     }
 
-    // 必需方法：JSON反序列化
+    // JSON反序列化
     inline static void from_json(const nlohmann::json& j, ConfigTemplate& config) {
         // 必需字段
         j.at("name").get_to(config.name);
@@ -79,8 +73,12 @@ struct ConfigTemplate {
         }
     }
 
-    // 可选方法：配置验证
+    // 配置验证
     inline bool validate() const {
         return !name.empty() && value >= 0;
     }
 };
+
+//BEGIN_FIELD_MAP(Struct)
+//    FIELD(Struct, <T>, name)
+//END_FIELD_MAP()
