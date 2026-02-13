@@ -1,8 +1,7 @@
 #pragma once
 
-#include "MultiConfigManager_impl.hpp"
-
 #include "ConfigManager.h"
+
 #include <iostream>
 #include <memory>
 #include <unordered_map>
@@ -115,3 +114,5 @@ private:
     void file_watcher_loop();
     std::time_t get_file_mod_time(const std::string& path) const;
 };
+
+#include "MultiConfigManager_impl.hpp"

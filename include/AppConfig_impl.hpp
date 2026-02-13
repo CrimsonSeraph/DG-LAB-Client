@@ -337,6 +337,34 @@ public:
 };
 
 // ============================================
+// 自动注册字段
+// ============================================
+
+template<typename T>
+struct FieldMap {
+    static_assert(!std::is_same_v<T, T>, "FieldMap 未针对此类型进行专门化");
+};
+
+// 开始定义字段映射
+#define BEGIN_FIELD_MAP(Class) \
+    template<> struct FieldMap<Class> { \
+        using T = Class; \
+        static void set(T& obj, const std::string& name, const nlohmann::json& val) {
+
+// 注册一个字段
+#define FIELD(Class, Type, Name) \
+            if (name == #Name) { \
+                obj.Name = val.get<Type>(); \
+                return; \
+            }
+
+// 结束映射
+#define END_FIELD_MAP() \
+            throw std::runtime_error("Unknown field: " + name); \
+        } \
+    };
+
+// ============================================
 // 配置构建器（辅助创建配置对象）
 // ============================================
 
@@ -374,34 +402,6 @@ public:
         return std::nullopt;
     }
 };
-
-// ============================================
-// 自动注册字段
-// ============================================
-
-template<typename T>
-struct FieldMap {
-    static_assert(!std::is_same_v<T, T>, "FieldMap 未针对此类型进行专门化");
-};
-
-// 开始定义字段映射
-#define BEGIN_FIELD_MAP(Class) \
-    template<> struct FieldMap<Class> { \
-        using T = Class; \
-        static void set(T& obj, const std::string& name, const nlohmann::json& val) {
-
-// 注册一个字段
-#define FIELD(Class, Type, Name) \
-            if (name == #Name) { \
-                obj.Name = val.get<Type>(); \
-                return; \
-            }
-
-// 结束映射
-#define END_FIELD_MAP() \
-            throw std::runtime_error("Unknown field: " + name); \
-        } \
-    };
 
 // ============================================
 // 配置验证器

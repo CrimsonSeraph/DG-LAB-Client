@@ -1,14 +1,15 @@
 #pragma once
 
-#include "AppConfig_impl.hpp"
-
 #include "MultiConfigManager.h"
 #include "ConfigStructs.h"
+
 #include <iostream>
 #include <memory>
 #include <vector>
 #include <functional>
 #include <mutex>
+
+#include "AppConfig_impl.hpp"
 
 // 前置声明
 class MultiConfigManager;

@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../include/PyExecutor_impl.hpp"
-
 #include <iostream>
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
@@ -164,3 +162,5 @@ private:
     static auto execute_async(Func&& func, Args&&... args)
         -> std::future<decltype(func(args...))>;
 };
+
+#include "../include/PyExecutor_impl.hpp"
