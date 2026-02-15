@@ -88,44 +88,60 @@ class DGLabClient:
 
     # ========== 连接管理 ==========
 
-    async def connect(self):
-        """连接到WebSocket服务器，并自动处理连接断开后的重连逻辑
-
-        该方法会持续尝试连接服务器，连接成功后启动心跳和消息接收任务，
-        连接断开后等待指定延迟时间后自动重连
+    def connect(self) -> bool:
         """
-        while True:
-            try:
-                logger.info(f"尝试连接到 {self.config.ws_url}")
-                # 建立WebSocket连接
-                async with websockets.connect(self.config.ws_url) as ws:
-                    self.websocket = ws
-                    self.is_connected = True
-                    logger.info("连接成功")
+        同步接口：
+        1. 尝试建立一次性连接并等待 client_id
+        2. 后台继续心跳和消息接收循环
+        """
+        # 如果已经连接且有client_id，直接返回True
+        if self.is_connected and self.client_id is not None:
+            return True
 
-                    # 等待服务器分配client_id
-                    await self._wait_for_client_id()
+        # 第一次连接并等待client_id
+        first_result = self.loop.run_until_complete(self._connect_once())
 
-                    # 并行运行心跳任务和消息接收任务
-                    await asyncio.gather(
-                        self._heartbeat_loop(),  # 心跳循环任务
-                        self._receive_loop()  # 消息接收任务
-                    )
-            except ConnectionClosed as e:
-                # WebSocket连接正常关闭
-                logger.warning(f"连接断开: {e}")
-                self.is_connected = False
-            except Exception as e:
-                # 其他连接异常
-                logger.error(f"连接错误: {e}")
-            finally:
-                # 清理连接状态
-                self.websocket = None
-                self.is_connected = False
+        # 启动后台循环任务（不阻塞 C++）
+        # 如果后台任务已经存在，也不会重复启动
+        if not hasattr(self, "_background_task") or self._background_task.done():
+            self._background_task = self.loop.create_task(self._heartbeat_loop())
 
-            # 连接断开后等待指定时间再重连
-            logger.info(f"{self.config.reconnect_delay}秒后重试连接...")
-            await asyncio.sleep(self.config.reconnect_delay)
+        return first_result
+
+    async def _connect_once(self) -> bool:
+        """
+        尝试建立一次连接，并等待服务端发送 client_id。
+        返回 True 表示第一次成功获取 client_id。
+        """
+        try:
+            logger.info(f"尝试连接到 {self.config.ws_url}")
+            self.websocket = await websockets.connect(self.config.ws_url)
+            self.is_connected = True
+
+            # 等待第一次 client_id
+            timeout = 10
+            while self.client_id is None:
+                try:
+                    message = await asyncio.wait_for(self.websocket.recv(), timeout=timeout)
+                    data = json.loads(message)
+                    if data.get("type") == "bind" and data.get("message") == "targetId":
+                       self.client_id = data.get("clientId")
+                       logger.info(f"收到 client_id: {self.client_id}")
+                       break
+                except asyncio.TimeoutError:
+                    logger.warning("等待 client_id 超时")
+                    return False
+                except Exception as e:
+                    logger.error(f"等待 client_id 时错误: {e}")
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"第一次连接失败: {e}")
+        self.is_connected = False
+        self.websocket = None
+        return False
 
     async def _wait_for_client_id(self):
         """等待服务器发送bind消息以获取客户端ID

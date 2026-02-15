@@ -48,9 +48,13 @@ int main(int argc, char* argv[]) {
         executor.create_instance("DGLabClient");
 
         executor.call_sync<void>("set_ws_url", "ws://localhost:9999");
-        executor.call_sync<void>("connect");
-        executor.call_sync<void>("send_strength_operation", 1, 2, 10);
-        std::cout << "test\n";
+        bool is_connect = executor.call_sync<bool>("connect");
+        if (!is_connect) {
+            std::cerr << "连接失败" << std::endl;
+        }
+        else {
+            executor.call_sync<void>("send_strength_operation", 1, 2, 10);
+        }
     }
     catch (const std::exception& e) {
         std::cerr << "同步调用失败: " << e.what() << std::endl;
