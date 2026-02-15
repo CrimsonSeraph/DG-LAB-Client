@@ -278,7 +278,7 @@ class DGLabClient:
             logger.error(f"发送失败: {e}")
             return False
 
-    async def send_heartbeat(self):
+    async def send_heartbeat(self) -> bool:
         """发送心跳包到服务器
 
         心跳包格式：
@@ -298,7 +298,7 @@ class DGLabClient:
             "targetId": self.target_id or "",  # 如果没有target_id则发送空字符串
             "message": "200"  # 心跳消息固定为"200"
         }
-        await self.send(data)
+        return await self.send(data)
 
     # ========== 设备控制方法 ==========
 
@@ -329,7 +329,11 @@ class DGLabClient:
         }
         await self.send(data)
 
-    async def send_strength_operation(self, channel: int, mode: int, value: int):
+    def sync_send_strength_operation(self, channel: int, mode: int, value: int) -> bool:
+        """同步版本的 send_strength_operation"""
+        return self.loop.run_until_complete(self.send_strength_operation(channel, mode, value))
+
+    async def send_strength_operation(self, channel: int, mode: int, value: int) -> bool:
         """发送强度控制命令
 
         Args:
@@ -343,7 +347,7 @@ class DGLabClient:
         # 参数验证
         if channel not in (1, 2) or mode not in (0, 1, 2) or not 0 <= value <= 200:
             logger.error("无效参数")
-            return
+            return False
 
         message = f"strength-{channel}+{mode}+{value}"
         data = {
@@ -352,9 +356,12 @@ class DGLabClient:
             "targetId": self.target_id,
             "message": message
         }
-        await self.send(data)
+        return await self.send(data)
 
-    async def send_pulse(self, channel: str, pulses: list[str]):
+    def sync_send_pulse(self, channel: str, pulses: list[str]) -> bool:
+        return self.loop.run_until_complete(self.send_pulse(channel, pulses))
+
+    async def send_pulse(self, channel: str, pulses: list[str]) -> bool:
         """发送波形数据到设备
 
         Args:
@@ -367,7 +374,7 @@ class DGLabClient:
         # 参数验证
         if channel not in ('A', 'B') or len(pulses) > 100:
             logger.error("无效参数")
-            return
+            return False
 
         # 构造波形消息
         message = f'pulse-{channel}:{json.dumps(pulses)}'
@@ -377,9 +384,12 @@ class DGLabClient:
             "targetId": self.target_id,
             "message": message
         }
-        await self.send(data)
+        return await self.send(data)
 
-    async def send_clear_queue(self, channel: int):
+    def sync_send_clear_queue(self, channel: int) -> bool:
+        return self.loop.run_until_complete(self.send_clear_queue(channel))
+
+    async def send_clear_queue(self, channel: int) -> bool:
         """清空指定通道的波形队列
 
         Args:
@@ -390,7 +400,7 @@ class DGLabClient:
         """
         if channel not in (1, 2):
             logger.error("无效通道")
-            return
+            return False
 
         message = f"clear-{channel}"
         data = {
@@ -399,7 +409,7 @@ class DGLabClient:
             "targetId": self.target_id,
             "message": message
         }
-        await self.send(data)
+        return await self.send(data)
 
     # ========== 工具方法 ==========
 
@@ -444,8 +454,15 @@ class DGLabClient:
         }
         return errors.get(code, "未知错误")
 
-    async def close(self):
+    def sync_close(self):
+        """同步版本的 close"""
+        if self.websocket:
+           self.loop.run_until_complete(self.close())
+        self.is_connected = False
+
+    async def close(self) -> bool:
         """主动关闭WebSocket连接"""
         if self.websocket:
             await self.websocket.close()
         self.is_connected = False
+        return True

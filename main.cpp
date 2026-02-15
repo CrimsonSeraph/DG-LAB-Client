@@ -55,11 +55,11 @@ int main(int argc, char* argv[]) {
             std::cerr << "连接失败" << std::endl;
         }
         else {
-            manager.call_sync<void>("WebSocketCore", "DGLabClient", "send_strength_operation", 1, 2, 10);
+            manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_send_strength_operation", 1, 2, 10);
             std::string server_address = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
             std::cout << server_address << std::endl;
         }
-        manager.call_sync<void>("WebSocketCore", "DGLabClient", "close");
+        manager.call_sync<void>("WebSocketCore", "DGLabClient", "sync_close");
     }
     catch (const std::exception& e) {
         std::cerr << "调用失败: " << e.what() << std::endl;
