@@ -7,23 +7,15 @@
 #include <queue>
 #include <memory>
 
-// 全局初始化互斥锁，确保Python解释器只初始化一次
-static std::once_flag python_init_flag;
+static void ensure_interpreter() {
+    static py::scoped_interpreter guard{};
+}
 
 PyExecutor::PyExecutor(const std::string& module_name, bool auto_import)
     : module_name_(module_name), module_loaded_(false) {
 
-    // 确保Python解释器只初始化一次
-    std::call_once(python_init_flag, []() {
-        if (!Py_IsInitialized()) {
-            Py_Initialize();
-            // 初始化线程支持
-            PyEval_InitThreads();
-        }
-        });
-
-    interpreter_ = std::make_unique<py::scoped_interpreter>();
-
+    ensure_interpreter();
+    initialize(true);
     if (auto_import && !module_name.empty()) {
         import_module(module_name);
     }
@@ -35,7 +27,6 @@ PyExecutor::~PyExecutor() {
 
 PyExecutor::PyExecutor(PyExecutor&& other) noexcept
     : module_name_(std::move(other.module_name_)),
-    interpreter_(std::move(other.interpreter_)),
     module_(std::move(other.module_)),
     module_loaded_(other.module_loaded_) {
     other.module_loaded_ = false;
@@ -44,7 +35,6 @@ PyExecutor::PyExecutor(PyExecutor&& other) noexcept
 PyExecutor& PyExecutor::operator=(PyExecutor&& other) noexcept {
     if (this != &other) {
         module_name_ = std::move(other.module_name_);
-        interpreter_ = std::move(other.interpreter_);
         module_ = std::move(other.module_);
         module_loaded_ = other.module_loaded_;
         other.module_loaded_ = false;
@@ -89,6 +79,19 @@ bool PyExecutor::import_module(const std::string& module_name) {
         module_loaded_ = false;
         return false;
     }
+}
+
+void PyExecutor::add_path(const std::string& path) {
+    py::gil_scoped_acquire acquire;
+    py::module sys = py::module::import("sys");
+    sys.attr("path").attr("append")(path);
+}
+
+bool PyExecutor::create_instance(const std::string& class_name) {
+    py::gil_scoped_acquire acquire;
+    py::object cls = module_.attr(class_name.c_str());
+    instance_ = cls();
+    return true;
 }
 
 bool PyExecutor::is_module_loaded() const {
@@ -164,6 +167,17 @@ py::object PyExecutor::eval(const std::string& code) {
     }
 }
 
+void PyExecutor::exec(const std::string& code) {
+    try {
+        py::gil_scoped_acquire acquire;
+        py::exec(code);
+    }
+    catch (const py::error_already_set& e) {
+        throw std::runtime_error(std::string("Python exec error: ") + e.what());
+    }
+}
+
+
 py::module PyExecutor::get_module() const {
     return module_;
 }
@@ -184,20 +198,5 @@ bool PyExecutor::reload_module() {
     catch (const py::error_already_set& e) {
         std::cerr << "Failed to reload module: " << e.what() << std::endl;
         return false;
-    }
-}
-
-// GILLocker实现
-PyExecutor::GILLocker::GILLocker() : has_gil_(false) {
-    if (!PyGILState_Check()) {
-        PyEval_InitThreads();
-        PyGILState_Ensure();
-        has_gil_ = true;
-    }
-}
-
-PyExecutor::GILLocker::~GILLocker() {
-    if (has_gil_) {
-        PyGILState_Release(PyGILState_UNLOCKED);
     }
 }

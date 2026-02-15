@@ -1,8 +1,19 @@
 #pragma once
 
-#include <iostream>
+#ifdef slots
+#undef slots
+#endif
+
+#ifdef _DEBUG
+#undef _DEBUG
+#include <Python.h>
+#define _DEBUG
+#else
+#include <Python.h>
+#endif
 #include <pybind11/embed.h>
 #include <pybind11/stl.h>
+#include <iostream>
 #include <string>
 #include <memory>
 #include <future>
@@ -52,6 +63,10 @@ public:
      * @return 导入是否成功
      */
     bool import_module(const std::string& module_name = "");
+
+    void add_path(const std::string& path);
+
+    bool create_instance(const std::string& class_name);
 
     /**
      * @brief 检查模块是否已导入
@@ -123,6 +138,8 @@ public:
      */
     py::object eval(const std::string& code);
 
+    void exec(const std::string& code);
+
     /**
      * @brief 获取底层pybind11模块对象
      * @warning 直接操作需要小心处理GIL
@@ -141,18 +158,9 @@ public:
 
 private:
     std::string module_name_;
-    std::unique_ptr<py::scoped_interpreter> interpreter_;
     py::module module_;
     bool module_loaded_;
-
-    // GIL管理辅助函数
-    class GILLocker {
-    public:
-        GILLocker();
-        ~GILLocker();
-    private:
-        bool has_gil_;
-    };
+    py::object instance_;
 
     // 获取方法对象（内部使用）
     py::object get_method(const std::string& method_name) const;

@@ -61,7 +61,6 @@ private:
 
     struct Task {
         std::function<void()> func;
-        std::promise<void> promise;
     };
 
     PyExecutor executor_;

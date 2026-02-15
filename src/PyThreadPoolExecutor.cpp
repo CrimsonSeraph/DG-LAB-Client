@@ -55,10 +55,9 @@ void PyThreadPoolExecutor::worker_thread() {
 
         try {
             task.func();
-            task.promise.set_value();
         }
         catch (...) {
-            task.promise.set_exception(std::current_exception());
+            // 异常已在 task.func 内部通过 promise 传递
         }
 
         --active_tasks_;

@@ -12,7 +12,13 @@ ReturnType PyExecutor::call_sync(const std::string& method_name, Args&&... args)
         py::gil_scoped_acquire acquire;
 
         // 获取方法
-        py::object method = get_method(method_name);
+        py::object method;
+        if (instance_) {
+            method = instance_.attr(method_name.c_str());
+        }
+        else {
+            method = module_.attr(method_name.c_str());
+        }
 
         // 调用方法并转换返回值
         py::object result = method(std::forward<Args>(args)...);

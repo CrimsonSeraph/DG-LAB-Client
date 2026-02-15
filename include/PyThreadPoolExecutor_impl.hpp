@@ -24,7 +24,7 @@ std::future<ReturnType> PyThreadPoolExecutor::submit(const std::string& method_n
         if (stop_) {
             throw std::runtime_error("Thread pool is stopped");
         }
-        task_queue_.push({ task, std::promise<void>() });
+        task_queue_.emplace(Task{ std::move(task) });
     }
 
     queue_cv_.notify_one();
