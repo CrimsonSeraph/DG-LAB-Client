@@ -14,8 +14,6 @@ static void ensure_interpreter() {
 PyExecutor::PyExecutor(const std::string& module_name, bool auto_import)
     : module_name_(module_name), module_loaded_(false) {
 
-    ensure_interpreter();
-    initialize(true);
     if (auto_import && !module_name.empty()) {
         import_module(module_name);
     }
@@ -28,7 +26,8 @@ PyExecutor::~PyExecutor() {
 PyExecutor::PyExecutor(PyExecutor&& other) noexcept
     : module_name_(std::move(other.module_name_)),
     module_(std::move(other.module_)),
-    module_loaded_(other.module_loaded_) {
+    module_loaded_(other.module_loaded_),
+    instance_(std::move(other.instance_)) {
     other.module_loaded_ = false;
 }
 
@@ -37,6 +36,7 @@ PyExecutor& PyExecutor::operator=(PyExecutor&& other) noexcept {
         module_name_ = std::move(other.module_name_);
         module_ = std::move(other.module_);
         module_loaded_ = other.module_loaded_;
+        instance_ = std::move(other.instance_);
         other.module_loaded_ = false;
     }
     return *this;

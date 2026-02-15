@@ -10,6 +10,7 @@
 #include <future>
 #include <functional>
 #include <atomic>
+#include <memory>
 
 /**
  * @brief 线程池增强的Python执行器
@@ -26,9 +27,18 @@ public:
 
     ~PyThreadPoolExecutor();
 
+    // 移动构造和移动赋值
+    PyThreadPoolExecutor(PyThreadPoolExecutor&&) noexcept = default;
+    PyThreadPoolExecutor& operator=(PyThreadPoolExecutor&&) noexcept = default;
+
     // 禁止拷贝
     PyThreadPoolExecutor(const PyThreadPoolExecutor&) = delete;
     PyThreadPoolExecutor& operator=(const PyThreadPoolExecutor&) = delete;
+
+    template<typename ReturnType, typename ...Args>
+    ReturnType call_sync(const std::string& method_name, Args && ...args);
+    template<typename ReturnType, typename ...Args>
+    std::future<ReturnType> call_async(const std::string& method_name, Args && ...args);
 
     /**
      * @brief 异步调用Python方法（使用线程池）
@@ -56,20 +66,28 @@ public:
      */
     PyExecutor& get_executor();
 
-private:
-    void worker_thread();
+    std::vector<std::string> get_method_list() const;
 
+private:
     struct Task {
         std::function<void()> func;
     };
 
-    PyExecutor executor_;
-    std::vector<std::thread> workers_;
-    std::queue<Task> task_queue_;
-    mutable std::mutex queue_mutex_;
-    std::condition_variable queue_cv_;
-    std::atomic<bool> stop_{ false };
-    std::atomic<size_t> active_tasks_{ 0 };
+    struct Impl {
+        PyExecutor executor;
+        std::vector<std::thread> workers;
+        std::queue<Task> task_queue;
+        mutable std::mutex queue_mutex;
+        std::condition_variable queue_cv;
+        std::atomic<bool> stop{ false };
+        std::atomic<size_t> active_tasks{ 0 };
+
+        Impl(const std::string& module_name);
+        ~Impl();
+        void worker_thread(PyThreadPoolExecutor* self);
+    };
+
+    std::unique_ptr<Impl> pimpl_;
 };
 
-#include "../include/PyThreadPoolExecutor_impl.hpp"
+#include "PyThreadPoolExecutor_impl.hpp"

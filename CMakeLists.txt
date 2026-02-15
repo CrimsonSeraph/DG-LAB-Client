@@ -25,40 +25,50 @@ qt_standard_project_setup()
 
 # 项目源文件
 set(PROJECT_SOURCES
+    # 应用外壳
     main.cpp
     include/DGLABClient.ui
     include/DGLABClient.h
     src/DGLABClient.cpp
-    
+
+    # Python 解释器管理器
+    include/PyExecutorManager.h
+    src/PyExecutorManager.cpp
+    include/PyExecutorManager_impl.hpp
+    # Python 解释器
     include/PyExecutor.h
     src/PyExecutor.cpp
     include/PyExecutor_impl.hpp
-    
+    # Python 解释器（进程池版）
     include/PyThreadPoolExecutor.h
     src/PyThreadPoolExecutor.cpp
     include/PyThreadPoolExecutor_impl.hpp
 
+    # 配置管理器
     include/ConfigManager.h
     src/ConfigManager.cpp
-
+    # 配置管理工厂
     include/MultiConfigManager.h
     src/MultiConfigManager.cpp
     include/MultiConfigManager_impl.hpp
-
+    # 配置接口管理
     include/AppConfig.h
     src/AppConfig.cpp
     include/AppConfig_impl.hpp
-
+    # 配置样式
     include/ConfigStructs.h
     src/ConfigStructs.cpp
 
+    # 控制台
     include/Console.h
     src/Console.cpp
 
+    # 配置文件
     config/main.json
     config/system.json
     config/user.json
 
+    # 额外支持
     include/json.hpp
 )
 

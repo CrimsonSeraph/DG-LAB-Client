@@ -137,13 +137,8 @@ public:
      * @return 执行结果
      */
     py::object eval(const std::string& code);
-
     void exec(const std::string& code);
 
-    /**
-     * @brief 获取底层pybind11模块对象
-     * @warning 直接操作需要小心处理GIL
-     */
     py::module get_module() const;
 
     /**

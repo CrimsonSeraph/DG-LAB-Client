@@ -1,6 +1,6 @@
 #include "DGLABClient.h"
 #include "AppConfig.h"
-#include "PyThreadPoolExecutor.h"
+#include "PyExecutorManager.h"
 #include "Console.h"
 #include <QtWidgets/QApplication>
 #include <iostream>
@@ -35,31 +35,35 @@ int main(int argc, char* argv[]) {
     window.setWindowTitle(QString::fromStdString(app_name));
     window.show();
 
-    // 调用 Py 模型测试
-    PyExecutor executor("", false);
+    // 初始化 Python 解释器
+    py::scoped_interpreter guard{};
+    PyExecutorManager manager;
+
+    // 设置 Python 路径
+    std::filesystem::path python_dir = std::filesystem::current_path() / "python";
+    py::module sys = py::module::import("sys");
+    sys.attr("path").attr("append")(python_dir.string());
+
+    if (!manager.register_executor("WebSocketCore", "DGLabClient", false)) {
+        std::cerr << "执行器注册失败！" << std::endl;
+    }
     try {
-        executor.initialize();
+        manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://localhost:9999");
 
-        // 设置 Python 路径
-        std::filesystem::path python_dir = std::filesystem::current_path() / "python";
-        executor.add_path(python_dir.string());
-
-        executor.import_module("WebSocketCore");
-        executor.create_instance("DGLabClient");
-
-        executor.call_sync<void>("set_ws_url", "ws://localhost:9999");
-        bool is_connect = executor.call_sync<bool>("connect");
+        bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
         if (!is_connect) {
             std::cerr << "连接失败" << std::endl;
         }
         else {
-            executor.call_sync<void>("send_strength_operation", 1, 2, 10);
+            manager.call_sync<void>("WebSocketCore", "DGLabClient", "send_strength_operation", 1, 2, 10);
+            std::string server_address = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
+            std::cout << server_address << std::endl;
         }
+        manager.call_sync<void>("WebSocketCore", "DGLabClient", "close");
     }
     catch (const std::exception& e) {
-        std::cerr << "同步调用失败: " << e.what() << std::endl;
+        std::cerr << "调用失败: " << e.what() << std::endl;
     }
 
-    executor.call_sync<void>("close");
     return app.exec();
 }

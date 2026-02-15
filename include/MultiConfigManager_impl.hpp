@@ -4,7 +4,7 @@
 #include <sstream>
 
 template<typename T>
-std::optional<T> MultiConfigManager::get(const std::string& key_path) const {
+inline std::optional<T> MultiConfigManager::get(const std::string& key_path) const {
     std::lock_guard<std::mutex> lock(registry_mutex_);
     return get_unsafe<T>(key_path);
 }
@@ -44,7 +44,7 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
 }
 
 template<typename T>
-std::optional<T> MultiConfigManager::get_with_name(const std::string& key_path, const std::string& key_name) const {
+inline std::optional<T> MultiConfigManager::get_with_name(const std::string& key_path, const std::string& key_name) const {
     std::lock_guard<std::mutex> lock(registry_mutex_);
     return get_with_name_unsafe<T>(key_path, key_name);
 }
@@ -81,14 +81,14 @@ inline std::optional<T> MultiConfigManager::get_with_name_unsafe(const std::stri
 }
 
 template<typename T>
-bool MultiConfigManager::set_with_priority(const std::string& key_path,
+inline bool MultiConfigManager::set_with_priority(const std::string& key_path,
     const T& value, int target_priority) {
     std::lock_guard<std::mutex> lock(registry_mutex_);
     return set_with_priority_unsafe<T>(key_path, value, target_priority);
 }
 
 template<typename T>
-bool MultiConfigManager::set_with_priority_unsafe(const std::string& key_path,
+inline bool MultiConfigManager::set_with_priority_unsafe(const std::string& key_path,
     const T& value, int target_priority) {
     // 如果 target_priority 为 -1，则设置到最高优先级的配置管理器
     if (target_priority == -1) {
@@ -123,14 +123,14 @@ bool MultiConfigManager::set_with_priority_unsafe(const std::string& key_path,
 }
 
 template<typename T>
-bool MultiConfigManager::set_with_name(const std::string& key_path,
+inline bool MultiConfigManager::set_with_name(const std::string& key_path,
     const T& value, const std::string& key_name) {
     std::lock_guard<std::mutex> lock(registry_mutex_);
     return set_with_name_unsafe<T>(key_path, value, key_name);
 }
 
 template<typename T>
-bool MultiConfigManager::set_with_name_unsafe(const std::string& key_path,
+inline bool MultiConfigManager::set_with_name_unsafe(const std::string& key_path,
     const T& value, const std::string& key_name) {
     for (auto& [name, info] : config_registry_) {
         if (info.manager && name == key_name) {

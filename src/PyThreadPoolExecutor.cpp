@@ -1,68 +1,65 @@
 #include "PyThreadPoolExecutor.h"
 #include <iostream>
 
-PyThreadPoolExecutor::PyThreadPoolExecutor(const std::string& module_name,
-    size_t num_threads)
-    : executor_(module_name) {
-
-    if (!executor_.initialize()) {
+// Impl 构造函数
+PyThreadPoolExecutor::Impl::Impl(const std::string& module_name)
+    : executor(module_name) {
+    if (!executor.initialize()) {
         throw std::runtime_error("Failed to initialize Python executor");
     }
-
-    if (num_threads == 0) {
-        num_threads = std::thread::hardware_concurrency();
-        if (num_threads == 0) num_threads = 4;  // 默认4个线程
-    }
-
-    workers_.reserve(num_threads);
-    for (size_t i = 0; i < num_threads; ++i) {
-        workers_.emplace_back(&PyThreadPoolExecutor::worker_thread, this);
-    }
 }
 
-PyThreadPoolExecutor::~PyThreadPoolExecutor() {
+// Impl 析构函数
+PyThreadPoolExecutor::Impl::~Impl() {
     {
-        std::lock_guard<std::mutex> lock(queue_mutex_);
-        stop_ = true;
+        std::lock_guard<std::mutex> lock(queue_mutex);
+        stop = true;
     }
-    queue_cv_.notify_all();
-
-    for (std::thread& worker : workers_) {
-        if (worker.joinable()) {
-            worker.join();
-        }
+    queue_cv.notify_all();
+    for (auto& t : workers) {
+        if (t.joinable()) t.join();
     }
 }
 
-void PyThreadPoolExecutor::worker_thread() {
+// 工作线程函数（静态或独立）
+void PyThreadPoolExecutor::Impl::worker_thread(PyThreadPoolExecutor* self) {
     while (true) {
         Task task;
-
         {
-            std::unique_lock<std::mutex> lock(queue_mutex_);
-            queue_cv_.wait(lock, [this]() {
-                return stop_ || !task_queue_.empty();
-                });
-
-            if (stop_ && task_queue_.empty()) {
-                return;
-            }
-
-            task = std::move(task_queue_.front());
-            task_queue_.pop();
-            ++active_tasks_;
+            std::unique_lock<std::mutex> lock(queue_mutex);
+            queue_cv.wait(lock, [this] { return stop || !task_queue.empty(); });
+            if (stop && task_queue.empty()) return;
+            task = std::move(task_queue.front());
+            task_queue.pop();
+            ++active_tasks;
         }
 
         try {
             task.func();
         }
         catch (...) {
-            // 异常已在 task.func 内部通过 promise 传递
+            // 异常已通过 promise 传递
         }
 
-        --active_tasks_;
+        --active_tasks;
     }
 }
+
+// PyThreadPoolExecutor 构造函数
+PyThreadPoolExecutor::PyThreadPoolExecutor(const std::string& module_name, size_t num_threads)
+    : pimpl_(std::make_unique<Impl>(module_name)) {
+    if (num_threads == 0) {
+        num_threads = std::thread::hardware_concurrency();
+        if (num_threads == 0) num_threads = 4;
+    }
+
+    pimpl_->workers.reserve(num_threads);
+    for (size_t i = 0; i < num_threads; ++i) {
+        pimpl_->workers.emplace_back(&Impl::worker_thread, pimpl_.get(), this);
+    }
+}
+
+PyThreadPoolExecutor::~PyThreadPoolExecutor() = default;  // unique_ptr 自动释放
 
 void PyThreadPoolExecutor::wait_all() {
     while (get_pending_count() > 0 || get_active_count() > 0) {
@@ -71,14 +68,18 @@ void PyThreadPoolExecutor::wait_all() {
 }
 
 size_t PyThreadPoolExecutor::get_active_count() const {
-    return active_tasks_.load();
+    return pimpl_->active_tasks.load();
 }
 
 size_t PyThreadPoolExecutor::get_pending_count() const {
-    std::lock_guard<std::mutex> lock(queue_mutex_);
-    return task_queue_.size();
+    std::lock_guard<std::mutex> lock(pimpl_->queue_mutex);
+    return pimpl_->task_queue.size();
 }
 
 PyExecutor& PyThreadPoolExecutor::get_executor() {
-    return executor_;
+    return pimpl_->executor;
+}
+
+std::vector<std::string> PyThreadPoolExecutor::get_method_list() const {
+    return pimpl_->executor.get_method_list();
 }
