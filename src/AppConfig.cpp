@@ -28,10 +28,11 @@ AppConfig::AppConfig()
     , user_config_(nullptr)
     , system_config_(nullptr)
     // 配置项使用默认构造，不需要传递参数
-    , app_name_()      // 调用 ConfigValue<std::string> 的默认构造函数
-    , app_version_()   // 调用 ConfigValue<std::string> 的默认构造函数
-    , debug_mode_()    // 调用 ConfigValue<bool> 的默认构造函数
-    , log_level_()     // 调用 ConfigValue<int> 的默认构造函数
+    , app_name_()
+    , app_version_()
+    , debug_mode_()
+    , log_level_()
+    , python_path_()
     //, xxx_config_()     调用 ConfigObject<XXXConfig> 的默认构造函数
 {
     // 延迟初始化
@@ -158,6 +159,7 @@ bool AppConfig::initialize(const std::string& config_dir) {
         app_version_ = ConfigValue<std::string>(nullptr, "", "1.0.0");
         debug_mode_ = ConfigValue<bool>(nullptr, "", false);
         log_level_ = ConfigValue<int>(nullptr, "", 2);
+        python_path_ = ConfigValue<std::string>(nullptr, "", "python");
 
         initialized_ = true; // 仍然标记为已初始化，但使用内存配置
         return false;
@@ -199,6 +201,7 @@ void AppConfig::shutdown() {
         app_version_.on_change(nullptr);
         debug_mode_.on_change(nullptr);
         log_level_.on_change(nullptr);
+        python_path_.on_change(nullptr);
 
         // 重置指针
         multi_config_ = nullptr;
@@ -243,6 +246,7 @@ void AppConfig::initialize_configs_unsafe() {
     app_version_ = ConfigValue<std::string>(main_config_, "", get_value_unsafe<std::string>("app.version", "1.0.0"));
     debug_mode_ = ConfigValue<bool>(main_config_, "", get_value_unsafe<bool>("app.debug", false));
     log_level_ = ConfigValue<int>(main_config_, "", get_value_unsafe<int>("app.log_level", 2));
+    python_path_ = ConfigValue<std::string>(main_config_, "", get_value_unsafe<std::string>("python.path", "python"));
 
      //xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 
      //    XXXConfig{
@@ -259,118 +263,21 @@ void AppConfig::create_default_configs() {
         main_config_->set("app.debug", false);
         main_config_->set("app.log_level", 2);
         main_config_->set("__priority", 0);
+        main_config_->set("python.path", "python");
         main_config_->save();
     }
-}
-
-// ============================================
-// 配置项访问器实现
-// ============================================
-
-const std::string& AppConfig::get_app_name() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    static const std::string empty = "";
-    if (!is_initialized() || !is_called_from_main_thread()) {
-        return empty;
-    }
-    return get_app_name_unsafe();
-}
-
-const std::string& AppConfig::get_app_name_unsafe() const {
-    if (!is_initialized()) {
-        throw std::runtime_error("配置未初始化");
-    }
-
-    // 使用带优先级的查找
-    auto value = multi_config_->get_unsafe<std::string>("app.name");
-    if (value.has_value()) {
-        static thread_local std::string cached_value;
-        cached_value = value.value();
-        return cached_value;
-    }
-
-    static const std::string default_value = "DG-LAB-Client";
-    return default_value;
-}
-
-const std::string& AppConfig::get_app_version() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!is_initialized()) {
-        throw std::runtime_error("配置未初始化");
-    }
-    return app_version_.get();
-}
-
-bool AppConfig::is_debug_mode() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    if (!multi_config_) {
-        return false;
-    }
-
-    auto value = multi_config_->get<bool>("app.debug");
-    return value.has_value() ? value.value() : false;
-}
-
-int AppConfig::get_log_level() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    if (!multi_config_) {
-        return 2;
-    }
-
-    auto value = multi_config_->get<int>("app.log_level");
-    return value.has_value() ? value.value() : 2;
 }
 
 // ============================================
 // 配置项修改器实现
 // ============================================
 
-
-void AppConfig::set_app_name(const std::string& name) {
-    set_value_with_priority<std::string>("app.name", name, -1);
-}
-
-void AppConfig::set_debug_mode(bool enabled) {
-    set_value_with_priority<bool>("app.debug", enabled, -1);
-}
-
-void AppConfig::set_log_level(int level) {
-    set_value_with_priority<int>("app.log_level", level, -1);
-}
-
 void AppConfig::set_value(const std::string& key_path, const std::string& value) {
     set_value_with_priority<std::string>(key_path, value, -1);
 }
 
-void AppConfig::set_app_name_with_priority(const std::string& name, int priority) {
-    set_value_with_priority<std::string>("app.name", name, priority);
-}
-
-void AppConfig::set_debug_mode_with_priority(const bool enable, int priority) {
-    set_value_with_priority<bool>("app.debug", enable, priority);
-}
-
-void AppConfig::set_log_level_with_priority(int level, int priority) {
-    set_value_with_priority<int>("app.log_level", level, priority);
-}
-
 void AppConfig::set_value_with_priority(const std::string& key_path, const std::string& value, int priority) {
     set_value_with_priority<std::string>(key_path, value, priority);
-}
-
-void AppConfig::set_app_name_with_name(const std::string& name, const std::string& key_name) {
-    set_value_with_name<std::string>("app.name", name, key_name);
-}
-
-void AppConfig::set_debug_mode_with_name(const bool enable, const std::string& key_name) {
-    set_value_with_name<bool>("app.debug", enable, key_name);
-}
-
-void AppConfig::set_log_level_with_name(int level, const std::string& key_name) {
-    set_value_with_name<int>("app.log_level", level, key_name);
 }
 
 void AppConfig::set_value_with_name(const std::string& key_path, const std::string& value, const std::string& key_name) {

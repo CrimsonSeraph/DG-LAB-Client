@@ -6,10 +6,6 @@
 #include <iostream>
 
 int main(int argc, char* argv[]) {
-    // 启用控制台
-    Console& console = Console::GetInstance();
-    console.Create();
-
     QApplication app(argc, argv);
 
     // 配置初始化
@@ -23,16 +19,24 @@ int main(int argc, char* argv[]) {
     catch (const std::exception& e) {
         std::cerr << "初始化时发生异常: " << e.what() << std::endl;
     }
-
     std::string error_msg;
     if (config.check_priority_conflict(error_msg)) {
         std::cerr << "优先级冲突: " << error_msg << std::endl;
     }
 
+    // 启用控制台
+    bool enable_console = config.get_value<bool>("app.debug", false);
+    if (enable_console) {
+        Console& console = Console::GetInstance();
+        console.Create();
+        std::cout << "控制台已启用" << std::endl;
+    }
+
     // 创建窗口
     DGLABClient window;
-    std::string app_name = config.get_app_name();
-    window.setWindowTitle(QString::fromStdString(app_name));
+    std::string app_name = config.get_value<std::string>("app.name", "DG-LAB-Client");
+    std::string app_version = config.get_value<std::string>("app.version", "1.0.0");
+    window.setWindowTitle(QString::fromStdString(app_name + "[" + app_version) + "]");
     window.show();
 
     // 初始化 Python 解释器
@@ -40,30 +44,31 @@ int main(int argc, char* argv[]) {
     PyExecutorManager manager;
 
     // 设置 Python 路径
-    std::filesystem::path python_dir = std::filesystem::current_path() / "python";
+    std::string python_path = config.get_value<std::string>("python.path", "python");
+    std::filesystem::path python_dir = std::filesystem::current_path() / python_path;
     py::module sys = py::module::import("sys");
     sys.attr("path").attr("append")(python_dir.string());
 
-    if (!manager.register_executor("WebSocketCore", "DGLabClient", false)) {
-        std::cerr << "执行器注册失败！" << std::endl;
-    }
-    try {
-        manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://localhost:9999");
+    //if (!manager.register_executor("WebSocketCore", "DGLabClient", false)) {
+    //    std::cerr << "执行器注册失败！" << std::endl;
+    //}
+    //try {
+    //    manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://localhost:9999");
 
-        bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
-        if (!is_connect) {
-            std::cerr << "连接失败" << std::endl;
-        }
-        else {
-            manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_send_strength_operation", 1, 2, 10);
-            std::string server_address = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
-            std::cout << server_address << std::endl;
-        }
-        manager.call_sync<void>("WebSocketCore", "DGLabClient", "sync_close");
-    }
-    catch (const std::exception& e) {
-        std::cerr << "调用失败: " << e.what() << std::endl;
-    }
+    //    bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
+    //    if (!is_connect) {
+    //        std::cerr << "连接失败" << std::endl;
+    //    }
+    //    else {
+    //        manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_send_strength_operation", 1, 2, 10);
+    //        std::string server_address = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
+    //        std::cout << server_address << std::endl;
+    //    }
+    //    manager.call_sync<void>("WebSocketCore", "DGLabClient", "sync_close");
+    //}
+    //catch (const std::exception& e) {
+    //    std::cerr << "调用失败: " << e.what() << std::endl;
+    //}
 
     return app.exec();
 }

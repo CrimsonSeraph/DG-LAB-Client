@@ -42,34 +42,15 @@ public:
     // 线程安全检查
     inline bool is_initialized_thread_safe() const { return initialized_; }
 
-    // ================ 配置项访问器 ================
-
-    // 应用信息
-    const std::string& get_app_name() const;
-    const std::string& get_app_name_unsafe() const;
-
-    const std::string& get_app_version() const;
-    bool is_debug_mode() const;
-    int get_log_level() const;
-
     // ================ 配置项修改器 ================
 
     // 应用设置
-    void set_app_name(const std::string& name);
-    void set_debug_mode(bool enabled);
-    void set_log_level(int level);
     void set_value(const std::string& key_path, const std::string& value);
 
     // 应用设置（通过优先级）
-    void set_app_name_with_priority(const std::string& name, int priority);
-    void set_debug_mode_with_priority(const bool enable, int priority);
-    void set_log_level_with_priority(int level, int priority);
     void set_value_with_priority(const std::string& key_path, const std::string& value, int priority);
 
     // 应用设置（通过名称）
-    void set_app_name_with_name(const std::string& name, const std::string& key_name);
-    void set_debug_mode_with_name(const bool enable, const std::string& key_name);
-    void set_log_level_with_name(int level, const std::string& key_name);
     void set_value_with_name(const std::string& key_path, const std::string& value, const std::string& key_name);
 
     // ================ 批量操作 ================
@@ -187,6 +168,7 @@ private:
     ConfigValue<std::string> app_version_;
     ConfigValue<bool> debug_mode_;
     ConfigValue<int> log_level_;
+    ConfigValue<std::string> python_path_;
 
     // ConfigObject<XXXConfig> db_config_;
 
