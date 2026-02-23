@@ -1,4 +1,5 @@
 #include "PyThreadPoolExecutor.h"
+#include "DebugLog.h"
 #include <iostream>
 
 // Impl 构造函数
@@ -21,7 +22,7 @@ PyThreadPoolExecutor::Impl::~Impl() {
     }
 }
 
-// 工作线程函数（静态或独立）
+// 工作线程函数
 void PyThreadPoolExecutor::Impl::worker_thread(PyThreadPoolExecutor* self) {
     while (true) {
         Task task;
@@ -38,7 +39,9 @@ void PyThreadPoolExecutor::Impl::worker_thread(PyThreadPoolExecutor* self) {
             task.func();
         }
         catch (...) {
-            // 异常已通过 promise 传递
+            // 记录未知异常（已通过 promise 传递，但这里添加日志便于追踪）
+            LOG_MODULE("PyThreadPoolExecutor", "worker_thread", LOG_ERROR,
+                "工作线程中未处理的异常");
         }
 
         --active_tasks;
@@ -52,6 +55,9 @@ PyThreadPoolExecutor::PyThreadPoolExecutor(const std::string& module_name, size_
         num_threads = std::thread::hardware_concurrency();
         if (num_threads == 0) num_threads = 4;
     }
+
+    LOG_MODULE("PyThreadPoolExecutor", "PyThreadPoolExecutor", LOG_INFO,
+        "线程池以模块的 " << num_threads << " 线程开始：" << module_name);
 
     pimpl_->workers.reserve(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {

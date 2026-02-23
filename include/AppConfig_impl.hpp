@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DebugLog.h"
 #include "ConfigStructs.h"
 #include "AppConfig.h"
 #include <iostream>
@@ -111,10 +112,10 @@ public:
                     config_->save();  // 自动保存
                 }
                 catch (const std::exception& e) {
-                    std::cerr << "保存配置失败: " << e.what() << std::endl;
+                    LOG_MODULE("AppConfig", "set", LOG_ERROR, "保存配置失败: " << e.what());
                 }
                 catch (...) {
-                    std::cerr << "保存配置失败: 未知异常" << std::endl;
+                    LOG_MODULE("AppConfig", "set", LOG_ERROR, "保存配置失败: 未知异常");
                 }
                 // 确保回调安全
                 if (change_callback_) {
@@ -122,10 +123,10 @@ public:
                         change_callback_(value);
                     }
                     catch (const std::exception& e) {
-                        std::cerr << "配置变更回调失败: " << e.what() << std::endl;
+                        LOG_MODULE("AppConfig", "set", LOG_ERROR, "配置变更回调失败: " << e.what());
                     }
                     catch (...) {
-                        std::cerr << "配置变更回调失败: 未知异常" << std::endl;
+                        LOG_MODULE("AppConfig", "set", LOG_ERROR, "配置变更回调失败: 未知异常");
                     }
                 }
             }
@@ -284,20 +285,20 @@ public:
                     config_->save();
                 }
                 catch (const std::exception& e) {
-                    std::cerr << "保存配置对象失败: " << e.what() << std::endl;
+                    LOG_MODULE("AppConfig", "set", LOG_ERROR, "保存配置对象失败: " << e.what());
                 }
                 catch (...) {
-                    std::cerr << "保存配置对象失败: 未知异常" << std::endl;
+                    LOG_MODULE("AppConfig", "set", LOG_ERROR, "保存配置对象失败: 未知异常");
                 }
                 if (change_callback_) {
                     try {
                         change_callback_(value);
                     }
                     catch (const std::exception& e) {
-                        std::cerr << "配置对象变更回调失败: " << e.what() << std::endl;
+                        LOG_MODULE("AppConfig", "set", LOG_ERROR, "配置对象变更回调失败: " << e.what());
                     }
                     catch (...) {
-                        std::cerr << "配置对象变更回调失败: 未知异常" << std::endl;
+                        LOG_MODULE("AppConfig", "set", LOG_ERROR, "配置对象变更回调失败: 未知异常");
                     }
                 }
             }

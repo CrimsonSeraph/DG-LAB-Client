@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DebugLog.h"
 #include "json.hpp"
 #include <iostream>
 #include <string>
@@ -88,7 +89,7 @@ inline std::optional<T> ConfigManager::get(const std::string& key_path) const {
 
     }
     catch (const std::exception& e) {
-        std::cerr << "获取配置失败 [" << key_path << "]: " << e.what() << std::endl;
+        LOG_MODULE("ConfigManager", "get", LOG_ERROR, "获取配置失败 [" << key_path << "]: " << e.what());
         return std::nullopt;
     }
 }
@@ -122,7 +123,7 @@ inline bool ConfigManager::set(const std::string& key_path, const T& value) {
 
     }
     catch (const std::exception& e) {
-        std::cerr << "设置配置失败 [" << key_path << "]: " << e.what() << std::endl;
+        LOG_MODULE("ConfigManager", "set", LOG_ERROR, "设置配置失败 [" << key_path << "]: " << e.what());
         return false;
     }
 }

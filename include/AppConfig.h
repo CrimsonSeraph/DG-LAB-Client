@@ -2,6 +2,7 @@
 
 #include "MultiConfigManager.h"
 #include "ConfigStructs.h"
+#include "DebugLog.h"
 
 #include <iostream>
 #include <memory>
@@ -208,7 +209,7 @@ inline T AppConfig::get_value(const std::string& key_path, T default_value) cons
 template<typename T>
 inline T AppConfig::get_value_unsafe(const std::string& key_path, T default_value) const {
     if (!multi_config_) {
-        std::cerr << "配置系统未初始化，返回默认值: " << key_path << std::endl;
+        LOG_MODULE("AppConfig", "get_value_unsafe", LOG_ERROR, "配置系统未初始化，返回默认值: " << key_path << std::endl);
         return default_value;
     }
 
@@ -233,8 +234,8 @@ inline void AppConfig::set_value_with_priority_unsafe(const std::string& key_pat
 
     bool success = multi_config_->set_with_priority(key_path, value, target_priority);
     if (!success) {
-        std::cerr << "设置配置失败: " << key_path
-            << " (目标优先级: " << target_priority << ")" << std::endl;
+        LOG_MODULE("AppConfig", "set_value_with_priority_unsafe", LOG_WARN, "设置配置失败: " << key_path
+            << " (目标优先级: " << target_priority << ")" << std::endl);
     }
 }
 
@@ -250,7 +251,7 @@ template<typename T>
 inline T AppConfig::get_value_with_name_unsafe(const std::string& key_path,
     T default_value, const std::string& key_name) const {
     if (!multi_config_) {
-        std::cerr << "配置系统未初始化，返回默认值: " << key_path << std::endl;
+        LOG_MODULE("AppConfig", "get_value_with_name_unsafe", LOG_ERROR, "配置系统未初始化，返回默认值: " << key_path << std::endl);
         return default_value;
     }
 
@@ -275,7 +276,7 @@ inline void AppConfig::set_value_with_name_unsafe(const std::string& key_path,
 
     bool success = multi_config_->set_with_name(key_path, value, key_name);
     if (!success) {
-        std::cerr << "设置配置失败: " << key_path
-            << " (目标名称: " << key_name << ")" << std::endl;
+        LOG_MODULE("AppConfig", "set_value_with_name_unsafe", LOG_WARN, "设置配置失败: " << key_path
+            << " (目标名称: " << key_name << ")" << std::endl);
     }
 }

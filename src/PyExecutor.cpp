@@ -1,4 +1,5 @@
 #include "PyExecutor.h"
+#include "DebugLog.h"
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -54,7 +55,8 @@ bool PyExecutor::initialize(bool add_current_path) {
         return true;
     }
     catch (const py::error_already_set& e) {
-        std::cerr << "Failed to initialize Python executor: " << e.what() << std::endl;
+        LOG_MODULE("PyExecutor", "initialize", LOG_ERROR,
+            "初始化 Python 执行器失败：" << e.what());
         return false;
     }
 }
@@ -75,7 +77,8 @@ bool PyExecutor::import_module(const std::string& module_name) {
         return true;
     }
     catch (const py::error_already_set& e) {
-        std::cerr << "Failed to import module '" << module_name << "': " << e.what() << std::endl;
+        LOG_MODULE("PyExecutor", "import_module", LOG_ERROR,
+            "导入模块失败 '" << module_name << "': " << e.what());
         module_loaded_ = false;
         return false;
     }
@@ -177,7 +180,6 @@ void PyExecutor::exec(const std::string& code) {
     }
 }
 
-
 py::module PyExecutor::get_module() const {
     return module_;
 }
@@ -196,7 +198,8 @@ bool PyExecutor::reload_module() {
         return true;
     }
     catch (const py::error_already_set& e) {
-        std::cerr << "Failed to reload module: " << e.what() << std::endl;
+        LOG_MODULE("PyExecutor", "reload_module", LOG_ERROR,
+            "模块重新加载失败: " << e.what());
         return false;
     }
 }

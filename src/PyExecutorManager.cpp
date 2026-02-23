@@ -1,13 +1,21 @@
 #include "PyExecutorManager.h"
+#include "DebugLog.h"
 #include <iostream>
 
 bool PyExecutorManager::register_executor(const std::string& module_name,
     const std::string& class_name,
     bool use_thread_pool,
     size_t num_threads) {
+    LOG_MODULE("PyExecutorManager", "register_executor", LOG_INFO,
+        "正在注册执行器: " << module_name << "::" << class_name
+        << " [线程池=" << (use_thread_pool ? "是" : "否")
+        << ", 线程数=" << num_threads << "]");
+
     std::unique_lock lock(mutex_);
     auto& mod_map = executors_[module_name];
     if (mod_map.find(class_name) != mod_map.end()) {
+        LOG_MODULE("PyExecutorManager", "register_executor", LOG_WARN,
+            "执行器已存在: " << module_name << "::" << class_name);
         return false; // 已存在
     }
 
@@ -21,6 +29,8 @@ bool PyExecutorManager::register_executor(const std::string& module_name,
                 if constexpr (std::is_same_v<std::decay_t<decltype(exec)>,
                     PyThreadPoolExecutor>) {
                     exec.get_executor().create_instance(class_name);
+                    LOG_MODULE("PyExecutorManager", "register_executor", LOG_DEBUG,
+                        "已创建线程池执行器实例: " << module_name << "::" << class_name);
                 }
                 }, mod_map.at(class_name));
         }
@@ -29,12 +39,16 @@ bool PyExecutorManager::register_executor(const std::string& module_name,
             PyExecutor exec(module_name);
             exec.create_instance(class_name);
             mod_map.emplace(class_name, std::move(exec));
+            LOG_MODULE("PyExecutorManager", "register_executor", LOG_DEBUG,
+                "已创建单线程执行器实例: " << module_name << "::" << class_name);
         }
+        LOG_MODULE("PyExecutorManager", "register_executor", LOG_INFO,
+            "成功注册执行器: " << module_name << "::" << class_name);
         return true;
     }
     catch (const std::exception& e) {
-        std::cerr << "Failed to register executor (" << module_name << "::"
-            << class_name << "): " << e.what() << std::endl;
+        LOG_MODULE("PyExecutorManager", "register_executor", LOG_ERROR,
+            "注册执行器失败 (" << module_name << "::" << class_name << "): " << e.what());
         mod_map.erase(class_name);
         if (mod_map.empty()) executors_.erase(module_name);
         return false;
@@ -43,28 +57,55 @@ bool PyExecutorManager::register_executor(const std::string& module_name,
 
 bool PyExecutorManager::unregister_executor(const std::string& module_name,
     const std::string& class_name) {
+    LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_INFO,
+        "正在注销执行器: " << module_name << "::" << class_name);
+
     std::unique_lock lock(mutex_);
     auto mod_it = executors_.find(module_name);
-    if (mod_it == executors_.end()) return false;
+    if (mod_it == executors_.end()) {
+        LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_WARN,
+            "未找到模块: " << module_name);
+        return false;
+    }
     auto cls_it = mod_it->second.find(class_name);
-    if (cls_it == mod_it->second.end()) return false;
+    if (cls_it == mod_it->second.end()) {
+        LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_WARN,
+            "在模块 " << module_name << " 中未找到类: " << class_name);
+        return false;
+    }
 
     mod_it->second.erase(cls_it);
     if (mod_it->second.empty()) {
         executors_.erase(mod_it);
     }
+    LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_INFO,
+        "成功注销执行器: " << module_name << "::" << class_name);
     return true;
 }
 
 bool PyExecutorManager::has_executor(const std::string& module_name,
     const std::string& class_name) const {
+    // 调试级别日志，避免频繁输出
+    LOG_MODULE("PyExecutorManager", "has_executor", LOG_DEBUG,
+        "检查是否存在: " << module_name << "::" << class_name);
+
     std::shared_lock lock(mutex_);
     auto mod_it = executors_.find(module_name);
-    if (mod_it == executors_.end()) return false;
-    return mod_it->second.find(class_name) != mod_it->second.end();
+    if (mod_it == executors_.end()) {
+        LOG_MODULE("PyExecutorManager", "has_executor", LOG_DEBUG,
+            "未找到模块: " << module_name);
+        return false;
+    }
+    bool exists = (mod_it->second.find(class_name) != mod_it->second.end());
+    LOG_MODULE("PyExecutorManager", "has_executor", LOG_DEBUG,
+        "执行器 " << (exists ? "存在" : "不存在") << ": "
+        << module_name << "::" << class_name);
+    return exists;
 }
 
 std::vector<PyExecutorManager::ExecutorInfo> PyExecutorManager::list_executors() const {
+    LOG_MODULE("PyExecutorManager", "list_executors", LOG_DEBUG, "列出所有执行器");
+
     std::vector<ExecutorInfo> infos;
     std::shared_lock lock(mutex_);
     for (const auto& [mod_name, cls_map] : executors_) {
@@ -74,30 +115,50 @@ std::vector<PyExecutorManager::ExecutorInfo> PyExecutorManager::list_executors()
                 return std::is_same_v<T, PyThreadPoolExecutor>;
                 }, var);
             infos.push_back({ mod_name, cls_name, is_thread_pool });
+            LOG_MODULE("PyExecutorManager", "list_executors", LOG_DEBUG,
+                "找到执行器: " << mod_name << "::" << cls_name
+                << " [线程池=" << (is_thread_pool ? "是" : "否") << "]");
         }
     }
+    LOG_MODULE("PyExecutorManager", "list_executors", LOG_DEBUG,
+        "总计列出执行器数量: " << infos.size());
     return infos;
 }
 
 std::vector<std::string> PyExecutorManager::get_method_list(
     const std::string& module_name,
     const std::string& class_name) const {
+    LOG_MODULE("PyExecutorManager", "get_method_list", LOG_DEBUG,
+        "获取方法列表: " << module_name << "::" << class_name);
+
     const auto& var = get_executor(module_name, class_name);
-    return std::visit([](const auto& exec) {
+    auto methods = std::visit([](const auto& exec) {
         return exec.get_method_list();
         }, var);
+
+    LOG_MODULE("PyExecutorManager", "get_method_list", LOG_DEBUG,
+        "执行器 " << module_name << "::" << class_name
+        << " 的方法列表包含 " << methods.size() << " 个方法");
+    return methods;
 }
 
 // 辅助：获取可写引用
 PyExecutorManager::ExecutorVariant& PyExecutorManager::get_executor(const std::string& module_name,
     const std::string& class_name) {
+    LOG_MODULE("PyExecutorManager", "get_executor", LOG_DEBUG,
+        "获取可写执行器引用: " << module_name << "::" << class_name);
+
     std::shared_lock lock(mutex_);
     auto mod_it = executors_.find(module_name);
     if (mod_it == executors_.end()) {
+        LOG_MODULE("PyExecutorManager", "get_executor", LOG_ERROR,
+            "未找到模块: " << module_name);
         throw std::runtime_error("Module not found: " + module_name);
     }
     auto cls_it = mod_it->second.find(class_name);
     if (cls_it == mod_it->second.end()) {
+        LOG_MODULE("PyExecutorManager", "get_executor", LOG_ERROR,
+            "在模块 " << module_name << " 中未找到类: " << class_name);
         throw std::runtime_error("Class not found: " + class_name + " in module " + module_name);
     }
     return cls_it->second;
@@ -106,13 +167,20 @@ PyExecutorManager::ExecutorVariant& PyExecutorManager::get_executor(const std::s
 // 辅助：获取只读引用
 const PyExecutorManager::ExecutorVariant& PyExecutorManager::get_executor(const std::string& module_name,
     const std::string& class_name) const {
+    LOG_MODULE("PyExecutorManager", "get_executor", LOG_DEBUG,
+        "获取只读执行器引用: " << module_name << "::" << class_name);
+
     std::shared_lock lock(mutex_);
     auto mod_it = executors_.find(module_name);
     if (mod_it == executors_.end()) {
+        LOG_MODULE("PyExecutorManager", "get_executor", LOG_ERROR,
+            "未找到模块: " << module_name);
         throw std::runtime_error("Module not found: " + module_name);
     }
     auto cls_it = mod_it->second.find(class_name);
     if (cls_it == mod_it->second.end()) {
+        LOG_MODULE("PyExecutorManager", "get_executor", LOG_ERROR,
+            "在模块 " << module_name << " 中未找到类: " << class_name);
         throw std::runtime_error("Class not found: " + class_name + " in module " + module_name);
     }
     return cls_it->second;

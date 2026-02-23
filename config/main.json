@@ -4,7 +4,10 @@
         "name": "DG-LAB-Client",
         "version": "1.0.0",
         "debug": true,
-        "log_level": 2
+        "log": {
+            "level": 0,
+            "only_type_info": false
+        }
     },
     "python": {
         "path": "python"

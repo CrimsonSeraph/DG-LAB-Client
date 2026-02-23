@@ -1,4 +1,5 @@
 #include "ConfigStructs.h"
+#include "DebugLog.h"
 #include <iostream>
 
 // ============================================
@@ -17,7 +18,7 @@
 
 //bool XXXConfig::validate() const {
 //    if (name.empty()) {
-//        std::cerr << "name不能为空" << std::endl;
+//        LOG_MODULE("ConfigStructs", "validate", LOG_WARN, "name 不能为空！");
 //        return false;
 //    }
 //    return true;

@@ -2,6 +2,7 @@
 #include "AppConfig.h"
 #include "PyExecutorManager.h"
 #include "Console.h"
+#include "DebugLog.h"
 #include <QtWidgets/QApplication>
 #include <iostream>
 
@@ -13,23 +14,29 @@ int main(int argc, char* argv[]) {
     std::string config_dir = "./config";
     try {
         if (!config.initialize(config_dir)) {
-            std::cerr << "配置系统初始化失败，使用内存配置" << std::endl;
+            DebugLog::Instance().set_log_level("main", LOG_DEBUG);
+            LOG_MODULE("main", "main", LOG_WARN, "配置系统初始化失败，使用内存配置" << std::endl);
         }
     }
     catch (const std::exception& e) {
-        std::cerr << "初始化时发生异常: " << e.what() << std::endl;
+        LOG_MODULE("main", "main", LOG_ERROR, "初始化时发生异常: " << e.what() << std::endl);
     }
     std::string error_msg;
     if (config.check_priority_conflict(error_msg)) {
-        std::cerr << "优先级冲突: " << error_msg << std::endl;
+        LOG_MODULE("main", "main", LOG_WARN, "优先级冲突: " << error_msg << std::endl);
     }
+
+    int debug_log_level = config.get_value<int>("app.log.level", 4);
+    DebugLog::Instance().set_all_log_level(debug_log_level);
+    bool is_only_type_info = config.get_value<bool>("app.log.only_type_info", false);
+    DebugLog::Instance().set_only_type_info(is_only_type_info);
 
     // 启用控制台
     bool enable_console = config.get_value<bool>("app.debug", false);
     if (enable_console) {
         Console& console = Console::GetInstance();
         console.Create();
-        std::cout << "控制台已启用" << std::endl;
+        LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用" << std::endl);
     }
 
     // 创建窗口

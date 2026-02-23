@@ -1,6 +1,7 @@
 #pragma once
 
 #include "MultiConfigManager.h"
+#include "DebugLog.h"
 #include <sstream>
 
 template<typename T>
@@ -29,16 +30,16 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
                 }
             }
             catch (const std::exception& e) {
-                std::cerr << "配置 [" << key_path << "] 读取失败（优先级 "
-                    << config->get<int>("__priority").value_or(0) << "）: "
-                    << e.what() << std::endl;
+                LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_ERROR,
+                    "配置 [" << key_path << "] 读取失败（优先级 "
+                    << config->get<int>("__priority").value_or(0) << "）: " << e.what());
             }
         }
         return result;
     }
     catch (const std::exception& e) {
-        std::cerr << "按优先级获取配置失败 [" << key_path << "]: "
-            << e.what() << std::endl;
+        LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_ERROR,
+            "按优先级获取配置失败 [" << key_path << "]: " << e.what());
         return std::nullopt;
     }
 }
@@ -64,18 +65,18 @@ inline std::optional<T> MultiConfigManager::get_with_name_unsafe(const std::stri
                 if (value.has_value()) {
                     return value;
                 }
-                std::cerr << "名称为 " << key_name << " 的配置管理器没有名为["
-                    << key_path << "]" << std::endl;
+                LOG_MODULE("MultiConfigManager", "get_with_name_unsafe", LOG_WARN,
+                    "名称为 " << key_name << " 的配置管理器没有名为 [" << key_path << "]");
             }
         }
 
-        std::cerr << "未找到名称为 " << key_name << " 的配置管理器" << std::endl;
+        LOG_MODULE("MultiConfigManager", "get_with_name_unsafe", LOG_WARN,
+            "未找到名称为 " << key_name << " 的配置管理器");
         return std::nullopt;
     }
     catch (const std::exception& e) {
-        std::cerr << "按名称获取配置失败 [" << key_path << "]: "
-            << "[" << key_name << "]"
-            << e.what() << std::endl;
+        LOG_MODULE("MultiConfigManager", "get_with_name_unsafe", LOG_ERROR,
+            "按名称获取配置失败 [" << key_path << "]: [" << key_name << "] " << e.what());
         return std::nullopt;
     }
 }
@@ -118,7 +119,8 @@ inline bool MultiConfigManager::set_with_priority_unsafe(const std::string& key_
         }
     }
 
-    std::cerr << "未找到优先级为 " << target_priority << " 的配置管理器" << std::endl;
+    LOG_MODULE("MultiConfigManager", "set_with_priority_unsafe", LOG_WARN,
+        "未找到优先级为 " << target_priority << " 的配置管理器");
     return false;
 }
 
@@ -142,6 +144,7 @@ inline bool MultiConfigManager::set_with_name_unsafe(const std::string& key_path
         }
     }
 
-    std::cerr << "未找到名称为 " << key_name << " 的配置管理器" << std::endl;
+    LOG_MODULE("MultiConfigManager", "set_with_name_unsafe", LOG_WARN,
+        "未找到名称为 " << key_name << " 的配置管理器");
     return false;
 }
