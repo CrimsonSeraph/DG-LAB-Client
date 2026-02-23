@@ -172,7 +172,7 @@ template<typename T>
 concept ConfigSerializable = requires(T t, nlohmann::json & j) {
     { T::to_json(j, t) } -> std::same_as<void>;
     { T::from_json(j, t) } -> std::same_as<void>;
-    { T::validate() } -> std::same_as<bool>;
+    { t.validate() } -> std::same_as<bool>;
 };
 
 template<ConfigSerializable T>

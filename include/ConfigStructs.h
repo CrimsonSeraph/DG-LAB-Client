@@ -1,5 +1,7 @@
 #pragma once
 
+#include "AppConfig_impl.hpp"
+
 #include "json.hpp"
 #include <chrono>
 #include <vector>
@@ -77,6 +79,24 @@ struct ConfigTemplate {
     inline bool validate() const {
         return !name.empty() && value >= 0;
     }
+};
+
+struct MainConfig {
+    std::string app_name_;
+    std::string app_version_;
+    bool debug_mode_ = false;
+    int log_level_ = -1;
+    bool is_only_type_info_ = false;
+    std::string python_path_;
+
+    // JSON序列化
+    static void to_json(nlohmann::json& j, const MainConfig& config);
+
+    // JSON反序列化
+    static void from_json(const nlohmann::json& j, MainConfig& config);
+
+    // 配置验证
+    bool validate() const;
 };
 
 //BEGIN_FIELD_MAP(Struct)

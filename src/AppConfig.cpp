@@ -29,11 +29,7 @@ AppConfig::AppConfig()
     , user_config_(nullptr)
     , system_config_(nullptr)
     // 配置项使用默认构造，不需要传递参数
-    , app_name_()
-    , app_version_()
-    , debug_mode_()
-    , log_level_()
-    , python_path_()
+    , main_config_obj_()
     //, xxx_config_()     调用 ConfigObject<XXXConfig> 的默认构造函数
 {
     LOG_MODULE("AppConfig", "AppConfig", LOG_DEBUG, "AppConfig 构造函数被调用");
@@ -171,11 +167,15 @@ bool AppConfig::initialize(const std::string& config_dir) {
         LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "配置系统初始化失败: " << e.what());
 
         // 即使初始化失败，也设置一些默认值
-        app_name_ = ConfigValue<std::string>(nullptr, "", "DG-LAB-Client");
-        app_version_ = ConfigValue<std::string>(nullptr, "", "1.0.0");
-        debug_mode_ = ConfigValue<bool>(nullptr, "", false);
-        log_level_ = ConfigValue<int>(nullptr, "", 2);
-        python_path_ = ConfigValue<std::string>(nullptr, "", "python");
+        main_config_obj_ = ConfigObject<MainConfig>(main_config_, "main",
+            MainConfig{
+                .app_name_ = get_value_unsafe<std::string>("app.name", "DG-LAB-Client"),
+                .app_version_ = get_value_unsafe<std::string>("app.version", "1.0.0"),
+                .debug_mode_ = get_value_unsafe<bool>("app.debug", false),
+                .log_level_ = get_value_unsafe<int>("app.log.level", 2),
+                .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),
+                .python_path_ = get_value_unsafe<std::string>("python.path", "python")
+            });
 
         initialized_ = true; // 仍然标记为已初始化，但使用内存配置
         LOG_MODULE("AppConfig", "initialize", LOG_WARN, "使用内存默认配置，系统将继续运行");
@@ -219,11 +219,7 @@ void AppConfig::shutdown() {
         LOG_MODULE("AppConfig", "shutdown", LOG_DEBUG, "配置监听器已清空");
 
         // 重置配置项（先清空回调，避免析构时调用）
-        app_name_.on_change(nullptr);
-        app_version_.on_change(nullptr);
-        debug_mode_.on_change(nullptr);
-        log_level_.on_change(nullptr);
-        python_path_.on_change(nullptr);
+        main_config_obj_ = ConfigObject<MainConfig>();
 
         // 重置指针
         multi_config_ = nullptr;
@@ -269,11 +265,15 @@ void AppConfig::initialize_configs_unsafe() {
     }
 
     // 构造配置项
-    app_name_ = ConfigValue<std::string>(main_config_, "", get_value_unsafe<std::string>("app.name", "DG-LAB-Client"));
-    app_version_ = ConfigValue<std::string>(main_config_, "", get_value_unsafe<std::string>("app.version", "1.0.0"));
-    debug_mode_ = ConfigValue<bool>(main_config_, "", get_value_unsafe<bool>("app.debug", false));
-    log_level_ = ConfigValue<int>(main_config_, "", get_value_unsafe<int>("app.log_level", 2));
-    python_path_ = ConfigValue<std::string>(main_config_, "", get_value_unsafe<std::string>("python.path", "python"));
+    main_config_obj_ = ConfigObject<MainConfig>(main_config_, "main",
+        MainConfig{
+            .app_name_ = get_value_unsafe<std::string>("app.name", "DG-LAB-Client"),
+            .app_version_ = get_value_unsafe<std::string>("app.version", "1.0.0"),
+            .debug_mode_ = get_value_unsafe<bool>("app.debug", false),
+            .log_level_ = get_value_unsafe<int>("app.log.level", 2),
+            .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),
+            .python_path_ = get_value_unsafe<std::string>("python.path", "python")
+        });
 
     //xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 
     //    XXXConfig{
@@ -480,10 +480,8 @@ void AppConfig::invalidate_caches() {
         LOG_MODULE("AppConfig", "invalidate_caches", LOG_WARN, "配置系统未初始化，跳过缓存失效");
         return;
     }
-    app_name_.invalidate_cache();
-    app_version_.invalidate_cache();
-    debug_mode_.invalidate_cache();
-    log_level_.invalidate_cache();
+
+    main_config_obj_.invalidate_cache();
 
     //xxx_config_.invalidate_cache();
     LOG_MODULE("AppConfig", "invalidate_caches", LOG_DEBUG, "缓存失效完成");
@@ -519,13 +517,8 @@ bool AppConfig::validate_all(std::vector<std::string>& errors) const {
     bool valid = true;
 
     // 验证简单配置项
-    if (app_name_.get().empty()) {
-        errors.push_back("应用名称不能为空");
-        valid = false;
-    }
-
-    if (log_level_.get() < 0 || log_level_.get() > 5) {
-        errors.push_back("日志级别必须在0-5之间");
+    if (!main_config_obj_.get().validate()) {
+        errors.push_back("主配置无效");
         valid = false;
     }
 

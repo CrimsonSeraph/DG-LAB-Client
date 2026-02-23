@@ -165,11 +165,7 @@ private:
     std::shared_ptr<ConfigManager> system_config_;
 
     // 配置项
-    ConfigValue<std::string> app_name_;
-    ConfigValue<std::string> app_version_;
-    ConfigValue<bool> debug_mode_;
-    ConfigValue<int> log_level_;
-    ConfigValue<std::string> python_path_;
+    ConfigObject<MainConfig> main_config_obj_;
 
     // ConfigObject<XXXConfig> db_config_;
 
