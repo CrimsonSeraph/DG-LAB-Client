@@ -279,27 +279,3 @@ inline void AppConfig::set_value_with_name_unsafe(const std::string& key_path,
             << " (目标名称: " << key_name << ")" << std::endl;
     }
 }
-
-// ============================================
-// 辅助函数和宏
-// ============================================
-
-// 配置访问宏（简化访问）
-#define CONFIG_GET(instance, config) (instance).get_##config()
-#define CONFIG_SET(instance, config, value) (instance).set_##config(value)
-#define CONFIG_UPDATE(instance, config, value) (instance).update_##config(value)
-
-// 配置验证宏
-#define VALIDATE_CONFIG(config) \
-    if (!(config).validate()) { \
-        throw std::runtime_error("配置验证失败: " #config); \
-    }
-
-// 配置监听宏
-#define ADD_CONFIG_LISTENER(instance, config_name, callback) \
-    (instance).add_config_listener(config_name, callback)
-
-// 配置构建辅助
-#define BEGIN_CONFIG_BUILDER(type) ConfigBuilder<type> builder
-#define ADD_CONFIG_FIELD(field, value) builder.set_field(field, value)
-#define BUILD_CONFIG builder.build()

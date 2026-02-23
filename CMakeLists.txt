@@ -63,6 +63,10 @@ set(PROJECT_SOURCES
     include/Console.h
     src/Console.cpp
 
+    # Debug 日志
+    include/DebugLog.h
+    src/DebugLog.cpp
+
     # 配置文件
     config/main.json
     config/system.json
