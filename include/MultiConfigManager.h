@@ -105,6 +105,9 @@ private:
     mutable std::mutex registry_mutex_;
     bool hot_reload_enabled_ = false;
 
+    mutable std::vector<std::shared_ptr<ConfigManager>> sorted_configs_cache_;
+    mutable bool cache_dirty_ = true;
+
     // 文件监控线程
     std::thread file_watcher_thread_;
     std::atomic<bool> running_{ false };

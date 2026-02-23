@@ -30,6 +30,8 @@ void MultiConfigManager::register_config(const std::string& name,
 
     config_registry_[name] = std::move(info);
     LOG_MODULE("MultiConfigManager", "register_config", LOG_INFO, "配置注册成功: " << name);
+    cache_dirty_ = true;
+    LOG_MODULE("MultiConfigManager", "register_config", LOG_INFO, "排序结果缓存失效");
 }
 
 std::shared_ptr<ConfigManager> MultiConfigManager::get_config(const std::string& name) {
@@ -91,6 +93,8 @@ bool MultiConfigManager::load_all() {
     }
 
     LOG_MODULE("MultiConfigManager", "load_all", LOG_INFO, "所有配置加载完成，全部成功=" << (all_success ? "是" : "否"));
+    cache_dirty_ = true;
+    LOG_MODULE("MultiConfigManager", "load_all", LOG_INFO, "排序结果缓存失效");
     return all_success;
 }
 
@@ -129,6 +133,9 @@ bool MultiConfigManager::reload(const std::string& name) {
     if (success) {
         it->second.last_mod_time = get_file_mod_time(it->second.file_path);
         LOG_MODULE("MultiConfigManager", "reload", LOG_INFO, "重载配置成功: " << name);
+
+        cache_dirty_ = true;
+        LOG_MODULE("MultiConfigManager", "reload", LOG_INFO, "排序结果缓存失效");
     }
     else {
         LOG_MODULE("MultiConfigManager", "reload", LOG_ERROR, "重载配置失败: " << name);
@@ -202,9 +209,13 @@ bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
 }
 
 std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs_unsafe() const {
-    LOG_MODULE("MultiConfigManager", "get_sorted_configs_unsafe", LOG_DEBUG, "获取按优先级排序的配置列表（无锁）");
-    std::vector<std::pair<int, std::shared_ptr<ConfigManager>>> configs_with_priority;
+    LOG_MODULE("MultiConfigManager", "get_sorted_configs_unsafe", LOG_DEBUG,
+        (cache_dirty_ ? "缓存失效，重新排序" : "使用缓存排序结果"));
+    if (!cache_dirty_ && !sorted_configs_cache_.empty()) {
+        return sorted_configs_cache_;
+    }
 
+    std::vector<std::pair<int, std::shared_ptr<ConfigManager>>> configs_with_priority;
     for (const auto& [name, info] : config_registry_) {
         if (info.manager) {
             configs_with_priority.emplace_back(info.priority, info.manager);
@@ -213,21 +224,16 @@ std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_confi
     }
 
     // 按优先级从低到高排序（优先级低的先执行）
-    std::sort(configs_with_priority.begin(),
-        configs_with_priority.end(),
-        [](const auto& a, const auto& b) {
-            return a.first < b.first;
-        });
+    std::sort(configs_with_priority.begin(), configs_with_priority.end(),
+        [](const auto& a, const auto& b) { return a.first < b.first; });
 
     // 提取配置管理器
-    std::vector<std::shared_ptr<ConfigManager>> sorted_configs;
-    sorted_configs.reserve(configs_with_priority.size());
+    sorted_configs_cache_.clear();
     for (const auto& [priority, config] : configs_with_priority) {
-        sorted_configs.push_back(config);
+        sorted_configs_cache_.push_back(config);
     }
-
-    LOG_MODULE("MultiConfigManager", "get_sorted_configs_unsafe", LOG_DEBUG, "排序完成，共 " << sorted_configs.size() << " 个配置");
-    return sorted_configs;
+    cache_dirty_ = false;
+    return sorted_configs_cache_;
 }
 
 std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs() const {

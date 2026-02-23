@@ -26,11 +26,6 @@ int main(int argc, char* argv[]) {
         LOG_MODULE("main", "main", LOG_WARN, "优先级冲突: " << error_msg << std::endl);
     }
 
-    int debug_log_level = config.get_value<int>("app.log.level", 4);
-    DebugLog::Instance().set_all_log_level(debug_log_level);
-    bool is_only_type_info = config.get_value<bool>("app.log.only_type_info", false);
-    DebugLog::Instance().set_only_type_info(is_only_type_info);
-
     // 启用控制台
     bool enable_console = config.get_value<bool>("app.debug", false);
     if (enable_console) {
@@ -38,6 +33,11 @@ int main(int argc, char* argv[]) {
         console.Create();
         LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用" << std::endl);
     }
+
+    int debug_log_level = config.get_value<int>("app.log.level", 0);
+    DebugLog::Instance().set_all_log_level(debug_log_level);
+    bool is_only_type_info = config.get_value<bool>("app.log.only_type_info", false);
+    DebugLog::Instance().set_only_type_info(is_only_type_info);
 
     // 创建窗口
     DGLABClient window;

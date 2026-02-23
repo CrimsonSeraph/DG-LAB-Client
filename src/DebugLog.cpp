@@ -57,10 +57,10 @@ LogLevel DebugLog::get_log_level(const std::string& module) const {
 
 void DebugLog::log(const std::string& module, const std::string& method, LogLevel level, const std::string& message) {
     std::lock_guard<std::mutex> lock(out_put_mutex_);
-    if ((level = get_log_level(module)) ||
+    if ((level == get_log_level(module)) ||
         (!is_only_type_info_ &&
             (level > get_log_level(module)))) {
-        std::cerr << "[" << module << "] <" << method << "> (" << level_to_string(level) << ")：" << message << std::endl;
+        std::cerr << "[" << module << "] <" << method << "> (" << level_to_string(level) << "): " << message << std::endl;
     }
 }
 

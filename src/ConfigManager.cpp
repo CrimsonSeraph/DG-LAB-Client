@@ -221,6 +221,13 @@ std::vector<std::string> ConfigManager::split_key_path(const std::string& key_pa
     std::vector<std::string> result;
     std::string current;
 
+    // 尝试从缓存获取
+    auto it = split_cache_.find(key_path);
+    if (it != split_cache_.end()) {
+        LOG_MODULE("ConfigManager", "split_key_path", LOG_DEBUG, "使用缓存分割键路径结果");
+        return it->second;
+    }
+
     for (char c : key_path) {
         if (c == '.') {
             if (!current.empty()) {
@@ -243,7 +250,10 @@ std::vector<std::string> ConfigManager::split_key_path(const std::string& key_pa
         if (i > 0) ss << ".";
         ss << result[i];
     }
-    LOG_MODULE("ConfigManager", "split_key_path", LOG_DEBUG, "键路径分割完成: " << key_path << " -> [" << ss.str() << "]");
+
+    // 存入缓存
+    split_cache_[key_path] = result;
+    LOG_MODULE("ConfigManager", "split_key_path", LOG_DEBUG, "键路径分割完成: " << key_path << " -> [" << ss.str() << "] (已缓存)");
     return result;
 }
 

@@ -64,6 +64,7 @@ protected:
 
 private:
     std::vector<std::string> split_key_path(const std::string& key_path) const;
+    mutable std::unordered_map<std::string, std::vector<std::string>> split_cache_;
     void notify_listeners() const;
 };
 
