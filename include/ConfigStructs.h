@@ -1,7 +1,5 @@
 #pragma once
 
-#include "AppConfig_impl.hpp"
-
 #include "json.hpp"
 #include <chrono>
 #include <vector>

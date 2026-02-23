@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DebugLog.h"
+
 #include "json.hpp"
 #include <iostream>
 #include <string>
