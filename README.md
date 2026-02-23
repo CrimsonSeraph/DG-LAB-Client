@@ -1,6 +1,6 @@
 # DG-LAB-Client
 
-一个基于 Qt 的桌面客户端，用于与 DGLab 服务进行 WebSocket 通信，并通过 Python 脚本扩展功能。  
+一个基于 Qt 的桌面客户端，用于与 DG-Lab 服务进行 WebSocket 通信，并通过 Python 脚本扩展功能。  
 项目采用 C++20 编写，集成了配置管理、多级日志、Python 解释器（支持线程池）等特性。
 
 ---
@@ -291,6 +291,6 @@ DG-LAB-Client/
 ## 联系方式
 
 - 作者：[CrimsonSeraph]
-- BiliBili：浪天幽影(UID：1741002917)
-- X：𝒞𝓇𝒾𝓂𝓈𝑜𝓃𝒮𝑒𝓇𝒶𝓅𝒽✟升天✟(@CrimSeraph_QwQ)
+- BiliBili：[浪天幽影(UID：1741002917)](https://space.bilibili.com/1741002917?spm_id_from=333.1007.0.0)
+- X：[𝒞𝓇𝒾𝓂𝓈𝑜𝓃𝒮𝑒𝓇𝒶𝓅𝒽✟升天✟(@CrimSeraph_QwQ)](https://x.com/CrimSeraph_QwQ)
 - 项目主页：[https://github.com/CrimsonSeraph/DG-LAB-Client](https://github.com/CrimsonSeraph/DG-LAB-Client)
