@@ -44,19 +44,19 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_5">
      <property name="spacing">
-      <number>5</number>
+      <number>0</number>
      </property>
      <property name="leftMargin">
-      <number>5</number>
+      <number>0</number>
      </property>
      <property name="topMargin">
-      <number>5</number>
+      <number>0</number>
      </property>
      <property name="rightMargin">
-      <number>5</number>
+      <number>0</number>
      </property>
      <property name="bottomMargin">
-      <number>5</number>
+      <number>0</number>
      </property>
      <item>
       <layout class="QVBoxLayout" name="verticalLayout">
@@ -79,7 +79,13 @@
         <widget class="QLabel" name="main_image_label">
          <property name="minimumSize">
           <size>
-           <width>0</width>
+           <width>80</width>
+           <height>80</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>80</width>
            <height>80</height>
           </size>
          </property>

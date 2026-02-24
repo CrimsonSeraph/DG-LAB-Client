@@ -15,13 +15,11 @@ set(CMAKE_AUTORCC ON)
 
 # 查找 Qt
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR}
-    COMPONENTS
-        Core
-        Gui
-        Widgets
-)
-qt_standard_project_setup()
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets)
+
+if (QT_VERSION_MAJOR EQUAL 6)
+    qt_standard_project_setup()
+endif()
 
 # 项目源文件
 set(PROJECT_SOURCES
@@ -30,6 +28,9 @@ set(PROJECT_SOURCES
     include/DGLABClient.ui
     include/DGLABClient.h
     src/DGLABClient.cpp
+
+    # 资源文件
+    DGLABClient.qrc
 
     # Python 解释器管理器
     include/PyExecutorManager.h
@@ -76,8 +77,12 @@ set(PROJECT_SOURCES
     include/json.hpp
 )
 
-# 创建可执行文件（使用通用函数）
-qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+# 创建可执行文件
+if (QT_VERSION_MAJOR EQUAL 6)
+    qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+else()
+    add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+endif()
 
 # Windows 特定设置
 if(WIN32)

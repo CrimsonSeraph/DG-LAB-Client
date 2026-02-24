@@ -1,4 +1,8 @@
 <RCC>
-    <qresource prefix="DGLABClinet">
+    <qresource prefix="/image">
+        <file>assets/normal_image/main_image.png</file>
+    </qresource>
+    <qresource prefix="/qcss">
+        <file>qcss/style.qcss</file>
     </qresource>
 </RCC>
