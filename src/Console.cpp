@@ -1,4 +1,5 @@
 #include "Console.h"
+#include "DebugLog.h"
 
 Console::Console() : m_isCreated(false) {
     // 构造函数不自动创建控制台
@@ -15,20 +16,30 @@ Console& Console::GetInstance() {
 
 bool Console::Create() {
     if (m_isCreated) {
-        return true; // 已经创建过了
+        return true;
     }
 
+#ifdef _WIN32
     m_isCreated = CreateDebugConsole();
+#else
+    LOG_MODULE("Console", "Create", LOG_WARN, "当前操作系统不支持控制台输出！");
+    m_isCreated = false;
+#endif
     return m_isCreated;
 }
 
 void Console::Destroy() {
+#ifdef _WIN32
     if (m_isCreated) {
         FreeConsole();
         m_isCreated = false;
     }
+#else
+    m_isCreated = false;
+#endif
 }
 
+#ifdef _WIN32
 bool Console::CreateDebugConsole() {
     // 分配控制台
     if (!AllocConsole()) {
@@ -109,3 +120,4 @@ bool Console::CreateDebugConsole() {
 
     return true;
 }
+#endif

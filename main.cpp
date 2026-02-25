@@ -30,8 +30,12 @@ int main(int argc, char* argv[]) {
     bool enable_console = config.get_value<bool>("app.debug", false);
     if (enable_console) {
         Console& console = Console::GetInstance();
-        console.Create();
-        LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用" << std::endl);
+        if (console.Create()) {
+            LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用" << std::endl);
+        }
+        else {
+            LOG_MODULE("main", "main", LOG_WARN, "控制台启用失败（非 Windows 平台不支持）" << std::endl);
+        }
     }
 
     int debug_log_level = config.get_value<int>("app.log.level", 0);
