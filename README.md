@@ -240,28 +240,42 @@ node websocketNode.js
 
 ## 项目结构
 
+**大致项目结构（详细请打开相关文件夹查看README.md）**
+
 ```
 DG-LAB-Client/
 ├── CMakeLists.txt          # 主构建文件
-├── include/                 # 公共头文件
+├── include/                # 头文件
 │   ├── AppConfig.h
 │   ├── ConfigManager.h
 │   ├── PyExecutor.h
 │   ├── ...
-├── src/                     # 源文件
+├── src/                    # 源文件
 │   ├── AppConfig.cpp
 │   ├── ConfigManager.cpp
 │   ├── PyExecutor.cpp
 │   ├── ...
-├── python/                  # Python 脚本
+├── python/                 # Python 脚本
 │   └── WebSocketCore.py
-├── config/                  # 默认配置文件
+│   ├── ...
+├── config/                 # 默认配置文件
 │   ├── main.json
 │   ├── system.json
 │   └── user.json
-├── pybind11-3.0.1/          # pybind11 源码（需手动放置）
-├── LICENSE.txt
-└── README.md
+│   ├── ...
+├── assets/                 # 资源文件（图标、UI 设计等）
+│   ├── ...
+├── qcss/                   # Qt 样式表
+│   ├── style.qcss
+│   ├── ...
+├── pybind11-3.0.1/         # pybind11 源码（需手动放置）
+├── DGLABClient.qrc         # Qt 资源文件
+├── LICENSE.txt             # 许可证文件
+├── README.md               # 项目说明文档
+├──.editorconfig            # 编辑器配置
+├──.gitattributes           # Git 属性配置
+├──.gitignore               # Git 忽略规则
+├── ...
 ```
 
 ---
@@ -277,7 +291,7 @@ DG-LAB-Client/
 欢迎提交 Issue 和 Pull Request。在贡献前请确保：
 
 - 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`）。
-- 添加或修改功能时更新相关文档。
+- 添加或修改功能时更新相关文档（相关的 README.md）。
 - 确保本地测试通过。
 
 ---
