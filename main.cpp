@@ -15,15 +15,15 @@ int main(int argc, char* argv[]) {
     try {
         if (!config.initialize(config_dir)) {
             DebugLog::Instance().set_log_level("main", LOG_DEBUG);
-            LOG_MODULE("main", "main", LOG_WARN, "配置系统初始化失败，使用内存配置" << std::endl);
+            LOG_MODULE("main", "main", LOG_WARN, "配置系统初始化失败，使用内存配置");
         }
     }
     catch (const std::exception& e) {
-        LOG_MODULE("main", "main", LOG_ERROR, "初始化时发生异常: " << e.what() << std::endl);
+        LOG_MODULE("main", "main", LOG_ERROR, "初始化时发生异常: " << e.what());
     }
     std::string error_msg;
     if (config.check_priority_conflict(error_msg)) {
-        LOG_MODULE("main", "main", LOG_WARN, "优先级冲突: " << error_msg << std::endl);
+        LOG_MODULE("main", "main", LOG_WARN, "优先级冲突: " << error_msg);
     }
 
     // 启用控制台
@@ -31,10 +31,10 @@ int main(int argc, char* argv[]) {
     if (enable_console) {
         Console& console = Console::GetInstance();
         if (console.Create()) {
-            LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用" << std::endl);
+            LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用");
         }
         else {
-            LOG_MODULE("main", "main", LOG_WARN, "控制台启用失败（非 Windows 平台不支持）" << std::endl);
+            LOG_MODULE("main", "main", LOG_WARN, "控制台启用失败（非 Windows 平台不支持）");
         }
     }
 
@@ -61,24 +61,24 @@ int main(int argc, char* argv[]) {
     sys.attr("path").attr("append")(python_dir.string());
 
     //if (!manager.register_executor("WebSocketCore", "DGLabClient", false)) {
-    //    std::cerr << "执行器注册失败！" << std::endl;
+    //    std::cerr << "执行器注册失败！";
     //}
     //try {
     //    manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://localhost:9999");
 
     //    bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
     //    if (!is_connect) {
-    //        std::cerr << "连接失败" << std::endl;
+    //        std::cerr << "连接失败" ;
     //    }
     //    else {
     //        manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_send_strength_operation", 1, 2, 10);
     //        std::string server_address = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
-    //        std::cout << server_address << std::endl;
+    //        std::cout << server_address;
     //    }
     //    manager.call_sync<void>("WebSocketCore", "DGLabClient", "sync_close");
     //}
     //catch (const std::exception& e) {
-    //    std::cerr << "调用失败: " << e.what() << std::endl;
+    //    std::cerr << "调用失败: " << e.what() ;
     //}
 
     return app.exec();
