@@ -14,6 +14,7 @@
 | `ConfigStructs.cpp` | 配置结构体的实现（目前仅包含 `MainConfig` 的序列化与验证方法）。 |
 | `Console.cpp` | Windows 控制台辅助类的实现，用于创建/销毁调试控制台并重定向标准流。 |
 | `DebugLog.cpp` | 日志系统核心实现，支持模块级日志等级过滤及线程安全的输出。 |
+| `DefaultConfigs.cpp` | 默认配置类， `get_default_config` 通过输入配置名称返回指定默认配置或空配置。 |
 | `DGLABClient.cpp` | Qt 主窗口类的实现，处理界面初始化、样式加载及按钮点击事件。 |
 | `MultiConfigManager.cpp` | 多配置管理器实现，维护多个 `ConfigManager` 实例，支持按优先级合并读取、热重载。 |
 | `PyExecutor.cpp` | Python 执行器基类的实现，封装 pybind11，提供模块导入、方法调用（同步/异步）及实例创建功能。 |

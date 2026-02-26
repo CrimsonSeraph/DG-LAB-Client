@@ -15,6 +15,7 @@
 | `ConfigStructs.h` | 配置结构体声明，如 `MainConfig`，并定义 JSON 序列化与验证接口。 |
 | `Console.h` | Windows 控制台辅助类声明，用于创建/销毁调试控制台。 |
 | `DebugLog.h` | 日志系统接口声明，包含日志等级枚举及宏 `LOG_MODULE`。 |
+| `DefaultConfigs.h` | 默认配置类，仅包含 `get_default_config` 返回默认配置。 |
 | `DGLABClient.h` | Qt 主窗口类声明，继承自 `QWidget`，声明 UI 控件及槽函数。 |
 | `json.hpp` | 第三方库 [nlohmann/json](https://github.com/nlohmann/json) 的单头文件版本，用于处理 JSON 数据。 |
 | `MultiConfigManager.h` | 多配置管理器类声明，管理多个配置，支持优先级合并与热重载。 |

@@ -69,8 +69,9 @@ cd DG-LAB-Client
 
 ### 2. 准备第三方库
 
-- 下载 [pybind11 3.0.1](https://github.com/pybind11/pybind11/archive/refs/tags/v3.0.1.tar.gz) 并解压到项目根目录，确保文件夹名为 `pybind11-3.0.1`。
-- 下载 [nlohmann/json](https://github.com/nlohmann/json)并解压到项目 `include/` 目录，确保文件名为 `json.hpp`。
+需要以下第三方库，CMake 会自动下载（请确保与GitHub连接正常）：
+-  [pybind11 3.0.1](https://github.com/pybind11/pybind11/archive/refs/tags/v3.0.1.tar.gz) 。
+-  [nlohmann/json](https://github.com/nlohmann/json)。
 
 ### 3. 安装 Python 依赖
 
