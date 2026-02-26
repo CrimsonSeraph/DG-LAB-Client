@@ -8,7 +8,9 @@
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
-
+    // 直接创建控制台，以便在初始化配置系统时输出日志
+    Console& console = Console::GetInstance();
+    console.Create();
     // 配置初始化
     AppConfig& config = AppConfig::instance();
     std::string config_dir = "./config";
@@ -28,7 +30,7 @@ int main(int argc, char* argv[]) {
 
     // 启用控制台
     bool enable_console = config.get_value<bool>("app.debug", false);
-    if (enable_console) {
+    if (true) {
         Console& console = Console::GetInstance();
         if (console.Create()) {
             LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用");

@@ -5,7 +5,7 @@
 
 ---
 
-## 项目简介
+## 一、项目简介
 
 DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设计的客户端工具，它通过 WebSocket 与服务端通信，支持：
 
@@ -18,7 +18,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设计的客户端工具�
 
 ---
 
-## 功能特性
+## 二、功能特性
 
 - **Python 脚本集成**  
   通过 `PyExecutor` / `PyThreadPoolExecutor` 调用 Python 模块中的类和方法，支持同步、异步、线程池执行。
@@ -37,35 +37,28 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设计的客户端工具�
 
 ---
 
-## 依赖项
+## 三、依赖项
 
-### 系统依赖
+### 1. 系统依赖
 - **C++ 编译器**：支持 C++20 标准（如 GCC 10+、Clang 12+、MSVC 2022）
 - **Qt**：5.15 或 6.x（Core、Gui、Widgets）
 - **Python**：3.9 或更高版本（开发库及解释器）
 
-### 第三方库
-- **[pybind11](https://github.com/pybind11/pybind11)** (版本 3.0.1)  
-  用于 C++ 与 Python 交互。**注意**：该库未包含在仓库中，需手动下载或作为 Git 子模块添加。  
-  下载地址：[https://github.com/pybind11/pybind11/archive/refs/tags/v3.0.1.tar.gz](https://github.com/pybind11/pybind11/archive/refs/tags/v3.0.1.tar.gz)  
-  解压后重命名为 `pybind11-3.0.1` 并放置于项目根目录。
+### 2. 第三方库
+项目使用 CMake FetchContent 在配置时自动下载以下库，**无需手动操作**：
+- **[pybind11](https://github.com/pybind/pybind11)** (版本 2.13.6)  
+  用于 C++ 与 Python 交互。
+- **[nlohmann/json](https://github.com/nlohmann/json)** (版本 3.12.0)  
+  用于 JSON 解析。
 
-- **[nlohmann/json](https://github.com/nlohmann/json)** (版本 3.11.2)  
-  用于 JSON 解析。**注意**：项目未包含单头文件 `include/json.hpp`，需额外下载。  
-  下载地址：[https://github.com/nlohmann/json](https://github.com/nlohmann/json)  
-  解压后重命名为 `json.hpp` 并放置于项目 `include/` 目录。
-
-### Python 包依赖
-示例脚本 `python/WebSocketCore.py` 使用了以下 Python 库，请确保已安装：
-
+### 3. Python 包依赖
+示例脚本 `python/WebSocketCore.py` 使用了以下 Python 库，请确保已安装（或由 CI 自动处理）：
 - `websockets` (建议版本 10.0 或更高)  
   安装命令：`pip install websockets`
 
-其他 Python 标准库（如 `asyncio`, `json`, `logging`）无需额外安装。
-
 ---
 
-## 快速开始
+## 四、快速开始
 
 ### 1. 获取源码
 
@@ -85,41 +78,56 @@ cd DG-LAB-Client
 pip install websockets
 ```
 
-### 4. 配置 CMake
+2. 安装 Python 依赖（可选，如需本地运行）
 
-项目使用 CMake 构建。建议使用 CMake GUI 或命令行：
+```bash
+pip install websockets
+```
+
+3. 配置 CMake
 
 ```bash
 mkdir build && cd build
-cmake .. -DCMAKE_PREFIX_PATH=/path/to/qt -DPython_ROOT=/path/to/python
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/path/to/qt -DPython_ROOT_DIR=/path/to/python
 ```
 
-- 根据需要指定 Qt 和 Python 的路径。
-- 如果使用 Qt6，CMake 会自动查找；若使用 Qt5，确保安装了 `qt5-default` 等包。
+如果使用 Qt6，CMake 会自动查找；若使用 Qt5，确保安装了 `qt5-default` 等包。
 
-### 5. 编译
+4. 编译
 
 ```bash
 cmake --build . --config Release
 ```
 
-编译完成后，可执行文件将位于 `build/bin/` 或 `build/Release/` 下，同时 `python/` 和 `config/` 目录会被复制到输出目录。
-
-### 6. 运行
-
-进入输出目录，执行：
+5. 安装到临时目录（可选，用于测试打包结果）
 
 ```bash
-./DG-LAB-Client
+cmake --install . --prefix install_root
 ```
 
-首次运行会自动生成默认配置文件 `config/main.json`，您可以根据需要修改。
+6. 打包（生成安装包）
+
+```bash
+cpack
+```
+
+生成的安装包将位于 build/package/ 目录下（若使用 -B package 参数）。
+
+## 五、自动化构建
+
+本项目已配置 GitHub Actions，每次推送到 `main` 分支或创建以 `v` 开头的标签时，会自动在 Ubuntu、Windows 和 macOS 上构建并打包，生成对应平台的安装包：
+
+- **Windows**: NSIS 安装程序 (`.exe`) 和 ZIP 压缩包
+- **macOS**: DMG 磁盘映像和 TGZ 压缩包
+- **Linux**: DEB、RPM 包以及 AppImage（自包含可执行文件）
+
+你可以在 GitHub 仓库的 **Actions** 页面下载最新构建产物，或从 **Releases** 页面获取正式发布的版本。
 
 ---
 
-## 使用说明
+## 六、使用说明
 
-### 配置文件
+### 1. 配置文件
 
 系统包含三个配置文件，按优先级从低到高依次为：
 
@@ -149,7 +157,7 @@ cmake --build . --config Release
 }
 ```
 
-### Python 脚本
+### 2. Python 脚本
 
 默认 Python 脚本存放于可执行文件所在目录的 `python/` 文件夹中。  
 示例脚本 `WebSocketCore.py` 提供了 `DGLabClient` 类，可通过 C++ 调用其方法进行 WebSocket 连接与控制。
@@ -163,7 +171,7 @@ manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://loca
 bool connected = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
 ```
 
-### 日志
+### 3. 日志
 
 日志等级通过配置文件 `app.log.level` 控制：
 
@@ -179,13 +187,13 @@ bool connected = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connec
 LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 ```
 
-### 调试控制台
+### 4. 调试控制台
 
 在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示日志输出。
 
 ---
 
-## 本地 WebSocket 中转服务部署
+## 七、本地 WebSocket 中转服务部署
 
 本项目作为客户端，需要连接一个本地的 WebSocket 中转服务才能与 DGLab App 进行通信。该中转服务基于 Node.js 开发，您需要先在电脑上启动它。
 
@@ -238,7 +246,7 @@ node websocketNode.js
 
 ---
 
-## 项目结构
+## 八、项目结构
 
 **大致项目结构（详细请打开相关文件夹查看README.md）**
 
@@ -268,7 +276,6 @@ DG-LAB-Client/
 ├── qcss/                   # Qt 样式表
 │   ├── style.qcss
 │   ├── ...
-├── pybind11-3.0.1/         # pybind11 源码（需手动放置）
 ├── DGLABClient.qrc         # Qt 资源文件
 ├── LICENSE.txt             # 许可证文件
 ├── README.md               # 项目说明文档
@@ -280,13 +287,13 @@ DG-LAB-Client/
 
 ---
 
-## 截图
+## 九、截图
 
 （暂时留空）
 
 ---
 
-## 贡献指南
+## 十、贡献指南
 
 欢迎提交 Issue 和 Pull Request。在贡献前请确保：
 
@@ -296,13 +303,13 @@ DG-LAB-Client/
 
 ---
 
-## 许可证
+## 十一、许可证
 
 本项目基于 MIT 许可证开源，详情请参阅 [LICENSE.txt](LICENSE.txt) 文件。
 
 ---
 
-## 联系方式
+## 十二、联系方式
 
 - 作者：[CrimsonSeraph]
 - BiliBili：[浪天幽影(UID：1741002917)](https://space.bilibili.com/1741002917?spm_id_from=333.1007.0.0)

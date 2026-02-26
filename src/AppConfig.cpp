@@ -123,6 +123,11 @@ bool AppConfig::initialize(const std::string& config_dir) {
             }
         }
 
+        // 获取配置管理器指针
+        main_config_ = multi_config_->get_config("main");
+        user_config_ = multi_config_->get_config("user");
+        system_config_ = multi_config_->get_config("system");
+
         // 尝试加载所有配置
         try {
             LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "开始加载所有配置");
@@ -286,18 +291,68 @@ void AppConfig::initialize_configs_unsafe() {
 
 void AppConfig::create_default_configs() {
     LOG_MODULE("AppConfig", "create_default_configs", LOG_INFO, "创建默认配置");
-    if (main_config_) {
-        main_config_->set("app.name", "DG-LAB-Client");
-        main_config_->set("app.version", "1.0.0");
-        main_config_->set("app.debug", false);
-        main_config_->set("app.log_level", 2);
-        main_config_->set("__priority", 0);
-        main_config_->set("python.path", "python");
-        main_config_->save();
-        LOG_MODULE("AppConfig", "create_default_configs", LOG_INFO, "默认配置已写入 main.json");
+
+    // 确保所有配置管理器指针已获取
+    if (!main_config_ || !system_config_ || !user_config_) {
+        LOG_MODULE("AppConfig", "create_default_configs", LOG_ERROR,
+            "配置管理器指针为空，无法创建默认配置");
+        return;
     }
-    else {
-        LOG_MODULE("AppConfig", "create_default_configs", LOG_WARN, "main_config_ 为空，无法创建默认配置");
+
+    // 定义 main 默认配置（优先级 0）
+    nlohmann::json main_default = {
+        {"__priority", 0},
+        {"app", {
+            {"name", "DG-LAB-Client"},
+            {"version", "1.0.0"},
+            {"debug", true},
+            {"log", {
+                {"level", 0},
+                {"only_type_info", false}
+            }}
+        }},
+        {"python", {
+            {"path", "python"}
+        }},
+        {"version", "1.0"},
+        {"DGLABClient", "DG-LAB-Client"}
+    };
+
+    // 定义 system 默认配置（优先级 1）
+    nlohmann::json system_default = {
+        {"__priority", 1},
+        {"app", {
+        }},
+        {"version", "1.0"},
+        {"DGLABClient", "DG-LAB-Client"}
+    };
+
+    // 定义 user 默认配置（优先级 2）
+    nlohmann::json user_default = {
+        {"__priority", 2},
+        {"app", {
+        }},
+        {"version", "1.0"},
+        {"DGLABClient", "DG-LAB-Client"}
+    };
+
+    try {
+        // 更新各配置管理器（合并默认值）
+        main_config_->update(main_default);
+        system_config_->update(system_default);
+        user_config_->update(user_default);
+
+        // 保存到文件
+        main_config_->save();
+        system_config_->save();
+        user_config_->save();
+
+        LOG_MODULE("AppConfig", "create_default_configs", LOG_INFO,
+            "默认配置已成功写入各配置文件");
+    }
+    catch (const std::exception& e) {
+        LOG_MODULE("AppConfig", "create_default_configs", LOG_ERROR,
+            "创建默认配置时发生异常: " << e.what());
     }
 }
 

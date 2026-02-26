@@ -35,6 +35,14 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
                     << config->get<int>("__priority").value_or(0) << "）: " << e.what());
             }
         }
+        if (result.has_value()) {
+            LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_DEBUG,
+                "按优先级获取配置 [" << key_path << "]: " << result.value());
+        }
+        else {
+            LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_DEBUG,
+                "按优先级获取配置 [" << key_path << "]: 未找到");
+        }
         return result;
     }
     catch (const std::exception& e) {

@@ -2,7 +2,7 @@
 
 #include "DebugLog.h"
 
-#include "json.hpp"
+#include <nlohmann/json.hpp>
 #include <iostream>
 #include <string>
 #include <memory>
