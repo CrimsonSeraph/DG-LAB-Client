@@ -1,0 +1,116 @@
+name: Build and Package on Tag
+
+# 仅在推送以 v 开头的标签时触发
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            qt_version: '6.5.2'
+            python_version: '3.10'
+          - os: windows-latest
+            qt_version: '6.5.2'
+            python_version: '3.10'
+          - os: macos-latest
+            qt_version: '6.5.2'
+            python_version: '3.10'
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # 1. 检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. 安装 Qt（使用专用 action）
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ matrix.qt_version }}
+          # 需要额外的 Qt 模块
+          modules: ''
+
+      # 3. 设置 Python 环境
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python_version }}
+
+      # 4. 将 Python 依赖包安装到一个临时目录，便于后续打包
+      - name: Install Python packages to temporary directory
+        run: |
+          mkdir -p _packages
+          # 使用 --target 将 websockets 及其所有依赖安装到 _packages 目录
+          pip install --target _packages websockets
+          # 其他需要打包的 Python 包
+
+      # 5. 配置 CMake
+      #    传递 Qt 路径、Python 根目录以及 Python 包目录
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_PREFIX_PATH="${{ env.Qt5_Dir || env.Qt6_Dir }}" \
+                -DPython_ROOT_DIR="${{ env.pythonLocation }}" \
+                -DPYTHON_PACKAGES_DIR="${{ github.workspace }}/_packages"
+
+      # 6. 编译项目
+      - name: Build
+        run: cmake --build build --config Release
+
+      # 7. 安装到临时目录，触发 CMakeLists.txt 中定义的安装规则
+      - name: Install to temporary directory
+        run: cmake --install build --prefix install_root
+
+      # 8. Linux 专属步骤：使用 linuxdeployqt 处理 Qt 依赖并生成 AppImage
+      - name: Install linuxdeployqt (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          wget -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+          chmod +x linuxdeployqt-continuous-x86_64.AppImage
+          sudo mv linuxdeployqt-continuous-x86_64.AppImage /usr/local/bin/linuxdeployqt
+
+      - name: Deploy Qt and create AppImage (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd install_root
+          # linuxdeployqt 会自动分析可执行文件的 Qt 依赖并打包成 AppImage
+          # 确保可执行文件路径正确（根据 CMake 安装规则，它在 bin/ 下）
+          /usr/local/bin/linuxdeployqt bin/DG-LAB-Client -appimage -verbose=2
+          # linuxdeployqt 会在当前目录生成 .AppImage 文件，通常命名为 DG-LAB-Client-x86_64.AppImage
+          mkdir -p ../package
+          mv *.AppImage ../package/
+
+      # 9. 使用 CPack 生成其他格式的安装包（DEB、RPM、TGZ、NSIS、DMG 等）
+      - name: Package with CPack
+        run: cpack --config build/CPackConfig.cmake -B package
+
+      # 10. 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DG-LAB-Client-${{ matrix.os }}
+          path: |
+            package/*.exe
+            package/*.deb
+            package/*.rpm
+            package/*.dmg
+            package/*.zip
+            package/*.tar.gz
+            package/*.AppImage
+          if-no-files-found: warn
+
+      # 11. 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: package/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
