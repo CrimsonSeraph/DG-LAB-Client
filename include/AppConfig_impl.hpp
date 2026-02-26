@@ -256,7 +256,7 @@ public:
             if (config_) {
                 auto json_obj = config_->get<nlohmann::json>(key_path_);
                 if (json_obj.has_value()) {
-                    T obj;
+                    T obj = {};
                     T::from_json(json_obj.value(), obj);
                     cached_value_ = obj;
                 }

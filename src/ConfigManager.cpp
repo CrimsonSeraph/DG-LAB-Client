@@ -31,7 +31,7 @@ bool ConfigManager::load() {
             LOG_MODULE("ConfigManager", "load", LOG_INFO, "创建默认配置成功: " << config_path_);
             {
                 // 不持有锁，保存配置数据
-                auto temp_config = config_;
+                nlohmann::json temp_config = config_;
                 file.close();  // 确保文件关闭
 
                 // 创建文件并写入配置
@@ -59,7 +59,7 @@ bool ConfigManager::load() {
             config_ = get_default_config();
             // 不持有锁，保存配置数据
             {
-                auto temp_config = config_;
+                nlohmann::json temp_config = config_;
                 std::ofstream out_file(config_path_);
                 if (out_file.is_open()) {
                     out_file << temp_config.dump(4);
@@ -81,7 +81,7 @@ bool ConfigManager::load() {
         config_ = get_default_config();
         // 不持有锁，保存配置数据
         {
-            auto temp_config = config_;
+            nlohmann::json temp_config = config_;
             std::ofstream out_file(config_path_);
             if (out_file.is_open()) {
                 out_file << temp_config.dump(4);
@@ -248,7 +248,7 @@ std::vector<std::string> ConfigManager::split_key_path(const std::string& key_pa
 }
 
 void ConfigManager::notify_listeners() const {
-    LOG_MODULE("ConfigManager", "notify_listeners", LOG_DEBUG, "开始通知配置监听器，共 " << observers_.size() << " 个");
+    LOG_MODULE("ConfigManager", "notify_listeners", LOG_INFO, "开始通知配置监听器，共 " << observers_.size() << " 个");
     for (const auto& listener : observers_) {
         try {
             listener(config_);
