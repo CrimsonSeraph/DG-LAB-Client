@@ -1,6 +1,8 @@
 #include "AppConfig.h"
 #include "MultiConfigManager.h"
 #include "ConfigManager.h"
+#include "DefaultConfigs.h"
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -94,13 +96,16 @@ bool AppConfig::initialize(const std::string& config_dir) {
                 // 确保文件存在
                 if (!fs::exists(path)) {
                     LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置文件不存在，创建默认文件: " << path);
+                    nlohmann::json default_config = DefaultConfigs::get_default_config(name);
+                    // 确保优先级字段正确（如果默认配置中没有，则设置）
+                    if (!default_config.contains("__priority")) {
+                        default_config["__priority"] = priority;
+                    }
                     std::ofstream file(path);
                     if (file.is_open()) {
-                        nlohmann::json default_config;
-                        default_config["__priority"] = priority;
                         file << default_config.dump(4);
                         file.close();
-                        LOG_MODULE("AppConfig", "initialize", LOG_INFO, "创建配置文件成功: " << path);
+                        LOG_MODULE("AppConfig", "initialize", LOG_INFO, "创建默认配置文件成功: " << path);
                     }
                     else {
                         LOG_MODULE("AppConfig", "initialize", LOG_WARN, "无法创建配置文件: " << path);
@@ -170,17 +175,6 @@ bool AppConfig::initialize(const std::string& config_dir) {
     }
     catch (const std::exception& e) {
         LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "配置系统初始化失败: " << e.what());
-
-        // 即使初始化失败，也设置一些默认值
-        main_config_obj_ = ConfigObject<MainConfig>(main_config_, "main",
-            MainConfig{
-                .app_name_ = get_value_unsafe<std::string>("app.name", "DG-LAB-Client"),
-                .app_version_ = get_value_unsafe<std::string>("app.version", "1.0.0"),
-                .debug_mode_ = get_value_unsafe<bool>("app.debug", false),
-                .log_level_ = get_value_unsafe<int>("app.log.level", 2),
-                .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),
-                .python_path_ = get_value_unsafe<std::string>("python.path", "python")
-            });
 
         initialized_ = true; // 仍然标记为已初始化，但使用内存配置
         LOG_MODULE("AppConfig", "initialize", LOG_WARN, "使用内存默认配置，系统将继续运行");
@@ -299,48 +293,10 @@ void AppConfig::create_default_configs() {
         return;
     }
 
-    // 定义 main 默认配置（优先级 0）
-    nlohmann::json main_default = {
-        {"__priority", 0},
-        {"app", {
-            {"name", "DG-LAB-Client"},
-            {"version", "1.0.0"},
-            {"debug", true},
-            {"log", {
-                {"level", 0},
-                {"only_type_info", false}
-            }}
-        }},
-        {"python", {
-            {"path", "python"}
-        }},
-        {"version", "1.0"},
-        {"DGLABClient", "DG-LAB-Client"}
-    };
-
-    // 定义 system 默认配置（优先级 1）
-    nlohmann::json system_default = {
-        {"__priority", 1},
-        {"app", {
-        }},
-        {"version", "1.0"},
-        {"DGLABClient", "DG-LAB-Client"}
-    };
-
-    // 定义 user 默认配置（优先级 2）
-    nlohmann::json user_default = {
-        {"__priority", 2},
-        {"app", {
-        }},
-        {"version", "1.0"},
-        {"DGLABClient", "DG-LAB-Client"}
-    };
-
     try {
-        // 更新各配置管理器（合并默认值）
-        main_config_->update(main_default);
-        system_config_->update(system_default);
-        user_config_->update(user_default);
+        main_config_->update(DefaultConfigs::get_default_config("main"));
+        system_config_->update(DefaultConfigs::get_default_config("system"));
+        user_config_->update(DefaultConfigs::get_default_config("user"));
 
         // 保存到文件
         main_config_->save();

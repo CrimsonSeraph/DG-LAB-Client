@@ -105,6 +105,9 @@ set(PROJECT_SOURCES
     # 配置样式
     include/ConfigStructs.h
     src/ConfigStructs.cpp
+    # 默认配置
+    include/DefaultConfigs.h
+    src/DefaultConfigs.cpp
 
     # 控制台
     include/Console.h
@@ -132,6 +135,42 @@ if(WIN32)
     set_target_properties(${PROJECT_NAME}
         PROPERTIES
             WIN32_EXECUTABLE TRUE
+    )
+endif()
+
+# 复制配置文件
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/config"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/config"
+    COMMENT "Copying configuration files to output directory"
+)
+
+# 复制 Python 脚本
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/python"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/python"
+    COMMENT "Copying Python scripts to output directory"
+)
+
+# 复制 assets 资源
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
+        COMMENT "Copying assets to output directory"
+    )
+endif()
+
+# 复制 qcss 样式表
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/qcss/")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/qcss"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/qcss"
+        COMMENT "Copying qcss files to output directory"
     )
 endif()
 

@@ -1,4 +1,5 @@
 #include "ConfigManager.h"
+#include "DefaultConfigs.h"
 #include "DebugLog.h"
 
 #include <fstream>
@@ -202,18 +203,7 @@ bool ConfigManager::validate() const {
 }
 
 nlohmann::json ConfigManager::get_default_config() const {
-    LOG_MODULE("ConfigManager", "get_default_config", LOG_DEBUG, "获取默认配置");
-    return nlohmann::json{
-        {"__priority", "0"},
-        {"app", {
-            {"name", "DGLABClient"},
-            {"version","1.0.0"},
-            {"debug", false},
-            {"log_level", 2}
-        }},
-        {"version", "1.0"},
-        {"DGLABClient", "DG-LAB-Client"}
-    };
+    return DefaultConfigs::get_default_config("");
 }
 
 std::vector<std::string> ConfigManager::split_key_path(const std::string& key_path) const {
