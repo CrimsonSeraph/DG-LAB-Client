@@ -234,17 +234,30 @@ endif()
 # -------------------- Qt 部署工具（自动复制 Qt DLL/框架）--------------------
 if(WIN32)
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT_BINARY_DIR}" REQUIRED)
+    message(STATUS "Found windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
 
     install(CODE [[
         message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
+        message(STATUS "WINDEPLOYQT_EXECUTABLE = ${WINDEPLOYQT_EXECUTABLE}")
+        message(STATUS "QT_BINARY_DIR = ${QT_BINARY_DIR}")
 
-        # 确保 windeployqt 能找到 Qt 的 DLL（设置 PATH）
+        # 目标可执行文件路径
+        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
+        message(STATUS "DEPLOY_TARGET = ${DEPLOY_TARGET}")
+
+        # 检查 windeployqt 可执行文件是否存在
+        if(NOT EXISTS "${WINDEPLOYQT_EXECUTABLE}")
+            message(FATAL_ERROR "windeployqt executable not found: ${WINDEPLOYQT_EXECUTABLE}")
+        endif()
+
+        # 检查目标可执行文件是否存在
+        if(NOT EXISTS "${DEPLOY_TARGET}")
+            message(FATAL_ERROR "Target executable not found: ${DEPLOY_TARGET}")
+        endif()
+
+        # 设置 PATH 环境变量，确保 windeployqt 能找到 Qt DLL
         set(ENV{PATH} "$ENV{PATH};${QT_BINARY_DIR}")
 
-        # 目标可执行文件的完整路径
-        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
-
-        # 执行 windeployqt，将依赖复制到 bin 目录
         execute_process(
             COMMAND "${WINDEPLOYQT_EXECUTABLE}"
                 --release
@@ -259,7 +272,6 @@ if(WIN32)
             ERROR_VARIABLE _deploy_error
         )
 
-        # 输出执行结果以便调试
         message(STATUS "windeployqt output:\n${_deploy_output}")
         if(_deploy_result EQUAL 0)
             message(STATUS "windeployqt succeeded.")
