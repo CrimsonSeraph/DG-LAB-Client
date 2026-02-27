@@ -305,14 +305,15 @@ if(WIN32)
     # 复制 Python 标准库（压缩包文件）
     if(Python_STDLIB)
         set(PYTHON_ZIP "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
+        set(PYTHON_ZIP_PATH "${CMAKE_CURRENT_BINARY_DIR}/${PYTHON_ZIP}")
         add_custom_command(
-            OUTPUT ${PYTHON_ZIP}
-            COMMAND ${CMAKE_COMMAND} -E tar "cf" ${PYTHON_ZIP} --format=zip -- .
+            OUTPUT ${PYTHON_ZIP_PATH}
+            COMMAND ${CMAKE_COMMAND} -E tar "cf" ${PYTHON_ZIP_PATH} --format=zip -- .
             WORKING_DIRECTORY ${Python_STDLIB}
             COMMENT "Creating ${PYTHON_ZIP} from Python standard library"
         )
-        add_custom_target(create_python_zip ALL DEPENDS ${PYTHON_ZIP})
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PYTHON_ZIP}" DESTINATION .)
+        add_custom_target(create_python_zip ALL DEPENDS ${PYTHON_ZIP_PATH})
+        install(FILES ${PYTHON_ZIP_PATH} DESTINATION .)
     endif()
 
 elseif(APPLE)
