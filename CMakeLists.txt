@@ -130,6 +130,11 @@ else()
     add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 endif()
 
+# 显式设置 macOS Bundle 属性
+if(APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES MACOSX_BUNDLE TRUE)
+endif()
+
 # Windows 特定设置：让程序以窗口方式运行（无控制台）
 if(WIN32)
     set_target_properties(${PROJECT_NAME}
