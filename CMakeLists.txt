@@ -233,51 +233,34 @@ endif()
 
 # -------------------- Qt 部署工具（自动复制 Qt DLL/框架）--------------------
 if(WIN32)
-    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT_BINARY_DIR}" REQUIRED)
-    message(STATUS "Found windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
+    # 获取 Qt 的 bin 目录（从 Qt::qmake 目标中获取）
+    get_target_property(_qt_qmake_location Qt${QT_VERSION_MAJOR}::qmake IMPORTED_LOCATION)
+    get_filename_component(QT_BINARY_DIR "${_qt_qmake_location}" DIRECTORY)
+    # 查找 windeployqt
+    find_program(WINDEPLOYQT_EXECUTABLE
+        NAMES windeployqt windeployqt6
+        HINTS "${QT_BINARY_DIR}"
+        REQUIRED
+    )
+    # 将路径保存到缓存，确保在 install 脚本中可用
+    set(WINDEPLOYQT_EXECUTABLE "${WINDEPLOYQT_EXECUTABLE}" CACHE INTERNAL "")
 
     install(CODE [[
         message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
-        message(STATUS "WINDEPLOYQT_EXECUTABLE = ${WINDEPLOYQT_EXECUTABLE}")
-        message(STATUS "QT_BINARY_DIR = ${QT_BINARY_DIR}")
-
-        # 目标可执行文件路径
+        message(STATUS "WINDEPLOYQT_EXECUTABLE = \"${WINDEPLOYQT_EXECUTABLE}\"")
         set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
-        message(STATUS "DEPLOY_TARGET = ${DEPLOY_TARGET}")
-
-        # 检查 windeployqt 可执行文件是否存在
-        if(NOT EXISTS "${WINDEPLOYQT_EXECUTABLE}")
-            message(FATAL_ERROR "windeployqt executable not found: ${WINDEPLOYQT_EXECUTABLE}")
-        endif()
-
-        # 检查目标可执行文件是否存在
-        if(NOT EXISTS "${DEPLOY_TARGET}")
-            message(FATAL_ERROR "Target executable not found: ${DEPLOY_TARGET}")
-        endif()
-
-        # 设置 PATH 环境变量，确保 windeployqt 能找到 Qt DLL
-        set(ENV{PATH} "$ENV{PATH};${QT_BINARY_DIR}")
-
-        execute_process(
-            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-                --release
-                --no-translations
-                --no-system-d3d-compiler
-                --no-compiler-runtime
-                --dir "${CMAKE_INSTALL_PREFIX}/bin"
-                "${DEPLOY_TARGET}"
+        execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+            --release
+            --no-translations
+            --no-system-d3d-compiler
+            --no-compiler-runtime
+            --dir "${CMAKE_INSTALL_PREFIX}/bin"
+            "${DEPLOY_TARGET}"
             WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
             RESULT_VARIABLE _deploy_result
-            OUTPUT_VARIABLE _deploy_output
-            ERROR_VARIABLE _deploy_error
         )
-
-        message(STATUS "windeployqt output:\n${_deploy_output}")
-        if(_deploy_result EQUAL 0)
-            message(STATUS "windeployqt succeeded.")
-        else()
-            message(STATUS "windeployqt error:\n${_deploy_error}")
-            message(FATAL_ERROR "windeployqt failed with exit code ${_deploy_result}!")
+        if(NOT _deploy_result EQUAL 0)
+            message(FATAL_ERROR "windeployqt failed!")
         endif()
     ]])
 elseif(APPLE)
