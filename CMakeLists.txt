@@ -235,19 +235,21 @@ endif()
 if(WIN32)
     # 获取 Qt 的 bin 目录（从 Qt::qmake 目标中获取）
     get_target_property(_qt_qmake_location Qt${QT_VERSION_MAJOR}::qmake IMPORTED_LOCATION)
+    message(STATUS "Qt qmake location: ${_qt_qmake_location}")
     get_filename_component(QT_BINARY_DIR "${_qt_qmake_location}" DIRECTORY)
-    # 查找 windeployqt
-    find_program(WINDEPLOYQT_EXECUTABLE
-        NAMES windeployqt windeployqt6
-        HINTS "${QT_BINARY_DIR}"
-        REQUIRED
-    )
-    # 将路径保存到缓存，确保在 install 脚本中可用
-    set(WINDEPLOYQT_EXECUTABLE "${WINDEPLOYQT_EXECUTABLE}" CACHE INTERNAL "")
+    message(STATUS "QT_BINARY_DIR: ${QT_BINARY_DIR}")
+    # 将路径保存为缓存变量，供安装脚本使用
+    set(QT_BINARY_DIR "${QT_BINARY_DIR}" CACHE INTERNAL "Qt binary directory")
 
     install(CODE [[
         message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
-        message(STATUS "WINDEPLOYQT_EXECUTABLE = \"${WINDEPLOYQT_EXECUTABLE}\"")
+        # 在安装时查找 windeployqt（使用缓存的 QT_BINARY_DIR）
+        find_program(WINDEPLOYQT_EXECUTABLE
+            NAMES windeployqt windeployqt6
+            HINTS "${QT_BINARY_DIR}"
+            REQUIRED
+        )
+        message(STATUS "Found windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
         set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
         execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
             --release
