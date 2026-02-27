@@ -312,7 +312,7 @@ if(WIN32)
             COMMENT "Creating ${PYTHON_ZIP} from Python standard library"
         )
         add_custom_target(create_python_zip ALL DEPENDS ${PYTHON_ZIP})
-        install(FILES ${PYTHON_ZIP} DESTINATION .)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PYTHON_ZIP}" DESTINATION .)
     endif()
 
 elseif(APPLE)
