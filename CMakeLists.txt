@@ -204,9 +204,9 @@ target_include_directories(${PROJECT_NAME}
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # 安装可执行文件
 install(TARGETS ${PROJECT_NAME}
-    RUNTIME DESTINATION bin      # Windows 和 Linux 的可执行文件
-    BUNDLE DESTINATION .          # macOS 的 .app 包
-    LIBRARY DESTINATION lib       # 动态库
+    RUNTIME DESTINATION .           # Windows 和 Linux 的可执行文件
+    BUNDLE DESTINATION .            # macOS 的 .app 包
+    LIBRARY DESTINATION .           # 动态库
 )
 
 # 安装 Python 脚本（所有 .py 文件）
@@ -251,7 +251,7 @@ if(WIN32)
             REQUIRED
         )
         message(STATUS "Found windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
-        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
+        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
         message(STATUS "Deploy target: ${DEPLOY_TARGET}")
         execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
             --release
@@ -279,7 +279,7 @@ endif()
 
 # -------------------- Python 运行时和包依赖处理 --------------------
 # 在安装阶段复制 Python 共享库和标准库
-# 注意：这会显著增大安装包体积，可根据实际需求裁剪标准库
+# 注意：这会显著增大安装包体积
 
 if(WIN32)
     # Windows：复制 Python DLL（python3.dll 和 python3X.dll）
@@ -288,7 +288,7 @@ if(WIN32)
             install(FILES
                 "${_dir}/python3.dll"
                 "${_dir}/python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.dll"
-                DESTINATION bin
+                DESTINATION .
                 OPTIONAL
             )
         endforeach()
@@ -297,19 +297,22 @@ if(WIN32)
         install(FILES
             "${PYTHON_BIN_DIR}/python3.dll"
             "${PYTHON_BIN_DIR}/python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.dll"
-            DESTINATION bin
+            DESTINATION .
             OPTIONAL
         )
     endif()
 
-    # 复制 Python 标准库（整个 Lib 目录，可排除测试模块）
+    # 复制 Python 标准库（压缩包文件）
     if(Python_STDLIB)
-        install(DIRECTORY "${Python_STDLIB}/"
-            DESTINATION python/Lib
-            FILES_MATCHING PATTERN "*.py"
-            PATTERN "__pycache__" EXCLUDE
-            PATTERN "test" EXCLUDE
+        set(PYTHON_ZIP "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
+        add_custom_command(
+            OUTPUT ${PYTHON_ZIP}
+            COMMAND ${CMAKE_COMMAND} -E tar "cf" ${PYTHON_ZIP} --format=zip -- .
+            WORKING_DIRECTORY ${Python_STDLIB}
+            COMMENT "Creating ${PYTHON_ZIP} from Python standard library"
         )
+        add_custom_target(create_python_zip ALL DEPENDS ${PYTHON_ZIP})
+        install(FILES ${PYTHON_ZIP} DESTINATION .)
     endif()
 
 elseif(APPLE)
@@ -345,13 +348,39 @@ else()
     endif()
 endif()
 
-# 安装 Python 第三方包（如 websockets）
+# --- 复制 Python 二进制扩展模块（DLLs 目录）到根目录/DLLs ---
+if(WIN32)
+    get_filename_component(PYTHON_ROOT "${Python_EXECUTABLE}" DIRECTORY)
+    set(PYTHON_DLLS_DIR "${PYTHON_ROOT}/DLLs")
+    if(EXISTS "${PYTHON_DLLS_DIR}")
+        install(DIRECTORY "${PYTHON_DLLS_DIR}/" DESTINATION "DLLs")
+        message(STATUS "Python DLLs directory will be installed to DLLs/")
+    else()
+        message(WARNING "Python DLLs directory not found at ${PYTHON_DLLS_DIR}. Binary extensions may be missing.")
+    endif()
+endif()
+
+# --- 安装自定义 Python 模块---
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/python"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/python"
+    COMMENT "Copying Python scripts to output directory"
+)
+# 安装时也复制
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/
+    DESTINATION python
+    FILES_MATCHING PATTERN "*.py"
+)
+
+# --- 安装第三方 Python 包（从 _packages 目录）---
 set(PYTHON_PACKAGES_DIR "" CACHE PATH "Directory containing Python packages to bundle")
 if(PYTHON_PACKAGES_DIR AND EXISTS "${PYTHON_PACKAGES_DIR}")
     install(DIRECTORY "${PYTHON_PACKAGES_DIR}/"
-        DESTINATION python/Lib/site-packages
-        FILES_MATCHING PATTERN "*"
+        DESTINATION "python/Lib/site-packages"
+        PATTERN "__pycache__" EXCLUDE
     )
+    message(STATUS "Third-party packages will be installed to python/Lib/site-packages/")
 endif()
 
 # -------------------- CPack 打包配置 --------------------

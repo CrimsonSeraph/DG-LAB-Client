@@ -84,6 +84,7 @@ jobs:
         run: |
           wget -c https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
           chmod +x linuxdeployqt-continuous-x86_64.AppImage
+          chmod +x linuxdeployqt-continuous-x86_64.AppImage
           sudo mv linuxdeployqt-continuous-x86_64.AppImage /usr/local/bin/linuxdeployqt
 
       - name: Deploy Qt and create AppImage (Linux)
@@ -91,9 +92,9 @@ jobs:
         run: |
           cd install_root
           # linuxdeployqt 会自动分析可执行文件的 Qt 依赖并打包成 AppImage
-          # 确保可执行文件路径正确（根据 CMake 安装规则，它在 bin/ 下）
-          /usr/local/bin/linuxdeployqt bin/DG-LAB-Client -appimage -verbose=2
-          # linuxdeployqt 会在当前目录生成 .AppImage 文件，通常命名为 DG-LAB-Client-x86_64.AppImage
+          # 确保可执行文件路径正确（根据 CMake 安装规则，它在根目录下）
+          /usr/local/linuxdeployqt DG-LAB-Client -appimage -verbose=2
+          # linuxdeployqt 会在当前目录生成 .AppImage 文件
           mkdir -p ../package
           mv *.AppImage ../package/
 
