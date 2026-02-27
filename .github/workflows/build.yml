@@ -44,6 +44,7 @@ jobs:
 
       # 4. 将 Python 依赖包安装到一个临时目录，便于后续打包
       - name: Install Python packages to temporary directory
+        shell: bash  # 使用 bash 以兼容 mkdir -p
         run: |
           mkdir -p _packages
           # 使用 --target 将 websockets 及其所有依赖安装到 _packages 目录
@@ -53,6 +54,7 @@ jobs:
       # 5. 配置 CMake
       #    传递 Qt 路径、Python 根目录以及 Python 包目录
       - name: Configure CMake
+        shell: bash  # 使用 bash 以支持反斜杠续行
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_PREFIX_PATH="${{ env.Qt5_Dir || env.Qt6_Dir }}" \
