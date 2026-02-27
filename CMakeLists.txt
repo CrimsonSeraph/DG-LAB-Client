@@ -234,42 +234,43 @@ endif()
 # -------------------- Qt 部署工具（自动复制 Qt DLL/框架）--------------------
 if(WIN32)
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT_BINARY_DIR}" REQUIRED)
-#    install(CODE [[
-#        message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
-#        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
-#        execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-#            --release
-#            --no-translations
-#            --no-system-d3d-compiler
-#            --no-compiler-runtime
-#            --dir "${CMAKE_INSTALL_PREFIX}/bin"
-#            "${DEPLOY_TARGET}"
-#            WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
-#            RESULT_VARIABLE _deploy_result
-#        )
-#       if(NOT _deploy_result EQUAL 0)
-#            message(FATAL_ERROR "windeployqt failed!")
-#        endif()
-#    ]])
+
+    install(CODE [[
+        message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
+
+        # 确保 windeployqt 能找到 Qt 的 DLL（设置 PATH）
+        set(ENV{PATH} "$ENV{PATH};${QT_BINARY_DIR}")
+
+        # 目标可执行文件的完整路径
+        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
+
+        # 执行 windeployqt，将依赖复制到 bin 目录
+        execute_process(
+            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                --release
+                --no-translations
+                --no-system-d3d-compiler
+                --no-compiler-runtime
+                --dir "${CMAKE_INSTALL_PREFIX}/bin"
+                "${DEPLOY_TARGET}"
+            WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
+            RESULT_VARIABLE _deploy_result
+            OUTPUT_VARIABLE _deploy_output
+            ERROR_VARIABLE _deploy_error
+        )
+
+        # 输出执行结果以便调试
+        message(STATUS "windeployqt output:\n${_deploy_output}")
+        if(_deploy_result EQUAL 0)
+            message(STATUS "windeployqt succeeded.")
+        else()
+            message(STATUS "windeployqt error:\n${_deploy_error}")
+            message(FATAL_ERROR "windeployqt failed with exit code ${_deploy_result}!")
+        endif()
+    ]])
 elseif(APPLE)
     find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BINARY_DIR}" REQUIRED)
-#    install(CODE [[
-#        message(STATUS "Running macdeployqt for ${PROJECT_NAME}...")
-#        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app")
-#        execute_process(COMMAND "${MACDEPLOYQT_EXECUTABLE}"
-#            "${DEPLOY_TARGET}"
-#            -always-overwrite
-#            -verbose=2
-#            RESULT_VARIABLE _deploy_result
-#            OUTPUT_VARIABLE _deploy_output
-#            ERROR_VARIABLE _deploy_error
-#        )
-#        message(STATUS "macdeployqt output:\n${_deploy_output}")
-#        message(STATUS "macdeployqt error:\n${_deploy_error}")
-#        if(NOT _deploy_result EQUAL 0)
-#           message(FATAL_ERROR "macdeployqt failed!\nOutput: ${_deploy_output}\nError: ${_deploy_error}")
-#        endif()
-#    ]])
+    # 由 macdeployqt 处理 Qt 依赖将在 CI 中完成，此处仅提示
 elseif(UNIX AND NOT APPLE)
     # Linux 下 Qt 依赖处理将在 CI 中使用 linuxdeployqt 完成，此处仅提示
     message(STATUS "Linux: Qt dependencies will be handled by linuxdeployqt in CI.")
@@ -358,8 +359,8 @@ include(InstallRequiredSystemLibraries)
 set(CPACK_PACKAGE_NAME "DG-LAB-Client")
 set(CPACK_PACKAGE_VENDOR "CrimsonSeraph")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Qt-based client for DG-Lab with Python scripting")
-set(CPACK_PACKAGE_VERSION_MAJOR "1")
-set(CPACK_PACKAGE_VERSION_MINOR "0")
+set(CPACK_PACKAGE_VERSION_MAJOR "0")
+set(CPACK_PACKAGE_VERSION_MINOR "1")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 set(CPACK_PACKAGE_CONTACT "your-email@example.com")
