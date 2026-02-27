@@ -2,6 +2,7 @@
 
 #include "DebugLog.h"
 #include "ConfigStructs.h"
+
 #include <iostream>
 #include <mutex>
 #include <memory>

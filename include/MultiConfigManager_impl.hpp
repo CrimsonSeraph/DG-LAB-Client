@@ -2,6 +2,7 @@
 
 #include "MultiConfigManager.h"
 #include "DebugLog.h"
+
 #include <sstream>
 
 template<typename T>

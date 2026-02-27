@@ -1,6 +1,8 @@
 #pragma once
 
 #include "PyExecutorManager.h"
+#include "DebugLog.h"
+
 #include <tuple>
 #include <utility>
 

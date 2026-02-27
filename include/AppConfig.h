@@ -9,6 +9,7 @@
 #include <vector>
 #include <functional>
 #include <mutex>
+#include <map>
 
 #include "AppConfig_impl.hpp"
 

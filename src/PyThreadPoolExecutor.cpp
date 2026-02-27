@@ -1,6 +1,9 @@
 #include "PyThreadPoolExecutor.h"
 #include "DebugLog.h"
+
 #include <iostream>
+#include <thread>
+#include <stdexcept>
 
 // Impl 构造函数
 PyThreadPoolExecutor::Impl::Impl(const std::string& module_name)

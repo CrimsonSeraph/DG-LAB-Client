@@ -4,6 +4,9 @@
 #include <iostream>
 #include <QPixmap>
 #include <QFile>
+#include <QList>
+#include <QPushButton>
+#include <QApplication>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {

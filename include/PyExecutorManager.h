@@ -2,6 +2,8 @@
 
 #include "PyExecutor.h"
 #include "PyThreadPoolExecutor.h"
+
+#include <mutex>
 #include <shared_mutex>
 #include <variant>
 #include <unordered_map>

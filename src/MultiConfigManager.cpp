@@ -1,8 +1,15 @@
 #include "MultiConfigManager.h"
+#include "DebugLog.h"
+
 #include <iostream>
 #include <filesystem>
 #include <chrono>
 #include <thread>
+#include <set>
+#include <map>
+#include <algorithm>
+#include <atomic>
+#include <sys/stat.h>
 
 namespace fs = std::filesystem;
 

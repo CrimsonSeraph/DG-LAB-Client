@@ -12,6 +12,8 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <thread>
+#include <atomic>
 
 class MultiConfigManager {
 public:

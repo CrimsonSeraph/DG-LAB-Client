@@ -1,6 +1,10 @@
 #include "PyExecutorManager.h"
 #include "DebugLog.h"
+
 #include <iostream>
+#include <mutex>
+#include <shared_mutex>
+#include <type_traits>
 
 bool PyExecutorManager::register_executor(const std::string& module_name,
     const std::string& class_name,
