@@ -34,14 +34,16 @@ int main(int argc, char* argv[]) {
         Console& console = Console::GetInstance();
         if (console.Create()) {
             LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用");
+            LOG_MODULE("main", "main", LOG_INFO, "配置初始化完成，debug模式=" << enable_console);
         }
         else {
             LOG_MODULE("main", "main", LOG_WARN, "控制台启用失败（非 Windows 平台不支持）");
         }
     }
 
-    int debug_log_level = config.get_value<int>("app.log.level", 0);
-    DebugLog::Instance().set_all_log_level(debug_log_level);
+    int console_log_level = config.get_value<int>("app.log.console_level", 0);
+    DebugLog::Instance().set_log_sink_level("console", static_cast<LogLevel>(console_log_level));
+    LOG_MODULE("main", "main", LOG_DEBUG, "控制台日志级别设置为: " << console_log_level);
     bool is_only_type_info = config.get_value<bool>("app.log.only_type_info", false);
     DebugLog::Instance().set_only_type_info(is_only_type_info);
 
@@ -50,7 +52,10 @@ int main(int argc, char* argv[]) {
     std::string app_name = config.get_value<std::string>("app.name", "DG-LAB-Client");
     std::string app_version = config.get_value<std::string>("app.version", "1.0.0");
     window.setWindowTitle(QString::fromStdString(app_name + "[" + app_version) + "]");
+    int ui_log_level = config.get_value<int>("app.log.ui_log_level", 0);
+    window.change_ui_log_level(static_cast<LogLevel>(ui_log_level));
     window.show();
+    LOG_MODULE("main", "main", LOG_DEBUG, "窗口已创建，标题: " << window.windowTitle().toStdString());
 
     // 初始化 Python 解释器
     py::scoped_interpreter guard{};

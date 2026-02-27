@@ -1,7 +1,28 @@
 #include "DebugLog.h"
 
+#include <iostream>
+#include <map>
+#include <mutex>
+#include <string>
+#include <sstream>
+#include <typeinfo>
+#include <functional>
+
 DebugLog& DebugLog::Instance() {
     static DebugLog instance;
+    static std::once_flag flag;
+    std::call_once(flag, [&]() {
+        LogSink consoleSink;
+        consoleSink.callback = [](const std::string& module,
+            const std::string& method,
+            LogLevel level,
+            const std::string& message) {
+                std::cerr << "[" << module << "] <" << method << "> ("
+                    << instance.level_to_string(level) << "): " << message << std::endl;
+            };
+        consoleSink.min_level = LOG_DEBUG;
+        instance.register_log_sink("console", consoleSink);
+        });
     return instance;
 }
 
@@ -56,17 +77,36 @@ LogLevel DebugLog::get_log_level(const std::string& module) const {
 }
 
 void DebugLog::log(const std::string& module, const std::string& method, LogLevel level, const std::string& message) {
-    std::lock_guard<std::mutex> lock(out_put_mutex_);
-    if ((level == get_log_level(module)) ||
-        (!is_only_type_info_ &&
-            (level > get_log_level(module)))) {
-        std::cerr << "[" << module << "] <" << method << "> (" << level_to_string(level) << "): " << message << std::endl;
+    std::lock_guard<std::mutex> lock(sinks_mutex_);
+    for (const auto& pair : log_sinks_) {
+        const auto& sink = pair.second;
+        if (level >= sink.min_level) {
+            sink.callback(module, method, level, message);
+        }
     }
 }
 
 void DebugLog::set_default_log_level(LogLevel level) {
     std::lock_guard<std::mutex> lock(mutex_);
     default_log_level_ = level;
+}
+
+void DebugLog::register_log_sink(const std::string& name, const LogSink& sink) {
+    std::lock_guard<std::mutex> lock(sinks_mutex_);
+    log_sinks_[name] = sink;
+}
+
+void DebugLog::unregister_log_sink(const std::string& name) {
+    std::lock_guard<std::mutex> lock(sinks_mutex_);
+    log_sinks_.erase(name);
+}
+
+void DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
+    std::lock_guard<std::mutex> lock(sinks_mutex_);
+    auto it = log_sinks_.find(name);
+    if (it != log_sinks_.end()) {
+        it->second.min_level = level;
+    }
 }
 
 const char* DebugLog::level_to_string(LogLevel level) {
@@ -83,5 +123,3 @@ const char* DebugLog::level_to_string(LogLevel level) {
         return "UNKNOWN";
     }
 }
-
-std::mutex DebugLog::out_put_mutex_;

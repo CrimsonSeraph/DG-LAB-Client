@@ -10,8 +10,9 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
                 {"version", "1.0.0"},
                 {"debug", true},
                 {"log", {
-                    {"level", 0},
-                    {"only_type_info", false}
+                    {"console_level", 0},
+                    {"only_type_info", false},
+                    {"ui_log_level", 0}
                 }}
             }},
             {"python", {

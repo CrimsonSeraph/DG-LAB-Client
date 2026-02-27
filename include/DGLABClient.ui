@@ -184,7 +184,89 @@
         <widget class="QWidget" name="about_page"/>
         <widget class="QWidget" name="config_page"/>
         <widget class="QWidget" name="setting_page"/>
-        <widget class="QWidget" name="first_page"/>
+        <widget class="QWidget" name="first_page">
+         <widget class="QWidget" name="about_page_btn_bar" native="true">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>90</y>
+            <width>698</width>
+            <height>100</height>
+           </rect>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout">
+           <property name="spacing">
+            <number>50</number>
+           </property>
+           <property name="leftMargin">
+            <number>50</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>50</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QPushButton" name="start_connect_btn">
+             <property name="text">
+              <string>启动连接</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="close_connect_btn">
+             <property name="text">
+              <string>终止连接</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="start_btn">
+             <property name="text">
+              <string>开启</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="close_btn">
+             <property name="text">
+              <string>关闭</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QLabel" name="main_title">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>10</y>
+            <width>658</width>
+            <height>60</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>主题文本</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignmentFlag::AlignCenter</set>
+          </property>
+         </widget>
+         <widget class="QTextEdit" name="debug_log">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>220</y>
+            <width>658</width>
+            <height>361</height>
+           </rect>
+          </property>
+         </widget>
+        </widget>
        </widget>
       </item>
      </layout>

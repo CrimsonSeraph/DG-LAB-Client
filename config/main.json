@@ -5,8 +5,9 @@
         "version": "0.1.0",
         "debug": true,
         "log": {
-            "level": 0,
-            "only_type_info": false
+            "console_level": 0,
+            "only_type_info": false,
+            "ui_log_level": 0
         }
     },
     "python": {

@@ -1,5 +1,6 @@
 #include "DGLABClient.h"
 #include "DebugLog.h"
+#include "AppConfig.h"
 
 #include <iostream>
 #include <QPixmap>
@@ -7,12 +8,83 @@
 #include <QList>
 #include <QPushButton>
 #include <QApplication>
+#include <QTextCursor>
+#include <QTextCharFormat>
+#include <QColor>
+#include <QRegularExpression>
+#include <QPointer>
+#include <QSyntaxHighlighter>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始初始化窗口");
     ui.setupUi(this);
 
+    // 首页相关设置
+    ui.debug_log->setReadOnly(true);
+    ui.debug_log->setStyleSheet("");
+    ui.debug_log->document()->setDefaultStyleSheet("");
+    ui.debug_log->document()->setDefaultFont(QFont("Consolas", 8));
+    ui.debug_log->setAcceptRichText(true);
+
+    // 注册 Qt Sink
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始注册 Qt Sink");
+    ui_log_level = ui_log_level;
+    qtSink.callback = [qptr = QPointer<DGLABClient>(this)](const std::string& module,
+        const std::string& method,
+        LogLevel level,
+        const std::string& message) {
+            if (!qptr)
+                return;
+            QString display = QString("[%1] <%2> (%3): %4")
+                .arg(QString::fromStdString(module))
+                .arg(QString::fromStdString(method))
+                .arg(QString::fromStdString(DebugLog::Instance().level_to_string(level)))
+                .arg(QString::fromStdString(message));
+
+            // 在目标对象所属线程执行；在执行时再次检查对象是否仍然存在
+            QMetaObject::invokeMethod(qptr.data(), [qptr, display, level]() {
+                if (!qptr) {
+                    return;
+                }
+                qptr->appendLogMessage(display, level);
+                }, Qt::AutoConnection);
+        };
+    int uiLogLevel = ui_log_level;
+    qtSink.min_level = static_cast<LogLevel>(uiLogLevel);
+    DebugLog::Instance().register_log_sink("qt_ui", qtSink);
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "注册 Qt Sink 完成");
+
+    // 创建简单的高亮器，根据行内的等级关键字为整行上色
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "创建简单的高亮器");
+    class LogHighlighter : public QSyntaxHighlighter {
+    public:
+        LogHighlighter(QTextDocument* doc) : QSyntaxHighlighter(doc) {}
+    protected:
+        void highlightBlock(const QString& text) override {
+            QTextCharFormat f;
+            if (text.contains("(ERROR)")) {
+                f.setForeground(Qt::red);
+            }
+            else if (text.contains("(WARN)")) {
+                f.setForeground(Qt::yellow);
+            }
+            else if (text.contains("(INFO)")) {
+                f.setForeground(Qt::green);
+            }
+            else if (text.contains("(DEBUG)")) {
+                f.setForeground(Qt::gray);
+            }
+            else {
+                return;
+            }
+            setFormat(0, text.length(), f);
+        }
+    };
+    logHighlighter = new LogHighlighter(ui.debug_log->document());
+
     // 加载首页图片
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始加载首页图片");
     QString image_path = ":/image/assets/normal_image/main_image.png";
     bool main_image_exists = QFile::exists(image_path);
     if (main_image_exists) {
@@ -27,6 +99,7 @@ DGLABClient::DGLABClient(QWidget* parent)
     }
 
     // 设置元素属性
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始设置元素属性");
     ui.all->setProperty("type", "main_page");
     ui.all->setProperty("mode", "light");
     QList<QPushButton*> btns = ui.left_btns_bar->findChildren<QPushButton*>();
@@ -40,6 +113,7 @@ DGLABClient::DGLABClient(QWidget* parent)
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "设置元素属性完成！当前全局 mode 为：light");
 
     // 加载样式表
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始加载样式表");
     bool stylesheet_exists = QFile::exists(":/qcss/qcss/style.qcss");
     if (stylesheet_exists) {
         LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "样式表存在");
@@ -57,12 +131,23 @@ DGLABClient::DGLABClient(QWidget* parent)
     else {
         LOG_MODULE("DGLABClient", "DGLABClient", LOG_ERROR, "样式表不存在！");
     }
+    // 为日志控件设置局部样式与调色板，避免全局样式覆盖字符颜色
+    ui.debug_log->setStyleSheet("QTextEdit#debug_log { color: black; }");
+    QPalette pal = ui.debug_log->palette();
+    pal.setColor(QPalette::Text, Qt::black);
+    pal.setColor(QPalette::WindowText, Qt::black);
+    ui.debug_log->setPalette(pal);
 
     // 绑定信号与槽
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始绑定信号与槽");
     connect(ui.main_first_btn, &QPushButton::clicked, this, &DGLABClient::on_main_first_btn_clicked);
     connect(ui.main_config_btn, &QPushButton::clicked, this, &DGLABClient::on_main_config_btn_clicked);
     connect(ui.main_setting_btn, &QPushButton::clicked, this, &DGLABClient::on_main_setting_btn_clicked);
     connect(ui.main_about_btn, &QPushButton::clicked, this, &DGLABClient::on_main_about_btn_clicked);
+
+    // 设置默认页面
+    ui.stackedWidget->setCurrentWidget(ui.first_page);
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "窗口初始化完成");
 }
 
 DGLABClient::~DGLABClient() {
@@ -82,4 +167,50 @@ void DGLABClient::on_main_setting_btn_clicked() {
 
 void DGLABClient::on_main_about_btn_clicked() {
     ui.stackedWidget->setCurrentWidget(ui.about_page);
+}
+
+void DGLABClient::change_ui_log_level(LogLevel new_level) {
+    LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_DEBUG, "修改 UI 日志级别: 旧=" << ui_log_level << " 新=" << new_level);
+    ui_log_level = new_level;
+    DebugLog::Instance().set_log_sink_level("qt_ui", new_level);
+}
+
+void DGLABClient::appendLogMessage(const QString& message, int level) {
+    QString clean = message;
+    QRegularExpression ansi("\\x1B\\[[0-9;]*[A-Za-z]");
+    clean.remove(ansi);
+
+    clean.replace('\r', "");
+
+    // 根据 level 设置颜色
+    QColor color = Qt::white;  // 默认
+    switch (level) {
+    case LOG_DEBUG:
+        color = Qt::gray;
+        break;
+    case LOG_INFO:
+        color = Qt::green;
+        break;
+    case LOG_WARN:
+        color = Qt::yellow;
+        break;
+    case LOG_ERROR:
+        color = Qt::red;
+        break;
+    }
+
+    appendColoredText(ui.debug_log, clean, color);
+}
+
+void DGLABClient::appendColoredText(QTextEdit* edit, const QString& text, const QColor& color) {
+    // 插入纯文本，让高亮器负责为整行着色（避免局部格式被全局 QSS 覆盖）
+    edit->moveCursor(QTextCursor::End);
+    edit->insertPlainText(text + "\n");
+    edit->moveCursor(QTextCursor::End);
+    edit->ensureCursorVisible();
+
+    // 如果存在高亮器，通知它重绘以应用行级颜色
+    if (logHighlighter) {
+        logHighlighter->rehighlight();
+    }
 }
