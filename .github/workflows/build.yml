@@ -69,16 +69,27 @@ jobs:
       - name: Install to temporary directory
         run: cmake --install build --prefix install_root
 
-      # 8. 手动执行 macdeployqt（替代 CMake 中的调用）
+      # 8. 手动执行 windeployqt（Windows）
+      - name: Deploy Qt dependencies with windeployqt (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          echo "Contents of install_root/bin:"
+          ls -la install_root/bin/
+          echo "Running windeployqt..."
+          windeployqt --release --no-translations --no-system-d3d-compiler --no-compiler-runtime --dir install_root/bin install_root/bin/DG-LAB-Client.exe
+          echo "windeployqt completed."
+
+      # 9. 手动执行 macdeployqt（macOS）- 已有
       - name: Deploy Qt dependencies with macdeployqt (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           echo "Contents of install_root:"
           ls -la install_root/
-          echo "Running macdeployqt with verbose output..."
+          echo "Running macdeployqt..."
           macdeployqt install_root/DG-LAB-Client.app -verbose=2
 
-      # 9. Linux 专属步骤：使用 linuxdeployqt 处理 Qt 依赖并生成 AppImage
+      # 10. Linux 专属步骤：使用 linuxdeployqt 处理 Qt 依赖并生成 AppImage
       - name: Install linuxdeployqt (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -97,11 +108,11 @@ jobs:
           mkdir -p ../package
           mv *.AppImage ../package/
 
-      # 10. 使用 CPack 生成其他格式的安装包（DEB、RPM、TGZ、NSIS、DMG 等）
+      # 11. 使用 CPack 生成其他格式的安装包（DEB、RPM、TGZ、NSIS、DMG 等）
       - name: Package with CPack
         run: cpack --config build/CPackConfig.cmake -B package
 
-      # 11. 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
+      # 12. 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -116,7 +127,7 @@ jobs:
             package/*.AppImage
           if-no-files-found: warn
 
-      # 12. 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
+      # 13. 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
       - name: Release
         uses: softprops/action-gh-release@v1
         with:

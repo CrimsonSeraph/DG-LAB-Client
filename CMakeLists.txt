@@ -234,23 +234,23 @@ endif()
 # -------------------- Qt 部署工具（自动复制 Qt DLL/框架）--------------------
 if(WIN32)
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT_BINARY_DIR}" REQUIRED)
-    install(CODE [[
-        message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
-        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
-        execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-            --release
-            --no-translations
-            --no-system-d3d-compiler
-            --no-compiler-runtime
-            --dir "${CMAKE_INSTALL_PREFIX}/bin"
-            "${DEPLOY_TARGET}"
-            WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
-            RESULT_VARIABLE _deploy_result
-        )
-        if(NOT _deploy_result EQUAL 0)
-            message(FATAL_ERROR "windeployqt failed!")
-        endif()
-    ]])
+#    install(CODE [[
+#        message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
+#        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
+#        execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+#            --release
+#            --no-translations
+#            --no-system-d3d-compiler
+#            --no-compiler-runtime
+#            --dir "${CMAKE_INSTALL_PREFIX}/bin"
+#            "${DEPLOY_TARGET}"
+#            WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
+#            RESULT_VARIABLE _deploy_result
+#        )
+#       if(NOT _deploy_result EQUAL 0)
+#            message(FATAL_ERROR "windeployqt failed!")
+#        endif()
+#    ]])
 elseif(APPLE)
     find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BINARY_DIR}" REQUIRED)
 #    install(CODE [[
