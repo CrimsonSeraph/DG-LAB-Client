@@ -69,13 +69,13 @@ jobs:
       - name: Install to temporary directory
         run: cmake --install build --prefix install_root
 
-      # 8. 绕过 CMake 直接执行 macdeployqt，看到原始输出
-      - name: Debug macdeployqt manually (macOS)
+      # 8. 手动执行 macdeployqt（替代 CMake 中的调用）
+      - name: Deploy Qt dependencies with macdeployqt (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           echo "Contents of install_root:"
           ls -la install_root/
-          echo "Running macdeployqt manually with verbose output..."
+          echo "Running macdeployqt with verbose output..."
           macdeployqt install_root/DG-LAB-Client.app -verbose=2
 
       # 9. Linux 专属步骤：使用 linuxdeployqt 处理 Qt 依赖并生成 AppImage

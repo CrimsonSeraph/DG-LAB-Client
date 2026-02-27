@@ -2,7 +2,7 @@
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "1.0.0",
+        "version": "0.1.0",
         "debug": true,
         "log": {
             "level": 0,

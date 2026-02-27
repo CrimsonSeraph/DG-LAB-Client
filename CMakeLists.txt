@@ -253,23 +253,23 @@ if(WIN32)
     ]])
 elseif(APPLE)
     find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BINARY_DIR}" REQUIRED)
-    install(CODE [[
-        message(STATUS "Running macdeployqt for ${PROJECT_NAME}...")
-        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app")
-        execute_process(COMMAND "${MACDEPLOYQT_EXECUTABLE}"
-            "${DEPLOY_TARGET}"
-            -always-overwrite
-            -verbose=2
-            RESULT_VARIABLE _deploy_result
-            OUTPUT_VARIABLE _deploy_output
-            ERROR_VARIABLE _deploy_error
-        )
-        message(STATUS "macdeployqt output:\n${_deploy_output}")
-        message(STATUS "macdeployqt error:\n${_deploy_error}")
-        if(NOT _deploy_result EQUAL 0)
-            message(FATAL_ERROR "macdeployqt failed!\nOutput: ${_deploy_output}\nError: ${_deploy_error}")
-        endif()
-    ]])
+#    install(CODE [[
+#        message(STATUS "Running macdeployqt for ${PROJECT_NAME}...")
+#        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}.app")
+#        execute_process(COMMAND "${MACDEPLOYQT_EXECUTABLE}"
+#            "${DEPLOY_TARGET}"
+#            -always-overwrite
+#            -verbose=2
+#            RESULT_VARIABLE _deploy_result
+#            OUTPUT_VARIABLE _deploy_output
+#            ERROR_VARIABLE _deploy_error
+#        )
+#        message(STATUS "macdeployqt output:\n${_deploy_output}")
+#        message(STATUS "macdeployqt error:\n${_deploy_error}")
+#        if(NOT _deploy_result EQUAL 0)
+#           message(FATAL_ERROR "macdeployqt failed!\nOutput: ${_deploy_output}\nError: ${_deploy_error}")
+#        endif()
+#    ]])
 elseif(UNIX AND NOT APPLE)
     # Linux 下 Qt 依赖处理将在 CI 中使用 linuxdeployqt 完成，此处仅提示
     message(STATUS "Linux: Qt dependencies will be handled by linuxdeployqt in CI.")
