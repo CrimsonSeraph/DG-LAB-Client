@@ -24,11 +24,11 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      # 1. 检出代码
+      # 检出代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 安装 Qt（使用专用 action）
+      # 安装 Qt（使用专用 action）
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
@@ -36,13 +36,13 @@ jobs:
           # 需要额外的 Qt 模块
           modules: ''
 
-      # 3. 设置 Python 环境
+      # 设置 Python 环境
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python_version }}
 
-      # 4. 将 Python 依赖包安装到一个临时目录，便于后续打包
+      # 将 Python 依赖包安装到一个临时目录，便于后续打包
       - name: Install Python packages to temporary directory
         shell: bash  # 使用 bash 以兼容 mkdir -p
         run: |
@@ -51,8 +51,8 @@ jobs:
           pip install --target _packages websockets
           # 其他需要打包的 Python 包
 
-      # 5. 配置 CMake
-      #    传递 Qt 路径、Python 根目录以及 Python 包目录
+      # 配置 CMake
+      # 传递 Qt 路径、Python 根目录以及 Python 包目录
       - name: Configure CMake
         shell: bash  # 使用 bash 以支持反斜杠续行
         run: |
@@ -61,15 +61,15 @@ jobs:
                 -DPython_ROOT_DIR="${{ env.pythonLocation }}" \
                 -DPYTHON_PACKAGES_DIR="${{ github.workspace }}/_packages"
 
-      # 6. 编译项目
+      # 编译项目
       - name: Build
         run: cmake --build build --config Release
 
-      # 7. 安装到临时目录，触发 CMakeLists.txt 中定义的安装规则
+      # 安装到临时目录，触发 CMakeLists.txt 中定义的安装规则
       - name: Install to temporary directory
         run: cmake --install build --prefix install_root
 
-      # 8. 手动执行 windeployqt（Windows）
+      # 手动执行 windeployqt（Windows）
       - name: Deploy Qt dependencies with windeployqt (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
@@ -80,7 +80,7 @@ jobs:
           windeployqt --release --no-translations --no-system-d3d-compiler --no-compiler-runtime --dir install_root/bin install_root/bin/DG-LAB-Client.exe
           echo "windeployqt completed."
 
-      # 9. 手动执行 macdeployqt（macOS）- 已有
+      # 手动执行 macdeployqt（macOS）- 已有
       - name: Deploy Qt dependencies with macdeployqt (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -89,7 +89,7 @@ jobs:
           echo "Running macdeployqt..."
           macdeployqt install_root/DG-LAB-Client.app -verbose=2
 
-      # 10. Linux 专属步骤：使用 linuxdeployqt 处理 Qt 依赖并生成 AppImage
+      # Linux 专属步骤：使用 linuxdeployqt 处理 Qt 依赖并生成 AppImage
       - name: Install linuxdeployqt (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -108,11 +108,16 @@ jobs:
           mkdir -p ../package
           mv *.AppImage ../package/
 
-      # 11. 使用 CPack 生成其他格式的安装包（DEB、RPM、TGZ、NSIS、DMG 等）
+      # 安装 NSIS
+      - name: Install NSIS (Windows)
+        if: matrix.os == 'windows-latest'
+        run: choco install nsis --no-progress
+
+      # 使用 CPack 生成其他格式的安装包（DEB、RPM、TGZ、NSIS、DMG 等）
       - name: Package with CPack
         run: cpack --config build/CPackConfig.cmake -B package
 
-      # 12. 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
+      # 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -127,7 +132,7 @@ jobs:
             package/*.AppImage
           if-no-files-found: warn
 
-      # 13. 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
+      # 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
