@@ -69,7 +69,16 @@ jobs:
       - name: Install to temporary directory
         run: cmake --install build --prefix install_root
 
-      # 8. Linux 专属步骤：使用 linuxdeployqt 处理 Qt 依赖并生成 AppImage
+      # 8. 绕过 CMake 直接执行 macdeployqt，看到原始输出
+      - name: Debug macdeployqt manually (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "Contents of install_root:"
+          ls -la install_root/
+          echo "Running macdeployqt manually with verbose output..."
+          macdeployqt install_root/DG-LAB-Client.app -verbose=2
+
+      # 9. Linux 专属步骤：使用 linuxdeployqt 处理 Qt 依赖并生成 AppImage
       - name: Install linuxdeployqt (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -88,11 +97,11 @@ jobs:
           mkdir -p ../package
           mv *.AppImage ../package/
 
-      # 9. 使用 CPack 生成其他格式的安装包（DEB、RPM、TGZ、NSIS、DMG 等）
+      # 10. 使用 CPack 生成其他格式的安装包（DEB、RPM、TGZ、NSIS、DMG 等）
       - name: Package with CPack
         run: cpack --config build/CPackConfig.cmake -B package
 
-      # 10. 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
+      # 11. 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -107,7 +116,7 @@ jobs:
             package/*.AppImage
           if-no-files-found: warn
 
-      # 11. 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
+      # 12. 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
       - name: Release
         uses: softprops/action-gh-release@v1
         with:

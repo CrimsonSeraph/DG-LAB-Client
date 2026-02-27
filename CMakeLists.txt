@@ -259,10 +259,15 @@ elseif(APPLE)
         execute_process(COMMAND "${MACDEPLOYQT_EXECUTABLE}"
             "${DEPLOY_TARGET}"
             -always-overwrite
+            -verbose=2
             RESULT_VARIABLE _deploy_result
+            OUTPUT_VARIABLE _deploy_output
+            ERROR_VARIABLE _deploy_error
         )
+        message(STATUS "macdeployqt output:\n${_deploy_output}")
+        message(STATUS "macdeployqt error:\n${_deploy_error}")
         if(NOT _deploy_result EQUAL 0)
-            message(FATAL_ERROR "macdeployqt failed!")
+            message(FATAL_ERROR "macdeployqt failed!\nOutput: ${_deploy_output}\nError: ${_deploy_error}")
         endif()
     ]])
 elseif(UNIX AND NOT APPLE)
