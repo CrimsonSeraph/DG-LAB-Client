@@ -25,7 +25,7 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
         std::optional<T> result;
         for (const auto& config : sorted_configs) {
             try {
-                auto value = config->get<T>(key_path);
+                auto value = config->template get<T>(key_path);
                 if (value.has_value()) {
                     result = value;  // 高优先级覆盖
                 }
@@ -70,7 +70,7 @@ inline std::optional<T> MultiConfigManager::get_with_name_unsafe(const std::stri
 
         for (auto& [name, info] : config_registry_) {
             if (info.manager && name == key_name) {
-                auto value = info.manager->get<T>(key_path);
+                auto value = info.manager->template get<T>(key_path);
                 if (value.has_value()) {
                     return value;
                 }
