@@ -243,6 +243,7 @@ if(WIN32)
 
     install(CODE [[
         message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
+        message(STATUS "CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
         # 在安装时查找 windeployqt（使用缓存的 QT_BINARY_DIR）
         find_program(WINDEPLOYQT_EXECUTABLE
             NAMES windeployqt windeployqt6
@@ -251,18 +252,21 @@ if(WIN32)
         )
         message(STATUS "Found windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
         set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/bin/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
+        message(STATUS "Deploy target: ${DEPLOY_TARGET}")
         execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
             --release
             --no-translations
             --no-system-d3d-compiler
             --no-compiler-runtime
-            --dir "${CMAKE_INSTALL_PREFIX}/bin"
             "${DEPLOY_TARGET}"
-            WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/bin"
             RESULT_VARIABLE _deploy_result
+            OUTPUT_VARIABLE _deploy_output
+            ERROR_VARIABLE _deploy_error
         )
+        message(STATUS "windeployqt output: ${_deploy_output}")
+        message(STATUS "windeployqt error: ${_deploy_error}")
         if(NOT _deploy_result EQUAL 0)
-            message(FATAL_ERROR "windeployqt failed!")
+            message(FATAL_ERROR "windeployqt failed! result: ${_deploy_result}")
         endif()
     ]])
 elseif(APPLE)
