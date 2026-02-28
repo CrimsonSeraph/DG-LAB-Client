@@ -31,7 +31,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设计的客户端工具�
   `DebugLog` 提供模块化日志等级控制，可输出到控制台、Qt 界面等不同的 `LogSink`；通过 `Console` 类可在 Windows 上创建调试控制台。
 
 - **WebSocket 通信**  
-  附带的 `WebSocketCore.py` 演示了与 DGLab 服务的基本 WebSocket 交互（连接、心跳、绑定、控制命令），并提供了同步包装方法供 C++ 调用。
+  附带的 `WebSocketCore.py` 用于与 DG-Lab 服务的基本 WebSocket 交互（连接、心跳、绑定、控制命令），并提供了同步包装方法供 C++ 调用。
 
 - **跨平台构建**  
   基于 CMake，支持 Windows、Linux、macOS 等平台（需自行适配 Qt 和 Python 路径与附加包文件等内容）。
@@ -52,8 +52,12 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设计的客户端工具�
 - **[nlohmann/json](https://github.com/nlohmann/json)** (版本 3.12.0)  
   用于 JSON 解析。
 
+**注意：** 若网络环境无法访问 GitHub，可能需要手动下载这些库并 **放置/指定** 位置：
+- pybind11：通过 `cmake -DFETCHCONTENT_SOURCE_DIR_PYBIND11=/path/to/your/pybind11` 指定路径
+- nlohmann/json：构建目录下的 `include/nlohmann/json.hpp`
+
 ### 3. Python 包依赖
-示例脚本 `python/WebSocketCore.py` 使用了以下 Python 库，请确保已安装（或由 CI 自动处理）：
+脚本 `python/WebSocketCore.py` 使用了以下 Python 库，请确保已安装（或由 CI 自动处理）：
 - `websockets` (建议版本 10.0 或更高)  
   安装命令：`pip install websockets`
 
@@ -132,7 +136,9 @@ cpack
 - `system.json`：系统配置，优先级 1
 - `user.json`：用户配置，优先级 2
 
-高优先级的配置项会覆盖低优先级的同路径配置。配置文件中 `__priority` 字段用于定义优先级，不可删除。
+高优先级的配置项会覆盖低优先级的同路径配置。  
+**注意：** 即使有覆盖逻辑，仍不建议在不同配置文件中定义相同属性  
+配置文件中 `__priority` 字段用于定义优先级，不可删除。
 
 示例 `main.json`：
 
@@ -157,26 +163,12 @@ cpack
     "DGLABClient": "DG-LAB-Client"
 }
 ```
+**注意：** 其中 `"version"` 与 `"DGLABClient"` 为检查字段，内容随意，但 **请勿删除或修改** 此字段。
 
 ### 2. Python 脚本
 
 默认 Python 脚本存放于可执行文件所在目录的 `python/` 文件夹中。  
-示例脚本 `WebSocketCore.py` 提供了 `DGLabClient` 类，可通过 C++ 调用其方法进行 WebSocket 连接与控制。
-
-在 `main.cpp` 中，通过 `PyExecutorManager` 注册并调用 Python 方法：
-
-```cpp
-PyExecutorManager& manager = PyExecutorManager::instance();
-manager.register_executor("WebSocketCore", "DGLabClient", false); // 普通执行器
-manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://localhost:9999");
-bool connected = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
-```
-
-若需使用线程池执行器，则注册时第三个参数传 `true`，并可指定线程数：
-
-```cpp
-manager.register_executor("WebSocketCore", "DGLabClient", true, 4);
-```
+脚本 `WebSocketCore.py` 提供了 `DGLabClient` 类，可通过 C++ 调用其方法进行 WebSocket 连接与控制。
 
 ### 3. 日志
 
@@ -197,13 +189,15 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 ### 4. 调试控制台
 
-在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示日志输出。控制台支持 ANSI 转义序列（颜色）。
+在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示详细的日志输出。
+**注意：** 该控制台使用 `#include <windows.h>` 仅在 Windows 平台上可用，并且需要在配置文件中启用调试模式。
+当然，应用中首页也会输出日志到 Qt 界面，您可以根据需要选择查看。
 
 ---
 
 ## 七、本地 WebSocket 中转服务部署
 
-本项目作为客户端，需要连接一个本地的 WebSocket 中转服务才能与 DGLab App 进行通信。该中转服务基于 Node.js 开发，您需要先在电脑上启动它。
+本项目作为客户端，需要连接一个本地的 WebSocket 中转服务才能与 DG-Lab App 进行通信。该中转服务基于 Node.js 开发，您需要先在电脑上启动它。
 
 ### 1. 服务说明
 
@@ -224,18 +218,19 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 **步骤一：安装依赖**
 该服务通常依赖 `ws` 库（WebSocket 实现）。运行以下命令安装依赖：
 ```bash
-npm install ws
+npm install ws uuid
 ```
-如果项目中还包含 `package.json` 文件，可以直接运行 `npm install` 安装所有依赖。
 
 **步骤二：启动服务**
 在同一个目录下，运行以下命令启动服务：
 ```bash
 node websocketNode.js
 ```
-**端口设置**：服务启动后，默认会在控制台输出其监听的端口。**请仔细查看控制台日志**，默认端口通常是 `9999`，具体请以您下载的脚本中定义的端口为准。
+**端口设置**：服务启动后，控制台不会输出任何内容！**请仔查看`websocketNode.js`**，通常默认端口通常是 `9999`，具体请以您下载的脚本中定义的端口为准。
 
 **成功标志**：如果看到类似 `新的 WebSocket 连接已建立，标识符为:xxx` 的提示，则说明服务已成功运行。
+
+**注意：**[官方仓库](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE/tree/main/socket/BackEnd(Node)) 提供了**启动服务的方法**与**相关调试信息开关方式**，详细请参考官方仓库信息
 
 ### 4. 配置与连接本客户端
 
@@ -257,10 +252,10 @@ node websocketNode.js
 ```
 DG-LAB-Client/
 ├── CMakeLists.txt              # 主构建文件
-├── qt.cmake                    # Qt 相关设置（如自动生成翻译文件等，可选）
+├── qt.cmake                    # Qt 相关设置
 ├── include/                    # 公共头文件
 │   ├── AppConfig.h
-│   ├── AppConfig_impl.hpp      # 模板实现
+│   ├── AppConfig_impl.hpp     # 模板实现
 │   ├── ConfigManager.h
 │   ├── ConfigStructs.h
 │   ├── Console.h
