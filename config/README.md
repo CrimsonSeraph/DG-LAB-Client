@@ -35,21 +35,47 @@
 | `app.name`               | string | 应用名称（显示在窗口标题等位置）                                     |
 | `app.version`            | string | 应用版本号                                                           |
 | `app.debug`              | bool   | 是否开启调试模式（Windows 下会创建调试控制台）                       |
-| `app.log.level`          | int    | 日志输出等级：0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE          |
+| `app.log.console_level`  | int    | 控制台日志输出等级：0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE    |
 | `app.log.only_type_info` | bool   | 是否仅输出类型为 INFO 的日志（用于精简输出）                         |
-| `python.path`            | string | Python 脚本文件夹的相对路径（相对于可执行文件所在目录）              |
+| `app.log.ui_log_level`   | int    | UI 界面日志输出等级（同 console_level 枚举）                         |
+| `python.path`            | string | Python 解释器路径或可执行文件名                                     |
+| `python.packages_path`   | string | Python 第三方包安装目录的相对路径（相对于可执行文件所在目录）        |
 
 ---
 
 ### 2. `system.json` —— 系统级配置（WebSocket 通信）
 
-该文件用于配置与 DG-Lab 服务交互的 WebSocket 连接参数、消息收发规则等。客户端会根据这里的设置初始化通信模块。
+该文件用于配置与 DG-Lab 服务交互的 WebSocket 连接参数、消息收发规则等。目前该文件预留为空，用户可根据需要添加自定义配置项，例如：
+
+```json
+{
+    "websocket": {
+        "url": "ws://localhost:9999",
+        "heartbeat_interval": 60,
+        "reconnect_delay": 5,
+        "max_message_length": 1950
+    }
+}
+```
+
+客户端会根据这里的设置初始化通信模块。
 
 ---
 
 ### 3. `user.json` —— 用户自定义配置（界面外观等）
 
-该文件用于存储用户的个性化设置，例如界面主题、字体大小、窗口位置等。目前未预设默认样式，用户可自行添加。
+该文件用于存储用户的个性化设置，例如界面主题、字体大小、窗口位置等。目前文件内容为空，用户可自行添加任意 JSON 结构，例如：
+
+```json
+{
+    "ui": {
+        "theme": "dark",
+        "font_size": 12
+    }
+}
+```
+
+这些设置会覆盖 `main.json` 和 `system.json` 中的同名项（若存在）。
 
 ---
 
@@ -57,5 +83,5 @@
 
 - 配置文件必须为合法的 JSON 格式，否则客户端将无法解析。
 - 修改配置文件后，客户端通常支持热重载（部分模块需重新加载配置）。
-- 如果某个文件缺失，客户端可能会出现问题，务必保留三个文件以确保配置完整性。
+- 如果某个文件缺失，客户端可能无法正常工作，请务必保留三个文件以确保配置完整性。
 - 请勿删除或修改 `__priority`、`version`、`DGLABClient` 这三个保留字段。

@@ -1,7 +1,7 @@
 # DG-LAB-Client
 
 一个基于 Qt 的桌面客户端，用于与 DG-Lab 服务进行 WebSocket 通信，并通过 Python 脚本扩展功能。  
-项目采用 C++20 编写，集成了配置管理、多级日志、Python 解释器（支持线程池）等特性。
+项目采用 C++20 编写，集成了配置管理、多级日志、Python 解释器（支持线程池）、异步任务等特性。
 
 ---
 
@@ -12,7 +12,8 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设计的客户端工具�
 - 同步/异步调用 Python 脚本实现自定义逻辑；
 - 多配置文件管理（主配置、系统配置、用户配置），支持优先级覆盖；
 - 调试控制台与分级日志；
-- 通过 Qt 设计的图形化界面。
+- 通过 Qt 设计的图形化界面；
+- 线程池执行 Python 任务，避免阻塞 UI。
 
 > **注意**：项目尚在开发中，部分功能仍在完善。
 
@@ -21,19 +22,19 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设计的客户端工具�
 ## 二、功能特性
 
 - **Python 脚本集成**  
-  通过 `PyExecutor` / `PyThreadPoolExecutor` 调用 Python 模块中的类和方法，支持同步、异步、线程池执行。
+  通过 `PyExecutor` / `PyThreadPoolExecutor` 调用 Python 模块中的类和方法，支持同步、异步、线程池执行。`PyExecutorManager` 统一管理多个执行器。
 
 - **配置系统**  
-  采用 `MultiConfigManager` 管理多个 JSON 配置文件，支持优先级覆盖、热重载、配置变更监听。
+  采用 `MultiConfigManager` 管理多个 JSON 配置文件，支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。
 
 - **日志与调试**  
-  `DebugLog` 提供模块化日志等级控制，可输出到控制台；通过 `Console` 类可在 Windows 上创建调试控制台。
+  `DebugLog` 提供模块化日志等级控制，可输出到控制台、Qt 界面等不同的 `LogSink`；通过 `Console` 类可在 Windows 上创建调试控制台。
 
 - **WebSocket 通信**  
-  附带的 `WebSocketCore.py` 演示了与 DGLab 服务的基本 WebSocket 交互（连接、心跳、绑定、控制命令）。
+  附带的 `WebSocketCore.py` 演示了与 DGLab 服务的基本 WebSocket 交互（连接、心跳、绑定、控制命令），并提供了同步包装方法供 C++ 调用。
 
 - **跨平台构建**  
-  基于 CMake，支持 Windows、Linux 等平台（需自行适配 Qt 和 Python 路径与附加包文件等内容）。
+  基于 CMake，支持 Windows、Linux、macOS 等平台（需自行适配 Qt 和 Python 路径与附加包文件等内容）。
 
 ---
 
@@ -69,9 +70,7 @@ cd DG-LAB-Client
 
 ### 2. 准备第三方库
 
-需要以下第三方库，CMake 会自动下载（请确保与GitHub连接正常）：
--  [pybind11 3.0.1](https://github.com/pybind11/pybind11/archive/refs/tags/v3.0.1.tar.gz) 。
--  [nlohmann/json](https://github.com/nlohmann/json)。
+CMake 会在配置时自动下载 pybind11 和 nlohmann/json（需要良好的 GitHub 连接）。如遇网络问题，可手动下载并放置到相应位置。
 
 ### 3. 安装 Python 依赖
 
@@ -79,40 +78,37 @@ cd DG-LAB-Client
 pip install websockets
 ```
 
-2. 安装 Python 依赖（可选，如需本地运行）
-
-```bash
-pip install websockets
-```
-
-3. 配置 CMake
+### 4. 配置 CMake
 
 ```bash
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/path/to/qt -DPython_ROOT_DIR=/path/to/python
 ```
 
-如果使用 Qt6，CMake 会自动查找；若使用 Qt5，确保安装了 `qt5-default` 等包。
+- 对于 Qt6，CMake 通常能自动找到；若使用 Qt5，请确保 `Qt5` 包可用。
+- 可通过 `-DPYTHON_PACKAGES_DIR=path/to/site-packages` 指定要打包的第三方 Python 包目录（可选）。
 
-4. 编译
+### 5. 编译
 
 ```bash
 cmake --build . --config Release
 ```
 
-5. 安装到临时目录（可选，用于测试打包结果）
+### 6. 安装到临时目录（可选，用于测试打包结果）
 
 ```bash
 cmake --install . --prefix install_root
 ```
 
-6. 打包（生成安装包）
+### 7. 打包（生成安装包）
 
 ```bash
 cpack
 ```
 
-生成的安装包将位于 build/package/ 目录下（若使用 -B package 参数）。
+生成的安装包将位于 build/ 目录下（根据平台不同，可能是 .exe、.dmg、.deb 等）。
+
+---
 
 ## 五、自动化构建
 
@@ -145,16 +141,20 @@ cpack
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "1.0.0",
-        "debug": true,
+        "version": "0.2.0",
+        "debug": false,
         "log": {
-            "level": 0,
-            "only_type_info": false
+            "console_level": 0,
+            "only_type_info": false,
+            "ui_log_level": 0
         }
     },
     "python": {
-        "path": "python"
-    }
+        "path": "python",
+        "packages_path": "python/Lib/site-packages"
+    },
+    "version": "1.0",
+    "DGLABClient": "DG-LAB-Client"
 }
 ```
 
@@ -163,34 +163,41 @@ cpack
 默认 Python 脚本存放于可执行文件所在目录的 `python/` 文件夹中。  
 示例脚本 `WebSocketCore.py` 提供了 `DGLabClient` 类，可通过 C++ 调用其方法进行 WebSocket 连接与控制。
 
-在 `main.cpp` 中，您可以通过 `PyExecutorManager` 注册并调用 Python 方法：
+在 `main.cpp` 中，通过 `PyExecutorManager` 注册并调用 Python 方法：
 
 ```cpp
-PyExecutorManager manager;
-manager.register_executor("WebSocketCore", "DGLabClient", false);
+PyExecutorManager& manager = PyExecutorManager::instance();
+manager.register_executor("WebSocketCore", "DGLabClient", false); // 普通执行器
 manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://localhost:9999");
 bool connected = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
 ```
 
+若需使用线程池执行器，则注册时第三个参数传 `true`，并可指定线程数：
+
+```cpp
+manager.register_executor("WebSocketCore", "DGLabClient", true, 4);
+```
+
 ### 3. 日志
 
-日志等级通过配置文件 `app.log.level` 控制：
+日志等级通过配置文件 `app.log.console_level`、`app.log.ui_log_level` 控制（数值含义见下表）。您也可以在代码中使用 `LOG_MODULE` 宏输出日志：
 
+```cpp
+LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
+```
+
+日志等级枚举：
 - 0：DEBUG
 - 1：INFO
 - 2：WARN
 - 3：ERROR
 - 4：NONE
 
-您可以在代码中使用 `LOG_MODULE` 宏输出日志：
-
-```cpp
-LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
-```
+可通过 `DebugLog::set_log_sink_level("qt_ui", level)` 动态调整 UI 日志显示级别。
 
 ### 4. 调试控制台
 
-在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示日志输出。
+在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示日志输出。控制台支持 ANSI 转义序列（颜色）。
 
 ---
 
@@ -203,7 +210,7 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 此服务（默认文件名为 `websocketNode.js`）扮演着中央中转站的角色：
 1.  它接收本客户端（DG-LAB-Client）的连接。
 2.  它接收 DG-Lab 官方手机 App 的连接（官方似乎只有 3.x 支持 websocket）。
-3.  它负责在两者之间中继消息（如绑定指令、强度控制、心跳包等），使电脑和手机能通过 WebSocket 进行数据交换。
+3.  它负责在两者之间中继消息（如绑定指令、强度控制、心跳包），使电脑和手机能通过 WebSocket 进行数据交换。
 
 ### 2. 环境准备
 
@@ -234,9 +241,7 @@ node websocketNode.js
 
 1.  保持 Node.js 服务在后台运行（终端窗口不要关闭）。
 2.  启动本客户端（DG-LAB-Client）。
-3.  客户端会根据配置文件（`config/main.json` 中的 `python.path`）或设置加载 Python 脚本。
-4.  Python 脚本（如 `WebSocketCore.py`）中需要配置正确的 WebSocket 服务地址。
-5.  客户端连接成功后，会生成包含服务地址和 `clientId` 的二维码内容。
+3.  客户端会根据配置文件加载 Python 脚本，并在连接成功后生成包含服务地址和 `clientId` 的二维码内容（通过 `generate_qr_content` 方法）。
 
 ### 5. 手机 App 连接
 
@@ -249,41 +254,56 @@ node websocketNode.js
 
 ## 八、项目结构
 
-**大致项目结构（详细请打开相关文件夹查看README.md）**
-
 ```
 DG-LAB-Client/
-├── CMakeLists.txt          # 主构建文件
-├── include/                # 头文件
+├── CMakeLists.txt              # 主构建文件
+├── qt.cmake                    # Qt 相关设置（如自动生成翻译文件等，可选）
+├── include/                    # 公共头文件
 │   ├── AppConfig.h
+│   ├── AppConfig_impl.hpp      # 模板实现
 │   ├── ConfigManager.h
+│   ├── ConfigStructs.h
+│   ├── Console.h
+│   ├── DebugLog.h
+│   ├── DefaultConfigs.h
+│   ├── DGLABClient.h
+│   ├── MultiConfigManager.h
+│   ├── MultiConfigManager_impl.hpp
 │   ├── PyExecutor.h
-│   ├── ...
-├── src/                    # 源文件
+│   ├── PyExecutor_impl.hpp
+│   ├── PyExecutorManager.h
+│   ├── PyExecutorManager_impl.hpp
+│   ├── PyThreadPoolExecutor.h
+│   └── PyThreadPoolExecutor_impl.hpp
+├── src/                        # 源文件
 │   ├── AppConfig.cpp
 │   ├── ConfigManager.cpp
+│   ├── ConfigStructs.cpp
+│   ├── Console.cpp
+│   ├── DebugLog.cpp
+│   ├── DefaultConfigs.cpp
+│   ├── DGLABClient.cpp
+│   ├── MultiConfigManager.cpp
 │   ├── PyExecutor.cpp
-│   ├── ...
-├── python/                 # Python 脚本
+│   ├── PyExecutorManager.cpp
+│   └── PyThreadPoolExecutor.cpp
+├── python/                     # Python 脚本
 │   └── WebSocketCore.py
-│   ├── ...
-├── config/                 # 默认配置文件
+├── config/                     # 默认配置文件
 │   ├── main.json
 │   ├── system.json
 │   └── user.json
-│   ├── ...
-├── assets/                 # 资源文件（图标、UI 设计等）
-│   ├── ...
-├── qcss/                   # Qt 样式表
-│   ├── style.qcss
-│   ├── ...
-├── DGLABClient.qrc         # Qt 资源文件
-├── LICENSE.txt             # 许可证文件
-├── README.md               # 项目说明文档
-├──.editorconfig            # 编辑器配置
-├──.gitattributes           # Git 属性配置
-├──.gitignore               # Git 忽略规则
-├── ...
+├── assets/                     # 资源文件（图标、UI 图片等）
+│   └── normal_image/
+│       └── main_image.png
+├── qcss/                       # Qt 样式表
+│   └── style.qcss
+├── DGLABClient.qrc              # Qt 资源文件
+├── LICENSE.txt                  # 许可证文件
+├── README.md                    # 项目说明文档
+├── .editorconfig                # 编辑器配置
+├── .gitattributes               # Git 属性配置
+└── .gitignore                   # Git 忽略规则
 ```
 
 ---
@@ -298,9 +318,11 @@ DG-LAB-Client/
 
 欢迎提交 Issue 和 Pull Request。在贡献前请确保：
 
-- 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`）。
-- 添加或修改功能时更新相关文档（相关的 README.md）。
-- 确保本地测试通过。
+- 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`，命名规范）。
+- 请务必使用 UTF-8 without BOM 编码提交代码。
+- 添加或修改功能时更新相关文档（如 README.md）。
+- 确保本地测试通过（编译通过，功能正常）。
+- 对于较大的改动，请先开 Issue 讨论。
 
 ---
 
