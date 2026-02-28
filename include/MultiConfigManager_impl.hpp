@@ -113,7 +113,7 @@ inline bool MultiConfigManager::set_with_priority_unsafe(const std::string& key_
                 it->second.manager->save();
                 LOG_MODULE("MultiConfigManager", "set_with_priority_unsafe", LOG_DEBUG,
                     "成功设置配置 [" << key_path << "] 到优先级 " << target_priority
-                    << " 的配置管理器 (" << name << ")");
+                    << " 的配置管理器 (" << it->first << ")");
                 return true;
             }
         }

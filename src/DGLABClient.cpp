@@ -105,6 +105,8 @@ DGLABClient::DGLABClient(QWidget* parent)
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始设置元素属性");
     ui.all->setProperty("type", "main_page");
     ui.all->setProperty("mode", "light");
+    ui.left_btns_bar->setProperty("type", "btns_bar");
+    ui.left_btns_bar->setProperty("mode", "light");
 
     QList<QPushButton*> btns = ui.all->findChildren<QPushButton*>();
     for (QPushButton* btn : btns) {

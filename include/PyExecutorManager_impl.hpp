@@ -16,15 +16,14 @@ ReturnType PyExecutorManager::call_sync(const std::string& module_name,
     try {
         auto var_ptr = get_executor(module_name, class_name);
         auto args_tuple = std::forward_as_tuple(std::forward<Args>(args)...);
-        ReturnType result = std::visit([&](auto& executor) -> ReturnType {
+        LOG_MODULE("PyExecutorManager", "call_sync", LOG_DEBUG,
+            "同步调用成功: " << module_name << "::" << class_name << "::" << method_name);
+        return std::visit([&](auto& executor) -> ReturnType {
             return std::apply([&](auto&&... tuple_args) {
                 return executor.template call_sync<ReturnType>(
                     method_name, std::forward<decltype(tuple_args)>(tuple_args)...);
                 }, args_tuple);
             }, *var_ptr);
-        LOG_MODULE("PyExecutorManager", "call_sync", LOG_DEBUG,
-            "同步调用成功: " << module_name << "::" << class_name << "::" << method_name);
-        return result;
     }
     catch (const std::exception& e) {
         LOG_MODULE("PyExecutorManager", "call_sync", LOG_ERROR,
@@ -43,15 +42,14 @@ std::future<ReturnType> PyExecutorManager::call_async(const std::string& module_
     try {
         auto var_ptr = get_executor(module_name, class_name);
         auto args_tuple = std::forward_as_tuple(std::forward<Args>(args)...);
-        auto future = std::visit([&](auto& executor) -> std::future<ReturnType> {
+        LOG_MODULE("PyExecutorManager", "call_async", LOG_DEBUG,
+            "异步调用已提交: " << module_name << "::" << class_name << "::" << method_name);
+        return std::visit([&](auto& executor) -> std::future<ReturnType> {
             return std::apply([&](auto&&... tuple_args) {
                 return executor.template call_async<ReturnType>(
                     method_name, std::forward<decltype(tuple_args)>(tuple_args)...);
                 }, args_tuple);
             }, *var_ptr);
-        LOG_MODULE("PyExecutorManager", "call_async", LOG_DEBUG,
-            "异步调用已提交: " << module_name << "::" << class_name << "::" << method_name);
-        return future;
     }
     catch (const std::exception& e) {
         LOG_MODULE("PyExecutorManager", "call_async", LOG_ERROR,

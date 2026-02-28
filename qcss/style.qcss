@@ -4,6 +4,11 @@ QWidget[type="main_page"][mode="light"] {
                                 stop: 1 rgba(135, 206, 250, 1));
 }
 
+QWidget[type="btns_bar"][mode="light"] {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+}
+
 QPushButton[type="btns"][mode="light"] {
     background: rgba(255, 255, 255, 0.6);
     border: 2px solid white;
@@ -12,7 +17,7 @@ QPushButton[type="btns"][mode="light"] {
     border-radius: 6px;
     font-size: 16px;
     font-weight: bold;
-    color: white;
+    color: rgba(255, 255, 0, 1);
 }
 
 QPushButton[type="btns"][mode="light"]:hover {
@@ -28,6 +33,6 @@ QLabel[type="main_image_label"][mode="light"] {
     text-align: center;
     font-size: 16px;
     font-weight: bold;
-    color: white;
+    color: rgba(255, 255, 0, 1);
     border-radius: 6px;
 }
