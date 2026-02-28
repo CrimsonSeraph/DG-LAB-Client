@@ -168,33 +168,33 @@ DGLABClient::~DGLABClient() {
 }
 
 void DGLABClient::on_main_first_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_first_btn_clicked", LOG_DEBUG, "main_first_btn 按键触发，跳转 first_page");
+    LOG_MODULE("DGLABClient", "on_main_first_btn_clicked", LOG_INFO, "main_first_btn 按键触发，跳转 first_page");
     ui.stackedWidget->setCurrentWidget(ui.first_page);
 }
 
 void DGLABClient::on_main_config_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_config_btn_clicked", LOG_DEBUG, "main_config_btn 按键触发，跳转 config_page");
+    LOG_MODULE("DGLABClient", "on_main_config_btn_clicked", LOG_INFO, "main_config_btn 按键触发，跳转 config_page");
     ui.stackedWidget->setCurrentWidget(ui.config_page);
 }
 
 void DGLABClient::on_main_setting_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_setting_btn_clicked", LOG_DEBUG, "main_setting_btn 按键触发，跳转 setting_page");
+    LOG_MODULE("DGLABClient", "on_main_setting_btn_clicked", LOG_INFO, "main_setting_btn 按键触发，跳转 setting_page");
     ui.stackedWidget->setCurrentWidget(ui.setting_page);
 }
 
 void DGLABClient::on_main_about_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_about_btn_clicked", LOG_DEBUG, "main_about_btn 按键触发，跳转 about_page");
+    LOG_MODULE("DGLABClient", "on_main_about_btn_clicked", LOG_INFO, "main_about_btn 按键触发，跳转 about_page");
     ui.stackedWidget->setCurrentWidget(ui.about_page);
 }
 
 void DGLABClient::on_start_connect_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "start_connect_btn 按键触发");
+    LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "start_connect_btn 按键触发");
     if (start_connect_btn_loading) {
         LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "正在连接中，忽略重复点击");
         return;
     }
     if (!is_connected) {
-        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "开始连接");
+        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "开始连接");
         start_connect_btn_loading = true;
         ui.start_connect_btn->setEnabled(false);
         start_async_connect();
@@ -202,19 +202,19 @@ void DGLABClient::on_start_connect_btn_clicked() {
 }
 
 void DGLABClient::on_close_connect_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "close_connect_btn 按键触发");
+    LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "close_connect_btn 按键触发");
     if (close_connect_btn_loading) {
         LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "正在断开中，忽略重复点击");
         return;
     }
     if (is_connected) {
-        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "开始断开连接");
+        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "开始断开连接");
         close_connect_btn_loading = true;
         ui.close_connect_btn->setEnabled(false);
         close_async_connect();
     }
     else {
-        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "没有连接");
+        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "没有连接");
     }
 }
 
@@ -301,7 +301,7 @@ void DGLABClient::start_async_connect() {
             }
 
             // 连接（同步调用）
-            LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "开始连接");
+            LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在连接");
             bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
             if (!is_connect) {
                 emit connect_finished(false, "连接失败");
@@ -309,7 +309,7 @@ void DGLABClient::start_async_connect() {
             }
 
             // 连接完成，获取二维码内容（同步调用）
-            LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "开始获取二维码内容");
+            LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "开始获取二维码内容");
             std::string qr = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
             emit code_content_ready(QString::fromStdString(qr));
 
@@ -336,7 +336,7 @@ void DGLABClient::close_async_connect() {
         QString errorMsg;
         try {
             // 断开（同步调用）
-            LOG_MODULE("DGLABClient", "close_async_connect", LOG_DEBUG, "正在断开连接");
+            LOG_MODULE("DGLABClient", "close_async_connect", LOG_INFO, "正在断开连接");
             bool is_close = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_close");
             if (!is_close) {
                 emit close_finished(false, "断开失败");

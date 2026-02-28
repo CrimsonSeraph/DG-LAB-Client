@@ -88,7 +88,10 @@ inline std::optional<T> ConfigManager::get(const std::string& key_path) const {
             current = current.at(key);
         }
 
-        return current.get<T>();
+        T val = current.get<T>();
+        LOG_MODULE("ConfigManager", "get", LOG_DEBUG,
+            "获取配置成功 [" << key_path << "] = " << nlohmann::json(val).dump());
+        return val;
 
     }
     catch (const std::exception& e) {
@@ -121,7 +124,8 @@ inline bool ConfigManager::set(const std::string& key_path, const T& value) {
 
         // 设置最终值
         (*current)[keys.back()] = value;
-
+        LOG_MODULE("ConfigManager", "set", LOG_DEBUG,
+            "设置配置成功 [" << key_path << "] = " << nlohmann::json(value).dump());
         return true;
 
     }

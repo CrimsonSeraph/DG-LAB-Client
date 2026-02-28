@@ -65,7 +65,7 @@ std::shared_ptr<ConfigManager> MultiConfigManager::get_config(const std::string&
         LOG_MODULE("MultiConfigManager", "get_config", LOG_DEBUG, "重新加载完成: " << name);
     }
 
-    LOG_MODULE("MultiConfigManager", "get_config", LOG_INFO, "获取配置成功: " << name);
+    LOG_MODULE("MultiConfigManager", "get_config", LOG_DEBUG, "获取配置成功: " << name);
     return it->second.manager;
 }
 

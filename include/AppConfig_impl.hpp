@@ -97,9 +97,13 @@ public:
         if (!cached_value_.has_value()) {
             if (config_) {
                 cached_value_ = config_->get<T>(key_path_, default_value_);
+                LOG_MODULE("ConfigValue", "get", LOG_DEBUG,
+                    "从配置管理器读取 [" << key_path_ << "] = " << cached_value_.value());
             }
             else {
                 cached_value_ = default_value_;
+                LOG_MODULE("ConfigValue", "get", LOG_DEBUG,
+                    "使用默认值 [" << key_path_ << "] = " << cached_value_.value());
             }
         }
         return cached_value_.value();
@@ -110,14 +114,16 @@ public:
         if (config_) {
             if (config_->set(key_path_, value)) {
                 cached_value_ = value;
+                LOG_MODULE("ConfigValue", "set", LOG_DEBUG,
+                    "设置配置 [" << key_path_ << "] = " << value);
                 try {
                     config_->save();  // 自动保存
                 }
                 catch (const std::exception& e) {
-                    LOG_MODULE("AppConfig", "set", LOG_ERROR, "保存配置失败: " << e.what());
+                    LOG_MODULE("ConfigValue", "set", LOG_ERROR, "保存配置失败: " << e.what());
                 }
                 catch (...) {
-                    LOG_MODULE("AppConfig", "set", LOG_ERROR, "保存配置失败: 未知异常");
+                    LOG_MODULE("ConfigValue", "set", LOG_ERROR, "保存配置失败: 未知异常");
                 }
                 // 确保回调安全
                 if (change_callback_) {
@@ -125,10 +131,10 @@ public:
                         change_callback_(value);
                     }
                     catch (const std::exception& e) {
-                        LOG_MODULE("AppConfig", "set", LOG_ERROR, "配置变更回调失败: " << e.what());
+                        LOG_MODULE("ConfigValue", "set", LOG_ERROR, "配置变更回调失败: " << e.what());
                     }
                     catch (...) {
-                        LOG_MODULE("AppConfig", "set", LOG_ERROR, "配置变更回调失败: 未知异常");
+                        LOG_MODULE("ConfigValue", "set", LOG_ERROR, "配置变更回调失败: 未知异常");
                     }
                 }
             }
@@ -260,9 +266,13 @@ public:
                     T obj = {};
                     T::from_json(json_obj.value(), obj);
                     cached_value_ = obj;
+                    LOG_MODULE("ConfigObject", "get", LOG_DEBUG,
+                        "从配置管理器读取对象 [" << key_path_ << "]");
                 }
                 else {
                     cached_value_ = default_value_;
+                    LOG_MODULE("ConfigObject", "get", LOG_DEBUG,
+                        "使用默认对象 [" << key_path_ << "]");
                     // 保存默认值
                     nlohmann::json j;
                     T::to_json(j, default_value_);
@@ -283,24 +293,26 @@ public:
             T::to_json(j, value);
             if (config_->set(key_path_, j)) {
                 cached_value_ = value;
+                LOG_MODULE("ConfigObject", "set", LOG_DEBUG,
+                    "设置对象配置 [" << key_path_ << "]");
                 try {
                     config_->save();
                 }
                 catch (const std::exception& e) {
-                    LOG_MODULE("AppConfig", "set", LOG_ERROR, "保存配置对象失败: " << e.what());
+                    LOG_MODULE("ConfigObject", "set", LOG_ERROR, "保存配置对象失败: " << e.what());
                 }
                 catch (...) {
-                    LOG_MODULE("AppConfig", "set", LOG_ERROR, "保存配置对象失败: 未知异常");
+                    LOG_MODULE("ConfigObject", "set", LOG_ERROR, "保存配置对象失败: 未知异常");
                 }
                 if (change_callback_) {
                     try {
                         change_callback_(value);
                     }
                     catch (const std::exception& e) {
-                        LOG_MODULE("AppConfig", "set", LOG_ERROR, "配置对象变更回调失败: " << e.what());
+                        LOG_MODULE("ConfigObject", "set", LOG_ERROR, "配置对象变更回调失败: " << e.what());
                     }
                     catch (...) {
-                        LOG_MODULE("AppConfig", "set", LOG_ERROR, "配置对象变更回调失败: 未知异常");
+                        LOG_MODULE("ConfigObject", "set", LOG_ERROR, "配置对象变更回调失败: 未知异常");
                     }
                 }
             }
