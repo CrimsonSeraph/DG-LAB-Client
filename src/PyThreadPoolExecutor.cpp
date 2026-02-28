@@ -48,6 +48,14 @@ void PyThreadPoolExecutor::Impl::worker_thread(PyThreadPoolExecutor* self) {
         }
 
         --active_tasks;
+        // 如果没有活动任务且队列为空，通知等待者
+        if (active_tasks.load() == 0) {
+            std::lock_guard<std::mutex> lk(queue_mutex);
+            if (task_queue.empty()) {
+                queue_cv.notify_all();
+                completion_cv.notify_all();
+            }
+        }
     }
 }
 
@@ -71,9 +79,17 @@ PyThreadPoolExecutor::PyThreadPoolExecutor(const std::string& module_name, size_
 PyThreadPoolExecutor::~PyThreadPoolExecutor() = default;  // unique_ptr 自动释放
 
 void PyThreadPoolExecutor::wait_all() {
-    while (get_pending_count() > 0 || get_active_count() > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    }
+    std::unique_lock<std::mutex> lk(pimpl_->queue_mutex);
+    pimpl_->completion_cv.wait(lk, [this] {
+        return pimpl_->task_queue.empty() && pimpl_->active_tasks.load() == 0;
+    });
+}
+
+bool PyThreadPoolExecutor::wait_all_for(std::chrono::milliseconds timeout) {
+    std::unique_lock<std::mutex> lk(pimpl_->queue_mutex);
+    return pimpl_->completion_cv.wait_for(lk, timeout, [this] {
+        return pimpl_->task_queue.empty() && pimpl_->active_tasks.load() == 0;
+    });
 }
 
 size_t PyThreadPoolExecutor::get_active_count() const {

@@ -5,6 +5,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <type_traits>
+#include <chrono>
 
 PyExecutorManager& PyExecutorManager::instance() {
     static PyExecutorManager inst;
@@ -69,6 +70,10 @@ bool PyExecutorManager::unregister_executor(const std::string& module_name,
     const std::string& class_name) {
     LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_INFO,
         "正在注销执行器: " << module_name << "::" << class_name);
+    // Defensive approach:
+    // 1. Copy shared_ptr to the executor under lock
+    // 2. Release lock and, if it's a thread-pool executor, wait for its tasks to finish
+    // 3. Reacquire lock and erase the entry only if it hasn't been replaced
 
     std::unique_lock lock(mutex_);
     auto mod_it = executors_.find(module_name);
@@ -84,13 +89,65 @@ bool PyExecutorManager::unregister_executor(const std::string& module_name,
         return false;
     }
 
-    mod_it->second.erase(cls_it);
-    if (mod_it->second.empty()) {
-        executors_.erase(mod_it);
+    // 持有一份 shared_ptr，保证在等待期间对象不会被销毁
+    auto var_ptr = cls_it->second;
+    // 不在持锁时等待，避免阻塞其他管理操作
+    lock.unlock();
+
+    bool timed_out = false;
+    try {
+        std::visit([&](auto &exec) {
+            using T = std::decay_t<decltype(exec)>;
+            if constexpr (std::is_same_v<T, PyThreadPoolExecutor>) {
+                LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_DEBUG,
+                    "等待线程池执行器完成任务: " << module_name << "::" << class_name);
+                // 等待最多 5 秒，超时则记录并放弃注销
+                if (!exec.wait_all_for(std::chrono::milliseconds(5000))) {
+                    LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_WARN,
+                        "等待执行器超时，放弃注销: " << module_name << "::" << class_name);
+                    timed_out = true;
+                }
+            }
+            }, *var_ptr);
     }
-    LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_INFO,
-        "成功注销执行器: " << module_name << "::" << class_name);
-    return true;
+    catch (const std::exception &e) {
+        LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_WARN,
+            "等待执行器任务完成时出现异常: " << e.what());
+    }
+
+    if (timed_out) {
+        return false;
+    }
+
+    // 再次获取锁并确保我们删除的是同一个执行器实例（避免竞态替换）
+    std::unique_lock lock2(mutex_);
+    auto mod_it2 = executors_.find(module_name);
+    if (mod_it2 == executors_.end()) {
+        LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_DEBUG,
+            "模块在等待期间已被移除: " << module_name);
+        return false;
+    }
+    auto cls_it2 = mod_it2->second.find(class_name);
+    if (cls_it2 == mod_it2->second.end()) {
+        LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_DEBUG,
+            "类在等待期间已被移除: " << module_name << "::" << class_name);
+        return false;
+    }
+
+    // 仅当映射中仍然保存着我们之前观察到的实例时才擦除
+    if (cls_it2->second == var_ptr) {
+        mod_it2->second.erase(cls_it2);
+        if (mod_it2->second.empty()) {
+            executors_.erase(mod_it2);
+        }
+        LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_INFO,
+            "成功注销执行器: " << module_name << "::" << class_name);
+        return true;
+    }
+
+    LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_DEBUG,
+        "在等待期间执行器已被替换，未执行删除: " << module_name << "::" << class_name);
+    return false;
 }
 
 bool PyExecutorManager::has_executor(const std::string& module_name,

@@ -11,6 +11,7 @@
 #include <functional>
 #include <atomic>
 #include <memory>
+#include <chrono>
 
 /**
  * @brief 线程池增强的Python执行器
@@ -50,6 +51,10 @@ public:
      * @brief 等待所有任务完成
      */
     void wait_all();
+    /**
+     * @brief 带超时的等待，返回是否在超时前完成
+     */
+    bool wait_all_for(std::chrono::milliseconds timeout);
 
     /**
      * @brief 获取活跃线程数量
@@ -79,6 +84,7 @@ private:
         std::queue<Task> task_queue;
         mutable std::mutex queue_mutex;
         std::condition_variable queue_cv;
+        std::condition_variable completion_cv;
         std::atomic<bool> stop{ false };
         std::atomic<size_t> active_tasks{ 0 };
 
