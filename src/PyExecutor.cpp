@@ -13,6 +13,11 @@ static void ensure_interpreter() {
     static py::scoped_interpreter guard{};
 }
 
+py::object PyExecutor::get_bound_method(const std::string& method_name) const {
+    // 返回方法对象的副本（py::object 实现为引用计数的持有者）
+    return get_method(method_name);
+}
+
 PyExecutor::PyExecutor(const std::string& module_name, bool auto_import)
     : module_name_(module_name), module_loaded_(false) {
 

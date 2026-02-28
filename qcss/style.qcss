@@ -4,7 +4,7 @@ QWidget[type="main_page"][mode="light"] {
                                 stop: 1 rgba(135, 206, 250, 1));
 }
 
-QPushButton[type="main_page_btns"][mode="light"] {
+QPushButton[type="btns"][mode="light"] {
     background: rgba(255, 255, 255, 0.6);
     border: 2px solid white;
     padding: 10px 24px;
@@ -15,11 +15,11 @@ QPushButton[type="main_page_btns"][mode="light"] {
     color: white;
 }
 
-QPushButton[type="main_page_btns"][mode="light"]:hover {
+QPushButton[type="btns"][mode="light"]:hover {
     background: rgba(135, 206, 250, 0.6);
 }
 
-QPushButton[type="main_page_btns"]:pressed {
+QPushButton[type="btns"][mode="light"]:pressed {
     background: rgba(65, 105, 225, 0.6);
 }
 

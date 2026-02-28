@@ -201,6 +201,8 @@ target_include_directories(${PROJECT_NAME}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE PYBIND11_ASSERT_GIL_HELD_INCREF_DECREF)
+
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # 安装可执行文件
 install(TARGETS ${PROJECT_NAME}

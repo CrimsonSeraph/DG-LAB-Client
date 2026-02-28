@@ -6,6 +6,11 @@
 #include <shared_mutex>
 #include <type_traits>
 
+PyExecutorManager& PyExecutorManager::instance() {
+    static PyExecutorManager inst;
+    return inst;
+}
+
 bool PyExecutorManager::register_executor(const std::string& module_name,
     const std::string& class_name,
     bool use_thread_pool,
@@ -25,24 +30,25 @@ bool PyExecutorManager::register_executor(const std::string& module_name,
 
     try {
         if (use_thread_pool) {
-            // 创建线程池版执行器
-            mod_map.emplace(class_name,
-                PyThreadPoolExecutor(module_name, num_threads));
-            // 创建类实例
+            // 创建线程池版执行器并以 shared_ptr 存储
+            auto ptr = std::make_shared<ExecutorVariant>(PyThreadPoolExecutor(module_name, num_threads));
+            mod_map.emplace(class_name, ptr);
+            // 创建类实例（访问 variant 内部对象）
             std::visit([&](auto& exec) {
-                if constexpr (std::is_same_v<std::decay_t<decltype(exec)>,
-                    PyThreadPoolExecutor>) {
+                using T = std::decay_t<decltype(exec)>;
+                if constexpr (std::is_same_v<T, PyThreadPoolExecutor>) {
                     exec.get_executor().create_instance(class_name);
                     LOG_MODULE("PyExecutorManager", "register_executor", LOG_DEBUG,
                         "已创建线程池执行器实例: " << module_name << "::" << class_name);
                 }
-                }, mod_map.at(class_name));
+                }, *mod_map.at(class_name));
         }
         else {
-            // 创建普通版执行器，并创建实例
+            // 创建普通版执行器，并创建实例，然后以 shared_ptr 存储
             PyExecutor exec(module_name);
             exec.create_instance(class_name);
-            mod_map.emplace(class_name, std::move(exec));
+            auto ptr = std::make_shared<ExecutorVariant>(std::move(exec));
+            mod_map.emplace(class_name, ptr);
             LOG_MODULE("PyExecutorManager", "register_executor", LOG_DEBUG,
                 "已创建单线程执行器实例: " << module_name << "::" << class_name);
         }
@@ -113,11 +119,11 @@ std::vector<PyExecutorManager::ExecutorInfo> PyExecutorManager::list_executors()
     std::vector<ExecutorInfo> infos;
     std::shared_lock lock(mutex_);
     for (const auto& [mod_name, cls_map] : executors_) {
-        for (const auto& [cls_name, var] : cls_map) {
+        for (const auto& [cls_name, var_ptr] : cls_map) {
             bool is_thread_pool = std::visit([](const auto& exec) {
                 using T = std::decay_t<decltype(exec)>;
                 return std::is_same_v<T, PyThreadPoolExecutor>;
-                }, var);
+                }, *var_ptr);
             infos.push_back({ mod_name, cls_name, is_thread_pool });
             LOG_MODULE("PyExecutorManager", "list_executors", LOG_DEBUG,
                 "找到执行器: " << mod_name << "::" << cls_name
@@ -135,10 +141,10 @@ std::vector<std::string> PyExecutorManager::get_method_list(
     LOG_MODULE("PyExecutorManager", "get_method_list", LOG_DEBUG,
         "获取方法列表: " << module_name << "::" << class_name);
 
-    const auto& var = get_executor(module_name, class_name);
+    auto var_ptr = get_executor(module_name, class_name);
     auto methods = std::visit([](const auto& exec) {
         return exec.get_method_list();
-        }, var);
+        }, *var_ptr);
 
     LOG_MODULE("PyExecutorManager", "get_method_list", LOG_DEBUG,
         "执行器 " << module_name << "::" << class_name
@@ -147,7 +153,7 @@ std::vector<std::string> PyExecutorManager::get_method_list(
 }
 
 // 辅助：获取可写引用
-PyExecutorManager::ExecutorVariant& PyExecutorManager::get_executor(const std::string& module_name,
+PyExecutorManager::ExecutorPtr PyExecutorManager::get_executor(const std::string& module_name,
     const std::string& class_name) {
     LOG_MODULE("PyExecutorManager", "get_executor", LOG_DEBUG,
         "获取可写执行器引用: " << module_name << "::" << class_name);
@@ -169,7 +175,7 @@ PyExecutorManager::ExecutorVariant& PyExecutorManager::get_executor(const std::s
 }
 
 // 辅助：获取只读引用
-const PyExecutorManager::ExecutorVariant& PyExecutorManager::get_executor(const std::string& module_name,
+PyExecutorManager::ExecutorPtr PyExecutorManager::get_executor(const std::string& module_name,
     const std::string& class_name) const {
     LOG_MODULE("PyExecutorManager", "get_executor", LOG_DEBUG,
         "获取只读执行器引用: " << module_name << "::" << class_name);

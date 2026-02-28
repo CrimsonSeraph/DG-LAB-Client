@@ -18,11 +18,21 @@ inline std::future<ReturnType> PyThreadPoolExecutor::submit(const std::string& m
     auto promise = std::make_shared<std::promise<ReturnType>>();
     auto future = promise->get_future();
 
-    auto task = [this, promise, method_name, args...]() mutable {
+    // 在提交任务前获取可调用对象的副本，避免任务在后台执行时访问已销毁的 this 或 pimpl_
+    py::object method_obj = pimpl_->executor.get_bound_method(method_name);
+
+    auto task = [promise, method_obj, method_name, args...]() mutable {
         LOG_MODULE("PyThreadPoolExecutor", "submit", LOG_DEBUG, "线程池任务开始执行: " << method_name);
         try {
-            ReturnType result = pimpl_->executor.call_sync<ReturnType>(method_name, std::forward<Args>(args)...);
-            promise->set_value(std::move(result));
+            // 在 worker 线程中获得 GIL 并直接调用复制的 method 对象
+            py::gil_scoped_acquire acquire;
+            py::object result = method_obj(std::forward<Args>(args)...);
+            if constexpr (std::is_same_v<ReturnType, void>) {
+                promise->set_value();
+            }
+            else {
+                promise->set_value(result.cast<ReturnType>());
+            }
             LOG_MODULE("PyThreadPoolExecutor", "submit", LOG_DEBUG, "线程池任务执行成功: " << method_name);
         }
         catch (const std::exception& e) {
@@ -33,7 +43,7 @@ inline std::future<ReturnType> PyThreadPoolExecutor::submit(const std::string& m
             LOG_MODULE("PyThreadPoolExecutor", "submit", LOG_ERROR, "线程池任务执行未知异常: " << method_name);
             promise->set_exception(std::current_exception());
         }
-        };
+    };
 
     {
         std::lock_guard<std::mutex> lock(pimpl_->queue_mutex);

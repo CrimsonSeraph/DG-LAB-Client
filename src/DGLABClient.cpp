@@ -1,6 +1,7 @@
 #include "DGLABClient.h"
 #include "DebugLog.h"
 #include "AppConfig.h"
+#include "PyExecutorManager.h"
 
 #include <iostream>
 #include <QPixmap>
@@ -102,12 +103,13 @@ DGLABClient::DGLABClient(QWidget* parent)
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始设置元素属性");
     ui.all->setProperty("type", "main_page");
     ui.all->setProperty("mode", "light");
-    QList<QPushButton*> btns = ui.left_btns_bar->findChildren<QPushButton*>();
+
+    QList<QPushButton*> btns = ui.all->findChildren<QPushButton*>();
     for (QPushButton* btn : btns) {
-        btn->setProperty("type", "main_page_btns");
+        btn->setProperty("type", "btns");
         btn->setProperty("mode", "light");
     }
-    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "共加载 " << btns.size() << " 个按键");
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "共加载" << btns.size() << "个按键");
     ui.main_image_label->setProperty("type", "main_image_label");
     ui.main_image_label->setProperty("mode", "light");
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "设置元素属性完成！当前全局 mode 为：light");
@@ -145,6 +147,11 @@ DGLABClient::DGLABClient(QWidget* parent)
     connect(ui.main_setting_btn, &QPushButton::clicked, this, &DGLABClient::on_main_setting_btn_clicked);
     connect(ui.main_about_btn, &QPushButton::clicked, this, &DGLABClient::on_main_about_btn_clicked);
 
+    connect(ui.start_connect_btn, &QPushButton::clicked, this, &DGLABClient::on_start_connect_btn_clicked);
+    connect(ui.close_connect_btn, &QPushButton::clicked, this, &DGLABClient::on_close_connect_btn_clicked);
+    connect(ui.start_btn, &QPushButton::clicked, this, &DGLABClient::on_start_btn_clicked);
+    connect(ui.close_btn, &QPushButton::clicked, this, &DGLABClient::on_close_btn_clicked);
+
     // 设置默认页面
     ui.stackedWidget->setCurrentWidget(ui.first_page);
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "窗口初始化完成");
@@ -154,19 +161,77 @@ DGLABClient::~DGLABClient() {
 }
 
 void DGLABClient::on_main_first_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_main_first_btn_clicked", LOG_DEBUG, "main_first_btn 按键触发，跳转 first_page");
     ui.stackedWidget->setCurrentWidget(ui.first_page);
 }
 
 void DGLABClient::on_main_config_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_main_config_btn_clicked", LOG_DEBUG, "main_config_btn 按键触发，跳转 config_page");
     ui.stackedWidget->setCurrentWidget(ui.config_page);
 }
 
 void DGLABClient::on_main_setting_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_main_setting_btn_clicked", LOG_DEBUG, "main_setting_btn 按键触发，跳转 setting_page");
     ui.stackedWidget->setCurrentWidget(ui.setting_page);
 }
 
 void DGLABClient::on_main_about_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_main_about_btn_clicked", LOG_DEBUG, "main_about_btn 按键触发，跳转 about_page");
     ui.stackedWidget->setCurrentWidget(ui.about_page);
+}
+
+void DGLABClient::on_start_connect_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "start_connect_btn 按键触发");
+    if (!start_connect_btn_loading) {
+        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "开始连接");
+        start_connect_btn_loading = true;
+        auto& manager = PyExecutorManager::instance();
+        if (!executor_is_register) {
+            LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "执行器开始注册");
+            if (!manager.register_executor("WebSocketCore", "DGLabClient", false)) {
+                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_ERROR, "执行器注册失败！");
+                start_connect_btn_loading = false;
+                return;
+            }
+            else {
+                executor_is_register = true;
+                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "执行器注册完成");
+            }
+        }
+        try {
+            manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://localhost:9999");// test
+
+            bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
+            if (!is_connect) {
+                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_ERROR, "Py 模块进行连接失败");
+            }
+            else {
+                manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_send_strength_operation", 1, 2, 10);// test
+                std::string server_address = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
+                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "连接到" << server_address);
+                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "连接完成");
+            }
+            manager.call_sync<void>("WebSocketCore", "DGLabClient", "sync_close");// test
+        }
+        catch (const std::exception& e) {
+            LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_ERROR, "调用失败: " << e.what());
+            LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_WARN, "连接失败");
+            start_connect_btn_loading = false;
+        }
+        start_connect_btn_loading = false;
+    }
+    else {
+        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "正在连接中，忽略重复点击");
+    }
+}
+
+void DGLABClient::on_close_connect_btn_clicked() {
+}
+
+void DGLABClient::on_start_btn_clicked() {
+}
+
+void DGLABClient::on_close_btn_clicked() {
 }
 
 void DGLABClient::change_ui_log_level(LogLevel new_level) {
@@ -182,27 +247,10 @@ void DGLABClient::appendLogMessage(const QString& message, int level) {
 
     clean.replace('\r', "");
 
-    // 根据 level 设置颜色
-    QColor color = Qt::white;  // 默认
-    switch (level) {
-    case LOG_DEBUG:
-        color = Qt::gray;
-        break;
-    case LOG_INFO:
-        color = Qt::green;
-        break;
-    case LOG_WARN:
-        color = Qt::yellow;
-        break;
-    case LOG_ERROR:
-        color = Qt::red;
-        break;
-    }
-
-    appendColoredText(ui.debug_log, clean, color);
+    appendColoredText(ui.debug_log, clean);
 }
 
-void DGLABClient::appendColoredText(QTextEdit* edit, const QString& text, const QColor& color) {
+void DGLABClient::appendColoredText(QTextEdit* edit, const QString& text) {
     // 插入纯文本，让高亮器负责为整行着色（避免局部格式被全局 QSS 覆盖）
     edit->moveCursor(QTextCursor::End);
     edit->insertPlainText(text + "\n");

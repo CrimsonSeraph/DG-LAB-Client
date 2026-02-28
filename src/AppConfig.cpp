@@ -22,7 +22,6 @@ namespace fs = std::filesystem;
 
 AppConfig& AppConfig::instance() {
     static AppConfig instance;
-    DebugLog::Instance().set_log_level("AppConfig", LOG_DEBUG);
     return instance;
 }
 

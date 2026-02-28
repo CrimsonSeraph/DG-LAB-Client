@@ -9,8 +9,11 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <memory>
 #include <future>
 #include <stdexcept>
+#include <Python.h>
+#include <pybind11/embed.h>
 
 class PyExecutorManager {
 public:
@@ -20,6 +23,8 @@ public:
         std::string class_name;
         bool is_thread_pool;   // true: 线程池版, false: 普通版
     };
+
+    static PyExecutorManager& instance();
 
     /**
      * @brief 注册一个执行器
@@ -93,17 +98,42 @@ public:
 
 private:
     using ExecutorVariant = std::variant<PyExecutor, PyThreadPoolExecutor>;
+    using ExecutorPtr = std::shared_ptr<ExecutorVariant>;
+
+    PyExecutorManager() = default;
+    ~PyExecutorManager();
+    PyExecutorManager(const PyExecutorManager&) = delete;
+    PyExecutorManager& operator=(const PyExecutorManager&) = delete;
 
     mutable std::shared_mutex mutex_;
     // 第一层 key: 模块名, 第二层 key: 类名
     std::unordered_map<std::string,
-        std::unordered_map<std::string, ExecutorVariant>> executors_;
+        std::unordered_map<std::string, ExecutorPtr>> executors_;
 
     // 辅助：获取 variant 的引用，若不存在则抛出异常
-    ExecutorVariant& get_executor(const std::string& module_name,
+    // 返回 shared_ptr 保证在外部使用期间对象不会被容器删除
+    ExecutorPtr get_executor(const std::string& module_name,
         const std::string& class_name);
-    const ExecutorVariant& get_executor(const std::string& module_name,
+    ExecutorPtr get_executor(const std::string& module_name,
         const std::string& class_name) const;
 };
+
+inline PyExecutorManager::~PyExecutorManager() {
+    // 如果 Python 解释器仍在运行，则在持有 GIL 的情况下清理，安全释放
+    if (Py_IsInitialized()) {
+        try {
+            pybind11::gil_scoped_acquire gil;
+            std::unique_lock lock(mutex_);
+            executors_.clear(); // 调用 variant 中对象的析构
+        }
+        catch (...) {
+            // 析构阶段不抛异常，避免终止程序
+        }
+    }
+    else {
+        // 解释器已终结：不对 Python 对象做 DECREF，避免触发已知的崩溃
+        // 这会导致少量内存泄漏（仅在进程退出阶段），但比在解释器终结后访问 Python 对象更安全
+    }
+}
 
 #include "PyExecutorManager_impl.hpp"

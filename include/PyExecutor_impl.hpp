@@ -72,12 +72,29 @@ inline std::future<ReturnType> PyExecutor::call_async(const std::string& method_
         throw std::runtime_error("Module not loaded. Call import_module() first.");
     }
 
-    // 创建一个lambda包装同步调用
-    auto call_wrapper = [this, method_name, args...]() -> ReturnType {
-        return this->call_sync<ReturnType>(method_name, args...);
-        };
+    py::module module_copy = module_; // 保持对 module 的引用
+    py::object instance_copy = instance_; // 保持对 instance 的引用（若存在）
 
-    // 使用execute_async执行
+    auto call_wrapper = [module_copy, instance_copy, method_name, args...]() -> ReturnType {
+        // execute_async 内部会获取 GIL，这里不需要再次获取
+        py::object method;
+        if (instance_copy) {
+            method = instance_copy.attr(method_name.c_str());
+        }
+        else {
+            method = module_copy.attr(method_name.c_str());
+        }
+
+        py::object result = method(std::forward<Args>(args)...);
+
+        if constexpr (std::is_same_v<ReturnType, void>) {
+            return;
+        }
+        else {
+            return result.cast<ReturnType>();
+        }
+    };
+
     return execute_async(call_wrapper);
 }
 
