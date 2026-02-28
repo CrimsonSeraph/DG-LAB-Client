@@ -75,6 +75,7 @@ int main(int argc, char* argv[]) {
         sys.attr("path").attr("append")(full_packages.string());
         LOG_MODULE("main", "mian", LOG_DEBUG, "设置 Python 附加包路径完成");
     }
+    py::gil_scoped_release release;
     LOG_MODULE("main", "main", LOG_DEBUG, "初始化 Python 解释器完成");
 
     return app.exec();

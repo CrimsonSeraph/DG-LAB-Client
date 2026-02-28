@@ -30,15 +30,28 @@ public:
 
 private:
     Ui::DGLABClientClass ui;
-    void appendLogMessage(const QString& message, int level);
-    void appendColoredText(QTextEdit* edit, const QString& text);
+    void append_log_message(const QString& message, int level);
+    void append_colored_text(QTextEdit* edit, const QString& text);
     QSyntaxHighlighter* logHighlighter = nullptr;
 
     bool start_connect_btn_loading = false;
+    bool close_connect_btn_loading = false;
 
-    bool executor_is_register = false;
+    bool is_connected = false;
 
     LogLevel ui_log_level = LOG_DEBUG;
     LogSink qtSink;
+
+signals:
+    void connect_finished(bool success, const QString& message);
+    void code_content_ready(const QString& content);
+    void close_finished(bool success, const QString& message);
+
+private slots:
+    void handle_connect_finished(bool success, const QString& msg);
+    void handle_code_content_ready(const QString& content);
+    void handle_close_finished(bool success, const QString& msg);
+    void start_async_connect();
+    void close_async_connect();
 };
 

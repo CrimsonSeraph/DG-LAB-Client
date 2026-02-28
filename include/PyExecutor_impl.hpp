@@ -85,7 +85,7 @@ inline std::future<ReturnType> PyExecutor::call_async(const std::string& method_
             method = module_copy.attr(method_name.c_str());
         }
 
-        py::object result = method(std::forward<Args>(args)...);
+        py::object result = method(args...);
 
         if constexpr (std::is_same_v<ReturnType, void>) {
             return;

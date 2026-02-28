@@ -15,6 +15,7 @@
 #include <QRegularExpression>
 #include <QPointer>
 #include <QSyntaxHighlighter>
+#include <QtConcurrent/QtConcurrent>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
@@ -48,11 +49,12 @@ DGLABClient::DGLABClient(QWidget* parent)
                 if (!qptr) {
                     return;
                 }
-                qptr->appendLogMessage(display, level);
+                qptr->append_log_message(display, level);
                 }, Qt::AutoConnection);
         };
     int uiLogLevel = ui_log_level;
     qtSink.min_level = static_cast<LogLevel>(uiLogLevel);
+    DebugLog::Instance().unregister_log_sink("qt_ui");
     DebugLog::Instance().register_log_sink("qt_ui", qtSink);
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "注册 Qt Sink 完成");
 
@@ -152,12 +154,17 @@ DGLABClient::DGLABClient(QWidget* parent)
     connect(ui.start_btn, &QPushButton::clicked, this, &DGLABClient::on_start_btn_clicked);
     connect(ui.close_btn, &QPushButton::clicked, this, &DGLABClient::on_close_btn_clicked);
 
+    connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
+    connect(this, &DGLABClient::code_content_ready, this, &DGLABClient::handle_code_content_ready);
+    connect(this, &DGLABClient::close_finished, this, &DGLABClient::handle_close_finished);
+
     // 设置默认页面
     ui.stackedWidget->setCurrentWidget(ui.first_page);
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "窗口初始化完成");
 }
 
 DGLABClient::~DGLABClient() {
+    DebugLog::Instance().unregister_log_sink("qt_ui");
 }
 
 void DGLABClient::on_main_first_btn_clicked() {
@@ -182,50 +189,33 @@ void DGLABClient::on_main_about_btn_clicked() {
 
 void DGLABClient::on_start_connect_btn_clicked() {
     LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "start_connect_btn 按键触发");
-    if (!start_connect_btn_loading) {
+    if (start_connect_btn_loading) {
+        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "正在连接中，忽略重复点击");
+        return;
+    }
+    if (!is_connected) {
         LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "开始连接");
         start_connect_btn_loading = true;
-        auto& manager = PyExecutorManager::instance();
-        if (!executor_is_register) {
-            LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "执行器开始注册");
-            if (!manager.register_executor("WebSocketCore", "DGLabClient", false)) {
-                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_ERROR, "执行器注册失败！");
-                start_connect_btn_loading = false;
-                return;
-            }
-            else {
-                executor_is_register = true;
-                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "执行器注册完成");
-            }
-        }
-        try {
-            manager.call_sync<void>("WebSocketCore", "DGLabClient", "set_ws_url", "ws://localhost:9999");// test
-
-            bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
-            if (!is_connect) {
-                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_ERROR, "Py 模块进行连接失败");
-            }
-            else {
-                manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_send_strength_operation", 1, 2, 10);// test
-                std::string server_address = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
-                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "连接到" << server_address);
-                LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "连接完成");
-            }
-            manager.call_sync<void>("WebSocketCore", "DGLabClient", "sync_close");// test
-        }
-        catch (const std::exception& e) {
-            LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_ERROR, "调用失败: " << e.what());
-            LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_WARN, "连接失败");
-            start_connect_btn_loading = false;
-        }
-        start_connect_btn_loading = false;
-    }
-    else {
-        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "正在连接中，忽略重复点击");
+        ui.start_connect_btn->setEnabled(false);
+        start_async_connect();
     }
 }
 
 void DGLABClient::on_close_connect_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "close_connect_btn 按键触发");
+    if (close_connect_btn_loading) {
+        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "正在断开中，忽略重复点击");
+        return;
+    }
+    if (is_connected) {
+        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "开始断开连接");
+        close_connect_btn_loading = true;
+        ui.close_connect_btn->setEnabled(false);
+        close_async_connect();
+    }
+    else {
+        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "没有连接");
+    }
 }
 
 void DGLABClient::on_start_btn_clicked() {
@@ -240,17 +230,17 @@ void DGLABClient::change_ui_log_level(LogLevel new_level) {
     DebugLog::Instance().set_log_sink_level("qt_ui", new_level);
 }
 
-void DGLABClient::appendLogMessage(const QString& message, int level) {
+void DGLABClient::append_log_message(const QString& message, int level) {
     QString clean = message;
     QRegularExpression ansi("\\x1B\\[[0-9;]*[A-Za-z]");
     clean.remove(ansi);
 
     clean.replace('\r', "");
 
-    appendColoredText(ui.debug_log, clean);
+    append_colored_text(ui.debug_log, clean);
 }
 
-void DGLABClient::appendColoredText(QTextEdit* edit, const QString& text) {
+void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
     // 插入纯文本，让高亮器负责为整行着色（避免局部格式被全局 QSS 覆盖）
     edit->moveCursor(QTextCursor::End);
     edit->insertPlainText(text + "\n");
@@ -261,4 +251,104 @@ void DGLABClient::appendColoredText(QTextEdit* edit, const QString& text) {
     if (logHighlighter) {
         logHighlighter->rehighlight();
     }
+}
+
+void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
+    start_connect_btn_loading = false;
+    ui.start_connect_btn->setEnabled(true);
+
+    if (success) {
+        is_connected = true;
+        LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_INFO, msg.toStdString());
+    }
+    else {
+        LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_ERROR, msg.toStdString());
+    }
+}
+
+void DGLABClient::handle_code_content_ready(const QString& content) {
+}
+
+void DGLABClient::handle_close_finished(bool success, const QString& msg) {
+    close_connect_btn_loading = false;
+    ui.close_connect_btn->setEnabled(true);
+
+    if (success) {
+        is_connected = false;
+        LOG_MODULE("DGLABClient", "handle_close_finished", LOG_INFO, msg.toStdString());
+    }
+    else {
+        LOG_MODULE("DGLABClient", "handle_close_finished", LOG_ERROR, msg.toStdString());
+    }
+}
+
+void DGLABClient::start_async_connect() {
+    // 在后台线程执行连接操作，避免阻塞 UI
+    LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "在后台线程执行连接操作");
+    QtConcurrent::run([this]() {
+        auto& manager = PyExecutorManager::instance();
+        bool success = false;
+        QString errorMsg;
+        try {
+            if (!manager.has_executor("WebSocketCore", "DGLabClient")) {
+                // 注册执行器
+                LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "开始注册执行器");
+                if (!manager.register_executor("WebSocketCore", "DGLabClient", true)) {
+                    emit connect_finished(false, "执行器注册失败");
+                    LOG_MODULE("DGLABClient", "start_async_connect", LOG_ERROR, "注册执行器失败");
+                    return;
+                }
+            }
+
+            // 连接（同步调用）
+            LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "开始连接");
+            bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
+            if (!is_connect) {
+                emit connect_finished(false, "连接失败");
+                return;
+            }
+
+            // 连接完成，获取二维码内容（同步调用）
+            LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "开始获取二维码内容");
+            std::string qr = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
+            emit code_content_ready(QString::fromStdString(qr));
+
+            // 发送测试指令（不关心结果）
+            manager.call_sync<void>("WebSocketCore", "DGLabClient", "sync_send_strength_operation", 1, 2, 10);
+
+            emit connect_finished(true, "连接成功");
+        }
+        catch (const std::exception& e) {
+            emit connect_finished(false, QString("异常: ") + e.what());
+        }
+        catch (...) {
+            emit connect_finished(false, "未知异常");
+        }
+        });
+}
+
+void DGLABClient::close_async_connect() {
+    // 在后台线程执行连接操作，避免阻塞 UI
+    LOG_MODULE("DGLABClient", "close_async_connect", LOG_DEBUG, "在后台线程执行断开操作");
+    QtConcurrent::run([this]() {
+        auto& manager = PyExecutorManager::instance();
+        bool success = false;
+        QString errorMsg;
+        try {
+            // 断开（同步调用）
+            LOG_MODULE("DGLABClient", "close_async_connect", LOG_DEBUG, "正在断开连接");
+            bool is_close = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_close");
+            if (!is_close) {
+                emit close_finished(false, "断开失败");
+                return;
+            }
+            emit close_finished(true, "断开成功");
+        }
+        catch (const std::exception& e) {
+            emit close_finished(false, QString("异常: ") + e.what());
+        }
+        catch (...) {
+            emit close_finished(false, "未知异常");
+        }
+        });
 }

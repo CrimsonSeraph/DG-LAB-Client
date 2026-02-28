@@ -7,7 +7,7 @@
 
 // Impl 构造函数
 PyThreadPoolExecutor::Impl::Impl(const std::string& module_name)
-    : executor(module_name) {
+    : executor(module_name, false) {
     if (!executor.initialize()) {
         throw std::runtime_error("Failed to initialize Python executor");
     }

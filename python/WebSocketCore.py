@@ -34,7 +34,13 @@ class DGLabClient:
         self.on_message_callback: Optional[Callable[[dict], None]] = None  # 消息接收回调函数
         self.on_bind_callback: Optional[Callable[[str, str], None]] = None  # 绑定成功回调函数
         self.on_error_callback: Optional[Callable[[int, str], None]] = None  # 错误回调函数
-        self.loop = asyncio.get_event_loop()  # 获取当前事件循环
+        # 获取或为当前线程创建一个事件循环。
+        try:
+            self.loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # 为当前线程创建并绑定一个新的事件循环
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
 
     # ========== 配置修改方法 ==========
 
@@ -454,11 +460,12 @@ class DGLabClient:
         }
         return errors.get(code, "未知错误")
 
-    def sync_close(self):
+    def sync_close(self) -> bool:
         """同步版本的 close"""
         if self.websocket:
            self.loop.run_until_complete(self.close())
         self.is_connected = False
+        return True
 
     async def close(self) -> bool:
         """主动关闭WebSocket连接"""

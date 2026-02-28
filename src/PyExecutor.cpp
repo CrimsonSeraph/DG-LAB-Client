@@ -22,7 +22,7 @@ PyExecutor::PyExecutor(const std::string& module_name, bool auto_import)
     : module_name_(module_name), module_loaded_(false) {
 
     if (auto_import && !module_name.empty()) {
-        import_module(module_name);
+        bool ok = import_module(module_name);
     }
 }
 
@@ -61,17 +61,21 @@ bool PyExecutor::initialize(bool add_current_path) {
         return true;
     }
     catch (const py::error_already_set& e) {
-        LOG_MODULE("PyExecutor", "initialize", LOG_ERROR,
-            "初始化 Python 执行器失败：" << e.what());
+        LOG_MODULE("PyExecutor", "initialize", LOG_ERROR, "初始化失败：" << e.what());
+        return false;
+    }
+    catch (const std::exception& e) {
+        return false;
+    }
+    catch (...) {
         return false;
     }
 }
 
 bool PyExecutor::import_module(const std::string& module_name) {
     try {
-        py::gil_scoped_acquire acquire;
-
         std::string name_to_import = module_name.empty() ? module_name_ : module_name;
+        py::gil_scoped_acquire acquire;
         if (name_to_import.empty()) {
             throw std::runtime_error("Module name is empty");
         }

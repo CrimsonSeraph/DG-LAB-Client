@@ -151,6 +151,9 @@ public:
      */
     bool reload_module();
 
+    // 公共访问器：返回绑定的可调用对象的副本，供线程池任务在不访问 `this` 的情况下使用
+    py::object get_bound_method(const std::string& method_name) const;
+
 private:
     std::string module_name_;
     py::module module_;
@@ -159,9 +162,7 @@ private:
 
     // 获取方法对象（内部使用）
     py::object get_method(const std::string& method_name) const;
-    // 公共访问器：返回绑定的可调用对象的副本，供线程池任务在不访问 `this` 的情况下使用
-    py::object get_bound_method(const std::string& method_name) const;
-
+    
     // 异步执行包装器
     template<typename Func, typename... Args>
     static auto execute_async(Func&& func, Args&&... args)

@@ -21,38 +21,53 @@ bool PyExecutorManager::register_executor(const std::string& module_name,
         << " [线程池=" << (use_thread_pool ? "是" : "否")
         << ", 线程数=" << num_threads << "]");
 
-    std::unique_lock lock(mutex_);
-    auto& mod_map = executors_[module_name];
-    if (mod_map.find(class_name) != mod_map.end()) {
-        LOG_MODULE("PyExecutorManager", "register_executor", LOG_WARN,
-            "执行器已存在: " << module_name << "::" << class_name);
-        return false; // 已存在
+    // 在创建执行器实例时先释放锁，创建完成后再重新获取锁插入到映射中。
+    {
+        std::shared_lock check_lock(mutex_);
+        if (has_executor(module_name, class_name)) {
+            LOG_MODULE("PyExecutorManager", "register_executor", LOG_WARN,
+                "执行器已存在: " << module_name << "::" << class_name);
+            return false; // 已存在
+        }
     }
 
     try {
+        // 在局部作用域中创建执行器对象（不持有 mutex_）
+        ExecutorPtr ptr;
+
         if (use_thread_pool) {
-            // 创建线程池版执行器并以 shared_ptr 存储
-            auto ptr = std::make_shared<ExecutorVariant>(PyThreadPoolExecutor(module_name, num_threads));
-            mod_map.emplace(class_name, ptr);
-            // 创建类实例（访问 variant 内部对象）
+            // 为线程池内的 PyExecutor 创建类实例
+            auto local = std::make_shared<ExecutorVariant>(PyThreadPoolExecutor(module_name, num_threads));
             std::visit([&](auto& exec) {
                 using T = std::decay_t<decltype(exec)>;
                 if constexpr (std::is_same_v<T, PyThreadPoolExecutor>) {
+                    // 先导入模块，确保 module_ 有效
+                    exec.get_executor().import_module(module_name);
                     exec.get_executor().create_instance(class_name);
                     LOG_MODULE("PyExecutorManager", "register_executor", LOG_DEBUG,
-                        "已创建线程池执行器实例: " << module_name << "::" << class_name);
+                        "已创建线程池执行器实例(构造完成，未插入): " << module_name << "::" << class_name);
                 }
-                }, *mod_map.at(class_name));
+                }, *local);
+            ptr = std::move(local);
         }
         else {
-            // 创建普通版执行器，并创建实例，然后以 shared_ptr 存储
+            // 普通版执行器自动导入模块
             PyExecutor exec(module_name);
             exec.create_instance(class_name);
-            auto ptr = std::make_shared<ExecutorVariant>(std::move(exec));
-            mod_map.emplace(class_name, ptr);
+            ptr = std::make_shared<ExecutorVariant>(std::move(exec));
             LOG_MODULE("PyExecutorManager", "register_executor", LOG_DEBUG,
-                "已创建单线程执行器实例: " << module_name << "::" << class_name);
+                "已创建单线程执行器实例(构造完成，未插入): " << module_name << "::" << class_name);
         }
+
+        // 重新获取锁并插入，检查是否有并发插入
+        std::unique_lock lock2(mutex_);
+        auto& mod_map = executors_[module_name];
+        if (mod_map.find(class_name) != mod_map.end()) {
+            LOG_MODULE("PyExecutorManager", "register_executor", LOG_WARN,
+                "并发注册：执行器已存在，取消插入: " << module_name << "::" << class_name);
+            return false;
+        }
+        mod_map.emplace(class_name, ptr);
         LOG_MODULE("PyExecutorManager", "register_executor", LOG_INFO,
             "成功注册执行器: " << module_name << "::" << class_name);
         return true;
@@ -60,8 +75,13 @@ bool PyExecutorManager::register_executor(const std::string& module_name,
     catch (const std::exception& e) {
         LOG_MODULE("PyExecutorManager", "register_executor", LOG_ERROR,
             "注册执行器失败 (" << module_name << "::" << class_name << "): " << e.what());
-        mod_map.erase(class_name);
-        if (mod_map.empty()) executors_.erase(module_name);
+        // 如果在异常前未能插入，则不需要清理映射；如果已插入则在退出时由析构处理
+        std::unique_lock lock3(mutex_);
+        auto mod_it = executors_.find(module_name);
+        if (mod_it != executors_.end()) {
+            mod_it->second.erase(class_name);
+            if (mod_it->second.empty()) executors_.erase(mod_it);
+        }
         return false;
     }
 }
@@ -70,10 +90,6 @@ bool PyExecutorManager::unregister_executor(const std::string& module_name,
     const std::string& class_name) {
     LOG_MODULE("PyExecutorManager", "unregister_executor", LOG_INFO,
         "正在注销执行器: " << module_name << "::" << class_name);
-    // Defensive approach:
-    // 1. Copy shared_ptr to the executor under lock
-    // 2. Release lock and, if it's a thread-pool executor, wait for its tasks to finish
-    // 3. Reacquire lock and erase the entry only if it hasn't been replaced
 
     std::unique_lock lock(mutex_);
     auto mod_it = executors_.find(module_name);
