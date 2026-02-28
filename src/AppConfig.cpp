@@ -274,9 +274,11 @@ void AppConfig::initialize_configs_unsafe() {
             .app_name_ = get_value_unsafe<std::string>("app.name", "DG-LAB-Client"),
             .app_version_ = get_value_unsafe<std::string>("app.version", "1.0.0"),
             .debug_mode_ = get_value_unsafe<bool>("app.debug", false),
-            .log_level_ = get_value_unsafe<int>("app.log.level", 2),
+            .console_level_ = get_value_unsafe<int>("app.log.console_level", 0),
             .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),
-            .python_path_ = get_value_unsafe<std::string>("python.path", "python")
+            .ui_log_level_ = get_value_unsafe<int>("app.log.ui_log_level", 0),
+            .python_path_ = get_value_unsafe<std::string>("python.path", "python"),
+            .packages_path_ = get_value_unsafe<std::string>("python.packages_path", "python/Lib/site-packages")
         });
 
     //xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 

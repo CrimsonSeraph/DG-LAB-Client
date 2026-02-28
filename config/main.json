@@ -3,7 +3,7 @@
     "app": {
         "name": "DG-LAB-Client",
         "version": "0.2.0",
-        "debug": true,
+        "debug": false,
         "log": {
             "console_level": 0,
             "only_type_info": false,

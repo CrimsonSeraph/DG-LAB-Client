@@ -202,16 +202,22 @@
             <number>50</number>
            </property>
            <property name="topMargin">
-            <number>0</number>
+            <number>25</number>
            </property>
            <property name="rightMargin">
             <number>50</number>
            </property>
            <property name="bottomMargin">
-            <number>0</number>
+            <number>25</number>
            </property>
            <item>
             <widget class="QPushButton" name="start_connect_btn">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <property name="text">
               <string>启动连接</string>
              </property>
@@ -219,6 +225,12 @@
            </item>
            <item>
             <widget class="QPushButton" name="close_connect_btn">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <property name="text">
               <string>终止连接</string>
              </property>
@@ -226,6 +238,12 @@
            </item>
            <item>
             <widget class="QPushButton" name="start_btn">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <property name="text">
               <string>开启</string>
              </property>
@@ -233,6 +251,12 @@
            </item>
            <item>
             <widget class="QPushButton" name="close_btn">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
              <property name="text">
               <string>关闭</string>
              </property>

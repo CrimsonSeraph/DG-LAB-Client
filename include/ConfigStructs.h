@@ -83,9 +83,11 @@ struct MainConfig {
     std::string app_name_;
     std::string app_version_;
     bool debug_mode_ = false;
-    int log_level_ = -1;
+    int console_level_ = -1;
     bool is_only_type_info_ = false;
+    int ui_log_level_ = -1;
     std::string python_path_;
+    std::string packages_path_;
 
     // JSON序列化
     static void to_json(nlohmann::json& j, const MainConfig& config);
