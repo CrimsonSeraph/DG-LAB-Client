@@ -1,7 +1,6 @@
 #pragma once
 
 #include "DebugLog.h"
-#include "PyExecutorManager.h"
 
 #include <QtWidgets/QWidget>
 #include "ui_DGLABClient.h"

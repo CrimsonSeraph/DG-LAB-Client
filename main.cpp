@@ -1,6 +1,5 @@
 #include "DGLABClient.h"
 #include "AppConfig.h"
-#include "PyExecutorManager.h"
 #include "Console.h"
 #include "DebugLog.h"
 #include <QtWidgets/QApplication>
@@ -8,7 +7,6 @@
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
-    static py::scoped_interpreter guard{};
     // 直接创建控制台，以便在初始化配置系统时输出日志
     Console& console = Console::GetInstance();
     console.Create();
@@ -58,25 +56,9 @@ int main(int argc, char* argv[]) {
     window.show();
     LOG_MODULE("main", "main", LOG_DEBUG, "窗口已创建，标题: " << window.windowTitle().toStdString());
 
-    auto& manager = PyExecutorManager::instance();
-
     // 设置 Python 路径
     std::string python_path = config.get_value<std::string>("python.path", "python");
     std::string packages_path = config.get_value<std::string>("python.packages_path", "python/Lib/site-packages");
-    py::module sys = py::module::import("sys");
-
-    std::filesystem::path python_dir = std::filesystem::current_path() / python_path;
-    if (std::filesystem::exists(python_dir)) {
-        sys.attr("path").attr("append")(python_dir.string());
-        LOG_MODULE("main", "main", LOG_DEBUG, "设置 Python 模块路径完成");
-    }
-    std::filesystem::path full_packages = std::filesystem::current_path() / packages_path;
-    if (std::filesystem::exists(full_packages)) {
-        sys.attr("path").attr("append")(full_packages.string());
-        LOG_MODULE("main", "mian", LOG_DEBUG, "设置 Python 附加包路径完成");
-    }
-    py::gil_scoped_release release;
-    LOG_MODULE("main", "main", LOG_DEBUG, "初始化 Python 解释器完成");
 
     return app.exec();
 }

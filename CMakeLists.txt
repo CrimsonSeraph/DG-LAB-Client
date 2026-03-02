@@ -18,15 +18,6 @@ set(CMAKE_AUTORCC ON)
 # -------------------- 第三方库自动获取（FetchContent）--------------------
 include(FetchContent)
 
-# pybind11：用于 C++/Python 互操作
-FetchContent_Declare(
-  pybind11
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG v2.13.6
-  GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(pybind11)
-
 # -------------------- 手动获取 nlohmann/json 单头文件 --------------------
 # 定义 json.hpp 的目标路径
 set(NLOHMANN_JSON_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
@@ -77,19 +68,6 @@ set(PROJECT_SOURCES
 
     # 资源文件
     DGLABClient.qrc
-
-    # Python 解释器管理器
-    include/PyExecutorManager.h
-    src/PyExecutorManager.cpp
-    include/PyExecutorManager_impl.hpp
-    # Python 解释器
-    include/PyExecutor.h
-    src/PyExecutor.cpp
-    include/PyExecutor_impl.hpp
-    # Python 解释器（进程池版）
-    include/PyThreadPoolExecutor.h
-    src/PyThreadPoolExecutor.cpp
-    include/PyThreadPoolExecutor_impl.hpp
 
     # 配置管理器
     include/ConfigManager.h
@@ -190,7 +168,6 @@ target_link_libraries(${PROJECT_NAME}
         Qt::Gui
         Qt::Widgets
     PRIVATE
-        pybind11::embed                 # pybind11 嵌入模式
         nlohmann_json                   # JSON 库
         Python::Python                  # Python 库
 )

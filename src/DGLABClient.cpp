@@ -1,7 +1,6 @@
 #include "DGLABClient.h"
 #include "DebugLog.h"
 #include "AppConfig.h"
-#include "PyExecutorManager.h"
 
 #include <iostream>
 #include <QPixmap>
@@ -15,7 +14,7 @@
 #include <QRegularExpression>
 #include <QPointer>
 #include <QSyntaxHighlighter>
-#include <QtConcurrent/QtConcurrent>
+#include <QThreadPool>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
@@ -107,6 +106,8 @@ DGLABClient::DGLABClient(QWidget* parent)
     ui.all->setProperty("mode", "light");
     ui.left_btns_bar->setProperty("type", "btns_bar");
     ui.left_btns_bar->setProperty("mode", "light");
+    ui.about_page_btns_bar->setProperty("type", "btns_bar");
+    ui.about_page_btns_bar->setProperty("mode", "light");
 
     QList<QPushButton*> btns = ui.all->findChildren<QPushButton*>();
     for (QPushButton* btn : btns) {
@@ -287,38 +288,17 @@ void DGLABClient::handle_close_finished(bool success, const QString& msg) {
 void DGLABClient::start_async_connect() {
     // 在后台线程执行连接操作，避免阻塞 UI
     LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "在后台线程执行连接操作");
-    QtConcurrent::run([this]() {
-        auto& manager = PyExecutorManager::instance();
+    QThreadPool::globalInstance()->start([this]() {
         bool success = false;
         QString errorMsg;
         try {
-            if (!manager.has_executor("WebSocketCore", "DGLabClient")) {
-                // 注册执行器
-                LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "开始注册执行器");
-                if (!manager.register_executor("WebSocketCore", "DGLabClient", true)) {
-                    emit connect_finished(false, "执行器注册失败");
-                    LOG_MODULE("DGLABClient", "start_async_connect", LOG_ERROR, "注册执行器失败");
-                    return;
-                }
-            }
-
-            // 连接（同步调用）
+            // 连接
             LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在连接");
-            bool is_connect = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "connect");
-            if (!is_connect) {
-                emit connect_finished(false, "连接失败");
-                return;
-            }
-
-            // 连接完成，获取二维码内容（同步调用）
-            LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "开始获取二维码内容");
-            std::string qr = manager.call_sync<std::string>("WebSocketCore", "DGLabClient", "generate_qr_content");
-            emit code_content_ready(QString::fromStdString(qr));
-
-            // 发送测试指令（不关心结果）
-            manager.call_sync<void>("WebSocketCore", "DGLabClient", "sync_send_strength_operation", 1, 2, 10);
 
             emit connect_finished(true, "连接成功");
+        }
+        catch(const std::runtime_error& e) {
+            emit connect_finished(false, QString("运行时错误: ") + e.what());
         }
         catch (const std::exception& e) {
             emit connect_finished(false, QString("异常: ") + e.what());
@@ -332,19 +312,17 @@ void DGLABClient::start_async_connect() {
 void DGLABClient::close_async_connect() {
     // 在后台线程执行连接操作，避免阻塞 UI
     LOG_MODULE("DGLABClient", "close_async_connect", LOG_DEBUG, "在后台线程执行断开操作");
-    QtConcurrent::run([this]() {
-        auto& manager = PyExecutorManager::instance();
+    QThreadPool::globalInstance()->start([this]() {
         bool success = false;
         QString errorMsg;
         try {
-            // 断开（同步调用）
+            // 断开
             LOG_MODULE("DGLABClient", "close_async_connect", LOG_INFO, "正在断开连接");
-            bool is_close = manager.call_sync<bool>("WebSocketCore", "DGLabClient", "sync_close");
-            if (!is_close) {
-                emit close_finished(false, "断开失败");
-                return;
-            }
+
             emit close_finished(true, "断开成功");
+        }
+        catch (const std::runtime_error& e) {
+            emit close_finished(false, QString("运行时错误: ") + e.what());
         }
         catch (const std::exception& e) {
             emit close_finished(false, QString("异常: ") + e.what());

@@ -188,9 +188,9 @@
          <widget class="QWidget" name="about_page_btns_bar" native="true">
           <property name="geometry">
            <rect>
-            <x>0</x>
+            <x>10</x>
             <y>90</y>
-            <width>698</width>
+            <width>678</width>
             <height>100</height>
            </rect>
           </property>
