@@ -56,9 +56,5 @@ int main(int argc, char* argv[]) {
     window.show();
     LOG_MODULE("main", "main", LOG_DEBUG, "窗口已创建，标题: " << window.windowTitle().toStdString());
 
-    // 设置 Python 路径
-    std::string python_path = config.get_value<std::string>("python.path", "python");
-    std::string packages_path = config.get_value<std::string>("python.packages_path", "python/Lib/site-packages");
-
     return app.exec();
 }

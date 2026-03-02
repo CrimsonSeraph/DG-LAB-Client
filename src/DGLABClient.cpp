@@ -1,6 +1,7 @@
 #include "DGLABClient.h"
 #include "DebugLog.h"
 #include "AppConfig.h"
+#include "PythonSubprocessManager.h"
 
 #include <iostream>
 #include <QPixmap>
@@ -163,7 +164,28 @@ DGLABClient::DGLABClient(QWidget* parent)
 
     // 设置默认页面
     ui.stackedWidget->setCurrentWidget(ui.first_page);
-    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "窗口初始化完成");
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
+
+    // 启用 Python 子进程
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "启动并连接 Python 服务");
+    m_pyManager = new PythonSubprocessManager(this);
+
+    connect(m_pyManager, &PythonSubprocessManager::started,
+        this, [this](bool success, const QString& error) {
+            if (!success) {
+                emit connect_finished(false, "Python 进程启动错误: " + error);
+                return;
+            }
+        });
+    connect(m_pyManager, &PythonSubprocessManager::finished,
+        this, [this]() {
+            emit close_finished(true, "Python 进程关闭");
+        });
+
+    AppConfig& config = AppConfig::instance();
+    QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
+    QString scriptPath = QCoreApplication::applicationDirPath() + "/python/Bridge.py";
+    m_pyManager->start_process(pythonPath, scriptPath);
 }
 
 DGLABClient::~DGLABClient() {
@@ -201,6 +223,9 @@ void DGLABClient::on_start_connect_btn_clicked() {
         start_connect_btn_loading = true;
         ui.start_connect_btn->setEnabled(false);
         start_async_connect();
+    }
+    else {
+        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "已连接");
     }
 }
 
@@ -294,10 +319,15 @@ void DGLABClient::start_async_connect() {
         try {
             // 连接
             LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在连接");
-
-            emit connect_finished(true, "连接成功");
+            QJsonObject cmd;
+            cmd["cmd"] = "connect";
+            m_pyManager->call(cmd, [this](const QJsonObject& resp) {
+                bool ok = resp["status"].toString() == "ok";
+                QString msg = resp["message"].toString();
+                emit connect_finished(ok, msg);
+                }, 5000);
         }
-        catch(const std::runtime_error& e) {
+        catch (const std::runtime_error& e) {
             emit connect_finished(false, QString("运行时错误: ") + e.what());
         }
         catch (const std::exception& e) {
@@ -318,8 +348,13 @@ void DGLABClient::close_async_connect() {
         try {
             // 断开
             LOG_MODULE("DGLABClient", "close_async_connect", LOG_INFO, "正在断开连接");
-
-            emit close_finished(true, "断开成功");
+            QJsonObject cmd;
+            cmd["cmd"] = "close";
+            m_pyManager->call(cmd, [this](const QJsonObject& resp) {
+                bool ok = resp["status"].toString() == "ok";
+                QString msg = resp["message"].toString();
+                emit close_finished(ok, msg);
+                }, 5000);
         }
         catch (const std::runtime_error& e) {
             emit close_finished(false, QString("运行时错误: ") + e.what());

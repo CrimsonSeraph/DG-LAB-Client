@@ -277,7 +277,6 @@ void AppConfig::initialize_configs_unsafe() {
             .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),
             .ui_log_level_ = get_value_unsafe<int>("app.log.ui_log_level", 0),
             .python_path_ = get_value_unsafe<std::string>("python.path", "python"),
-            .packages_path_ = get_value_unsafe<std::string>("python.packages_path", "python/Lib/site-packages")
         });
 
     //xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 

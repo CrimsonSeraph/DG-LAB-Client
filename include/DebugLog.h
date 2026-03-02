@@ -1,4 +1,5 @@
 #pragma once
+#include "DebugLog_utils.hpp"
 
 #include <iostream>
 #include <map>

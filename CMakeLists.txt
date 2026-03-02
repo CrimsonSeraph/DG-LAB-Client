@@ -52,7 +52,7 @@ target_include_directories(nlohmann_json INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}
 
 # -------------------- 查找 Qt --------------------
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets Network)
 
 if (QT_VERSION_MAJOR EQUAL 6)
     qt_standard_project_setup()
@@ -68,6 +68,10 @@ set(PROJECT_SOURCES
 
     # 资源文件
     DGLABClient.qrc
+
+    # Python 调用接口
+    include/PythonSubprocessManager.h
+    src/PythonSubprocessManager.cpp
 
     # 配置管理器
     include/ConfigManager.h
@@ -94,6 +98,7 @@ set(PROJECT_SOURCES
     # Debug 日志
     include/DebugLog.h
     src/DebugLog.cpp
+    include/DebugLog_utils.hpp
 
     # 配置文件
     config/main.json
@@ -167,6 +172,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt::Core
         Qt::Gui
         Qt::Widgets
+        Qt::Network
     PRIVATE
         nlohmann_json                   # JSON 库
         Python::Python                  # Python 库

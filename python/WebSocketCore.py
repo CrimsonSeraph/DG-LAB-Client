@@ -19,6 +19,7 @@ class DGLabConfig:
         self.heartbeat_interval = 60  # 心跳包发送间隔时间（秒）
         self.reconnect_delay = 5  # 连接断开后重连的延迟时间（秒）
         self.max_message_length = 1950  # 允许发送的最大消息长度（字节）
+        self.is_connect = False
 
 
 class DGLabClient:
@@ -94,12 +95,27 @@ class DGLabClient:
 
     # ========== 连接管理 ==========
 
+    async def connect_async(self) -> bool:
+        """异步连接，等待 client_id 并启动后台任务"""
+        if self.is_connected and self.client_id:
+            return True
+        success = await self._connect_once()
+        if success:
+            # 启动后台任务
+            asyncio.create_task(self._heartbeat_loop())
+            asyncio.create_task(self._receive_loop())
+            self.is_connected = True
+        return success
+
     def connect(self) -> bool:
         """
         同步接口：
         1. 尝试建立一次性连接并等待 client_id
         2. 后台继续心跳和消息接收循环
         """
+        if self.is_connected:
+            return True
+
         # 如果已经连接且有client_id，直接返回True
         if self.is_connected and self.client_id is not None:
             return True

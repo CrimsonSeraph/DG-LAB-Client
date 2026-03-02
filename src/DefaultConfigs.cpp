@@ -17,7 +17,6 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             }},
             {"python", {
                 {"path", "python"},
-                { "packages_path"  , "python/Lib/site-packages"}
             }},
             {"version", "1.0"},
             {"DGLABClient", "DG-LAB-Client"}

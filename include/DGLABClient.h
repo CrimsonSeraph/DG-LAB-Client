@@ -1,6 +1,7 @@
 #pragma once
 
 #include "DebugLog.h"
+#include "PythonSubprocessManager.h"
 
 #include <QtWidgets/QWidget>
 #include "ui_DGLABClient.h"
@@ -37,6 +38,8 @@ private:
     bool close_connect_btn_loading = false;
 
     bool is_connected = false;
+
+    PythonSubprocessManager* m_pyManager;
 
     LogLevel ui_log_level = LOG_DEBUG;
     LogSink qtSink;
