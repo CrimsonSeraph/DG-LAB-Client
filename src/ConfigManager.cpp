@@ -35,14 +35,22 @@ bool ConfigManager::load() {
                 file.close();  // 确保文件关闭
 
                 // 创建文件并写入配置
-                std::ofstream out_file(config_path_);
-                if (out_file.is_open()) {
-                    out_file << temp_config.dump(4);
-                    out_file.flush();
-                    LOG_MODULE("ConfigManager", "load", LOG_INFO, "默认配置已写入文件: " << config_path_);
+                try {
+                    std::ofstream out_file(config_path_);
+                    if (out_file.is_open()) {
+                        out_file << temp_config.dump(4);
+                        out_file.flush();
+                        LOG_MODULE("ConfigManager", "load", LOG_INFO, "默认配置已写入文件: " << config_path_);
+                    }
+                    else {
+                        LOG_MODULE("ConfigManager", "load", LOG_WARN, "无法写入默认配置文件: " << config_path_);
+                    }
                 }
-                else {
-                    LOG_MODULE("ConfigManager", "load", LOG_WARN, "无法写入默认配置文件: " << config_path_);
+                catch (const std::exception& e) {
+                    LOG_MODULE("ConfigManager", "load", LOG_ERROR, "写入默认配置文件时异常: " << e.what());
+                }
+                catch (...) {
+                    LOG_MODULE("ConfigManager", "load", LOG_ERROR, "写入默认配置文件时未知异常");
                 }
             }
             return true;
@@ -60,11 +68,22 @@ bool ConfigManager::load() {
             // 不持有锁，保存配置数据
             {
                 nlohmann::json temp_config = config_;
-                std::ofstream out_file(config_path_);
-                if (out_file.is_open()) {
-                    out_file << temp_config.dump(4);
-                    out_file.flush();
-                    LOG_MODULE("ConfigManager", "load", LOG_INFO, "默认配置已写入文件: " << config_path_);
+                try {
+                    std::ofstream out_file(config_path_);
+                    if (out_file.is_open()) {
+                        out_file << temp_config.dump(4);
+                        out_file.flush();
+                        LOG_MODULE("ConfigManager", "load", LOG_INFO, "默认配置已写入文件: " << config_path_);
+                    }
+                    else {
+                        LOG_MODULE("ConfigManager", "load", LOG_WARN, "无法写入默认配置文件: " << config_path_);
+                    }
+                }
+                catch (const std::exception& e) {
+                    LOG_MODULE("ConfigManager", "load", LOG_ERROR, "写入默认配置文件时异常: " << e.what());
+                }
+                catch (...) {
+                    LOG_MODULE("ConfigManager", "load", LOG_ERROR, "写入默认配置文件时未知异常");
                 }
             }
         }
@@ -79,17 +98,28 @@ bool ConfigManager::load() {
     catch (const std::exception& e) {
         LOG_MODULE("ConfigManager", "load", LOG_ERROR, "加载配置时发生异常: " << e.what() << "，将使用默认配置: " << config_path_);
         config_ = get_default_config();
-        // 不持有锁，保存配置数据
+        loaded_ = true;
+        // 尝试写入默认配置（不持有锁）
         {
             nlohmann::json temp_config = config_;
-            std::ofstream out_file(config_path_);
-            if (out_file.is_open()) {
-                out_file << temp_config.dump(4);
-                out_file.flush();
-                LOG_MODULE("ConfigManager", "load", LOG_INFO, "默认配置已写入文件: " << config_path_);
+            try {
+                std::ofstream out_file(config_path_);
+                if (out_file.is_open()) {
+                    out_file << temp_config.dump(4);
+                    out_file.flush();
+                    LOG_MODULE("ConfigManager", "load", LOG_INFO, "默认配置已写入文件: " << config_path_);
+                }
+                else {
+                    LOG_MODULE("ConfigManager", "load", LOG_WARN, "无法写入默认配置文件: " << config_path_);
+                }
+            }
+            catch (const std::exception& write_e) {
+                LOG_MODULE("ConfigManager", "load", LOG_ERROR, "写入默认配置文件时异常: " << write_e.what());
+            }
+            catch (...) {
+                LOG_MODULE("ConfigManager", "load", LOG_ERROR, "写入默认配置文件时未知异常");
             }
         }
-        loaded_ = true;
         return false;
     }
 }

@@ -56,4 +56,3 @@ private slots:
     void start_async_connect();
     void close_async_connect();
 };
-

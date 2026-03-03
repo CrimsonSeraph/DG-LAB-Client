@@ -111,8 +111,9 @@ inline bool ConfigManager::set(const std::string& key_path, const T& value) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
+        nlohmann::json new_config = config_;
         auto keys = split_key_path(key_path);
-        nlohmann::json* current = &config_;
+        nlohmann::json* current = &new_config;
 
         // 导航到指定路径（创建不存在的中间节点）
         for (size_t i = 0; i < keys.size() - 1; ++i) {
@@ -124,6 +125,7 @@ inline bool ConfigManager::set(const std::string& key_path, const T& value) {
 
         // 设置最终值
         (*current)[keys.back()] = value;
+        std::swap(config_, new_config);
         LOG_MODULE("ConfigManager", "set", LOG_DEBUG,
             "设置配置成功 [" << key_path << "] = " << nlohmann::json(value).dump());
         return true;
@@ -131,6 +133,10 @@ inline bool ConfigManager::set(const std::string& key_path, const T& value) {
     }
     catch (const std::exception& e) {
         LOG_MODULE("ConfigManager", "set", LOG_ERROR, "设置配置失败 [" << key_path << "]: " << e.what());
+        return false;
+    }
+    catch (...) {
+        LOG_MODULE("ConfigManager", "set", LOG_ERROR, "设置配置失败 [" << key_path << "]: 未知异常");
         return false;
     }
 }
