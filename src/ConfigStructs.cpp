@@ -34,6 +34,7 @@ void MainConfig::to_json(nlohmann::json& j, const MainConfig& config) {
         {"app.log.only_type_info", config.is_only_type_info_},
         {"app.log.ui_log_level", config.ui_log_level_},
         {"python.path", config.python_path_},
+        {"python.bridge_path", config.bridge_path_},
     };
 }
 
@@ -46,6 +47,7 @@ void MainConfig::from_json(const nlohmann::json& j, MainConfig& config) {
     j.at("app.log.only_type_info").get_to(config.is_only_type_info_);
     j.at("app.log.ui_log_level").get_to(config.ui_log_level_);
     j.at("python.path").get_to(config.python_path_);
+    j.at("python.bridge_path").get_to(config.bridge_path_);
 }
 
 bool MainConfig::validate() const {

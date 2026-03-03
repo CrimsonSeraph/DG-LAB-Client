@@ -8,8 +8,8 @@
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     // 直接创建控制台，以便在初始化配置系统时输出日志
-    //Console& console = Console::GetInstance();
-    //console.Create();
+    Console& console = Console::GetInstance();
+    console.Create();
     // 配置初始化
     AppConfig& config = AppConfig::instance();
     std::string config_dir = "./config";

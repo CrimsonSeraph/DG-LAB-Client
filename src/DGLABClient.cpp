@@ -188,7 +188,11 @@ DGLABClient::DGLABClient(QWidget* parent)
 
     AppConfig& config = AppConfig::instance();
     QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
-    QString scriptPath = QCoreApplication::applicationDirPath() + "/python/Bridge.py";
+    std::string bridge_module = config.get_value<std::string>("python.bridge_path", "/python/Bridge.py");
+    QString scriptPath = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径："
+        << pythonPath.toStdString() << "（注：若解释器路径直接为<Python>则使用系统默认 Python 路径）");
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径：" << bridge_module);
     m_pyManager->start_process(pythonPath, scriptPath);
 }
 
@@ -285,6 +289,30 @@ void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
     }
 }
 
+template<typename Callback>
+void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& callback) {
+    LOG_MODULE("DGLABClient", "asyncCall", LOG_DEBUG, "在后台线程执行异步调用");
+    QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
+        try {
+            LOG_MODULE("DGLABClient", "asyncCall", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
+            m_pyManager->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
+                bool ok = resp["status"].toString() == "ok";
+                QString msg = resp["message"].toString();
+                callback(ok, msg);
+                }, timeout);
+        }
+        catch (const std::runtime_error& e) {
+            emit close_finished(false, QString("运行时错误: ") + e.what());
+        }
+        catch (const std::exception& e) {
+            emit close_finished(false, QString("异常: ") + e.what());
+        }
+        catch (...) {
+            emit close_finished(false, "未知异常");
+        }
+        });
+}
+
 void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
     start_connect_btn_loading = false;
     ui.start_connect_btn->setEnabled(true);
@@ -329,29 +357,5 @@ void DGLABClient::close_async_connect() {
     cmd["cmd"] = "close";
     async_call(cmd, 5000, [this](bool ok, QString msg) {
         emit close_finished(ok, msg);
-        });
-}
-
-template<typename Callback>
-void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& callback) {
-    LOG_MODULE("DGLABClient", "asyncCall", LOG_DEBUG, "在后台线程执行异步调用");
-    QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
-        try {
-            LOG_MODULE("DGLABClient", "asyncCall", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
-            m_pyManager->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
-                bool ok = resp["status"].toString() == "ok";
-                QString msg = resp["message"].toString();
-                callback(ok, msg);
-                }, timeout);
-        }
-        catch (const std::runtime_error& e) {
-            emit close_finished(false, QString("运行时错误: ") + e.what());
-        }
-        catch (const std::exception& e) {
-            emit close_finished(false, QString("异常: ") + e.what());
-        }
-        catch (...) {
-            emit close_finished(false, "未知异常");
-        }
         });
 }

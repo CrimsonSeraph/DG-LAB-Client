@@ -11,7 +11,8 @@
         }
     },
     "python": {
-        "path": "python"
+        "path": "python",
+        "bridge_path": "/python/Bridge.py"
     },
     "version": "1.0",
     "DGLABClient": "DG-LAB-Client"

@@ -17,6 +17,7 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             }},
             {"python", {
                 {"path", "python"},
+                {"bridge_path", "/python/Bridge.py"},
             }},
             {"version", "1.0"},
             {"DGLABClient", "DG-LAB-Client"}
