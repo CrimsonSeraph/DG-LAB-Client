@@ -1,6 +1,9 @@
 {
     "__priority": 1,
     "app": {
+        "websocket": {
+            "post": 9999
+        }
     },
     "version": "1.0",
     "DGLABClient": "DG-LAB-Client"

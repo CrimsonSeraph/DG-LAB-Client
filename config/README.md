@@ -50,10 +50,7 @@
 ```json
 {
     "websocket": {
-        "url": "ws://localhost:9999",
-        "heartbeat_interval": 60,
-        "reconnect_delay": 5,
-        "max_message_length": 1950
+        "post": 9999
     }
 }
 ```
@@ -69,8 +66,8 @@
 ```json
 {
     "ui": {
-        "theme": "dark",
-        "font_size": 12
+        "is_light": true,
+        "font_size": 16
     }
 }
 ```

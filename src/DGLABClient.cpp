@@ -343,19 +343,32 @@ void DGLABClient::handle_close_finished(bool success, const QString& msg) {
 }
 
 void DGLABClient::start_async_connect() {
-    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在连接");
-    QJsonObject cmd;
-    cmd["cmd"] = "connect";
-    async_call(cmd, 5000, [this](bool ok, QString msg) {
-        emit connect_finished(ok, msg);
+    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在更新端口");
+    AppConfig& config = AppConfig::instance();
+    int port = config.get_value<int>("app.websocket.post", 9999);
+    QJsonObject update_port_cmd;
+    update_port_cmd["cmd"] = "set_ws_url";
+    update_port_cmd["post"] = port;
+    async_call(update_port_cmd, 5000, [this](bool ok, QString msg) {
+        if (ok) {
+            LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "端口更新成功，继续连接");
+            QJsonObject connect_cmd;
+            connect_cmd["cmd"] = "connect";
+            async_call(connect_cmd, 5000, [this](bool ok, QString msg) {
+                emit connect_finished(ok, msg);
+                });
+        }
+        else {
+            emit connect_finished(false, "端口更新失败: " + msg);
+        }
         });
 }
 
 void DGLABClient::close_async_connect() {
     LOG_MODULE("DGLABClient", "close_async_connect", LOG_INFO, "正在断开连接");
-    QJsonObject cmd;
-    cmd["cmd"] = "close";
-    async_call(cmd, 5000, [this](bool ok, QString msg) {
+    QJsonObject close_cmd;
+    close_cmd["cmd"] = "close";
+    async_call(close_cmd, 5000, [this](bool ok, QString msg) {
         emit close_finished(ok, msg);
         });
 }

@@ -15,7 +15,6 @@ class DGLabServer:
         self.qt_client = None
 
     async def handle_qt_client(self, reader, writer):
-        """处理来自Qt客户端的TCP连接"""
         self.qt_client = writer
         addr = writer.get_extra_info('peername')
         logger.info(f"Qt客户端已连接: {addr}")
@@ -30,7 +29,14 @@ class DGLabServer:
                     await self.send_response(writer, {"status": "error", "message": "Invalid JSON"})
                     continue
 
-                response = await self.process_command(cmd)
+                try:
+                    response = await self.process_command(cmd)
+                except Exception as e:
+                    logger.exception(f"处理命令时发生未捕获异常: {e}")
+                    response = {"status": "error", "message": f"内部错误: {str(e)}"}
+                    if "req_id" in cmd:
+                        response["req_id"] = cmd["req_id"]
+
                 await self.send_response(writer, response)
         except asyncio.CancelledError:
             pass
@@ -60,7 +66,7 @@ class DGLabServer:
 
         elif cmd_type == "set_ws_url":
             post = cmd.get("post")
-            await self.dglab.set_ws_url("ws://localhost:" + post)
+            self.dglab.set_ws_url(f"ws://localhost:{post}")
             response = {"status": "ok", "message": "设置成功"}
 
         elif cmd_type == "bind_target":

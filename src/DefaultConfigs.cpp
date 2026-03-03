@@ -7,8 +7,8 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             {"__priority", 0},
             {"app", {
                 {"name", "DG-LAB-Client"},
-                {"version", "1.0.0"},
-                {"debug", true},
+                {"version", "0.2.0"},
+                {"debug", false},
                 {"log", {
                     {"console_level", 0},
                     {"only_type_info", false},
@@ -17,7 +17,7 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             }},
             {"python", {
                 {"path", "python"},
-                {"bridge_path", "/python/Bridge.py"},
+                {"bridge_path", "/python/Bridge.py"}
             }},
             {"version", "1.0"},
             {"DGLABClient", "DG-LAB-Client"}
@@ -26,7 +26,11 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
     else if (config_name == "system") {
         return {
             {"__priority", 1},
-            {"app", {}},
+            {"app", {
+                {"websocket", {
+                    {"post", 9999}
+                }}
+            }},
             {"version", "1.0"},
             {"DGLABClient", "DG-LAB-Client"}
         };
@@ -34,7 +38,12 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
     else if (config_name == "user") {
         return {
             {"__priority", 2},
-            {"app", {}},
+            {"app", {
+                {"ui", {
+                    {"is_light", true},
+                    {"font_size", 16}
+                }}
+            }},
             {"version", "1.0"},
             {"DGLABClient", "DG-LAB-Client"}
         };
@@ -42,7 +51,7 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
     else {
         // 通用默认配置
         return {
-            {"__priority", "0"},
+            {"__priority", 0},
             {"app", {}},
             {"version", "1.0"},
             {"DGLABClient", "DG-LAB-Client"}

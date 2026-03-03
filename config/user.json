@@ -1,6 +1,10 @@
 {
     "__priority": 2,
     "app": {
+        "ui": {
+            "is_light": true,
+            "font_size": 16
+        }
     },
     "version": "1.0",
     "DGLABClient": "DG-LAB-Client"
