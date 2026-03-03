@@ -44,6 +44,9 @@ private:
     LogLevel ui_log_level = LOG_DEBUG;
     LogSink qtSink;
 
+    template<typename Callback>
+    void async_call(const QJsonObject& cmd, int timeout, Callback&& callback);
+
 signals:
     void connect_finished(bool success, const QString& message);
     void code_content_ready(const QString& content);

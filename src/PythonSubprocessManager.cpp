@@ -6,6 +6,8 @@
 #include <QCoreApplication>
 #include <QThreadPool>
 #include <iostream>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 PythonSubprocessManager::PythonSubprocessManager(QObject* parent)
     : QObject(parent)

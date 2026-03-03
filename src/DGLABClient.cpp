@@ -16,6 +16,10 @@
 #include <QPointer>
 #include <QSyntaxHighlighter>
 #include <QThreadPool>
+#include <QCoreApplication>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QDebug>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
@@ -311,50 +315,34 @@ void DGLABClient::handle_close_finished(bool success, const QString& msg) {
 }
 
 void DGLABClient::start_async_connect() {
-    // 在后台线程执行连接操作，避免阻塞 UI
-    LOG_MODULE("DGLABClient", "start_async_connect", LOG_DEBUG, "在后台线程执行连接操作");
-    QThreadPool::globalInstance()->start([this]() {
-        bool success = false;
-        QString errorMsg;
-        try {
-            // 连接
-            LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在连接");
-            QJsonObject cmd;
-            cmd["cmd"] = "connect";
-            m_pyManager->call(cmd, [this](const QJsonObject& resp) {
-                bool ok = resp["status"].toString() == "ok";
-                QString msg = resp["message"].toString();
-                emit connect_finished(ok, msg);
-                }, 5000);
-        }
-        catch (const std::runtime_error& e) {
-            emit connect_finished(false, QString("运行时错误: ") + e.what());
-        }
-        catch (const std::exception& e) {
-            emit connect_finished(false, QString("异常: ") + e.what());
-        }
-        catch (...) {
-            emit connect_finished(false, "未知异常");
-        }
+    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在连接");
+    QJsonObject cmd;
+    cmd["cmd"] = "connect";
+    async_call(cmd, 5000, [this](bool ok, QString msg) {
+        emit connect_finished(ok, msg);
         });
 }
 
 void DGLABClient::close_async_connect() {
-    // 在后台线程执行连接操作，避免阻塞 UI
-    LOG_MODULE("DGLABClient", "close_async_connect", LOG_DEBUG, "在后台线程执行断开操作");
-    QThreadPool::globalInstance()->start([this]() {
-        bool success = false;
-        QString errorMsg;
+    LOG_MODULE("DGLABClient", "close_async_connect", LOG_INFO, "正在断开连接");
+    QJsonObject cmd;
+    cmd["cmd"] = "close";
+    async_call(cmd, 5000, [this](bool ok, QString msg) {
+        emit close_finished(ok, msg);
+        });
+}
+
+template<typename Callback>
+void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& callback) {
+    LOG_MODULE("DGLABClient", "asyncCall", LOG_DEBUG, "在后台线程执行异步调用");
+    QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
         try {
-            // 断开
-            LOG_MODULE("DGLABClient", "close_async_connect", LOG_INFO, "正在断开连接");
-            QJsonObject cmd;
-            cmd["cmd"] = "close";
-            m_pyManager->call(cmd, [this](const QJsonObject& resp) {
+            LOG_MODULE("DGLABClient", "asyncCall", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
+            m_pyManager->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
                 bool ok = resp["status"].toString() == "ok";
                 QString msg = resp["message"].toString();
-                emit close_finished(ok, msg);
-                }, 5000);
+                callback(ok, msg);
+                }, timeout);
         }
         catch (const std::runtime_error& e) {
             emit close_finished(false, QString("运行时错误: ") + e.what());
