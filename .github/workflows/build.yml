@@ -34,7 +34,7 @@ jobs:
         with:
           version: ${{ matrix.qt_version }}
           # 需要额外的 Qt 模块
-          modules: 'qtnetwork'
+          modules: ''
 
       # 设置 Python 环境
       - name: Setup Python
