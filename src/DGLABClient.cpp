@@ -4,6 +4,7 @@
 #include "PythonSubprocessManager.h"
 
 #include <iostream>
+#include <algorithm>
 #include <QPixmap>
 #include <QFile>
 #include <QList>
@@ -20,6 +21,8 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QDebug>
+#include <QLineEdit>
+#include <QIntValidator>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
@@ -105,14 +108,31 @@ DGLABClient::DGLABClient(QWidget* parent)
         LOG_MODULE("DGLABClient", "DGLABClient", LOG_ERROR, "首页图片资源不存在！");
     }
 
+    AppConfig& config = AppConfig::instance();
+
     // 设置元素属性
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始设置元素属性");
     ui.all->setProperty("type", "main_page");
     ui.all->setProperty("mode", "light");
-    ui.left_btns_bar->setProperty("type", "btns_bar");
+
+    ui.left_btns_bar->setProperty("type", "glassmorphism");
     ui.left_btns_bar->setProperty("mode", "light");
-    ui.about_page_btns_bar->setProperty("type", "btns_bar");
+
+    ui.about_page_btns_bar->setProperty("type", "glassmorphism");
     ui.about_page_btns_bar->setProperty("mode", "light");
+
+    ui.scrollArea->setProperty("type", "none");
+    ui.scrollAreaWidgetContents->setProperty("type", "none");
+    ui.config_widgrt->setProperty("type", "glassmorphism");
+    ui.config_widgrt->setProperty("mode", "light");
+
+    // 设置占位符文本
+    int old_port = config.get_value<int>("app.websocket.port", 9999);
+    ui.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
+    ui.port_input->setProperty("type", "input");
+    ui.port_input->setProperty("mode", "light");
+    ui.port_label->setProperty("type", "label");
+    ui.port_label->setProperty("mode", "light");
 
     QList<QPushButton*> btns = ui.all->findChildren<QPushButton*>();
     for (QPushButton* btn : btns) {
@@ -143,6 +163,10 @@ DGLABClient::DGLABClient(QWidget* parent)
     else {
         LOG_MODULE("DGLABClient", "DGLABClient", LOG_ERROR, "样式表不存在！");
     }
+
+    // 设置硬编码样式
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "设置硬编码样式");
+
     // 为日志控件设置局部样式与调色板，避免全局样式覆盖字符颜色
     ui.debug_log->setStyleSheet("QTextEdit#debug_log { color: black; }");
     QPalette pal = ui.debug_log->palette();
@@ -161,6 +185,19 @@ DGLABClient::DGLABClient(QWidget* parent)
     connect(ui.close_connect_btn, &QPushButton::clicked, this, &DGLABClient::on_close_connect_btn_clicked);
     connect(ui.start_btn, &QPushButton::clicked, this, &DGLABClient::on_start_btn_clicked);
     connect(ui.close_btn, &QPushButton::clicked, this, &DGLABClient::on_close_btn_clicked);
+
+    // 限制范围 0～65535
+    QIntValidator* validator = new QIntValidator(0, 65535, this);
+    QLocale locale = QLocale::c();
+    validator->setLocale(locale);
+    ui.port_input->setValidator(validator);
+    // 限制端口输入长度，避免过长输入导致界面问题
+    connect(ui.port_input, &QLineEdit::textChanged, this, [=](const QString& text) {
+        if (text.length() > 100) {
+            ui.port_input->setText(text.left(100));
+        }
+        });
+    connect(ui.port_confirm_btn, &QPushButton::clicked, this, &DGLABClient::set_port);
 
     connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
     connect(this, &DGLABClient::code_content_ready, this, &DGLABClient::handle_code_content_ready);
@@ -186,7 +223,6 @@ DGLABClient::DGLABClient(QWidget* parent)
             emit close_finished(true, "Python 进程关闭");
         });
 
-    AppConfig& config = AppConfig::instance();
     QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
     std::string bridge_module = config.get_value<std::string>("python.bridge_path", "/python/Bridge.py");
     QString scriptPath = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
@@ -261,9 +297,28 @@ void DGLABClient::on_close_btn_clicked() {
 }
 
 void DGLABClient::change_ui_log_level(LogLevel new_level) {
-    LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_DEBUG, "修改 UI 日志级别: 旧=" << ui_log_level << " 新=" << new_level);
+    LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_INFO, "修改 UI 日志级别: 旧=" << ui_log_level << " 新=" << new_level);
     ui_log_level = new_level;
     DebugLog::Instance().set_log_sink_level("qt_ui", new_level);
+}
+
+void DGLABClient::set_port() {
+    QString input = ui.port_input->text().trimmed();
+    bool ok;
+    int port = input.toInt(&ok);
+    if (ok && port >= 0 && port <= 65535) {
+        LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "开始设置端口");
+        AppConfig& config = AppConfig::instance();
+        config.set_value_with_name<int>("app.websocket.port", input.toInt(), "system");
+        LOG_MODULE("DGLABClient", "set_port", LOG_INFO, "设置端口完成：" << input.toStdString());
+    }
+    else {
+        LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口：" << input.toStdString());
+    }
+    ui.port_input->setText("");
+    AppConfig& config = AppConfig::instance();
+    int old_port = config.get_value<int>("app.websocket.port", 9999);
+    ui.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
 }
 
 void DGLABClient::append_log_message(const QString& message, int level) {
@@ -345,10 +400,10 @@ void DGLABClient::handle_close_finished(bool success, const QString& msg) {
 void DGLABClient::start_async_connect() {
     LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在更新端口");
     AppConfig& config = AppConfig::instance();
-    int port = config.get_value<int>("app.websocket.post", 9999);
+    int port = config.get_value<int>("app.websocket.port", 9999);
     QJsonObject update_port_cmd;
     update_port_cmd["cmd"] = "set_ws_url";
-    update_port_cmd["post"] = port;
+    update_port_cmd["port"] = port;
     async_call(update_port_cmd, 5000, [this](bool ok, QString msg) {
         if (ok) {
             LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "端口更新成功，继续连接");

@@ -28,7 +28,7 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             {"__priority", 1},
             {"app", {
                 {"websocket", {
-                    {"post", 9999}
+                    {"port", 9999}
                 }}
             }},
             {"version", "1.0"},

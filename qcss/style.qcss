@@ -4,9 +4,17 @@ QWidget[type="main_page"][mode="light"] {
                                 stop: 1 rgba(135, 206, 250, 1));
 }
 
-QWidget[type="btns_bar"][mode="light"] {
+QWidget[type="glassmorphism"][mode="light"] {
     background-color: rgba(255, 255, 255, 0.3);
     border-radius: 8px;
+}
+
+QWidget[type="none"] {
+    background-color: rgba(255, 255, 255, 0);
+}
+
+QScrollArea[type="none"] {
+    background-color: rgba(255, 255, 255, 0);
 }
 
 QPushButton[type="btns"][mode="light"] {
@@ -30,6 +38,21 @@ QPushButton[type="btns"][mode="light"]:pressed {
 
 QLabel[type="main_image_label"][mode="light"] {
     background: rgba(255, 255, 255, 0.6);
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(255, 255, 0, 1);
+    border-radius: 6px;
+}
+
+QLineEdit[type="input"][mode="light"] {
+    background: rgba(255, 255, 255, 0.6);
+    color: black;
+    placeholder-text-color: gray;
+}
+
+QLabel[type="label"][mode="light"] {
+    background: rgba(255, 192, 203, 0.8);
     text-align: center;
     font-size: 16px;
     font-weight: bold;

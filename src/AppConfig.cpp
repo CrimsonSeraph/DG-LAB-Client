@@ -318,25 +318,6 @@ void AppConfig::create_default_configs() {
 }
 
 // ============================================
-// 配置项修改器实现
-// ============================================
-
-void AppConfig::set_value(const std::string& key_path, const std::string& value) {
-    LOG_MODULE("AppConfig", "set_value", LOG_INFO, "设置配置值: " << key_path << " = " << value);
-    set_value_with_priority<std::string>(key_path, value, -1);
-}
-
-void AppConfig::set_value_with_priority(const std::string& key_path, const std::string& value, int priority) {
-    LOG_MODULE("AppConfig", "set_value_with_priority", LOG_INFO, "设置配置值（带优先级）: " << key_path << " = " << value << " 优先级=" << priority);
-    set_value_with_priority<std::string>(key_path, value, priority);
-}
-
-void AppConfig::set_value_with_name(const std::string& key_path, const std::string& value, const std::string& key_name) {
-    LOG_MODULE("AppConfig", "set_value_with_name", LOG_INFO, "设置配置值（带配置名）: " << key_path << " = " << value << " 配置名=" << key_name);
-    set_value_with_name<std::string>(key_path, value, key_name);
-}
-
-// ============================================
 // 批量操作实现
 // ============================================
 

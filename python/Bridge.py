@@ -65,8 +65,8 @@ class DGLabServer:
             response = {"status": "ok", "message": "已断开"}
 
         elif cmd_type == "set_ws_url":
-            post = cmd.get("post")
-            self.dglab.set_ws_url(f"ws://localhost:{post}")
+            port = cmd.get("port")
+            self.dglab.set_ws_url(f"ws://localhost:{port}")
             response = {"status": "ok", "message": "设置成功"}
 
         elif cmd_type == "bind_target":

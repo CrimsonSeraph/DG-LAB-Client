@@ -27,6 +27,7 @@ public:
     void on_close_btn_clicked();
 
     void change_ui_log_level(LogLevel new_level);
+    void set_port();
 
 private:
     Ui::DGLABClientClass ui;

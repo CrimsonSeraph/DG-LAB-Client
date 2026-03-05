@@ -87,7 +87,7 @@ public:
     std::vector<std::shared_ptr<ConfigManager>> get_sorted_configs_unsafe() const;
     std::vector<std::shared_ptr<ConfigManager>> get_sorted_configs() const;
 
-    ~MultiConfigManager() = default;
+    ~MultiConfigManager();
 
 private:
     MultiConfigManager() = default;

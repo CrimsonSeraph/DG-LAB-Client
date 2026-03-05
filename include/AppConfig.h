@@ -47,13 +47,8 @@ public:
     // ================ 配置项修改器 ================
 
     // 应用设置
-    void set_value(const std::string& key_path, const std::string& value);
-
-    // 应用设置（通过优先级）
-    void set_value_with_priority(const std::string& key_path, const std::string& value, int priority);
-
-    // 应用设置（通过名称）
-    void set_value_with_name(const std::string& key_path, const std::string& value, const std::string& key_name);
+    template<typename T>
+    void set_value(const std::string& key_path, const T& value);
 
     // ================ 批量操作 ================
 
@@ -276,4 +271,11 @@ inline void AppConfig::set_value_with_name_unsafe(const std::string& key_path,
         LOG_MODULE("AppConfig", "set_value_with_name_unsafe", LOG_WARN, "设置配置失败: " << key_path
             << " (目标名称: " << key_name << ")");
     }
+}
+
+// 配置项修改器实现
+template<typename T>
+inline void AppConfig::set_value(const std::string& key_path, const T& value) {
+    LOG_MODULE("AppConfig", "set_value", LOG_INFO, "设置配置值: " << key_path << " = " << value);
+    set_value_with_priority<T>(key_path, value, -1);
 }

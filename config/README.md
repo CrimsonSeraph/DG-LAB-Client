@@ -50,7 +50,7 @@
 ```json
 {
     "websocket": {
-        "post": 9999
+        "port": 9999
     }
 }
 ```

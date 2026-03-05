@@ -159,6 +159,9 @@ inline bool MultiConfigManager::set_with_name(const std::string& key_path,
 template<typename T>
 inline bool MultiConfigManager::set_with_name_unsafe(const std::string& key_path,
     const T& value, const std::string& key_name) {
+    LOG_MODULE("MultiConfigManager", "set_with_name_unsafe", LOG_DEBUG,
+        "尝试设置配置 [" << key_path << "] = " << value
+        << " 到名称为 " << key_name << " 的配置管理器");
     for (auto& [name, info] : config_registry_) {
         if (info.manager && name == key_name) {
             bool success = info.manager->set(key_path, value);

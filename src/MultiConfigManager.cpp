@@ -249,6 +249,10 @@ std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_confi
     return get_sorted_configs_unsafe();
 }
 
+MultiConfigManager::~MultiConfigManager() {
+    save_all();
+}
+
 void MultiConfigManager::start_file_watcher() {
     LOG_MODULE("MultiConfigManager", "start_file_watcher", LOG_INFO, "启动文件监控线程");
     if (running_) {
