@@ -53,6 +53,7 @@ public:
     void set_log_sink_level(const std::string& name, LogLevel level);
 
     const char* level_to_string(LogLevel level);
+    static LogLevel int_to_log_level(int level);
     inline bool is_only_type_info() const { return is_only_type_info_; }
 
 private:

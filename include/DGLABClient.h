@@ -28,7 +28,7 @@ public:
     void on_start_btn_clicked();
     void on_close_btn_clicked();
 
-    void change_ui_log_level(LogLevel new_level);
+    void change_ui_log_level();
     void set_port();
 
 protected:

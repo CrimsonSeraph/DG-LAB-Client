@@ -123,3 +123,20 @@ const char* DebugLog::level_to_string(LogLevel level) {
         return "UNKNOWN";
     }
 }
+
+LogLevel DebugLog::int_to_log_level(int level) {
+    switch (level) {
+    case 0:
+        return LOG_DEBUG;
+    case 1:
+        return LOG_INFO;
+    case 2:
+        return LOG_WARN;
+    case 3:
+        return LOG_ERROR;
+    case 4:
+        return LOG_NONE;
+    default:
+        return LOG_DEBUG;
+    }
+}

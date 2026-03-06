@@ -51,8 +51,6 @@ int main(int argc, char* argv[]) {
     std::string app_name = config.get_value<std::string>("app.name", "DG-LAB-Client");
     std::string app_version = config.get_value<std::string>("app.version", "1.0.0");
     window.setWindowTitle(QString::fromStdString(app_name + "[" + app_version) + "]");
-    int ui_log_level = config.get_value<int>("app.log.ui_log_level", 0);
-    window.change_ui_log_level(static_cast<LogLevel>(ui_log_level));
     window.show();
     LOG_MODULE("main", "main", LOG_DEBUG, "窗口已创建，标题: " << window.windowTitle().toStdString());
 

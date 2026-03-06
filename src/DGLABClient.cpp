@@ -31,6 +31,7 @@ DGLABClient::DGLABClient(QWidget* parent)
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始初始化窗口");
     ui.setupUi(this);
 
+    change_ui_log_level();
     setup_debug_log();
     register_log_sink();
     create_log_highlighter();
@@ -396,10 +397,12 @@ void DGLABClient::on_start_btn_clicked() {
 void DGLABClient::on_close_btn_clicked() {
 }
 
-void DGLABClient::change_ui_log_level(LogLevel new_level) {
+void DGLABClient::change_ui_log_level() {
+    AppConfig& config = AppConfig::instance();
+    int new_level = config.get_value<int>("app.log.ui_log_level", 0);
     LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_INFO, "修改 UI 日志级别: 旧=" << ui_log_level << " 新=" << new_level);
-    ui_log_level = new_level;
-    DebugLog::Instance().set_log_sink_level("qt_ui", new_level);
+    ui_log_level = DebugLog::int_to_log_level(new_level);
+    DebugLog::Instance().set_log_sink_level("qt_ui", ui_log_level);
 }
 
 void DGLABClient::set_port() {
