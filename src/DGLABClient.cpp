@@ -30,18 +30,79 @@ DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始初始化窗口");
     ui.setupUi(this);
-    AppConfig& config = AppConfig::instance();
 
-    // 首页相关设置
+    setup_debug_log();
+    register_log_sink();
+    create_log_highlighter();
+    load_main_image();
+    create_tray_icon();
+    setup_widget_properties();
+    load_stylesheet();
+    setup_log_widget_style();
+    setup_connections();
+    setup_port_input_validation();
+    setup_default_page();
+    init_python_manager();
+
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
+}
+
+DGLABClient::~DGLABClient() {
+    DebugLog::Instance().unregister_log_sink("qt_ui");
+}
+
+void DGLABClient::append_log_message(const QString& message, int level) {
+    QString clean = message;
+    QRegularExpression ansi("\\x1B\\[[0-9;]*[A-Za-z]");
+    clean.remove(ansi);
+    clean.replace('\r', "");
+    append_colored_text(ui.debug_log, clean);
+}
+
+void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
+    edit->moveCursor(QTextCursor::End);
+    edit->insertPlainText(text + "\n");
+    edit->moveCursor(QTextCursor::End);
+    edit->ensureCursorVisible();
+    if (log_highlighter) {
+        log_highlighter->rehighlight();
+    }
+}
+
+template<typename Callback>
+void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& callback) {
+    LOG_MODULE("DGLABClient", "asyncCall", LOG_DEBUG, "在后台线程执行异步调用");
+    QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
+        try {
+            LOG_MODULE("DGLABClient", "asyncCall", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
+            m_pyManager->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
+                bool ok = resp["status"].toString() == "ok";
+                QString msg = resp["message"].toString();
+                callback(ok, msg);
+                }, timeout);
+        }
+        catch (const std::runtime_error& e) {
+            emit close_finished(false, QString("运行时错误: ") + e.what());
+        }
+        catch (const std::exception& e) {
+            emit close_finished(false, QString("异常: ") + e.what());
+        }
+        catch (...) {
+            emit close_finished(false, "未知异常");
+        }
+        });
+}
+
+void DGLABClient::setup_debug_log() {
     ui.debug_log->setReadOnly(true);
     ui.debug_log->setStyleSheet("");
     ui.debug_log->document()->setDefaultStyleSheet("");
     ui.debug_log->document()->setDefaultFont(QFont("Consolas", 8));
     ui.debug_log->setAcceptRichText(true);
+}
 
-    // 注册 Qt Sink
+void DGLABClient::register_log_sink() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始注册 Qt Sink");
-    ui_log_level = ui_log_level;
     qtSink.callback = [qptr = QPointer<DGLABClient>(this)](const std::string& module,
         const std::string& method,
         LogLevel level,
@@ -54,21 +115,18 @@ DGLABClient::DGLABClient(QWidget* parent)
                 .arg(QString::fromStdString(DebugLog::Instance().level_to_string(level)))
                 .arg(QString::fromStdString(message));
 
-            // 在目标对象所属线程执行；在执行时再次检查对象是否仍然存在
             QMetaObject::invokeMethod(qptr.data(), [qptr, display, level]() {
-                if (!qptr) {
-                    return;
-                }
+                if (!qptr) return;
                 qptr->append_log_message(display, level);
                 }, Qt::AutoConnection);
         };
-    int uiLogLevel = ui_log_level;
-    qtSink.min_level = static_cast<LogLevel>(uiLogLevel);
+    qtSink.min_level = ui_log_level;
     DebugLog::Instance().unregister_log_sink("qt_ui");
     DebugLog::Instance().register_log_sink("qt_ui", qtSink);
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "注册 Qt Sink 完成");
+}
 
-    // 创建简单的高亮器，根据行内的等级关键字为整行上色
+void DGLABClient::create_log_highlighter() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "创建简单的高亮器");
     class LogHighlighter : public QSyntaxHighlighter {
     public:
@@ -95,8 +153,9 @@ DGLABClient::DGLABClient(QWidget* parent)
         }
     };
     log_highlighter = new LogHighlighter(ui.debug_log->document());
+}
 
-    // 加载首页图片
+void DGLABClient::load_main_image() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始加载首页图片");
     QString image_path = ":/image/assets/normal_image/main_image.png";
     bool main_image_exists = QFile::exists(image_path);
@@ -110,18 +169,19 @@ DGLABClient::DGLABClient(QWidget* parent)
         ui.main_image_label->setText("加载失败！");
         LOG_MODULE("DGLABClient", "DGLABClient", LOG_ERROR, "首页图片资源不存在！");
     }
+}
 
-    // 创建托盘图标
+void DGLABClient::create_tray_icon() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始创建托盘图标");
     QString tray_icon_path = ":/image/assets/normal_image/main_image.png";
     bool tray_icon_exists = QFile::exists(tray_icon_path);
     if (tray_icon_exists) {
         tray_icon = new QSystemTrayIcon(this);
         tray_icon->setIcon(QIcon(tray_icon_path));
+        AppConfig& config = AppConfig::instance();
         std::string app_name = config.get_value<std::string>("app.name", "DG-LAB-Client");
         tray_icon->setToolTip(QString::fromStdString(app_name));
 
-        // 创建菜单
         tray_menu = new QMenu(this);
         QAction* show_action = new QAction("显示", this);
         QAction* quit_action = new QAction("退出", this);
@@ -148,8 +208,9 @@ DGLABClient::DGLABClient(QWidget* parent)
         ui.main_image_label->setText("加载失败！");
         LOG_MODULE("DGLABClient", "DGLABClient", LOG_ERROR, "托盘图标不存在！");
     }
+}
 
-    // 设置元素属性
+void DGLABClient::setup_widget_properties() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始设置元素属性");
     ui.all->setProperty("type", "main_page");
     ui.all->setProperty("mode", "light");
@@ -165,7 +226,7 @@ DGLABClient::DGLABClient(QWidget* parent)
     ui.config_widgrt->setProperty("type", "glassmorphism");
     ui.config_widgrt->setProperty("mode", "light");
 
-    // 设置占位符文本
+    AppConfig& config = AppConfig::instance();
     int old_port = config.get_value<int>("app.websocket.port", 9999);
     ui.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
     ui.port_input->setProperty("type", "input");
@@ -182,8 +243,9 @@ DGLABClient::DGLABClient(QWidget* parent)
     ui.main_image_label->setProperty("type", "main_image_label");
     ui.main_image_label->setProperty("mode", "light");
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "设置元素属性完成！当前全局 mode 为：light");
+}
 
-    // 加载样式表
+void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始加载样式表");
     bool stylesheet_exists = QFile::exists(":/qcss/qcss/style.qcss");
     if (stylesheet_exists) {
@@ -202,18 +264,18 @@ DGLABClient::DGLABClient(QWidget* parent)
     else {
         LOG_MODULE("DGLABClient", "DGLABClient", LOG_ERROR, "样式表不存在！");
     }
+}
 
-    // 设置硬编码样式
+void DGLABClient::setup_log_widget_style() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "设置硬编码样式");
-
-    // 为日志控件设置局部样式与调色板，避免全局样式覆盖字符颜色
     ui.debug_log->setStyleSheet("QTextEdit#debug_log { color: black; }");
     QPalette pal = ui.debug_log->palette();
     pal.setColor(QPalette::Text, Qt::black);
     pal.setColor(QPalette::WindowText, Qt::black);
     ui.debug_log->setPalette(pal);
+}
 
-    // 绑定信号与槽
+void DGLABClient::setup_connections() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始绑定信号与槽");
     connect(ui.main_first_btn, &QPushButton::clicked, this, &DGLABClient::on_main_first_btn_clicked);
     connect(ui.main_config_btn, &QPushButton::clicked, this, &DGLABClient::on_main_config_btn_clicked);
@@ -225,28 +287,30 @@ DGLABClient::DGLABClient(QWidget* parent)
     connect(ui.start_btn, &QPushButton::clicked, this, &DGLABClient::on_start_btn_clicked);
     connect(ui.close_btn, &QPushButton::clicked, this, &DGLABClient::on_close_btn_clicked);
 
-    // 限制范围 0～65535
-    QIntValidator* validator = new QIntValidator(0, 65535, this);
-    QLocale locale = QLocale::c();
-    validator->setLocale(locale);
-    ui.port_input->setValidator(validator);
-    // 限制端口输入长度，避免过长输入导致界面问题
-    connect(ui.port_input, &QLineEdit::textChanged, this, [=](const QString& text) {
-        if (text.length() > 100) {
-            ui.port_input->setText(text.left(100));
-        }
-        });
     connect(ui.port_confirm_btn, &QPushButton::clicked, this, &DGLABClient::set_port);
 
     connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
     connect(this, &DGLABClient::code_content_ready, this, &DGLABClient::handle_code_content_ready);
     connect(this, &DGLABClient::close_finished, this, &DGLABClient::handle_close_finished);
+}
 
-    // 设置默认页面
+void DGLABClient::setup_port_input_validation() {
+    QIntValidator* validator = new QIntValidator(0, 65535, this);
+    QLocale locale = QLocale::c();
+    validator->setLocale(locale);
+    ui.port_input->setValidator(validator);
+    connect(ui.port_input, &QLineEdit::textChanged, this, [=](const QString& text) {
+        if (text.length() > 100) {
+            ui.port_input->setText(text.left(100));
+        }
+        });
+}
+
+void DGLABClient::setup_default_page() {
     ui.stackedWidget->setCurrentWidget(ui.first_page);
-    LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
+}
 
-    // 启用 Python 子进程
+void DGLABClient::init_python_manager() {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "启动并连接 Python 服务");
     m_pyManager = new PythonSubprocessManager(this);
 
@@ -262,6 +326,7 @@ DGLABClient::DGLABClient(QWidget* parent)
             emit close_finished(true, "Python 进程关闭");
         });
 
+    AppConfig& config = AppConfig::instance();
     QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
     std::string bridge_module = config.get_value<std::string>("python.bridge_path", "/python/Bridge.py");
     QString scriptPath = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
@@ -269,10 +334,6 @@ DGLABClient::DGLABClient(QWidget* parent)
         << pythonPath.toStdString() << "（注：若解释器路径直接为<Python>则使用系统默认 Python 路径）");
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径：" << bridge_module);
     m_pyManager->start_process(pythonPath, scriptPath);
-}
-
-DGLABClient::~DGLABClient() {
-    DebugLog::Instance().unregister_log_sink("qt_ui");
 }
 
 void DGLABClient::on_main_first_btn_clicked() {
@@ -360,57 +421,9 @@ void DGLABClient::set_port() {
     ui.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
 }
 
-void DGLABClient::append_log_message(const QString& message, int level) {
-    QString clean = message;
-    QRegularExpression ansi("\\x1B\\[[0-9;]*[A-Za-z]");
-    clean.remove(ansi);
-
-    clean.replace('\r', "");
-
-    append_colored_text(ui.debug_log, clean);
-}
-
-void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
-    // 插入纯文本，让高亮器负责为整行着色（避免局部格式被全局 QSS 覆盖）
-    edit->moveCursor(QTextCursor::End);
-    edit->insertPlainText(text + "\n");
-    edit->moveCursor(QTextCursor::End);
-    edit->ensureCursorVisible();
-
-    // 如果存在高亮器，通知它重绘以应用行级颜色
-    if (log_highlighter) {
-        log_highlighter->rehighlight();
-    }
-}
-
-template<typename Callback>
-void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& callback) {
-    LOG_MODULE("DGLABClient", "asyncCall", LOG_DEBUG, "在后台线程执行异步调用");
-    QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
-        try {
-            LOG_MODULE("DGLABClient", "asyncCall", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
-            m_pyManager->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
-                bool ok = resp["status"].toString() == "ok";
-                QString msg = resp["message"].toString();
-                callback(ok, msg);
-                }, timeout);
-        }
-        catch (const std::runtime_error& e) {
-            emit close_finished(false, QString("运行时错误: ") + e.what());
-        }
-        catch (const std::exception& e) {
-            emit close_finished(false, QString("异常: ") + e.what());
-        }
-        catch (...) {
-            emit close_finished(false, "未知异常");
-        }
-        });
-}
-
 void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
     start_connect_btn_loading = false;
     ui.start_connect_btn->setEnabled(true);
-
     if (success) {
         is_connected = true;
         LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_INFO, msg.toStdString());
@@ -426,7 +439,6 @@ void DGLABClient::handle_code_content_ready(const QString& content) {
 void DGLABClient::handle_close_finished(bool success, const QString& msg) {
     close_connect_btn_loading = false;
     ui.close_connect_btn->setEnabled(true);
-
     if (success) {
         is_connected = false;
         LOG_MODULE("DGLABClient", "handle_close_finished", LOG_INFO, msg.toStdString());

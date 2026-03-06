@@ -20,12 +20,12 @@ QScrollArea[type="none"] {
 QPushButton[type="btns"][mode="light"] {
     background: rgba(255, 255, 255, 0.6);
     border: 2px solid white;
-    padding: 10px 24px;
-    text-align: center;
     border-radius: 6px;
     font-size: 16px;
     font-weight: bold;
     color: rgba(255, 255, 0, 1);
+    text-align: center;
+    padding: 10px 24px;
 }
 
 QPushButton[type="btns"][mode="light"]:hover {
@@ -38,11 +38,11 @@ QPushButton[type="btns"][mode="light"]:pressed {
 
 QLabel[type="main_image_label"][mode="light"] {
     background: rgba(255, 255, 255, 0.6);
-    text-align: center;
+    border-radius: 6px;
     font-size: 16px;
     font-weight: bold;
     color: rgba(255, 255, 0, 1);
-    border-radius: 6px;
+    text-align: center;
 }
 
 QLineEdit[type="input"][mode="light"] {
@@ -53,16 +53,16 @@ QLineEdit[type="input"][mode="light"] {
 
 QLabel[type="label"][mode="light"] {
     background: rgba(255, 192, 203, 0.8);
-    text-align: center;
+    border-radius: 3px;
     font-size: 16px;
     font-weight: bold;
     color: rgba(255, 255, 0, 1);
-    border-radius: 3px;
+    text-align: center;
 }
 
 QMenu {
     background-color: rgba(135, 206, 255, 1);
     border: 1px solid rgba(255, 192, 203, 1);
-    color: black;
     border-radius: 4px;
+    color: black;
 }

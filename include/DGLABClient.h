@@ -55,6 +55,19 @@ private:
     template<typename Callback>
     void async_call(const QJsonObject& cmd, int timeout, Callback&& callback);
 
+    void setup_debug_log();
+    void register_log_sink();
+    void create_log_highlighter();
+    void load_main_image();
+    void create_tray_icon();
+    void setup_widget_properties();
+    void load_stylesheet();
+    void setup_log_widget_style();
+    void setup_connections();
+    void setup_port_input_validation();
+    void setup_default_page();
+    void init_python_manager();
+
 signals:
     void connect_finished(bool success, const QString& message);
     void code_content_ready(const QString& content);
