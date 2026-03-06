@@ -23,11 +23,14 @@
 #include <QDebug>
 #include <QLineEdit>
 #include <QIntValidator>
+#include <QIcon>
+#include <QAction>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始初始化窗口");
     ui.setupUi(this);
+    AppConfig& config = AppConfig::instance();
 
     // 首页相关设置
     ui.debug_log->setReadOnly(true);
@@ -91,7 +94,7 @@ DGLABClient::DGLABClient(QWidget* parent)
             setFormat(0, text.length(), f);
         }
     };
-    logHighlighter = new LogHighlighter(ui.debug_log->document());
+    log_highlighter = new LogHighlighter(ui.debug_log->document());
 
     // 加载首页图片
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始加载首页图片");
@@ -108,7 +111,43 @@ DGLABClient::DGLABClient(QWidget* parent)
         LOG_MODULE("DGLABClient", "DGLABClient", LOG_ERROR, "首页图片资源不存在！");
     }
 
-    AppConfig& config = AppConfig::instance();
+    // 创建托盘图标
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始创建托盘图标");
+    QString tray_icon_path = ":/image/assets/normal_image/main_image.png";
+    bool tray_icon_exists = QFile::exists(tray_icon_path);
+    if (tray_icon_exists) {
+        tray_icon = new QSystemTrayIcon(this);
+        tray_icon->setIcon(QIcon(tray_icon_path));
+        std::string app_name = config.get_value<std::string>("app.name", "DG-LAB-Client");
+        tray_icon->setToolTip(QString::fromStdString(app_name));
+
+        // 创建菜单
+        tray_menu = new QMenu(this);
+        QAction* show_action = new QAction("显示", this);
+        QAction* quit_action = new QAction("退出", this);
+
+        connect(show_action, &QAction::triggered, this, [=]() {
+            this->showNormal();
+            this->activateWindow();
+            });
+        connect(quit_action, &QAction::triggered, qApp, &QApplication::quit);
+        tray_menu->addAction(show_action);
+        tray_menu->addSeparator();
+        tray_menu->addAction(quit_action);
+        tray_icon->setContextMenu(tray_menu);
+        connect(tray_icon, &QSystemTrayIcon::activated, this, [=](QSystemTrayIcon::ActivationReason reason) {
+            if (reason == QSystemTrayIcon::DoubleClick) {
+                this->showNormal();
+                this->activateWindow();
+            }
+            });
+        tray_icon->show();
+        LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "托盘图标加载完成");
+    }
+    else {
+        ui.main_image_label->setText("加载失败！");
+        LOG_MODULE("DGLABClient", "DGLABClient", LOG_ERROR, "托盘图标不存在！");
+    }
 
     // 设置元素属性
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始设置元素属性");
@@ -339,8 +378,8 @@ void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
     edit->ensureCursorVisible();
 
     // 如果存在高亮器，通知它重绘以应用行级颜色
-    if (logHighlighter) {
-        logHighlighter->rehighlight();
+    if (log_highlighter) {
+        log_highlighter->rehighlight();
     }
 }
 
@@ -426,4 +465,16 @@ void DGLABClient::close_async_connect() {
     async_call(close_cmd, 5000, [this](bool ok, QString msg) {
         emit close_finished(ok, msg);
         });
+}
+
+void DGLABClient::closeEvent(QCloseEvent* event) {
+    if (tray_icon->isVisible()) {
+        tray_icon->showMessage("提示", "程序已最小化到系统托盘",
+            QSystemTrayIcon::Information, 2000);
+        this->hide();
+        event->ignore();
+    }
+    else {
+        event->accept();
+    }
 }

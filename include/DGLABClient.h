@@ -6,7 +6,9 @@
 #include <QtWidgets/QWidget>
 #include "ui_DGLABClient.h"
 #include <QSyntaxHighlighter>
-
+#include <QSystemTrayIcon>
+#include <QMenu>
+#include <QCloseEvent>
 
 class DGLABClient : public QWidget
 {
@@ -29,11 +31,16 @@ public:
     void change_ui_log_level(LogLevel new_level);
     void set_port();
 
+protected:
+    void closeEvent(QCloseEvent* event) override;
+
 private:
     Ui::DGLABClientClass ui;
     void append_log_message(const QString& message, int level);
     void append_colored_text(QTextEdit* edit, const QString& text);
-    QSyntaxHighlighter* logHighlighter = nullptr;
+    QSyntaxHighlighter* log_highlighter = nullptr;
+    QSystemTrayIcon* tray_icon;
+    QMenu* tray_menu;
 
     bool start_connect_btn_loading = false;
     bool close_connect_btn_loading = false;

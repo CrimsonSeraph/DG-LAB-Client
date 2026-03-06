@@ -57,5 +57,12 @@ QLabel[type="label"][mode="light"] {
     font-size: 16px;
     font-weight: bold;
     color: rgba(255, 255, 0, 1);
-    border-radius: 6px;
+    border-radius: 3px;
+}
+
+QMenu {
+    background-color: rgba(135, 206, 255, 1);
+    border: 1px solid rgba(255, 192, 203, 1);
+    color: black;
+    border-radius: 4px;
 }
