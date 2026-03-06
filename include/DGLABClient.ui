@@ -208,10 +208,28 @@
           <property name="geometry">
            <rect>
             <x>20</x>
-            <y>80</y>
+            <y>140</y>
             <width>658</width>
-            <height>498</height>
+            <height>438</height>
            </rect>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>658</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>658</width>
+            <height>16777215</height>
+           </size>
           </property>
           <property name="widgetResizable">
            <bool>true</bool>
@@ -222,24 +240,24 @@
              <x>0</x>
              <y>0</y>
              <width>656</width>
-             <height>496</height>
+             <height>436</height>
             </rect>
            </property>
            <property name="sizePolicy">
-            <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+            <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
            <property name="minimumSize">
             <size>
-             <width>656</width>
-             <height>496</height>
+             <width>0</width>
+             <height>0</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
-             <width>656</width>
+             <width>16777215</width>
              <height>16777215</height>
             </size>
            </property>
@@ -248,29 +266,29 @@
              <rect>
               <x>0</x>
               <y>0</y>
-              <width>656</width>
-              <height>496</height>
+              <width>658</width>
+              <height>438</height>
              </rect>
             </property>
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+             <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
             </property>
             <property name="minimumSize">
              <size>
-              <width>656</width>
-              <height>456</height>
+              <width>0</width>
+              <height>0</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
-              <width>656</width>
+              <width>16777215</width>
               <height>16777215</height>
              </size>
             </property>
-            <layout class="QGridLayout" name="gridLayout" columnstretch="1">
+            <layout class="QGridLayout" name="gridLayout" columnstretch="0">
              <property name="leftMargin">
               <number>0</number>
              </property>
@@ -286,183 +304,209 @@
              <property name="spacing">
               <number>0</number>
              </property>
-             <item row="2" column="0">
-              <widget class="QWidget" name="config_info" native="true">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
-               </property>
-               <property name="minimumSize">
-                <size>
-                 <width>656</width>
-                 <height>0</height>
-                </size>
-               </property>
-               <property name="maximumSize">
-                <size>
-                 <width>656</width>
-                 <height>16777215</height>
-                </size>
-               </property>
-               <layout class="QGridLayout" name="gridLayout_2">
-                <item row="0" column="0">
-                 <widget class="QLabel" name="label">
-                  <property name="text">
-                   <string>暂无配置</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignmentFlag::AlignCenter</set>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
-             </item>
              <item row="0" column="0">
-              <widget class="QWidget" name="port_info" native="true">
-               <property name="sizePolicy">
-                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                 <horstretch>0</horstretch>
-                 <verstretch>0</verstretch>
-                </sizepolicy>
+              <widget class="QLabel" name="default_config">
+               <property name="font">
+                <font>
+                 <pointsize>16</pointsize>
+                </font>
                </property>
-               <property name="minimumSize">
-                <size>
-                 <width>651</width>
-                 <height>80</height>
-                </size>
+               <property name="text">
+                <string>暂无配置</string>
                </property>
-               <property name="maximumSize">
-                <size>
-                 <width>656</width>
-                 <height>80</height>
-                </size>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
                </property>
-               <layout class="QHBoxLayout" name="horizontalLayout_3">
-                <property name="spacing">
-                 <number>20</number>
-                </property>
-                <property name="leftMargin">
-                 <number>50</number>
-                </property>
-                <property name="topMargin">
-                 <number>20</number>
-                </property>
-                <property name="rightMargin">
-                 <number>50</number>
-                </property>
-                <property name="bottomMargin">
-                 <number>20</number>
-                </property>
-                <item>
-                 <widget class="QWidget" name="port_part" native="true">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <layout class="QHBoxLayout" name="horizontalLayout_2">
-                   <property name="spacing">
-                    <number>0</number>
-                   </property>
-                   <property name="leftMargin">
-                    <number>0</number>
-                   </property>
-                   <property name="topMargin">
-                    <number>0</number>
-                   </property>
-                   <property name="rightMargin">
-                    <number>0</number>
-                   </property>
-                   <property name="bottomMargin">
-                    <number>0</number>
-                   </property>
-                   <item>
-                    <widget class="QLabel" name="port_label">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="minimumSize">
-                      <size>
-                       <width>100</width>
-                       <height>50</height>
-                      </size>
-                     </property>
-                     <property name="text">
-                      <string>端口-&gt;</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLineEdit" name="port_input">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="minimumSize">
-                      <size>
-                       <width>0</width>
-                       <height>50</height>
-                      </size>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QPushButton" name="port_confirm_btn">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <property name="minimumSize">
-                   <size>
-                    <width>100</width>
-                    <height>50</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>确定</string>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
               </widget>
              </item>
             </layout>
            </widget>
           </widget>
          </widget>
-        </widget>
-        <widget class="QWidget" name="setting_page"/>
-        <widget class="QWidget" name="first_page">
-         <widget class="QWidget" name="about_page_btns_bar" native="true">
+         <widget class="QWidget" name="port_info" native="true">
           <property name="geometry">
            <rect>
-            <x>10</x>
+            <x>20</x>
+            <y>80</y>
+            <width>658</width>
+            <height>50</height>
+           </rect>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Minimum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>658</width>
+            <height>50</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>656</width>
+            <height>80</height>
+           </size>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_3">
+           <property name="spacing">
+            <number>20</number>
+           </property>
+           <property name="leftMargin">
+            <number>50</number>
+           </property>
+           <property name="topMargin">
+            <number>10</number>
+           </property>
+           <property name="rightMargin">
+            <number>50</number>
+           </property>
+           <property name="bottomMargin">
+            <number>10</number>
+           </property>
+           <item>
+            <widget class="QWidget" name="port_part" native="true">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>0</width>
+               <height>30</height>
+              </size>
+             </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_2">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="port_label">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>100</width>
+                  <height>30</height>
+                 </size>
+                </property>
+                <property name="text">
+                 <string>端口-&gt;</string>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignmentFlag::AlignCenter</set>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QLineEdit" name="port_input">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="minimumSize">
+                 <size>
+                  <width>0</width>
+                  <height>30</height>
+                 </size>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="port_confirm_btn">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>100</width>
+               <height>30</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>确定</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+        <widget class="QWidget" name="setting_page">
+         <widget class="QWidget" name="setting_grid" native="true">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>80</y>
+            <width>658</width>
+            <height>498</height>
+           </rect>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_3"/>
+         </widget>
+         <widget class="QLabel" name="setting_title">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>10</y>
+            <width>658</width>
+            <height>60</height>
+           </rect>
+          </property>
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>16</pointsize>
+           </font>
+          </property>
+          <property name="text">
+           <string>设置主题文本</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignmentFlag::AlignCenter</set>
+          </property>
+         </widget>
+        </widget>
+        <widget class="QWidget" name="first_page">
+         <widget class="QWidget" name="main_page_btns_bar" native="true">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
             <y>90</y>
-            <width>678</width>
-            <height>100</height>
+            <width>658</width>
+            <height>80</height>
            </rect>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout">
@@ -580,9 +624,9 @@
           <property name="geometry">
            <rect>
             <x>20</x>
-            <y>220</y>
+            <y>180</y>
             <width>658</width>
-            <height>361</height>
+            <height>401</height>
            </rect>
           </property>
          </widget>

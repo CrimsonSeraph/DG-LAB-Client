@@ -219,13 +219,24 @@ void DGLABClient::setup_widget_properties() {
     ui.left_btns_bar->setProperty("type", "glassmorphism");
     ui.left_btns_bar->setProperty("mode", "light");
 
-    ui.about_page_btns_bar->setProperty("type", "glassmorphism");
-    ui.about_page_btns_bar->setProperty("mode", "light");
+    QList<QPushButton*> btns = ui.all->findChildren<QPushButton*>();
+    for (QPushButton* btn : btns) {
+        btn->setProperty("type", "btns");
+        btn->setProperty("mode", "light");
+    }
+    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "共加载" << btns.size() << "个按键");
 
-    ui.scrollArea->setProperty("type", "none");
-    ui.scrollAreaWidgetContents->setProperty("type", "none");
-    ui.config_widgrt->setProperty("type", "glassmorphism");
-    ui.config_widgrt->setProperty("mode", "light");
+    ui.main_image_label->setProperty("type", "main_image_label");
+    ui.main_image_label->setProperty("mode", "light");
+
+    ui.main_page_btns_bar->setProperty("type", "glassmorphism");
+    ui.main_page_btns_bar->setProperty("mode", "light");
+
+    ui.debug_log->setProperty("type", "debug_log");
+    ui.debug_log->setProperty("mode", "light");
+
+    ui.port_info->setProperty("type", "glassmorphism");
+    ui.port_info->setProperty("mode","light");
 
     AppConfig& config = AppConfig::instance();
     int old_port = config.get_value<int>("app.websocket.port", 9999);
@@ -235,14 +246,11 @@ void DGLABClient::setup_widget_properties() {
     ui.port_label->setProperty("type", "label");
     ui.port_label->setProperty("mode", "light");
 
-    QList<QPushButton*> btns = ui.all->findChildren<QPushButton*>();
-    for (QPushButton* btn : btns) {
-        btn->setProperty("type", "btns");
-        btn->setProperty("mode", "light");
-    }
-    LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "共加载" << btns.size() << "个按键");
-    ui.main_image_label->setProperty("type", "main_image_label");
-    ui.main_image_label->setProperty("mode", "light");
+    ui.scrollArea->setProperty("type", "none");
+    ui.scrollAreaWidgetContents->setProperty("type", "none");
+    ui.config_widgrt->setProperty("type", "glassmorphism");
+    ui.config_widgrt->setProperty("mode", "light");
+
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "设置元素属性完成！当前全局 mode 为：light");
 }
 
@@ -338,27 +346,27 @@ void DGLABClient::init_python_manager() {
 }
 
 void DGLABClient::on_main_first_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_first_btn_clicked", LOG_INFO, "main_first_btn 按键触发，跳转 first_page");
+    LOG_MODULE("DGLABClient", "on_main_first_btn_clicked", LOG_DEBUG, "main_first_btn 按键触发，跳转 first_page");
     ui.stackedWidget->setCurrentWidget(ui.first_page);
 }
 
 void DGLABClient::on_main_config_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_config_btn_clicked", LOG_INFO, "main_config_btn 按键触发，跳转 config_page");
+    LOG_MODULE("DGLABClient", "on_main_config_btn_clicked", LOG_DEBUG, "main_config_btn 按键触发，跳转 config_page");
     ui.stackedWidget->setCurrentWidget(ui.config_page);
 }
 
 void DGLABClient::on_main_setting_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_setting_btn_clicked", LOG_INFO, "main_setting_btn 按键触发，跳转 setting_page");
+    LOG_MODULE("DGLABClient", "on_main_setting_btn_clicked", LOG_DEBUG, "main_setting_btn 按键触发，跳转 setting_page");
     ui.stackedWidget->setCurrentWidget(ui.setting_page);
 }
 
 void DGLABClient::on_main_about_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_about_btn_clicked", LOG_INFO, "main_about_btn 按键触发，跳转 about_page");
+    LOG_MODULE("DGLABClient", "on_main_about_btn_clicked", LOG_DEBUG, "main_about_btn 按键触发，跳转 about_page");
     ui.stackedWidget->setCurrentWidget(ui.about_page);
 }
 
 void DGLABClient::on_start_connect_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "start_connect_btn 按键触发");
+    LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "start_connect_btn 按键触发");
     if (start_connect_btn_loading) {
         LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "正在连接中，忽略重复点击");
         return;
@@ -375,7 +383,7 @@ void DGLABClient::on_start_connect_btn_clicked() {
 }
 
 void DGLABClient::on_close_connect_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "close_connect_btn 按键触发");
+    LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "close_connect_btn 按键触发");
     if (close_connect_btn_loading) {
         LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "正在断开中，忽略重复点击");
         return;

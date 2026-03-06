@@ -6,6 +6,7 @@ QWidget[type="main_page"][mode="light"] {
 
 QWidget[type="glassmorphism"][mode="light"] {
     background-color: rgba(255, 255, 255, 0.3);
+    border: 2px solid white;
     border-radius: 8px;
 }
 
@@ -18,14 +19,13 @@ QScrollArea[type="none"] {
 }
 
 QPushButton[type="btns"][mode="light"] {
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(232, 232, 232, 0.6);
     border: 2px solid white;
     border-radius: 6px;
     font-size: 16px;
     font-weight: bold;
-    color: rgba(255, 255, 0, 1);
+    color: rgba(255, 174, 185, 1);
     text-align: center;
-    padding: 10px 24px;
 }
 
 QPushButton[type="btns"][mode="light"]:hover {
@@ -65,4 +65,10 @@ QMenu {
     border: 1px solid rgba(255, 192, 203, 1);
     border-radius: 4px;
     color: black;
+}
+
+QTextEdit[type="debug_log"][mode="light"] {
+    background: rgba(54, 54, 54, 1);
+    border: 2px solid white;
+    border-radius: 6px;
 }
