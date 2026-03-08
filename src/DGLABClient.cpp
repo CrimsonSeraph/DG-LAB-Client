@@ -246,10 +246,18 @@ void DGLABClient::setup_widget_properties() {
     ui.port_label->setProperty("type", "label");
     ui.port_label->setProperty("mode", "light");
 
-    ui.scrollArea->setProperty("type", "none");
-    ui.scrollAreaWidgetContents->setProperty("type", "none");
+    ui.config_scroll_area->setProperty("type", "none");
+    ui.config_scrollAreaWidgetContents->setProperty("type", "none");
     ui.config_widgrt->setProperty("type", "glassmorphism");
     ui.config_widgrt->setProperty("mode", "light");
+
+    ui.setting_scroll_area->setProperty("type", "none");
+    ui.setting_scrollAreaWidgetContents->setProperty("type", "none");
+    ui.setting_grid->setProperty("type", "glassmorphism");
+    ui.setting_grid->setProperty("mode", "light");
+
+    ui.about_widget->setProperty("type", "glassmorphism");
+    ui.about_widget->setProperty("mode", "light");
 
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "设置元素属性完成！当前全局 mode 为：light");
 }
