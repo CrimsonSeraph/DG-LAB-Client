@@ -2,7 +2,8 @@
     <qresource prefix="/image">
         <file>assets/normal_image/main_image.png</file>
     </qresource>
-    <qresource prefix="/qcss">
-        <file>qcss/style.qcss</file>
+    <qresource prefix="/style">
+        <file>qcss/style_light.qcss</file>
+        <file>qcss/style_night.qcss</file>
     </qresource>
 </RCC>

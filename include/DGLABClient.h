@@ -46,6 +46,7 @@ private:
     bool close_connect_btn_loading = false;
 
     bool is_connected = false;
+    bool is_light_mode = true;
 
     PythonSubprocessManager* m_pyManager;
 
@@ -60,8 +61,11 @@ private:
     void create_log_highlighter();
     void load_main_image();
     void create_tray_icon();
-    void setup_widget_properties();
+    void setup_widget_properties(const std::string& property, const std::string& key);
     void load_stylesheet();
+    void load_light_stylesheet();
+    void load_night_stylesheet();
+    void change_theme();
     void setup_log_widget_style();
     void setup_connections();
     void setup_port_input_validation();
