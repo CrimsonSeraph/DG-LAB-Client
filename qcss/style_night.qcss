@@ -1,74 +1,60 @@
 QWidget[type="main_page"][mode="night"] {
     background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
-                                stop: 0 rgba(255, 182, 193, 1),
-                                stop: 1 rgba(135, 206, 250, 1));
+                                stop: 0 rgba(25, 25, 112, 1),
+                                stop: 1 rgba(72, 61, 139, 1));
 }
 
 QWidget[type="glassmorphism"][mode="night"] {
-    background-color: rgba(255, 255, 255, 0.3);
-    border: 2px solid white;
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.8);
     border-radius: 8px;
 }
 
-QWidget[type="none"] {
-    background-color: rgba(255, 255, 255, 0);
-}
-
-QScrollArea[type="none"] {
-    background-color: rgba(255, 255, 255, 0);
-}
-
 QPushButton[type="btns"][mode="night"] {
-    background: rgba(232, 232, 232, 0.6);
-    border: 2px solid white;
+    background: rgba(50, 50, 50, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.8);
     border-radius: 6px;
     font-size: 16px;
     font-weight: bold;
-    color: gray;
+    color: #f0f0f0;
     text-align: center;
 }
 
 QPushButton[type="btns"][mode="night"]:hover {
-    background: rgba(135, 206, 250, 0.6);
+    background: rgba(100, 100, 100, 0.8);
 }
 
 QPushButton[type="btns"][mode="night"]:pressed {
-    background: rgba(65, 105, 225, 0.6);
+    background: rgba(30, 30, 30, 0.9);
 }
 
 QLabel[type="main_image_label"][mode="night"] {
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(0, 0, 0, 0.6);
     border-radius: 6px;
     font-size: 16px;
     font-weight: bold;
-    color: rgba(255, 255, 0, 1);
+    color: rgba(255, 255, 100, 1);
     text-align: center;
 }
 
 QLineEdit[type="input"][mode="night"] {
-    background: rgba(255, 255, 255, 0.6);
-    color: black;
-    placeholder-text-color: gray;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    placeholder-text-color: #cccccc;
 }
 
 QLabel[type="label"][mode="night"] {
-    background: rgba(255, 192, 203, 0.8);
+    background: rgba(75, 0, 130, 0.8);
     border-radius: 3px;
     font-size: 16px;
     font-weight: bold;
-    color: rgba(255, 255, 0, 1);
+    color: rgba(255, 255, 100, 1);
     text-align: center;
 }
 
-QMenu {
-    background-color: rgba(135, 206, 255, 1);
-    border: 1px solid rgba(255, 192, 203, 1);
-    border-radius: 4px;
-    color: black;
-}
-
 QTextEdit[type="debug_log"][mode="night"] {
-    background: rgba(54, 54, 54, 1);
-    border: 2px solid white;
+    background: rgba(20, 20, 20, 1);
+    border: 2px solid #cccccc;
     border-radius: 6px;
+    color: #f0f0f0;
 }
