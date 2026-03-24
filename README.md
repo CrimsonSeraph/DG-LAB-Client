@@ -150,7 +150,11 @@ cpack
     },
     "python": {
         "path": "python",
-        "bridge_path": "/python/Bridge.py"
+        "bridge_path": "./python/Bridge.py"
+    },
+    "rule": {
+        "path": "./config/rules",
+        "key": "rule"
     },
     "version": "1.0",
     "DGLABClient": "DG-LAB-Client"

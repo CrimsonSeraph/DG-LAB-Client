@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     Console& console = Console::GetInstance();
     console.Create();
     // 配置初始化
-    AppConfig& config = AppConfig::instance();
+    auto& config = AppConfig::instance();
     std::string config_dir = "./config";
     try {
         if (!config.initialize(config_dir)) {

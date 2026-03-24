@@ -3,6 +3,7 @@
 #include "ConfigManager.h"
 #include "DefaultConfigs.h"
 #include "DebugLog.h"
+#include "RuleManager.h"
 
 #include <filesystem>
 #include <fstream>
@@ -52,138 +53,149 @@ AppConfig::~AppConfig() {
 
 bool AppConfig::initialize(const std::string& config_dir) {
     LOG_MODULE("AppConfig", "initialize", LOG_INFO, "开始初始化配置系统，配置目录: " << config_dir);
-    std::lock_guard<std::mutex> lock(mutex_);
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
 
-    if (initialized_) {
-        LOG_MODULE("AppConfig", "initialize", LOG_WARN, "配置系统已经初始化，跳过");
-        return true;
-    }
-
-    // 检查是否正在关闭
-    static std::atomic<bool> is_shutting_down{ false };
-    if (is_shutting_down) {
-        LOG_MODULE("AppConfig", "initialize", LOG_WARN, "系统正在关闭，跳过初始化");
-        return false;
-    }
-
-    try {
-        std::string actual_config_dir = config_dir; // 创建可修改的副本
-
-        // 确保目录存在
-        std::error_code ec;
-        if (!fs::exists(actual_config_dir, ec)) {
-            LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置目录不存在，尝试创建: " << actual_config_dir);
-            if (!fs::create_directories(actual_config_dir, ec)) {
-                LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "无法创建配置目录: " << actual_config_dir
-                    << " 错误: " << ec.message());
-                // 使用临时目录作为后备
-                auto temp_dir = fs::temp_directory_path() / "DG-LAB-Client";
-                fs::create_directories(temp_dir, ec);
-                actual_config_dir = temp_dir.string();
-                LOG_MODULE("AppConfig", "initialize", LOG_INFO, "使用临时目录: " << actual_config_dir);
-            }
+        if (initialized_) {
+            LOG_MODULE("AppConfig", "initialize", LOG_WARN, "配置系统已经初始化，跳过");
+            return true;
         }
 
-        // 创建多配置管理器
-        multi_config_ = &MultiConfigManager::instance();
-        LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "获取 MultiConfigManager 单例成功");
-
-        // 注册配置文件时设置不同的优先级
-        std::vector<std::tuple<std::string, std::string, int>> configs = {
-            {"main", actual_config_dir + "/main.json", 0},
-            {"system", actual_config_dir + "/system.json", 1},
-            {"user", actual_config_dir + "/user.json", 2}
-        };
-
-        for (auto& [name, path, priority] : configs) {
-            try {
-                // 确保文件存在
-                if (!fs::exists(path)) {
-                    LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置文件不存在，创建默认文件: " << path);
-                    nlohmann::json default_config = DefaultConfigs::get_default_config(name);
-                    // 确保优先级字段正确（如果默认配置中没有，则设置）
-                    if (!default_config.contains("__priority")) {
-                        default_config["__priority"] = priority;
-                    }
-                    std::ofstream file(path);
-                    if (file.is_open()) {
-                        file << default_config.dump(4);
-                        file.close();
-                        LOG_MODULE("AppConfig", "initialize", LOG_INFO, "创建默认配置文件成功: " << path);
-                    }
-                    else {
-                        LOG_MODULE("AppConfig", "initialize", LOG_WARN, "无法创建配置文件: " << path);
-                    }
-                }
-
-                // 注册配置
-                multi_config_->register_config(name, path);
-                LOG_MODULE("AppConfig", "initialize", LOG_INFO, "注册配置: " << name << " -> " << path << " (优先级: " << priority << ")");
-
-                // 立即获取并设置优先级
-                auto config_manager = multi_config_->get_config(name);
-                if (config_manager) {
-                    config_manager->set("__priority", priority);
-                    LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "设置配置优先级: " << name << " = " << priority);
-                }
-            }
-            catch (const std::exception& e) {
-                LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "注册配置 " << name << " 失败: " << e.what());
-            }
-        }
-
-        // 获取配置管理器指针
-        main_config_ = multi_config_->get_config("main");
-        user_config_ = multi_config_->get_config("user");
-        system_config_ = multi_config_->get_config("system");
-
-        // 尝试加载所有配置
-        try {
-            LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "开始加载所有配置");
-            if (!multi_config_->load_all()) {
-                LOG_MODULE("AppConfig", "initialize", LOG_WARN, "配置加载失败，将使用默认配置");
-                // 创建默认配置
-                create_default_configs();
-            }
-            else {
-                LOG_MODULE("AppConfig", "initialize", LOG_INFO, "所有配置加载成功");
-            }
-        }
-        catch (const std::exception& e) {
-            LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "加载配置时异常: " << e.what());
-            // 创建默认配置
-            create_default_configs();
-        }
-
-        // 获取配置管理器引用
-        try {
-            main_config_ = multi_config_->get_config("main");
-            user_config_ = multi_config_->get_config("user");
-            system_config_ = multi_config_->get_config("system");
-            LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "获取配置管理器引用成功");
-        }
-        catch (const std::exception& e) {
-            LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "获取配置管理器失败: " << e.what());
+        // 检查是否正在关闭
+        static std::atomic<bool> is_shutting_down{ false };
+        if (is_shutting_down) {
+            LOG_MODULE("AppConfig", "initialize", LOG_WARN, "系统正在关闭，跳过初始化");
             return false;
         }
 
-        // 重新初始化配置项
-        initialize_configs_unsafe();
+        try {
+            std::string actual_config_dir = config_dir; // 创建可修改的副本
 
-        // 设置监听器
-        setup_listeners();
+            // 确保目录存在
+            std::error_code ec;
+            if (!fs::exists(actual_config_dir, ec)) {
+                LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置目录不存在，尝试创建: " << actual_config_dir);
+                if (!fs::create_directories(actual_config_dir, ec)) {
+                    LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "无法创建配置目录: " << actual_config_dir
+                        << " 错误: " << ec.message());
+                    // 使用临时目录作为后备
+                    auto temp_dir = fs::temp_directory_path() / "DG-LAB-Client";
+                    fs::create_directories(temp_dir, ec);
+                    actual_config_dir = temp_dir.string();
+                    LOG_MODULE("AppConfig", "initialize", LOG_INFO, "使用临时目录: " << actual_config_dir);
+                }
+            }
 
-        initialized_ = true;
-        LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置系统初始化完成");
-        return true;
+            // 创建多配置管理器
+            multi_config_ = &MultiConfigManager::instance();
+            LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "获取 MultiConfigManager 单例成功");
+
+            // 注册配置文件时设置不同的优先级
+            std::vector<std::tuple<std::string, std::string, int>> configs = {
+                {"main", actual_config_dir + "/main.json", 0},
+                {"system", actual_config_dir + "/system.json", 1},
+                {"user", actual_config_dir + "/user.json", 2}
+            };
+
+            for (auto& [name, path, priority] : configs) {
+                try {
+                    // 确保文件存在
+                    if (!fs::exists(path)) {
+                        LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置文件不存在，创建默认文件: " << path);
+                        nlohmann::json default_config = DefaultConfigs::get_default_config(name);
+                        // 确保优先级字段正确（如果默认配置中没有，则设置）
+                        if (!default_config.contains("__priority")) {
+                            default_config["__priority"] = priority;
+                        }
+                        std::ofstream file(path);
+                        if (file.is_open()) {
+                            file << default_config.dump(4);
+                            file.close();
+                            LOG_MODULE("AppConfig", "initialize", LOG_INFO, "创建默认配置文件成功: " << path);
+                        }
+                        else {
+                            LOG_MODULE("AppConfig", "initialize", LOG_WARN, "无法创建配置文件: " << path);
+                        }
+                    }
+
+                    // 注册配置
+                    multi_config_->register_config(name, path);
+                    LOG_MODULE("AppConfig", "initialize", LOG_INFO, "注册配置: " << name << " -> " << path << " (优先级: " << priority << ")");
+
+                    // 立即获取并设置优先级
+                    auto config_manager = multi_config_->get_config(name);
+                    if (config_manager) {
+                        config_manager->set("__priority", priority);
+                        LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "设置配置优先级: " << name << " = " << priority);
+                    }
+                }
+                catch (const std::exception& e) {
+                    LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "注册配置 " << name << " 失败: " << e.what());
+                }
+            }
+
+            // 获取配置管理器指针
+            main_config_ = multi_config_->get_config("main");
+            user_config_ = multi_config_->get_config("user");
+            system_config_ = multi_config_->get_config("system");
+
+            // 尝试加载所有配置
+            try {
+                LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "开始加载所有配置");
+                if (!multi_config_->load_all()) {
+                    LOG_MODULE("AppConfig", "initialize", LOG_WARN, "配置加载失败，将使用默认配置");
+                    // 创建默认配置
+                    create_default_configs();
+                }
+                else {
+                    LOG_MODULE("AppConfig", "initialize", LOG_INFO, "所有配置加载成功");
+                }
+            }
+            catch (const std::exception& e) {
+                LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "加载配置时异常: " << e.what());
+                // 创建默认配置
+                create_default_configs();
+            }
+
+            // 获取配置管理器引用
+            try {
+                main_config_ = multi_config_->get_config("main");
+                user_config_ = multi_config_->get_config("user");
+                system_config_ = multi_config_->get_config("system");
+                LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "获取配置管理器引用成功");
+            }
+            catch (const std::exception& e) {
+                LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "获取配置管理器失败: " << e.what());
+                return false;
+            }
+
+            // 重新初始化配置项
+            initialize_configs_unsafe();
+
+            // 设置监听器
+            setup_listeners();
+
+            initialized_ = true;
+            LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置系统初始化完成");
+        }
+        catch (const std::exception& e) {
+            LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "配置系统初始化失败: " << e.what());
+
+            initialized_ = true; // 仍然标记为已初始化，但使用内存配置
+            LOG_MODULE("AppConfig", "initialize", LOG_WARN, "使用内存默认配置，系统将继续运行");
+            return false;
+        }
+    }
+    LOG_MODULE("AppConfig", "initialize", LOG_DEBUG, "规则系统开始初始化");
+    try {
+        RuleManager::instance().init();
+        RuleManager::instance().load_rule_file("rules.json");
+        LOG_MODULE("AppConfig", "initialize", LOG_INFO, "规则系统初始化完成");
     }
     catch (const std::exception& e) {
-        LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "配置系统初始化失败: " << e.what());
-
-        initialized_ = true; // 仍然标记为已初始化，但使用内存配置
-        LOG_MODULE("AppConfig", "initialize", LOG_WARN, "使用内存默认配置，系统将继续运行");
-        return false;
+        LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "规则系统初始化失败: " << e.what());
     }
+    return true;
 }
 
 void AppConfig::shutdown() {
@@ -277,6 +289,17 @@ void AppConfig::initialize_configs_unsafe() {
             .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),
             .ui_log_level_ = get_value_unsafe<int>("app.log.ui_log_level", 0),
             .python_path_ = get_value_unsafe<std::string>("python.path", "python"),
+        });
+
+    system_config_obj_ = ConfigObject<SystemConfig>(system_config_, "system",
+        SystemConfig{
+            .websocket_port_ = get_value_unsafe<int>("app.websocket.port", 9999),
+        });
+
+    user_config_obj_ = ConfigObject<UserConfig>(user_config_, "user",
+        UserConfig{
+            .ui_is_light_ = get_value_unsafe<bool>("app.ui.is_light", true),
+            .ui_font_size_ = get_value_unsafe<int>("app.ui.font_size", 16),
         });
 
     //xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 
@@ -479,6 +502,8 @@ void AppConfig::invalidate_caches() {
     }
 
     main_config_obj_.invalidate_cache();
+    system_config_obj_.invalidate_cache();
+    user_config_obj_.invalidate_cache();
 
     //xxx_config_.invalidate_cache();
     LOG_MODULE("AppConfig", "invalidate_caches", LOG_DEBUG, "缓存失效完成");
@@ -516,6 +541,14 @@ bool AppConfig::validate_all(std::vector<std::string>& errors) const {
     // 验证简单配置项
     if (!main_config_obj_.get().validate()) {
         errors.push_back("主配置无效");
+        valid = false;
+    }
+    if (!system_config_obj_.get().validate()) {
+        errors.push_back("系统配置无效");
+        valid = false;
+    }
+    if (!user_config_obj_.get().validate()) {
+        errors.push_back("用户配置无效");
         valid = false;
     }
 

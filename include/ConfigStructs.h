@@ -99,6 +99,23 @@ struct MainConfig {
     bool validate() const;
 };
 
+struct SystemConfig {
+    int websocket_port_ = 9999;
+
+    static void to_json(nlohmann::json& j, const SystemConfig& config);
+    static void from_json(const nlohmann::json& j, SystemConfig& config);
+    bool validate() const;
+};
+
+struct UserConfig {
+    bool ui_is_light_ = true;
+    int ui_font_size_ = 16;
+
+    static void to_json(nlohmann::json& j, const UserConfig& config);
+    static void from_json(const nlohmann::json& j, UserConfig& config);
+    bool validate() const;
+};
+
 //BEGIN_FIELD_MAP(Struct)
 //    FIELD(Struct, <T>, name)
 //END_FIELD_MAP()

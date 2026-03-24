@@ -91,6 +91,13 @@ set(PROJECT_SOURCES
     include/DefaultConfigs.h
     src/DefaultConfigs.cpp
 
+    # 规则管理器
+    include/Rule.h
+    src/Rule.cpp
+    include/RuleManager.h
+    src/RuleManager.cpp
+    include/RuleManager_impl.hpp
+
     # 控制台
     include/Console.h
     src/Console.cpp
@@ -104,6 +111,7 @@ set(PROJECT_SOURCES
     config/main.json
     config/system.json
     config/user.json
+    config/rules/rules.json
 )
 
 # -------------------- 创建可执行文件 --------------------

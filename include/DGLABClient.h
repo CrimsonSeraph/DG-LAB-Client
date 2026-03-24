@@ -9,6 +9,7 @@
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QCloseEvent>
+#include <QTableWidget>
 
 class DGLABClient : public QWidget
 {
@@ -72,6 +73,19 @@ private:
     void setup_default_page();
     void init_python_manager();
 
+    QComboBox* rule_file_combo_;
+    QTableWidget* rule_table_;
+    QPushButton* create_file_btn_;
+    QPushButton* delete_file_btn_;
+    QPushButton* save_file_btn_;
+    QPushButton* add_rule_btn_;
+    QPushButton* edit_rule_btn_;
+    QPushButton* delete_rule_btn_;
+    void setup_rules_ui();
+    void init_rule_manager();
+    void refresh_rule_file_list();
+    void update_rule_table();
+
 signals:
     void connect_finished(bool success, const QString& message);
     void code_content_ready(const QString& content);
@@ -83,4 +97,12 @@ private slots:
     void handle_close_finished(bool success, const QString& msg);
     void start_async_connect();
     void close_async_connect();
+
+    void on_rule_file_changed(int index);
+    void on_create_rule_file();
+    void on_delete_rule_file();
+    void on_save_rule_file();
+    void on_add_rule();
+    void on_edit_rule();
+    void on_delete_rule();
 };

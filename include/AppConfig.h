@@ -123,6 +123,10 @@ public:
     // 导入配置从文件
     bool import_config(const std::string& name, const std::string& file_path);
 
+    inline const ConfigObject<MainConfig>& main_config() const { return main_config_obj_; }
+    inline const ConfigObject<SystemConfig>& system_config() const { return system_config_obj_; }
+    inline const ConfigObject<UserConfig>& user_config() const { return user_config_obj_; }
+
 private:
     // 私有构造函数（单例模式）
     AppConfig();
@@ -162,6 +166,8 @@ private:
 
     // 配置项
     ConfigObject<MainConfig> main_config_obj_;
+    ConfigObject<SystemConfig> system_config_obj_;
+    ConfigObject<UserConfig> user_config_obj_;
 
     // ConfigObject<XXXConfig> db_config_;
 

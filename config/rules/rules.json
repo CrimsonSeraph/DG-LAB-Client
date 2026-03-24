@@ -1,0 +1,9 @@
+{
+    "__priority": 3,
+    "rules": {
+        "result_1": "{}+{}-{}",
+        "result_2": "({}*{})/{}"
+    },
+    "version": "1.0",
+    "DGLABClient": "DG-LAB-Client"
+}

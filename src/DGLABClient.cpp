@@ -2,6 +2,7 @@
 #include "DebugLog.h"
 #include "AppConfig.h"
 #include "PythonSubprocessManager.h"
+#include "RuleManager.h"
 
 #include <iostream>
 #include <algorithm>
@@ -25,6 +26,11 @@
 #include <QIntValidator>
 #include <QIcon>
 #include <QAction>
+#include <QComboBox>
+#include <QTableWidget>
+#include <QMessageBox>
+#include <QInputDialog>
+#include <QHeaderView>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
@@ -42,6 +48,7 @@ DGLABClient::DGLABClient(QWidget* parent)
     setup_connections();
     setup_port_input_validation();
     setup_default_page();
+    setup_rules_ui();
     init_python_manager();
 
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
@@ -71,10 +78,10 @@ void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
 
 template<typename Callback>
 void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& callback) {
-    LOG_MODULE("DGLABClient", "asyncCall", LOG_DEBUG, "在后台线程执行异步调用");
+    LOG_MODULE("DGLABClient", "async_call", LOG_DEBUG, "在后台线程执行异步调用");
     QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
         try {
-            LOG_MODULE("DGLABClient", "asyncCall", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
+            LOG_MODULE("DGLABClient", "async_call", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
             m_pyManager->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
                 bool ok = resp["status"].toString() == "ok";
                 QString msg = resp["message"].toString();
@@ -178,7 +185,7 @@ void DGLABClient::create_tray_icon() {
     if (tray_icon_exists) {
         tray_icon = new QSystemTrayIcon(this);
         tray_icon->setIcon(QIcon(tray_icon_path));
-        AppConfig& config = AppConfig::instance();
+        auto& config = AppConfig::instance();
         std::string app_name = config.get_value<std::string>("app.name", "DG-LAB-Client");
         tray_icon->setToolTip(QString::fromStdString(app_name));
 
@@ -239,7 +246,7 @@ void DGLABClient::setup_widget_properties(const std::string& property, const std
     ui.port_info->setProperty("type", "glassmorphism");
     ui.port_info->setProperty(property.c_str(), key.c_str());
 
-    AppConfig& config = AppConfig::instance();
+    auto& config = AppConfig::instance();
     int old_port = config.get_value<int>("app.websocket.port", 9999);
     ui.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
     ui.port_input->setProperty("type", "input");
@@ -271,7 +278,7 @@ void DGLABClient::setup_widget_properties(const std::string& property, const std
 
 void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "开始加载样式表");
-    AppConfig& config = AppConfig::instance();
+    auto& config = AppConfig::instance();
     is_light_mode = config.get_value<bool>("app.ui.is_light_mode", true);
     setup_widget_properties("mode", is_light_mode ? "light" : "night");
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" << is_light_mode ? "Light" : "Night");
@@ -332,7 +339,7 @@ void DGLABClient::load_night_stylesheet() {
 void DGLABClient::change_theme() {
     LOG_MODULE("DGLABClient", "change_theme", LOG_INFO, "切换主题为：" << is_light_mode ? "Night" : "Light");
     is_light_mode = !is_light_mode;
-    AppConfig& config = AppConfig::instance();
+    auto& config = AppConfig::instance();
     config.set_value<bool>("app.ui.is_light_mode", is_light_mode);
     load_stylesheet();
 }
@@ -399,14 +406,248 @@ void DGLABClient::init_python_manager() {
             emit close_finished(true, "Python 进程关闭");
         });
 
-    AppConfig& config = AppConfig::instance();
+    auto& config = AppConfig::instance();
     QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
-    std::string bridge_module = config.get_value<std::string>("python.bridge_path", "/python/Bridge.py");
-    QString scriptPath = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
+    std::string bridge_module = config.get_value<std::string>("python.bridge_path", "./python/Bridge.py");
+    QString script_path = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径："
         << pythonPath.toStdString() << "（注：若解释器路径直接为<Python>则使用系统默认 Python 路径）");
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径：" << bridge_module);
-    m_pyManager->start_process(pythonPath, scriptPath);
+    m_pyManager->start_process(pythonPath, script_path);
+}
+
+void DGLABClient::setup_rules_ui() {
+    QLayout* oldLayout = ui.config_widgrt->layout();
+    if (oldLayout) delete oldLayout;
+    QVBoxLayout* layout = new QVBoxLayout(ui.config_widgrt);
+    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setSpacing(10);
+
+    // 文件选择区域
+    QHBoxLayout* fileLayout = new QHBoxLayout();
+    fileLayout->addWidget(new QLabel("规则文件:"));
+    rule_file_combo_ = new QComboBox();
+    connect(rule_file_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &DGLABClient::on_rule_file_changed);
+    fileLayout->addWidget(rule_file_combo_);
+    create_file_btn_ = new QPushButton("新建");
+    delete_file_btn_ = new QPushButton("删除");
+    save_file_btn_ = new QPushButton("保存");
+    fileLayout->addWidget(create_file_btn_);
+    fileLayout->addWidget(delete_file_btn_);
+    fileLayout->addWidget(save_file_btn_);
+    layout->addLayout(fileLayout);
+
+    // 规则表格
+    rule_table_ = new QTableWidget();
+    rule_table_->setColumnCount(2);
+    rule_table_->setHorizontalHeaderLabels({ "规则名称", "模式" });
+    rule_table_->horizontalHeader()->setStretchLastSection(true);
+    layout->addWidget(rule_table_);
+
+    // 操作按钮
+    QHBoxLayout* btnLayout = new QHBoxLayout();
+    add_rule_btn_ = new QPushButton("添加规则");
+    edit_rule_btn_ = new QPushButton("编辑规则");
+    delete_rule_btn_ = new QPushButton("删除规则");
+    btnLayout->addWidget(add_rule_btn_);
+    btnLayout->addWidget(edit_rule_btn_);
+    btnLayout->addWidget(delete_rule_btn_);
+    layout->addLayout(btnLayout);
+
+    // 连接信号
+    connect(create_file_btn_, &QPushButton::clicked, this, &DGLABClient::on_create_rule_file);
+    connect(delete_file_btn_, &QPushButton::clicked, this, &DGLABClient::on_delete_rule_file);
+    connect(save_file_btn_, &QPushButton::clicked, this, &DGLABClient::on_save_rule_file);
+    connect(add_rule_btn_, &QPushButton::clicked, this, &DGLABClient::on_add_rule);
+    connect(edit_rule_btn_, &QPushButton::clicked, this, &DGLABClient::on_edit_rule);
+    connect(delete_rule_btn_, &QPushButton::clicked, this, &DGLABClient::on_delete_rule);
+
+    refresh_rule_file_list();
+    update_rule_table();
+    LOG_MODULE("DGLABClient", "setup_rules_ui", LOG_INFO, "规则UI初始化完成");
+}
+
+void DGLABClient::init_rule_manager() {
+    LOG_MODULE("DGLABClient", "init_rule_manager", LOG_DEBUG, "初始化规则类");
+}
+
+void DGLABClient::refresh_rule_file_list() {
+    auto& rm = RuleManager::instance();
+    auto files = rm.get_available_rule_files();
+    rule_file_combo_->clear();
+    rule_file_combo_->addItem("rules.json");
+    for (const auto& file : files) {
+        rule_file_combo_->addItem(QString::fromStdString(file));
+    }
+    QString current = QString::fromStdString(rm.get_current_rule_file());
+    int idx = rule_file_combo_->findText(current);
+    if (idx >= 0) rule_file_combo_->setCurrentIndex(idx);
+}
+
+void DGLABClient::update_rule_table() {
+    auto& rm = RuleManager::instance();
+    auto names = rm.get_rule_names();
+    rule_table_->setRowCount((int)names.size());
+    for (size_t i = 0; i < names.size(); ++i) {
+        auto name = names[i];
+        rule_table_->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(name)));
+        auto pattern = rm.get_rule_display_string(name);
+        rule_table_->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(pattern)));
+    }
+}
+
+void DGLABClient::on_rule_file_changed(int index) {
+    if (index < 0) return;
+    QString filename = rule_file_combo_->itemText(index);
+    try {
+        RuleManager::instance().load_rule_file(filename.toStdString());
+        update_rule_table();
+    }
+    catch (const std::exception& e) {
+        QMessageBox::warning(this, "错误", QString("加载规则文件失败: ") + e.what());
+    }
+}
+
+void DGLABClient::on_create_rule_file() {
+    bool ok;
+    QString name = QInputDialog::getText(this, "新建规则文件", "请输入文件名（不含.json）:", QLineEdit::Normal, "", &ok);
+    if (!ok || name.isEmpty()) return;
+    if (!name.endsWith(".json")) name += ".json";
+    auto& rm = RuleManager::instance();
+    auto existing = rm.get_available_rule_files();
+    if (std::find(existing.begin(), existing.end(), name.toStdString()) != existing.end()) {
+        QMessageBox::warning(this, "错误", "文件已存在");
+        return;
+    }
+    nlohmann::json emptyRules;
+    if (rm.create_rule_file(name.toStdString(), emptyRules)) {
+        refresh_rule_file_list();
+        int idx = rule_file_combo_->findText(name);
+        if (idx >= 0) rule_file_combo_->setCurrentIndex(idx);
+    }
+    else {
+        QMessageBox::warning(this, "错误", "创建文件失败");
+    }
+}
+
+void DGLABClient::on_delete_rule_file() {
+    QString filename = rule_file_combo_->currentText();
+    if (filename == "rules.json") {
+        QMessageBox::warning(this, "错误", "不能删除默认规则文件");
+        return;
+    }
+    int ret = QMessageBox::question(this, "确认", "确定要删除规则文件 " + filename + " 吗？");
+    if (ret == QMessageBox::Yes) {
+        auto& rm = RuleManager::instance();
+        if (rm.delete_rule_file(filename.toStdString())) {
+            refresh_rule_file_list();
+            update_rule_table();
+        }
+        else {
+            QMessageBox::warning(this, "错误", "删除文件失败");
+        }
+    }
+}
+
+void DGLABClient::on_save_rule_file() {
+    auto& rm = RuleManager::instance();
+    if (rm.save_current_rule_file()) {
+        QMessageBox::information(this, "提示", "保存成功");
+    }
+    else {
+        QMessageBox::warning(this, "错误", "保存失败");
+    }
+}
+
+void DGLABClient::on_add_rule() {
+    bool ok;
+    QString name = QInputDialog::getText(this, "添加规则", "规则名称:", QLineEdit::Normal, "", &ok);
+    if (!ok || name.isEmpty()) return;
+    QString pattern = QInputDialog::getText(this, "添加规则", "模式（使用 {} 作为占位符）:", QLineEdit::Normal, "", &ok);
+    if (!ok) return;
+
+    auto& rm = RuleManager::instance();
+    auto currentFile = rm.get_current_rule_file();
+    try {
+        nlohmann::json j = rm.load_json_file(currentFile);
+        if (!j.contains("rules")) j["rules"] = nlohmann::json::object();
+        j["rules"][name.toStdString()] = pattern.toStdString();
+        if (rm.modify_rule_file(currentFile, j["rules"])) {
+            rm.load_rule_file(currentFile);
+            update_rule_table();
+            LOG_MODULE("DGLABClient", "on_add_rule", LOG_INFO, "添加规则成功: " << name.toStdString());
+        }
+        else {
+            QMessageBox::warning(this, "错误", "添加规则失败");
+            LOG_MODULE("DGLABClient", "on_add_rule", LOG_ERROR, "添加规则失败: " << name.toStdString());
+        }
+    }
+    catch (const std::exception& e) {
+        QMessageBox::warning(this, "错误", e.what());
+    }
+}
+
+void DGLABClient::on_edit_rule() {
+    int row = rule_table_->currentRow();
+    if (row < 0) {
+        QMessageBox::warning(this, "提示", "请先选择要编辑的规则");
+        return;
+    }
+    QString name = rule_table_->item(row, 0)->text();
+    auto& rm = RuleManager::instance();
+    QString oldPattern = QString::fromStdString(rm.get_rule_pattern(name.toStdString()));
+    bool ok;
+    QString newPattern = QInputDialog::getText(this, "编辑规则", "新模式（使用 {} 作为占位符）:", QLineEdit::Normal, oldPattern, &ok);
+    if (!ok) return;
+
+    std::string currentFile = rm.get_current_rule_file();
+    try {
+        nlohmann::json j = rm.load_json_file(currentFile);
+        if (!j.contains("rules")) j["rules"] = nlohmann::json::object();
+        j["rules"][name.toStdString()] = newPattern.toStdString();
+        if (rm.modify_rule_file(currentFile, j["rules"])) {
+            rm.load_rule_file(currentFile);
+            update_rule_table();
+            LOG_MODULE("DGLABClient", "on_edit_rule", LOG_INFO, "编辑规则成功: " << name.toStdString() << " -> " << newPattern.toStdString());
+        }
+        else {
+            QMessageBox::warning(this, "错误", "编辑规则失败");
+            LOG_MODULE("DGLABClient", "on_edit_rule", LOG_ERROR, "编辑规则失败: " << name.toStdString());
+        }
+    }
+    catch (const std::exception& e) {
+        QMessageBox::warning(this, "错误", e.what());
+        LOG_MODULE("DGLABClient", "on_edit_rule", LOG_ERROR, "编辑规则异常: " << e.what());
+    }
+}
+
+void DGLABClient::on_delete_rule() {
+    int row = rule_table_->currentRow();
+    if (row < 0) return;
+    QString name = rule_table_->item(row, 0)->text();
+    int ret = QMessageBox::question(this, "确认", "确定要删除规则 " + name + " 吗？");
+    if (ret == QMessageBox::Yes) {
+        auto& rm = RuleManager::instance();
+        auto currentFile = rm.get_current_rule_file();
+        try {
+            nlohmann::json j = rm.load_json_file(currentFile);
+            if (j.contains("rules") && j["rules"].contains(name.toStdString())) {
+                j["rules"].erase(name.toStdString());
+                if (rm.modify_rule_file(currentFile, j["rules"])) {
+                    rm.load_rule_file(currentFile);
+                    update_rule_table();
+                    LOG_MODULE("DGLABClient", "on_delete_rule", LOG_INFO, "删除规则成功: " << name.toStdString());
+                }
+                else {
+                    QMessageBox::warning(this, "错误", "删除规则失败");
+                    LOG_MODULE("DGLABClient", "on_delete_rule", LOG_ERROR, "删除规则失败: " << name.toStdString());
+                }
+            }
+        }
+        catch (const std::exception& e) {
+            QMessageBox::warning(this, "错误", e.what());
+        }
+    }
 }
 
 void DGLABClient::on_main_first_btn_clicked() {
@@ -470,7 +711,7 @@ void DGLABClient::on_close_btn_clicked() {
 }
 
 void DGLABClient::change_ui_log_level() {
-    AppConfig& config = AppConfig::instance();
+    auto& config = AppConfig::instance();
     int new_level = config.get_value<int>("app.log.ui_log_level", 0);
     LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_INFO, "修改 UI 日志级别: 旧=" << ui_log_level << " 新=" << new_level);
     ui_log_level = DebugLog::int_to_log_level(new_level);
@@ -483,7 +724,7 @@ void DGLABClient::set_port() {
     int port = input.toInt(&ok);
     if (ok && port >= 0 && port <= 65535) {
         LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "开始设置端口");
-        AppConfig& config = AppConfig::instance();
+        auto& config = AppConfig::instance();
         config.set_value_with_name<int>("app.websocket.port", input.toInt(), "system");
         LOG_MODULE("DGLABClient", "set_port", LOG_INFO, "设置端口完成：" << input.toStdString());
     }
@@ -491,7 +732,7 @@ void DGLABClient::set_port() {
         LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口：" << input.toStdString());
     }
     ui.port_input->setText("");
-    AppConfig& config = AppConfig::instance();
+    auto& config = AppConfig::instance();
     int old_port = config.get_value<int>("app.websocket.port", 9999);
     ui.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
 }
@@ -525,7 +766,7 @@ void DGLABClient::handle_close_finished(bool success, const QString& msg) {
 
 void DGLABClient::start_async_connect() {
     LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在更新端口");
-    AppConfig& config = AppConfig::instance();
+    auto& config = AppConfig::instance();
     int port = config.get_value<int>("app.websocket.port", 9999);
     QJsonObject update_port_cmd;
     update_port_cmd["cmd"] = "set_ws_url";

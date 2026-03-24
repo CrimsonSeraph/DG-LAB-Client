@@ -62,3 +62,33 @@ bool MainConfig::validate() const {
     }
     return true;
 }
+
+void SystemConfig::to_json(nlohmann::json& j, const SystemConfig& config) {
+    j = nlohmann::json{
+        {"app.websocket.port", config.websocket_port_}
+    };
+}
+
+void SystemConfig::from_json(const nlohmann::json& j, SystemConfig& config) {
+    j.at("app.websocket.port").get_to(config.websocket_port_);
+}
+
+bool SystemConfig::validate() const {
+    return (websocket_port_ > 0 && websocket_port_ < 65536);
+}
+
+void UserConfig::to_json(nlohmann::json& j, const UserConfig& config) {
+    j = nlohmann::json{
+        {"app.ui.is_light", config.ui_is_light_},
+        {"app.ui.font_size", config.ui_font_size_}
+    };
+}
+
+void UserConfig::from_json(const nlohmann::json& j, UserConfig& config) {
+    j.at("app.ui.is_light").get_to(config.ui_is_light_);
+    j.at("app.ui.font_size").get_to(config.ui_font_size_);
+}
+
+bool UserConfig::validate() const {
+    return (ui_font_size_ >= 8 && ui_font_size_ <= 48);
+}

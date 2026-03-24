@@ -70,7 +70,9 @@ void PythonSubprocessManager::start_process(const QString& pythonExecutable, con
 
     QStringList args;
     args << scriptPath;
-    m_process->start(pythonExecutable, args);
+    QString correct_path = pythonExecutable;
+    std::cout << correct_path.toStdString() << std::endl;
+    m_process->start(correct_path, args);
     if (!m_process->waitForStarted(5000)) {
         LOG_MODULE("PythonSubprocessManager", "start_process", LOG_ERROR, "启动 Python 进程失败（超时）");
         emit started(false, "无法启动Python进程");
