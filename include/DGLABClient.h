@@ -2,14 +2,21 @@
 
 #include "DebugLog.h"
 #include "PythonSubprocessManager.h"
-
-#include <QtWidgets/QWidget>
 #include "ui_DGLABClient.h"
+
+#include <QCloseEvent>
+#include <QComboBox>
+#include <QJsonObject>
+#include <QMenu>
+#include <QPushButton>
 #include <QSyntaxHighlighter>
 #include <QSystemTrayIcon>
-#include <QMenu>
-#include <QCloseEvent>
 #include <QTableWidget>
+#include <QTextEdit>
+#include <QWidget>
+
+#include <string>
+#include <vector>
 
 class DGLABClient : public QWidget
 {

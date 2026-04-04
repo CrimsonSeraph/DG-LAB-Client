@@ -1,14 +1,17 @@
 #pragma once
 
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QMutex>
 #include <QObject>
 #include <QProcess>
 #include <QTcpSocket>
-#include <QJsonObject>
-#include <QJsonDocument>
-#include <QMutex>
-#include <QWaitCondition>
 #include <QThread>
-#include <atomic>  // 新增
+#include <QWaitCondition>
+
+#include <atomic>
+#include <functional>
+#include <map>
 
 class PythonSubprocessManager : public QObject
 {

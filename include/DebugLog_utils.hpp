@@ -1,11 +1,12 @@
 #pragma once
 
-#include <QJsonValue>
-#include <QJsonDocument>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
-#include <string>
+#include <QJsonValue>
+
 #include <algorithm>
+#include <string>
 
 namespace DebugLogUtil {
     inline std::string jsonValueToString(const QJsonValue& val) {

@@ -2,6 +2,9 @@
 
 #include "RuleManager.h"
 
+#include <stdexcept>
+#include <vector>
+
 template<typename... Args>
 std::string RuleManager::evaluate(const std::string& ruleName, Args... args) {
     std::lock_guard<std::mutex> lock(mutex_);

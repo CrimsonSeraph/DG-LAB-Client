@@ -1,10 +1,15 @@
 #include "RuleManager.h"
+
 #include "AppConfig.h"
 #include "ConfigManager.h"
 #include "DebugLog.h"
 
-#include <fstream>
 #include <filesystem>
+#include <fstream>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 RuleManager& RuleManager::instance() {
     static RuleManager instance;

@@ -2,18 +2,18 @@
 
 #include "ConfigManager.h"
 
+#include <algorithm>
+#include <atomic>
+#include <functional>
 #include <iostream>
+#include <map>
 #include <memory>
-#include <unordered_map>
-#include <string>
 #include <mutex>
 #include <set>
-#include <map>
-#include <vector>
-#include <algorithm>
-#include <functional>
+#include <string>
 #include <thread>
-#include <atomic>
+#include <unordered_map>
+#include <vector>
 
 class MultiConfigManager {
 public:

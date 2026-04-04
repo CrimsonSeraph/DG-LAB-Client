@@ -1,15 +1,17 @@
 #pragma once
 
-#include "DebugLog.h"
 #include "ConfigStructs.h"
+#include "DebugLog.h"
 
-#include <iostream>
-#include <mutex>
-#include <memory>
-#include <optional>
-#include <functional>
+#include <nlohmann/json.hpp>
+
 #include <concepts>
+#include <functional>
+#include <iostream>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <optional>
 
 // 前置声明
 class ConfigManager;

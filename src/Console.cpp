@@ -1,5 +1,13 @@
 #include "Console.h"
+
 #include "DebugLog.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#include <iostream>
+#else
+#include <iostream>
+#endif
 
 Console::Console() : m_isCreated(false) {
     // 构造函数不自动创建控制台

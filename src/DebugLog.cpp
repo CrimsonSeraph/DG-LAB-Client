@@ -1,12 +1,12 @@
 #include "DebugLog.h"
 
+#include <functional>
 #include <iostream>
 #include <map>
 #include <mutex>
-#include <string>
 #include <sstream>
+#include <string>
 #include <typeinfo>
-#include <functional>
 
 DebugLog& DebugLog::Instance() {
     static DebugLog instance;

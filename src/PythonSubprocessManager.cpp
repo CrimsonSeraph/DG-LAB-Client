@@ -1,13 +1,16 @@
 #include "PythonSubprocessManager.h"
+
 #include "DebugLog.h"
 
-#include <QDebug>
-#include <QTimer>
 #include <QCoreApplication>
-#include <QThreadPool>
-#include <iostream>
-#include <QJsonObject>
+#include <QDebug>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QTcpSocket>
+#include <QThreadPool>
+#include <QTimer>
+
+#include <iostream>
 
 PythonSubprocessManager::PythonSubprocessManager(QObject* parent)
     : QObject(parent)

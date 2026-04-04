@@ -2,6 +2,9 @@
 
 #include <QString>
 
+#include <string>
+#include <vector>
+
 namespace DGLABClientUtil {
     inline static bool contains_any_keyword(const QString& str, const std::vector<std::string>& keywords) {
         QString lowerStr = str.toLower();

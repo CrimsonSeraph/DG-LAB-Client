@@ -1,12 +1,14 @@
 #pragma once
 
+#include "Rule.h"
+
 #include <nlohmann/json.hpp>
-#include <unordered_map>
-#include <string>
-#include <vector>
+
 #include <memory>
 #include <mutex>
-#include "Rule.h"
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 class ConfigManager;
 class AppConfig; // 通过 AppConfig 获取配置

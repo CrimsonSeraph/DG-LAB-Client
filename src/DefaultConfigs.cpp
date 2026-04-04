@@ -1,5 +1,9 @@
 #include "DefaultConfigs.h"
+
 #include "DebugLog.h"
+
+#include <nlohmann/json.hpp>
+#include <string>
 
 nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name) {
     if (config_name == "main") {

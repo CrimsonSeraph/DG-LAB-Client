@@ -1,5 +1,10 @@
 #include "Rule.h"
+
 #include "DebugLog.h"
+
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 Rule::Rule(const std::string& name, const std::string& pattern)
     : name_(name), pattern_(pattern) {

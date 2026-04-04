@@ -3,13 +3,14 @@
 #include "DebugLog.h"
 
 #include <nlohmann/json.hpp>
+
+#include <functional>
 #include <iostream>
-#include <string>
 #include <memory>
 #include <mutex>
-#include <functional>
-#include <unordered_map>
 #include <optional>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 class ConfigManager {

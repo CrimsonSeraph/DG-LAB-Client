@@ -1,13 +1,14 @@
 #pragma once
+
 #include "DebugLog_utils.hpp"
 
+#include <functional>
 #include <iostream>
 #include <map>
 #include <mutex>
-#include <string>
 #include <sstream>
+#include <string>
 #include <typeinfo>
-#include <functional>
 
 enum LogLevel {
     LOG_DEBUG = 0,

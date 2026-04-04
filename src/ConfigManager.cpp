@@ -1,10 +1,11 @@
 #include "ConfigManager.h"
-#include "DefaultConfigs.h"
-#include "DebugLog.h"
 
+#include "DebugLog.h"
+#include "DefaultConfigs.h"
+
+#include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <algorithm>
 
 ConfigManager::ConfigManager(const std::string& path)
     : config_path_(path) {

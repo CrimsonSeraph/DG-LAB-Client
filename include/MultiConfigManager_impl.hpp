@@ -4,6 +4,7 @@
 #include "DebugLog.h"
 
 #include <sstream>
+#include <optional>
 
 template<typename T>
 inline std::optional<T> MultiConfigManager::get(const std::string& key_path) const {

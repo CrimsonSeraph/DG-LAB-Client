@@ -1,11 +1,12 @@
 #pragma once
 
 #include <nlohmann/json.hpp>
+
 #include <chrono>
-#include <vector>
 #include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
 // ============================================
 // 配置结构体模板

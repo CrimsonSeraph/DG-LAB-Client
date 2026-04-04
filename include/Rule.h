@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
-#include <vector>
+#include <regex>
 #include <sstream>
 #include <stdexcept>
-#include <regex>
+#include <string>
+#include <vector>
 
 class Rule {
 public:
