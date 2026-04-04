@@ -192,55 +192,157 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 ---
 
-## 七、本地 WebSocket 中转服务部署
-
-本项目作为客户端，需要连接一个本地的 WebSocket 中转服务才能与 DG-Lab App 进行通信。该中转服务基于 Node.js 开发，您需要先在电脑上启动它。
+## 本地 WebSocket 中转服务部署说明
 
 ### 1. 服务说明
 
-此服务（默认文件名为 `websocketNode.js`）扮演着中央中转站的角色：
-1.  它接收本客户端（DG-LAB-Client）通过 Python 子进程建立的 WebSocket 连接。
-2.  它接收 DG-Lab 官方手机 App 的连接（官方似乎只有 3.x 支持 websocket）。
-3.  它负责在两者之间中继消息（如绑定指令、强度控制、心跳包），使电脑和手机能通过 WebSocket 进行数据交换。
+此 WebSocket 服务扮演中央中转站的角色，负责在电脑客户端（第三方终端）与 DG-Lab 手机 App 之间中继消息（如绑定指令、强度控制、心跳包等），使两者能通过 WebSocket 进行数据交换。该服务仅支持 **郊狼脉冲主机 3.0**。
 
 ### 2. 环境准备
 
--   **安装 Node.js**：确保您的系统已安装 [Node.js](https://nodejs.org/) (建议版本 12.x 或更高)。
--   **获取服务脚本**：从 [DG-LAB-OPENSOURCE 仓库](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE/tree/main/socket/BackEnd(Node)) 下载 `websocketNode.js` 文件，并将其保存到您电脑上的一个专用文件夹中（例如 `DGLab-server/`）。
+- **安装 Node.js**：建议版本 12.x 或更高。您可以在 [Node.js 官网](https://nodejs.org/) 下载并安装。
+- **获取服务脚本**：从官方仓库获取后端代码，项目结构如下：
+  ```
+  socket/
+  └── v2/                          # ✅ 推荐使用
+      ├── backend/                 # WebSocket 后端 (Node.js)
+      │   ├── src/
+      │   │   ├── index.js         # 主入口，启动服务器 & 消息路由
+      │   │   ├── config.js        # 配置管理（支持 .env 环境变量）
+      │   │   ├── connection.js    # 连接管理（注册、配对、断开）
+      │   │   ├── message.js       # 消息处理（验证、转发、强度/波形）
+      │   │   ├── timer.js         # 定时器管理（波形消息队列发送）
+      │   │   └── logger.js        # 日志模块（winston）
+      │   └── package.json
+      └── frontend/                # 前端控制页面 (HTML+CSS+JS)
+  ```
 
 ### 3. 安装与启动
 
-打开终端（命令提示符或 PowerShell），进入存放 `websocketNode.js` 的文件夹，执行以下步骤：
+打开终端，进入 `socket/v2/backend` 目录，执行以下步骤：
 
 **步骤一：安装依赖**
-该服务通常依赖 `ws` 库（WebSocket 实现）。运行以下命令安装依赖：
+
 ```bash
-npm install ws uuid
+cd socket/v2/backend
+npm install
 ```
 
-**步骤二：启动服务**
-在同一个目录下，运行以下命令启动服务：
+**步骤二：配置环境变量（可选）**
+
+在 `socket/v2/backend` 目录下创建 `.env` 文件，可配置以下参数：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | 9999 | WebSocket 服务端口 |
+| `HEARTBEAT_INTERVAL` | 60000 | 心跳间隔（毫秒） |
+| `DEFAULT_PUNISHMENT_TIME` | 1 | 波形发送频率（每秒次数） |
+| `DEFAULT_PUNISHMENT_DURATION` | 5 | 波形默认持续时间（秒） |
+| `LOG_LEVEL` | info | 日志级别 |
+
+**步骤三：启动服务**
+
 ```bash
-node websocketNode.js
+# 生产模式
+npm start
+
+# 开发模式（自动重启）
+npm run dev
 ```
-**端口设置**：服务启动后，控制台不会输出任何内容！**请仔细查看 `websocketNode.js`**，通常默认端口是 `9999`，具体请以您下载的脚本中定义的端口为准。
 
-**成功标志**：如果看到类似 `新的 WebSocket 连接已建立，标识符为:xxx` 的提示，则说明服务已成功运行。
+服务默认监听端口 `9999`。
 
-**注意：** [官方仓库](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE/tree/main/socket/BackEnd(Node)) 提供了**启动服务的方法**与**相关调试信息开关方式**，详细请参考官方仓库信息。
+### 4. 客户端配置与连接
 
-### 4. 配置与连接本客户端
-
-1.  保持 Node.js 服务在后台运行（终端窗口不要关闭）。
-2.  启动本客户端（DG-LAB-Client）。
-3.  客户端会根据配置文件启动 Python 子进程，子进程连接 Node.js 服务，并在连接成功后生成包含服务地址和 `clientId` 的二维码内容（通过 `generate_qr_content` 方法）。
+1. 保持 Node.js 服务在后台运行（终端窗口不要关闭）。
+2. 启动您的客户端程序（如 DG-LAB-Client 或其他第三方终端）。
+3. 客户端连接 WebSocket 服务后，服务端会分配 `clientId` 并返回给客户端。
+4. 客户端根据 WebSocket 地址和 `clientId` 生成二维码，格式如下：
+   ```
+   https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://你的服务器地址:端口/clientId
+   ```
 
 ### 5. 手机 App 连接
 
-1.  确保您的手机与电脑连接在**同一个局域网**下。
-2.  打开 DG-Lab 官方手机 App（官方似乎只有 3.x 支持 websocket）。
-3.  使用 App 内的扫一扫功能，扫描本客户端生成的二维码。
-4.  扫描后，手机 App 将自动连接到您电脑上运行的中转服务，并与本客户端建立绑定关系。后续的强度调节、波形发送等操作即可进行。
+1. 确保手机与电脑连接在 **同一个局域网** 下。
+2. 打开 DG-Lab 官方手机 App（需要 3.x 及以上版本，支持 WebSocket）。
+3. 在 App 中打开 SOCKET 功能 → 点击连接服务器 → 扫描客户端生成的二维码。
+4. 扫描后，App 将自动连接到中转服务并完成配对。
+
+配对成功后，您即可进行强度调节、波形发送等操作。
+
+---
+
+## 常见问题及解决方法
+
+### Q1：端口被占用，无法启动服务
+
+**现象**：启动服务时报错 `Error: listen EADDRINUSE: address already in use :::9999`。
+
+**解决方法**：
+- 检查是否有其他程序占用了 9999 端口，可以通过 `lsof -i :9999`（Linux/macOS）或 `netstat -ano | findstr :9999`（Windows）命令查看。
+- 更换其他端口，在 `.env` 文件中修改 `PORT` 配置。
+
+### Q2：手机 App 无法连接到 WebSocket 服务
+
+**可能原因及解决**：
+
+| 原因 | 解决方法 |
+|------|----------|
+| 手机与电脑不在同一局域网 | 确保手机连接与电脑相同的 Wi-Fi 网络 |
+| 防火墙拦截了端口 | 在防火墙中放行 WebSocket 服务使用的端口（默认 9999）[reference:0] |
+| 二维码中的地址错误 | 检查二维码中的 IP 地址是否为电脑的正确局域网 IP，不要使用 `127.0.0.1` 或 `localhost`[reference:1] |
+| 服务未正常启动 | 检查终端窗口是否有错误输出，确保服务正在运行 |
+|某些 VPN 会拦截非代理流量|关闭 VPN|
+
+### Q3：服务启动后控制台没有输出信息
+
+这是正常现象。根据官方仓库说明，服务启动后控制台不会输出任何内容。如需查看调试信息，可参考官方仓库提供的调试信息开关方式。
+
+### Q4：配对失败，提示 `400` 或 `401`
+
+**错误码说明**：
+
+| 错误码 | 说明 |
+|--------|------|
+| 400 | 此 ID 已被其他客户端绑定 |
+| 401 | 要绑定的目标客户端不存在 |
+| 402 | 收信方和寄信方不是绑定关系 |
+| 404 | 未找到收信人（离线） |
+
+**解决方法**：检查二维码是否正确生成了 `clientId`，确保客户端与服务端的连接未中断，并确认没有重复绑定。
+
+### Q5：消息发送失败，提示 `405`
+
+**原因**：JSON 消息长度超过了 1950 字符，APP 会丢弃该消息。
+
+**解决方法**：将消息拆分为多条发送，确保每条消息长度在 1950 字符以内。
+
+---
+
+## 注意事项
+
+1. **客户端 ID 必须唯一**：服务端生成的 `clientId` 必须全局唯一，推荐使用 UUID v4。
+
+2. **消息格式要求**：除初始连接时 `targetId` 可为空外，所有消息必须包含 `type`、`clientId`、`targetId`、`message` 四个字段且值不为空。
+
+3. **本地调试与正式使用**：
+   - 本地调试时可以使用 `ws://` 协议
+   - 正式上线或外网访问时，建议使用 `wss://` 协议以保证通信安全
+
+4. **保持服务运行**：启动服务的终端窗口不要关闭，关闭后服务会终止。
+
+5. **检查防火墙**：如果手机无法连接，检查电脑防火墙是否允许 WebSocket 端口（默认 9999）的入站连接。
+
+6. **默认端口确认**：服务默认监听 `9999` 端口，具体请以您下载的脚本中实际定义的端口为准。
+
+---
+
+**相关资源**：
+- 官方仓库：[https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE)
+- 常见问题文档：`socket/QA/Websocket_open_source_QA_Chinese.txt`（位于仓库中）
+
+如有其他问题，请联系官方邮箱：service@dungeon-lab.com
 
 ---
 
