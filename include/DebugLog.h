@@ -50,7 +50,7 @@ public:
     // 注销 Sink
     void unregister_log_sink(const std::string& name);
     // 设置某个 Sink 的最小日志等级
-    void set_log_sink_level(const std::string& name, LogLevel level);
+    bool set_log_sink_level(const std::string& name, LogLevel level);
 
     const char* level_to_string(LogLevel level);
     static LogLevel int_to_log_level(int level);

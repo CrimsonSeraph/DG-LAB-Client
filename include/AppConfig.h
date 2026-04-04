@@ -178,7 +178,7 @@ private:
     mutable std::mutex mutex_;
 
     // 初始化标志
-    bool initialized_ = false;
+    std::atomic<bool> initialized_{ false };
 };
 
 
@@ -242,7 +242,7 @@ template<typename T>
 inline T AppConfig::get_value_with_name(const std::string& key_path,
     T default_value, const std::string& key_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return get_value_with_name_unsafe<T>(key_path, default_value, key_path);
+    return get_value_with_name_unsafe<T>(key_path, default_value, key_name);
 }
 
 template<typename T>

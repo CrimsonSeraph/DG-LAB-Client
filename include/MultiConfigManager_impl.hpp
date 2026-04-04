@@ -23,7 +23,9 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
 
         // 从低优先级到高优先级查找（高优先级覆盖低优先级）
         std::optional<T> result;
-        for (const auto& config : sorted_configs) {
+
+        // 封装单个配置的读取与异常处理
+        auto try_get_from_config = [&](const auto& config) {
             try {
                 auto value = config->template get<T>(key_path);
                 if (value.has_value()) {
@@ -47,6 +49,10 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
                     "配置 [" << key_path << "] 读取失败（优先级 "
                     << config->get<int>("__priority").value_or(0) << "）: " << e.what());
             }
+            };
+
+        for (const auto& config : sorted_configs) {
+            try_get_from_config(config);
         }
 
         if (result.has_value()) {

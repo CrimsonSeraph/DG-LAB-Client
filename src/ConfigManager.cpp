@@ -157,9 +157,15 @@ bool ConfigManager::update(const nlohmann::json& patch) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
-        config_.merge_patch(patch);
-        LOG_MODULE("ConfigManager", "update", LOG_INFO, "批量更新配置成功");
-        return true;
+        if(config_.merge_patch(patch);true){
+            LOG_MODULE("ConfigManager", "update", LOG_INFO, "批量更新配置成功");
+            notify_listeners();
+            return true;
+        }
+        else {
+            LOG_MODULE("ConfigManager", "update", LOG_WARN, "配置合并更新失败，补丁可能无效: " << patch.dump());
+            return false;
+        }
     }
     catch (const std::exception& e) {
         LOG_MODULE("ConfigManager", "update", LOG_ERROR, "批量更新配置失败: " << e.what());
@@ -238,6 +244,7 @@ nlohmann::json ConfigManager::get_default_config() const {
 
 std::vector<std::string> ConfigManager::split_key_path(const std::string& key_path) const {
     LOG_MODULE("ConfigManager", "split_key_path", LOG_DEBUG, "分割键路径: " << key_path);
+    std::lock_guard<std::recursive_mutex> lock(mutex_);
     std::vector<std::string> result;
     std::string current;
 

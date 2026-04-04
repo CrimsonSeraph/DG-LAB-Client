@@ -43,9 +43,11 @@ void RuleManager::load_rule_file(const std::string& filename) {
             LOG_MODULE("RuleManager", "load_rule_file", LOG_WARN, "文件缺少 'rules' 字段: " << filename);
             return;
         }
-        parse_config(json["rules"]);
-        current_file_ = filename;
-        LOG_MODULE("RuleManager", "load_rule_file", LOG_INFO, "已加载规则文件: " << filename);
+        if (json.contains("rules")) {
+            parse_config(json["rules"]);
+            current_file_ = filename;
+            LOG_MODULE("RuleManager", "load_rule_file", LOG_INFO, "已加载规则文件: " << filename);
+        }
     }
     catch (const std::exception& e) {
         LOG_MODULE("RuleManager", "load_rule_file", LOG_ERROR, "加载失败: " << e.what());

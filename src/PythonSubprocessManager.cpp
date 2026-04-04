@@ -71,7 +71,6 @@ void PythonSubprocessManager::start_process(const QString& pythonExecutable, con
     QStringList args;
     args << scriptPath;
     QString correct_path = pythonExecutable;
-    std::cout << correct_path.toStdString() << std::endl;
     m_process->start(correct_path, args);
     if (!m_process->waitForStarted(5000)) {
         LOG_MODULE("PythonSubprocessManager", "start_process", LOG_ERROR, "启动 Python 进程失败（超时）");
@@ -238,7 +237,9 @@ QJsonObject PythonSubprocessManager::send_command(const QJsonObject& cmd, int ti
         send_json(cmd);
         sent = true;
         }, Qt::BlockingQueuedConnection);
-
+    if (!sent) {
+        return { {"status", "error"}, {"message", "发送命令失败"} };
+    }
     // 等待响应或超时，同时响应停止标志
     while (!m_responseReceived && !m_stopping) {
         if (!m_waitCond.wait(&m_mutex, timeout)) {

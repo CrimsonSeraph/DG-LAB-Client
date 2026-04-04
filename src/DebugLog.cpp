@@ -101,12 +101,19 @@ void DebugLog::unregister_log_sink(const std::string& name) {
     log_sinks_.erase(name);
 }
 
-void DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
+bool DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
     std::lock_guard<std::mutex> lock(sinks_mutex_);
+    if (log_sinks_.find(name) == log_sinks_.end()) {
+        return false; // Sink 不存在
+    }
+    else if (level < LOG_DEBUG || level > LOG_NONE) {
+        return false; // 无效的日志等级
+    }
     auto it = log_sinks_.find(name);
     if (it != log_sinks_.end()) {
         it->second.min_level = level;
     }
+    return true;
 }
 
 const char* DebugLog::level_to_string(LogLevel level) {

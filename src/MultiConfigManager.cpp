@@ -299,7 +299,10 @@ void MultiConfigManager::file_watcher_loop() {
 
                 try {
                     if (info.manager->load()) {
+                        auto priority_opt = info.manager->get<int>("__priority");
+                        info.priority = priority_opt.value_or(0);
                         info.last_mod_time = current_time;
+                        cache_dirty_ = true;
                         LOG_MODULE("MultiConfigManager", "file_watcher_loop", LOG_INFO,
                             "重新加载成功: " << name);
                     }

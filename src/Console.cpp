@@ -116,7 +116,7 @@ bool Console::CreateDebugConsole() {
     }
 
     // 设置控制台标题
-    SetConsoleTitleW(L"Debug Console");
+    SetConsoleTitleW(L"DG-LAB-Client Debug Console");
 
     return true;
 }
