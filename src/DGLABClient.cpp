@@ -1,4 +1,5 @@
 #include "DGLABClient.h"
+#include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
 #include "AppConfig.h"
 #include "PythonSubprocessManager.h"
@@ -31,6 +32,11 @@
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QHeaderView>
+#include <QLabel>
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QNetworkInterface>
+#include <QFile>
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
@@ -55,6 +61,7 @@ DGLABClient::DGLABClient(QWidget* parent)
 }
 
 DGLABClient::~DGLABClient() {
+    delete_old_qr_file();
     DebugLog::Instance().unregister_log_sink("qt_ui");
 }
 
@@ -366,11 +373,11 @@ void DGLABClient::setup_connections() {
     connect(ui.close_btn, &QPushButton::clicked, this, &DGLABClient::on_close_btn_clicked);
 
     connect(ui.port_confirm_btn, &QPushButton::clicked, this, &DGLABClient::set_port);
+    connect(ui.show_qr_btn, &QPushButton::clicked, this, &DGLABClient::on_show_qr_btn_clicked);
 
     connect(ui.change_style_mode_btn, &QPushButton::clicked, this, &DGLABClient::change_theme);
 
     connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
-    connect(this, &DGLABClient::code_content_ready, this, &DGLABClient::handle_code_content_ready);
     connect(this, &DGLABClient::close_finished, this, &DGLABClient::handle_close_finished);
 }
 
@@ -414,6 +421,148 @@ void DGLABClient::init_python_manager() {
         << pythonPath.toStdString() << "（注：若解释器路径直接为<Python>则使用系统默认 Python 路径）");
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径：" << bridge_module);
     m_pyManager->start_process(pythonPath, script_path);
+}
+
+void DGLABClient::fetch_qr_path() {
+    LOG_MODULE("DGLABClient", "fetch_qr_path", LOG_INFO, "开始获取二维码路径");
+    delete_old_qr_file();
+
+    QJsonObject cmd;
+    cmd["cmd"] = "get_qr_path";
+    async_call(cmd, 5000, [this](bool ok, QString msg) {
+        if (ok && !msg.isEmpty()) {
+            m_current_qr_path = msg;
+            LOG_MODULE("DGLABClient", "fetch_qr_path", LOG_INFO,
+                "成功获取二维码路径: " << m_current_qr_path.toStdString());
+            show_qr_dialog();
+        }
+        else {
+            LOG_MODULE("DGLABClient", "fetch_qr_path", LOG_ERROR,
+                "获取二维码路径失败: " << msg.toStdString());
+            QMessageBox::warning(this, "获取二维码失败",
+                "无法生成二维码，请检查连接状态。");
+        }
+        });
+}
+
+void DGLABClient::show_qr_dialog() {
+    LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_INFO, "准备显示二维码对话框");
+
+    // 检查路径是否有效且文件存在
+    if (m_current_qr_path.isEmpty() || !QFile::exists(m_current_qr_path)) {
+        LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_WARN,
+            "二维码路径无效或文件不存在: " << m_current_qr_path.toStdString());
+        // 显示文本提示
+        QDialog* dialog = new QDialog(this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setWindowTitle("DGLab 扫码连接");
+        QVBoxLayout* layout = new QVBoxLayout(dialog);
+        QLabel* tipLabel = new QLabel("二维码无法显示，请检查连接状态。");
+        tipLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(tipLabel);
+        QPushButton* closeBtn = new QPushButton("关闭");
+        layout->addWidget(closeBtn);
+        connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
+        dialog->exec();
+        return;
+    }
+
+    // 加载图片
+    QPixmap pixmap(m_current_qr_path);
+    if (pixmap.isNull()) {
+        LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_ERROR,
+            "无法加载二维码图片: " << m_current_qr_path.toStdString());
+        QMessageBox::warning(this, "错误", "二维码图片文件损坏或无法读取");
+        return;
+    }
+
+    LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_INFO,
+        "成功加载二维码图片: " << m_current_qr_path.toStdString());
+
+    // 创建并显示对话框
+    QDialog* dialog = new QDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setWindowTitle("DGLab 扫码连接");
+    QVBoxLayout* layout = new QVBoxLayout(dialog);
+
+    QLabel* imageLabel = new QLabel();
+    imageLabel->setPixmap(pixmap.scaled(400, 400, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    imageLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(imageLabel);
+
+    QLabel* tipLabel = new QLabel("请使用 DGLab App 扫描上方二维码\n关闭后仍可以在\"配置\"界面点击\"显示二维码\"重新显示");
+    tipLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(tipLabel);
+
+    QPushButton* closeBtn = new QPushButton("关闭");
+    layout->addWidget(closeBtn);
+    connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
+
+    dialog->exec();
+}
+
+void DGLABClient::delete_old_qr_file() {
+    if (!m_current_qr_path.isEmpty() && QFile::exists(m_current_qr_path)) {
+        if (QFile::remove(m_current_qr_path)) {
+            LOG_MODULE("DGLABClient", "delete_old_qr_file", LOG_DEBUG,
+                "已删除旧二维码文件: " << m_current_qr_path.toStdString());
+        }
+        else {
+            LOG_MODULE("DGLABClient", "delete_old_qr_file", LOG_WARN,
+                "删除旧二维码文件失败: " << m_current_qr_path.toStdString());
+        }
+        m_current_qr_path.clear();
+    }
+}
+
+QString DGLABClient::get_local_lan_ip() {
+    auto& config = AppConfig::instance();
+
+    QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
+    QString fallbackIp;
+    QString whitelistIp;
+
+    for (const QNetworkInterface& iface : interfaces) {
+        if (!(iface.flags() & QNetworkInterface::IsUp) ||
+            (iface.flags() & QNetworkInterface::IsLoopBack)) {
+            continue;
+        }
+
+        QString ifaceName = iface.name();
+        QString ifaceHuman = iface.humanReadableName();
+
+        if (DGLABClientUtil::contains_any_keyword(ifaceName, default_blacklist)
+            || DGLABClientUtil::contains_any_keyword(ifaceHuman, default_blacklist)) {
+            qDebug() << "黑名单过滤网卡:" << ifaceHuman;
+            continue;
+        }
+
+        QString ipv4;
+        for (const QNetworkAddressEntry& entry : iface.addressEntries()) {
+            QHostAddress ip = entry.ip();
+            if (ip.protocol() == QAbstractSocket::IPv4Protocol && ip != QHostAddress::LocalHost) {
+                ipv4 = ip.toString();
+                break;
+            }
+        }
+        if (ipv4.isEmpty()) continue;
+
+        if (fallbackIp.isEmpty()) {
+            fallbackIp = ipv4;
+        }
+
+        if (DGLABClientUtil::contains_any_keyword(ifaceName, default_whitelist)
+            || DGLABClientUtil::contains_any_keyword(ifaceHuman, default_whitelist)) {
+            qDebug() << "白名单匹配网卡:" << ifaceHuman << " IP:" << ipv4;
+            return ipv4;
+        }
+    }
+
+    if (!fallbackIp.isEmpty()) {
+        return fallbackIp;
+    }
+
+    return "127.0.0.1";
 }
 
 void DGLABClient::setup_rules_ui() {
@@ -705,9 +854,25 @@ void DGLABClient::on_close_connect_btn_clicked() {
 }
 
 void DGLABClient::on_start_btn_clicked() {
+    QJsonObject test_cmd;
+    test_cmd["cmd"] = "send_strength";
+    test_cmd["channel"] = 1;
+    test_cmd["mode"] = 1;
+    test_cmd["value"] = 10;
+    async_call(test_cmd, 5000, [this](bool ok, QString msg) {
+        if (ok) {
+            LOG_MODULE("DGLABClient", "on_start_btn_clicked", LOG_INFO, "测试命令发送成功: " << msg.toStdString());
+        }
+        else {
+            LOG_MODULE("DGLABClient", "on_start_btn_clicked", LOG_ERROR, "测试命令发送失败: " << msg.toStdString());
+        }
+        });
 }
 
-void DGLABClient::on_close_btn_clicked() {
+void DGLABClient::on_close_btn_clicked() {}
+
+void DGLABClient::on_show_qr_btn_clicked() {
+    show_qr_dialog();
 }
 
 void DGLABClient::change_ui_log_level() {
@@ -749,9 +914,6 @@ void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
     }
 }
 
-void DGLABClient::handle_code_content_ready(const QString& content) {
-}
-
 void DGLABClient::handle_close_finished(bool success, const QString& msg) {
     close_connect_btn_loading = false;
     ui.close_connect_btn->setEnabled(true);
@@ -765,19 +927,27 @@ void DGLABClient::handle_close_finished(bool success, const QString& msg) {
 }
 
 void DGLABClient::start_async_connect() {
-    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在更新端口");
+    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在获取本机IP并更新WebSocket地址");
     auto& config = AppConfig::instance();
     int port = config.get_value<int>("app.websocket.port", 9999);
-    QJsonObject update_port_cmd;
-    update_port_cmd["cmd"] = "set_ws_url";
-    update_port_cmd["port"] = port;
-    async_call(update_port_cmd, 5000, [this](bool ok, QString msg) {
+    QString localIp = get_local_lan_ip();
+    QString wsUrl = QString("ws://%1:%2").arg(localIp).arg(port);
+    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO,
+        "使用的WebSocket地址: " << wsUrl.toStdString());
+
+    QJsonObject update_url_cmd;
+    update_url_cmd["cmd"] = "set_ws_url";
+    update_url_cmd["url"] = wsUrl;
+    async_call(update_url_cmd, 5000, [this](bool ok, QString msg) {
         if (ok) {
             LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "端口更新成功，继续连接");
             QJsonObject connect_cmd;
             connect_cmd["cmd"] = "connect";
             async_call(connect_cmd, 5000, [this](bool ok, QString msg) {
                 emit connect_finished(ok, msg);
+                if (ok) {
+                    fetch_qr_path();
+                }
                 });
         }
         else {

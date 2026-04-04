@@ -1,9 +1,11 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Callable, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
+import qrcode  # 新增导入
 
 # 配置日志模块，设置日志级别为INFO，并定义日志格式
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -440,7 +442,7 @@ class DGLabClient:
 
         Returns:
             str: 二维码内容字符串，格式为：
-                 "https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#<服务器地址>/<客户端ID>"
+                 "https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<服务器地址>/<客户端ID>"
                  如果client_id不存在则返回None
         """
         if not self.client_id:
@@ -448,7 +450,48 @@ class DGLabClient:
 
         # 提取服务器地址（去掉协议头）
         server_address = self.config.ws_url.split('://')[1]
-        return f"https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#{server_address}/{self.client_id}"
+        return f"https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://{server_address}/{self.client_id}"
+
+    def get_qr(self, filename: Optional[str] = None) -> Optional[str]:
+        """
+        生成二维码图片并保存到文件，返回文件路径。
+        二维码内容基于 generate_qr_content() 生成。
+        默认路径为当前模块所在目录，默认文件名为 qr_<client_id>.png。
+        
+        Args:
+            filename: 可选，指定保存的文件名（完整路径或相对路径）。若不指定，则自动生成。
+        
+        Returns:
+            str: 保存的二维码图片的完整路径；若生成内容为空或失败则返回 None。
+        """
+        qr_data = self.generate_qr_content()
+        if not qr_data:
+            logger.error("无法生成二维码内容，client_id 为空")
+            return None
+
+        # 确定保存路径：默认模块所在目录
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        if filename is None:
+            safe_client_id = self.client_id.replace('/', '_').replace('\\', '_')
+            filename = f"qr_{safe_client_id}.png"
+        # 如果 filename 不是绝对路径，则拼接到模块目录下
+        if not os.path.isabs(filename):
+            filepath = os.path.join(module_dir, filename)
+        else:
+            filepath = filename
+
+        # 确保目录存在
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+        try:
+            # 生成二维码图像
+            img = qrcode.make(qr_data)
+            img.save(filepath)
+            logger.info(f"二维码已保存至: {filepath}")
+            return filepath
+        except Exception as e:
+            logger.error(f"生成二维码失败: {e}")
+            return None
 
     @staticmethod
     def _get_error_message(code: int) -> str:

@@ -529,6 +529,25 @@
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QPushButton" name="show_qr_btn">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>100</width>
+               <height>30</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>显示二维码</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </widget>

@@ -29,6 +29,8 @@ public:
     void on_start_btn_clicked();
     void on_close_btn_clicked();
 
+    void on_show_qr_btn_clicked();
+
     void change_ui_log_level();
     void set_port();
 
@@ -36,12 +38,16 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
+    std::vector<std::string> default_blacklist = { "radmin", "vmware", "virtualbox", "virtual", "vpn", "tap", "tun" };
+    std::vector<std::string> default_whitelist = { "wlan" };
+
     Ui::DGLABClientClass ui;
     void append_log_message(const QString& message, int level);
     void append_colored_text(QTextEdit* edit, const QString& text);
     QSyntaxHighlighter* log_highlighter = nullptr;
     QSystemTrayIcon* tray_icon;
     QMenu* tray_menu;
+    QString m_current_qr_path;
 
     bool start_connect_btn_loading = false;
     bool close_connect_btn_loading = false;
@@ -72,6 +78,10 @@ private:
     void setup_port_input_validation();
     void setup_default_page();
     void init_python_manager();
+    void fetch_qr_path();
+    void show_qr_dialog();
+    void delete_old_qr_file();
+    QString get_local_lan_ip();
 
     QComboBox* rule_file_combo_;
     QTableWidget* rule_table_;
@@ -88,12 +98,10 @@ private:
 
 signals:
     void connect_finished(bool success, const QString& message);
-    void code_content_ready(const QString& content);
     void close_finished(bool success, const QString& message);
 
 private slots:
     void handle_connect_finished(bool success, const QString& msg);
-    void handle_code_content_ready(const QString& content);
     void handle_close_finished(bool success, const QString& msg);
     void start_async_connect();
     void close_async_connect();

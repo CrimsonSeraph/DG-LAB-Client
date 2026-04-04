@@ -65,9 +65,12 @@ class DGLabServer:
             response = {"status": "ok", "message": "已断开"}
 
         elif cmd_type == "set_ws_url":
-            port = cmd.get("port")
-            self.dglab.set_ws_url(f"ws://localhost:{port}")
-            response = {"status": "ok", "message": "设置成功"}
+            url = cmd.get("url")
+            if url:
+                self.dglab.set_ws_url(url)
+                response = {"status": "ok", "message": "设置成功"}
+            else:
+                response = {"status": "error", "message": "缺少 url 参数"}
 
         elif cmd_type == "bind_target":
             target_id = cmd.get("target_id")
@@ -81,9 +84,9 @@ class DGLabServer:
             success = await self.dglab.send_strength_operation(channel, mode, value)
             response = {"status": "ok" if success else "error", "message": "强度指令已发送" if success else "发送失败"}
 
-        elif cmd_type == "get_qr":
-            qr = self.dglab.generate_qr_content()
-            response = {"status": "ok", "qr": qr if qr else ""}
+        elif cmd_type == "get_qr_path":
+            qr_path = self.dglab.get_qr()
+            response = {"status": "ok", "message": qr_path if qr_path else ""}
 
         else:
             response = {"status": "error", "message": f"未知命令: {cmd_type}"}

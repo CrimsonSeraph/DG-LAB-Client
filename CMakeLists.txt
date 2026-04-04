@@ -65,6 +65,7 @@ set(PROJECT_SOURCES
     include/DGLABClient.ui
     include/DGLABClient.h
     src/DGLABClient.cpp
+    include/DGLABClient_utils.hpp
 
     # 资源文件
     DGLABClient.qrc

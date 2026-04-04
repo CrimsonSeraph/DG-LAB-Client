@@ -22,6 +22,7 @@
 - Python 3.9+
 - `asyncio`（标准库）
 - `websockets`（需安装）
+- `qrcode`（需安装）
 
 #### 使用方式
 由 C++ 主程序通过 `QProcess` 启动，脚本启动后立即打印端口号，之后通过该端口建立 TCP 连接进行通信。
@@ -33,7 +34,7 @@
 **DGLab WebSocket 客户端核心库**，封装了与 DGLab 服务器的 WebSocket 连接、消息收发、设备绑定、强度控制等底层逻辑，并提供同步包装方法以便在非异步环境中调用。
 
 #### 主要功能
-- **配置管理**：设置 WebSocket 服务器地址、心跳间隔、重连延迟、消息长度限制等。
+- **配置管理**：设置 WebSocket 服务器地址、心跳间隔、r重连延迟、消息长度限制等。
 - **连接管理**：`connect()`（同步）和 `connect_async()`（异步）方法，自动完成首次连接并等待 `client_id`，同时启动后台心跳与消息接收循环。
 - **消息处理**：接收服务器消息后按类型（`bind`、`error`、`msg`、`break`）分发，并触发用户注册的回调函数。
 - **设备控制**：绑定目标设备（`bind_target`）、发送强度调节（`send_strength_operation`）、发送波形数据（`send_pulse`）、清空队列（`send_clear_queue`）等，均提供同步与异步版本。
@@ -41,7 +42,8 @@
 
 #### 依赖
 - Python 3.9+
-- `websockets` 库
+- `websockets`
+- `qrcode`
 
 #### 注意事项
 - 该类基于 `asyncio` 实现，但通过 `run_until_complete` 包装了同步接口（如 `connect`、`sync_send_strength_operation`、`sync_close`），便于在非异步环境中直接调用。
@@ -63,9 +65,10 @@
 
 ## 编译与运行
 
-- 确保 Python 环境已安装 `websockets` 库：
+- 确保 Python 环境已安装 `websockets` 与 `qrcode` 库：
   ```bash
   pip install websockets
+  pip install qrcode[pil]
   ```
 - C++ 主程序启动时需正确配置 Python 解释器路径及 `Bridge.py` 的路径（见 `AppConfig` 中的 `python.path` 和 `python.bridge_path` 配置项）。
 - 运行期间，Python 子进程的日志会输出到标准错误，可通过 C++ 捕获或重定向查看。
