@@ -65,6 +65,7 @@ private:
     PythonSubprocessManager* m_pyManager;
 
     LogLevel ui_log_level = LOG_DEBUG;
+    bool m_use_fixed_width_log = false;
     LogSink qtSink;
 
     template<typename Callback>

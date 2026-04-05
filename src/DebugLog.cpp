@@ -4,9 +4,14 @@
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <typeinfo>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 DebugLog& DebugLog::Instance() {
     static DebugLog instance;
@@ -17,8 +22,37 @@ DebugLog& DebugLog::Instance() {
             const std::string& method,
             LogLevel level,
             const std::string& message) {
-                std::cerr << "[" << module << "] <" << method << "> ("
-                    << instance.level_to_string(level) << "): " << message << std::endl;
+                std::string tag1 = "[" + module + "]";
+                std::string tag2 = "<" + method + ">";
+                std::string tag3 = "(" + std::string(DebugLog::Instance().level_to_string(level)) + ")";
+
+                const int TAG1_WIDTH = 30;
+                const int TAG2_WIDTH = 35;
+                const int TAG3_WIDTH = 10;
+
+                auto padRight = [](const std::string& s, int width) {
+                    if (s.length() >= width) return s.substr(0, width);
+                    return s + std::string(width - s.length(), ' ');
+                    };
+
+                std::string formatted = padRight(tag1, TAG1_WIDTH) + " "
+                    + padRight(tag2, TAG2_WIDTH) + " "
+                    + padRight(tag3, TAG3_WIDTH) + ": "
+                    + message;
+
+#ifdef _WIN32
+                HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+                if (hConsole != INVALID_HANDLE_VALUE) {
+                    DWORD written;
+                    WriteConsoleA(hConsole, formatted.c_str(), formatted.size(), &written, nullptr);
+                    WriteConsoleA(hConsole, "\n", 1, &written, nullptr);
+                }
+                else {
+                    std::cerr << formatted << std::endl;
+                }
+#else
+                std::cerr << formatted << std::endl;
+#endif
             };
         consoleSink.min_level = LOG_DEBUG;
         instance.register_log_sink("console", consoleSink);

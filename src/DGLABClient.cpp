@@ -128,22 +128,42 @@ void DGLABClient::setup_debug_log() {
 
 void DGLABClient::register_log_sink() {
     LOG_MODULE("DGLABClient", "register_log_sink", LOG_DEBUG, "开始注册 Qt Sink");
-    qtSink.callback = [qptr = QPointer<DGLABClient>(this)](const std::string& module,
-        const std::string& method,
-        LogLevel level,
-        const std::string& message) {
-            if (!qptr)
-                return;
-            QString display = QString("[%1] <%2> (%3): %4")
-                .arg(QString::fromStdString(module))
-                .arg(QString::fromStdString(method))
-                .arg(QString::fromStdString(DebugLog::Instance().level_to_string(level)))
-                .arg(QString::fromStdString(message));
 
-            QMetaObject::invokeMethod(qptr.data(), [qptr, display, level]() {
+    const int TAG1_WIDTH = 24;
+    const int TAG2_WIDTH = 32;
+    const int TAG3_WIDTH = 10;
+    auto pad_right = [](const QString& s, int width) -> QString {
+        if (s.length() >= width) return s.left(width);
+        return s + QString(width - s.length(), ' ');
+        };
+
+    qtSink.callback = [qptr = QPointer<DGLABClient>(this), this,
+        TAG1_WIDTH, TAG2_WIDTH, TAG3_WIDTH, pad_right](
+            const std::string& module,
+            const std::string& method,
+            LogLevel level,
+            const std::string& message) {
                 if (!qptr) return;
-                qptr->append_log_message(display, level);
-                }, Qt::AutoConnection);
+                QString tag1 = "[" + QString::fromStdString(module) + "]";
+                QString tag2 = "<" + QString::fromStdString(method) + ">";
+                QString tag3 = "(" + QString::fromStdString(DebugLog::Instance().level_to_string(level)) + ")";
+                QString msg = QString::fromStdString(message);
+
+                QString display;
+                if (m_use_fixed_width_log) {
+                    display = pad_right(tag1, TAG1_WIDTH) + " "
+                        + pad_right(tag2, TAG2_WIDTH) + " "
+                        + pad_right(tag3, TAG3_WIDTH) + ": "
+                        + msg;
+                }
+                else {
+                    display = tag1 + " " + tag2 + " " + tag3 + ": " + msg;
+                }
+
+                QMetaObject::invokeMethod(qptr.data(), [qptr, display, level]() {
+                    if (!qptr) return;
+                    qptr->append_log_message(display, level);
+                    }, Qt::AutoConnection);
         };
     qtSink.min_level = ui_log_level;
     DebugLog::Instance().unregister_log_sink("qt_ui");
