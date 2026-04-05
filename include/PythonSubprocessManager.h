@@ -41,6 +41,8 @@ private slots:
     void on_socket_connected();
     void on_socket_error(QTcpSocket::SocketError error);
     void on_socket_ready_read();
+    void handle_stdout();
+    void handle_stderr();
 
 private:
     QProcess* m_process;
@@ -60,6 +62,7 @@ private:
     // 停止标志
     std::atomic<bool> m_stopping{ false };
 
+    void process_output(const QByteArray& data, bool isError);
     void parse_port_from_output(const QByteArray& data);
     void send_json(const QJsonObject& obj);
     QJsonObject send_command(const QJsonObject& cmd, int timeout);

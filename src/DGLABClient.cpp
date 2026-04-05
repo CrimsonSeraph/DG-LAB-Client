@@ -434,6 +434,23 @@ void DGLABClient::init_python_manager() {
     m_pyManager->start_process(pythonPath, script_path);
 }
 
+void DGLABClient::reset_py_log_level() {
+    auto& config = AppConfig::instance();
+    //QString level = QString::fromStdString(config.get_value<std::string>("app.log_level", "DEBUG"));
+    QString level = "DEBUG";
+    QJsonObject cmd;
+    cmd["cmd"] = "set_log_level";
+    cmd["level"] = level;
+    async_call(cmd, 2000, [this](bool ok, QString msg) {
+        if (ok) {
+            LOG_MODULE("DGLABClient", "reset_py_log_level", LOG_INFO, "已将 Python 端日志级别设置为: " << msg.toStdString());
+        }
+        else {
+            LOG_MODULE("DGLABClient", "reset_py_log_level", LOG_ERROR, "设置 Python 端日志级别失败: " << msg.toStdString());
+        }
+        });
+}
+
 void DGLABClient::fetch_qr_path() {
     LOG_MODULE("DGLABClient", "fetch_qr_path", LOG_INFO, "开始获取二维码路径");
     delete_old_qr_file();
@@ -919,6 +936,7 @@ void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
     if (success) {
         is_connected = true;
         LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_INFO, msg.toStdString());
+        reset_py_log_level();
     }
     else {
         LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_ERROR, msg.toStdString());

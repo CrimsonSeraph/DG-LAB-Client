@@ -6,6 +6,7 @@
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QTcpSocket>
 #include <QThreadPool>
 #include <QTimer>
@@ -26,6 +27,8 @@ PythonSubprocessManager::PythonSubprocessManager(QObject* parent)
     connect(m_socket, &QTcpSocket::connected, this, &PythonSubprocessManager::on_socket_connected);
     connect(m_socket, &QTcpSocket::errorOccurred, this, &PythonSubprocessManager::on_socket_error);
     connect(m_socket, &QTcpSocket::readyRead, this, &PythonSubprocessManager::on_socket_ready_read);
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &PythonSubprocessManager::handle_stdout);
+    connect(m_process, &QProcess::readyReadStandardError, this, &PythonSubprocessManager::handle_stderr);
 }
 
 PythonSubprocessManager::~PythonSubprocessManager() {
@@ -70,6 +73,10 @@ PythonSubprocessManager::~PythonSubprocessManager() {
 
 void PythonSubprocessManager::start_process(const QString& pythonExecutable, const QString& scriptPath) {
     m_port = 0;
+
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert("PYTHONIOENCODING", "utf-8");
+    m_process->setProcessEnvironment(env);
 
     QStringList args;
     args << scriptPath;
@@ -139,10 +146,6 @@ void PythonSubprocessManager::call(const QJsonObject& cmd, std::function<void(co
 
 void PythonSubprocessManager::on_process_started() {
     LOG_MODULE("PythonSubprocessManager", "on_process_started", LOG_INFO, "Python 进程已启动");
-    connect(m_process, &QProcess::readyReadStandardOutput, [this]() {
-        QByteArray data = m_process->readAllStandardOutput();
-        parse_port_from_output(data);
-        });
 }
 
 void PythonSubprocessManager::on_process_error(QProcess::ProcessError error) {
@@ -194,6 +197,45 @@ void PythonSubprocessManager::on_socket_ready_read() {
         }
 
         emit command_response(token, resp);
+    }
+}
+
+void PythonSubprocessManager::handle_stdout() {
+    QByteArray data = m_process->readAllStandardOutput();
+    parse_port_from_output(data);
+    process_output(data, false);
+}
+
+void PythonSubprocessManager::handle_stderr(){
+    QByteArray data = m_process->readAllStandardError();
+    process_output(data, true);
+}
+
+void PythonSubprocessManager::process_output(const QByteArray& data, bool isError){
+    QList<QByteArray> lines = data.split('\n');
+    for (const QByteArray& line : lines) {
+        if (line.isEmpty()) continue;
+        QString lineStr = QString::fromUtf8(line);
+
+        LogLevel logLevel = isError ? LOG_ERROR : LOG_INFO;
+        QString message = lineStr;
+
+        QRegularExpression re(R"(^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - (DEBUG|INFO|WARNING|ERROR) - )");
+        QRegularExpressionMatch match = re.match(lineStr);
+        if (match.hasMatch()) {
+            QString levelStr = match.captured(1);
+            if (levelStr == "DEBUG") logLevel = LOG_DEBUG;
+            else if (levelStr == "INFO") logLevel = LOG_INFO;
+            else if (levelStr == "WARNING") logLevel = LOG_WARN;
+            else if (levelStr == "ERROR") logLevel = LOG_ERROR;
+
+            message = lineStr.mid(match.capturedLength());
+        }
+        else {
+            message = "[Raw] " + message;
+        }
+
+        LOG_MODULE("Python", isError ? "stderr" : "stdout", logLevel, message.toUtf8().constData());
     }
 }
 

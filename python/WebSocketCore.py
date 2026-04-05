@@ -52,17 +52,17 @@ class DGLabClient:
 
     def set_ws_url(self, url: str):
         """设置WebSocket服务器地址"""
-        logger.debug(f"设置 WebSocket URL: {url}")
+        logger.debug(f"[DGLabClient] <set_ws_url> (LOG_DEBUG): 设置 WebSocket URL: {url}")
         self.config.ws_url = url
 
     def set_heartbeat_interval(self, interval: int):
         """设置心跳包发送间隔时间（秒）"""
-        logger.debug(f"设置心跳间隔: {interval}秒")
+        logger.debug(f"[DGLabClient] <set_heartbeat_interval> (LOG_DEBUG): 设置心跳间隔: {interval}秒")
         self.config.heartbeat_interval = interval
 
     def set_reconnect_delay(self, delay: int):
         """设置重连延迟（秒）"""
-        logger.debug(f"设置重连延迟: {delay}秒")
+        logger.debug(f"[DGLabClient] <set_reconnect_delay> (LOG_DEBUG): 设置重连延迟: {delay}秒")
         self.config.reconnect_delay = delay
 
     def set_on_message(self, callback: Callable[[dict], None]):
@@ -82,18 +82,18 @@ class DGLabClient:
     async def connect_async(self) -> bool:
         """异步连接，等待 client_id 并启动后台任务"""
         if self.is_connected and self.client_id:
-            logger.debug("已经连接且拥有 client_id，无需重复连接")
+            logger.debug("[DGLabClient] <connect_async> (LOG_DEBUG): 已经连接且拥有 client_id，无需重复连接")
             return True
-        logger.info("开始建立 WebSocket 连接...")
+        logger.info("[DGLabClient] <connect_async> (LOG_INFO): 开始建立 WebSocket 连接...")
         success = await self._connect_once()
         if success:
             # 启动后台心跳和接收循环
             asyncio.create_task(self._heartbeat_loop())
             asyncio.create_task(self._receive_loop())
             self.is_connected = True
-            logger.info("WebSocket 连接成功，后台循环已启动")
+            logger.info("[DGLabClient] <connect_async> (LOG_INFO): WebSocket 连接成功，后台循环已启动")
         else:
-            logger.error("WebSocket 连接失败")
+            logger.error("[DGLabClient] <connect_async> (LOG_ERROR): WebSocket 连接失败")
         return success
 
     def connect(self) -> bool:
@@ -113,10 +113,10 @@ class DGLabClient:
         返回 True 表示成功获取 client_id。
         """
         try:
-            logger.info(f"尝试连接到 {self.config.ws_url}")
+            logger.info(f"[DGLabClient] <_connect_once> (LOG_INFO): 尝试连接到 {self.config.ws_url}")
             self.websocket = await websockets.connect(self.config.ws_url)
             self.is_connected = True
-            logger.debug("WebSocket 传输层已连接，等待 client_id...")
+            logger.debug("[DGLabClient] <_connect_once> (LOG_DEBUG): WebSocket 传输层已连接，等待 client_id...")
 
             # 等待第一次 client_id（超时10秒）
             timeout = 10
@@ -124,20 +124,20 @@ class DGLabClient:
                 try:
                     message = await asyncio.wait_for(self.websocket.recv(), timeout=timeout)
                     data = json.loads(message)
-                    logger.debug(f"收到初始消息: {data}")
+                    logger.debug(f"[DGLabClient] <_connect_once> (LOG_DEBUG): 收到初始消息: {data}")
                     if data.get("type") == "bind" and data.get("message") == "targetId":
                         self.client_id = data.get("clientId")
-                        logger.info(f"收到 client_id: {self.client_id}")
+                        logger.info(f"[DGLabClient] <_connect_once> (LOG_INFO): 收到 client_id: {self.client_id}")
                         break
                 except asyncio.TimeoutError:
-                    logger.warning("等待 client_id 超时")
+                    logger.warning("[DGLabClient] <_connect_once> (LOG_WARN): 等待 client_id 超时")
                     return False
                 except Exception as e:
-                    logger.error(f"等待 client_id 时错误: {e}")
+                    logger.error(f"[DGLabClient] <_connect_once> (LOG_ERROR): 等待 client_id 时错误: {e}")
                     return False
             return True
         except Exception as e:
-            logger.error(f"第一次连接失败: {e}")
+            logger.error(f"[DGLabClient] <_connect_once> (LOG_ERROR): 第一次连接失败: {e}")
         self.is_connected = False
         self.websocket = None
         return False
@@ -150,11 +150,11 @@ class DGLabClient:
                 data = json.loads(message)
                 if data.get("type") == "bind" and data.get("message") == "targetId":
                     self.client_id = data.get("clientId")
-                    logger.info(f"收到 client_id: {self.client_id}")
+                    logger.info(f"[DGLabClient] <_wait_for_client_id> (LOG_INFO): 收到 client_id: {self.client_id}")
             except asyncio.TimeoutError:
-                logger.warning("等待 client_id 超时")
+                logger.warning("[DGLabClient] <_wait_for_client_id> (LOG_WARN): 等待 client_id 超时")
             except Exception as e:
-                logger.error(f"等待 client_id 时错误: {e}")
+                logger.error(f"[DGLabClient] <_wait_for_client_id> (LOG_ERROR): 等待 client_id 时错误: {e}")
 
     # ========== 心跳机制 ==========
 
@@ -172,15 +172,15 @@ class DGLabClient:
             try:
                 message = await self.websocket.recv()
                 data = json.loads(message)
-                logger.debug(f"收到消息: {data}")
+                logger.debug(f"[DGLabClient] <_receive_loop> (LOG_DEBUG): 收到消息: {data}")
                 self._handle_received_message(data)
             except ConnectionClosed:
-                logger.warning("WebSocket 连接已关闭")
+                logger.warning("[DGLabClient] <_receive_loop> (LOG_WARN): WebSocket 连接已关闭")
                 break
             except json.JSONDecodeError:
-                logger.warning("收到无效 JSON")
+                logger.warning("[DGLabClient] <_receive_loop> (LOG_WARN): 收到无效 JSON")
             except Exception as e:
-                logger.error(f"接收错误: {e}")
+                logger.error(f"[DGLabClient] <_receive_loop> (LOG_ERROR): 接收错误: {e}")
 
     def _handle_received_message(self, data: dict):
         """
@@ -193,33 +193,33 @@ class DGLabClient:
         if msg_type == "bind":
             if message == "200":
                 self.target_id = data.get("targetId")
-                logger.info(f"绑定成功: target_id = {self.target_id}")
+                logger.info(f"[DGLabClient] <_handle_received_message> (LOG_INFO): 绑定成功: target_id = {self.target_id}")
                 if self.on_bind_callback:
                     self.on_bind_callback(self.client_id, self.target_id)
             else:
                 code = int(message) if message.isdigit() else 0
                 err_msg = self._get_error_message(code)
-                logger.error(f"绑定错误: {code} - {err_msg}")
+                logger.error(f"[DGLabClient] <_handle_received_message> (LOG_ERROR): 绑定错误: {code} - {err_msg}")
                 if self.on_error_callback:
                     self.on_error_callback(code, err_msg)
 
         elif msg_type == "error":
             code = int(message) if message.isdigit() else 500
             err_msg = self._get_error_message(code)
-            logger.error(f"服务器错误: {code} - {err_msg}")
+            logger.error(f"[DGLabClient] <_handle_received_message> (LOG_ERROR): 服务器错误: {code} - {err_msg}")
             if self.on_error_callback:
                 self.on_error_callback(code, err_msg)
 
         elif msg_type == "msg":
             if message.startswith("strength-"):
-                logger.info(f"收到强度更新: {message}")
+                logger.info(f"[DGLabClient] <_handle_received_message> (LOG_INFO): 收到强度更新: {message}")
             elif message.startswith("feedback-"):
-                logger.info(f"收到反馈: {message}")
+                logger.info(f"[DGLabClient] <_handle_received_message> (LOG_INFO): 收到反馈: {message}")
             else:
-                logger.debug(f"收到普通消息: {message}")
+                logger.debug(f"[DGLabClient] <_handle_received_message> (LOG_DEBUG): 收到普通消息: {message}")
 
         elif msg_type == "break":
-            logger.info("收到断开指令，主动断开连接")
+            logger.info("[DGLabClient] <_handle_received_message> (LOG_INFO): 收到断开指令，主动断开连接")
             self.is_connected = False
 
         # 调用用户设置的消息回调
@@ -234,26 +234,26 @@ class DGLabClient:
         返回 True 表示发送成功。
         """
         if not self.is_connected or not self.websocket:
-            logger.warning("未连接，无法发送")
+            logger.warning("[DGLabClient] <send> (LOG_WARN): 未连接，无法发送")
             return False
 
         json_str = json.dumps(data)
         if len(json_str) > self.config.max_message_length:
-            logger.error(f"消息过长: {len(json_str)} > {self.config.max_message_length}")
+            logger.error(f"[DGLabClient] <send> (LOG_ERROR): 消息过长: {len(json_str)} > {self.config.max_message_length}")
             return False
 
         try:
             await self.websocket.send(json_str)
-            logger.debug(f"已发送: {json_str}")
+            logger.debug(f"[DGLabClient] <send> (LOG_DEBUG): 已发送: {json_str}")
             return True
         except Exception as e:
-            logger.error(f"发送失败: {e}")
+            logger.error(f"[DGLabClient] <send> (LOG_ERROR): 发送失败: {e}")
             return False
 
     async def send_heartbeat(self) -> bool:
         """发送心跳包到服务器"""
         if not self.client_id:
-            logger.debug("尚未获得 client_id，跳过心跳")
+            logger.debug("[DGLabClient] <send_heartbeat> (LOG_DEBUG): 尚未获得 client_id，跳过心跳")
             return False
         data = {
             "type": "heartbeat",
@@ -268,7 +268,7 @@ class DGLabClient:
     async def bind_target(self, target_id: str):
         """绑定目标设备（由 APP 端发起）"""
         if not self.client_id:
-            logger.warning("无 client_id，无法绑定")
+            logger.warning("[DGLabClient] <bind_target> (LOG_WARN): 无 client_id，无法绑定")
             return
         self.target_id = target_id
         data = {
@@ -277,7 +277,7 @@ class DGLabClient:
             "targetId": target_id,
             "message": "DGLAB"
         }
-        logger.info(f"发送绑定请求: target_id={target_id}")
+        logger.info(f"[DGLabClient] <bind_target> (LOG_INFO): 发送绑定请求: target_id={target_id}")
         await self.send(data)
 
     def sync_send_strength_operation(self, channel: int, mode: int, value: int) -> bool:
@@ -291,7 +291,7 @@ class DGLabClient:
         value: 仅当 mode=2 时有效（0-200），其他模式忽略
         """
         if channel not in (1, 2) or mode not in (0, 1, 2) or not 0 <= value <= 200:
-            logger.error(f"无效参数: channel={channel}, mode={mode}, value={value}")
+            logger.error(f"[DGLabClient] <send_strength_operation> (LOG_ERROR): 无效参数: channel={channel}, mode={mode}, value={value}")
             return False
 
         if mode == 2:
@@ -304,7 +304,7 @@ class DGLabClient:
                 "targetId": self.target_id,
                 "message": "set channel"
             }
-            logger.debug(f"设置强度: 通道{channel} -> {value}")
+            logger.debug(f"[DGLabClient] <send_strength_operation> (LOG_DEBUG): 设置强度: 通道{channel} -> {value}")
         else:
             msg_type = 1 if mode == 0 else 2
             data = {
@@ -314,7 +314,7 @@ class DGLabClient:
                 "targetId": self.target_id,
                 "message": "set channel"
             }
-            logger.debug(f"强度{'减少' if mode==0 else '增加'}: 通道{channel}")
+            logger.debug(f"[DGLabClient] <send_strength_operation> (LOG_DEBUG): 强度{'减少' if mode==0 else '增加'}: 通道{channel}")
         return await self.send(data)
 
     def sync_send_pulse(self, channel: str, pulses: list[str], duration: int = 5) -> bool:
@@ -329,10 +329,10 @@ class DGLabClient:
         duration: 波形持续发送时长（秒），服务端会按频率重复发送整个数组
         """
         if channel not in ('A', 'B'):
-            logger.error(f"无效通道: {channel}，必须为 'A' 或 'B'")
+            logger.error(f"[DGLabClient] <send_pulse> (LOG_ERROR): 无效通道: {channel}，必须为 'A' 或 'B'")
             return False
         if len(pulses) > 100:
-            logger.warning(f"波形列表超过100个，将被截断")
+            logger.warning("[DGLabClient] <send_pulse> (LOG_WARN): 波形列表超过100个，将被截断")
             pulses = pulses[:100]
 
         message_content = f"{channel}:{json.dumps(pulses)}"
@@ -344,8 +344,8 @@ class DGLabClient:
             "clientId": self.client_id,
             "targetId": self.target_id
         }
-        logger.info(f"发送波形: 通道={channel}, 脉冲数={len(pulses)}, 持续={duration}秒")
-        logger.debug(f"波形数据预览: {message_content[:100]}...")
+        logger.info(f"[DGLabClient] <send_pulse> (LOG_INFO): 发送波形: 通道={channel}, 脉冲数={len(pulses)}, 持续={duration}秒")
+        logger.debug(f"[DGLabClient] <send_pulse> (LOG_DEBUG): 波形数据预览: {message_content[:100]}...")
         return await self.send(data)
 
     def sync_send_clear_queue(self, channel: int) -> bool:
@@ -358,7 +358,7 @@ class DGLabClient:
         channel: 1 或 2 (1=A, 2=B)
         """
         if channel not in (1, 2):
-            logger.error(f"无效通道: {channel}")
+            logger.error(f"[DGLabClient] <send_clear_queue> (LOG_ERROR): 无效通道: {channel}")
             return False
         message = f"clear-{channel}"
         data = {
@@ -367,7 +367,7 @@ class DGLabClient:
             "clientId": self.client_id,
             "targetId": self.target_id
         }
-        logger.info(f"清空队列: 通道{channel}")
+        logger.info(f"[DGLabClient] <send_clear_queue> (LOG_INFO): 清空队列: 通道{channel}")
         return await self.send(data)
 
     # ========== 工具方法 ==========
@@ -378,11 +378,11 @@ class DGLabClient:
         格式: https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<服务器地址>/<客户端ID>
         """
         if not self.client_id:
-            logger.error("无法生成二维码：client_id 为空")
+            logger.error("[DGLabClient] <generate_qr_content> (LOG_ERROR): 无法生成二维码：client_id 为空")
             return None
         server_address = self.config.ws_url.split('://')[1]
         qr = f"https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://{server_address}/{self.client_id}"
-        logger.debug(f"生成二维码内容: {qr}")
+        logger.debug(f"[DGLabClient] <generate_qr_content> (LOG_DEBUG): 生成二维码内容: {qr}")
         return qr
 
     def get_qr(self, filename: Optional[str] = None) -> Optional[str]:
@@ -408,10 +408,10 @@ class DGLabClient:
         try:
             img = qrcode.make(qr_data)
             img.save(filepath)
-            logger.info(f"二维码已保存至: {filepath}")
+            logger.info(f"[DGLabClient] <get_qr> (LOG_INFO): 二维码已保存至: {filepath}")
             return filepath
         except Exception as e:
-            logger.error(f"生成二维码失败: {e}")
+            logger.error(f"[DGLabClient] <get_qr> (LOG_ERROR): 生成二维码失败: {e}")
             return None
 
     @staticmethod
@@ -443,6 +443,6 @@ class DGLabClient:
         """主动关闭WebSocket连接"""
         if self.websocket:
             await self.websocket.close()
-            logger.info("WebSocket 连接已关闭")
+            logger.info("[DGLabClient] <close> (LOG_INFO): WebSocket 连接已关闭")
         self.is_connected = False
         return True

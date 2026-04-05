@@ -85,6 +85,7 @@ private:
     void setup_port_input_validation();
     void setup_default_page();
     void init_python_manager();
+    void reset_py_log_level();
     void fetch_qr_path();
     void show_qr_dialog();
     void delete_old_qr_file();
