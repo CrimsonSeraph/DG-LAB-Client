@@ -16,9 +16,9 @@ class DGLabServer:
     """
 
     def __init__(self):
-        self.dglab = DGLabClient()          # WebSocket 客户端实例
-        self.server = None                  # TCP 服务器实例
-        self.qt_client = None               # 当前连接的 TCP 客户端 writer
+        self.dglab = DGLabClient()
+        self.server = None
+        self.qt_client = None
 
     @staticmethod
     def _normalize_channel(channel):
@@ -168,8 +168,8 @@ class DGLabServer:
         # ---------- 强度控制 ----------
         elif cmd_type == "send_strength":
             raw_channel = cmd.get("channel")
-            mode = cmd.get("mode")          # 0=减少,1=增加,2=设置指定值,3=连续减少,4=连续增加
-            value = cmd.get("value", 0)     # mode=2时为目标强度(0-200); mode=3/4时为连续次数
+            mode = cmd.get("mode")  # 0=减少,1=增加,2=设置指定值,3=连续减少,4=连续增加
+            value = cmd.get("value", 0) # mode=2时为目标强度(0-200); mode=3/4时为连续次数
 
             if raw_channel is None or mode is None:
                 logger.warning("[DGLabServer] <process_command> (LOG_WARN): send_strength 缺少 channel 或 mode 参数")
@@ -189,7 +189,7 @@ class DGLabServer:
                         if repeat > 100:
                             repeat = 100
                             logger.warning("[DGLabServer] <process_command> (LOG_WARN): 连续次数超过100，已限制为100")
-                        base_mode = 0 if mode == 3 else 1  # 0=减少,1=增加
+                        base_mode = 0 if mode == 3 else 1   # 0=减少,1=增加
                         logger.info(f"[DGLabServer] <process_command> (LOG_INFO): 连续{'减少' if base_mode==0 else '增加'} {repeat} 次 (通道{channel})")
                         success = True
                         for i in range(repeat):
@@ -299,7 +299,7 @@ class DGLabServer:
             self.handle_qt_client, host='127.0.0.1', port=0
         )
         port = self.server.sockets[0].getsockname()[1]
-        print(port, flush=True)   # 重要：输出端口号，供调用方读取
+        print(port, flush=True)
         logger.info(f"[DGLabServer] <start_server> (LOG_INFO): TCP服务器启动，端口: {port}")
         async with self.server:
             await self.server.serve_forever()

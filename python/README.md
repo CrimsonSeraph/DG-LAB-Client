@@ -15,7 +15,14 @@
 - 启动 TCP 服务器（绑定 `127.0.0.1`，随机端口），将端口号打印到标准输出供 C++ 客户端读取。
 - 接收 C++ 客户端发送的 JSON 命令，解析后调用 `DGLabClient` 的对应方法。
 - 将执行结果以 JSON 格式返回给 C++ 客户端（每条响应后附加换行符作为消息边界）。
-- 支持的命令：`connect`、`close`、`set_ws_url`、`bind_target`、`send_strength`、`get_qr` 等。
+- 支持的命令（`cmd` 字段）：
+  - **连接管理**：`connect`、`close`、`set_ws_url`
+  - **绑定与状态查询**：`bind_target`、`get_client_id`、`get_target_id`、`get_connection_status`
+  - **强度控制**：`send_strength`（mode: 0=减少,1=增加,2=设置指定值,3=连续减少,4=连续增加）
+  - **波形发送**：`send_pulse`（支持脉冲列表，channel 可为 1/2 或 'A'/'B'）
+  - **队列清空**：`clear_queue`
+  - **二维码生成**：`get_qr_path`
+  - **日志级别**：`set_log_level`（支持 DEBUG/INFO/WARNING/ERROR）
 - 当 C++ 客户端断开连接时，自动清理资源并等待新连接。
 
 #### 依赖
@@ -31,14 +38,19 @@
 
 ### `WebSocketCore.py`
 
-**DGLab WebSocket 客户端核心库**，封装了与 DGLab 服务器的 WebSocket 连接、消息收发、设备绑定、强度控制等底层逻辑，并提供同步包装方法以便在非异步环境中调用。
+**DGLab WebSocket 客户端核心库**，封装了与 DGLab 服务器的 WebSocket 连接、消息收发、设备绑定、强度控制等底层逻辑，完全遵循 **v2 后端协议**，并提供同步包装方法以便在非异步环境中调用。
 
 #### 主要功能
-- **配置管理**：设置 WebSocket 服务器地址、心跳间隔、r重连延迟、消息长度限制等。
+- **配置管理**：设置 WebSocket 服务器地址、心跳间隔、重连延迟、消息长度限制等。
 - **连接管理**：`connect()`（同步）和 `connect_async()`（异步）方法，自动完成首次连接并等待 `client_id`，同时启动后台心跳与消息接收循环。
 - **消息处理**：接收服务器消息后按类型（`bind`、`error`、`msg`、`break`）分发，并触发用户注册的回调函数。
-- **设备控制**：绑定目标设备（`bind_target`）、发送强度调节（`send_strength_operation`）、发送波形数据（`send_pulse`）、清空队列（`send_clear_queue`）等，均提供同步与异步版本。
-- **工具方法**：生成二维码内容（`generate_qr_content`）、错误码解析（`_get_error_message`）等。
+- **设备控制**：
+  - 绑定目标设备（`bind_target`）
+  - 强度调节（`send_strength_operation`，支持减少/增加/设置指定值）
+  - 发送波形数据（`send_pulse`，支持批量脉冲列表，channel 为 'A'/'B'）
+  - 清空队列（`send_clear_queue`，channel 为 1/2）
+- **工具方法**：生成二维码内容（`generate_qr_content`）、保存二维码图片（`get_qr`）、错误码解析（`_get_error_message`）等。
+- **同步/异步双接口**：所有核心方法均提供同步版本（如 `sync_send_strength_operation`）和异步版本，方便在不同环境中调用。
 
 #### 依赖
 - Python 3.9+
@@ -46,8 +58,9 @@
 - `qrcode`
 
 #### 注意事项
-- 该类基于 `asyncio` 实现，但通过 `run_until_complete` 包装了同步接口（如 `connect`、`sync_send_strength_operation`、`sync_close`），便于在非异步环境中直接调用。
+- 该类基于 `asyncio` 实现，但通过 `run_until_complete` 包装了同步接口，便于在非异步环境中直接调用。
 - `Bridge.py` 内部使用异步方式调用此类的方法，以充分利用 `asyncio` 的事件循环。
+- 协议版本：v2（参考 DGLab 官方文档），消息类型 `type` 字段：`1`（减少强度）、`2`（增加强度）、`3`（设置强度）、`4`（清空队列）、`clientMsg`（波形发送）等。
 
 ---
 
@@ -72,3 +85,43 @@
   ```
 - C++ 主程序启动时需正确配置 Python 解释器路径及 `Bridge.py` 的路径（见 `AppConfig` 中的 `python.path` 和 `python.bridge_path` 配置项）。
 - 运行期间，Python 子进程的日志会输出到标准错误，可通过 C++ 捕获或重定向查看。
+
+---
+
+## 通信协议示例
+
+### 请求（C++ → Bridge.py）
+```json
+{"cmd":"send_strength", "channel":1, "mode":2, "value":80, "req_id":1001}
+```
+
+### 响应（Bridge.py → C++）
+```json
+{"status":"ok", "message":"强度指令已发送", "req_id":1001}
+```
+
+### 支持的命令速查表
+
+| cmd | 必需参数 | 可选参数 | 说明 |
+|-----|---------|---------|------|
+| `connect` | 无 | - | 建立 WebSocket 连接 |
+| `close` | 无 | - | 断开 WebSocket 连接 |
+| `set_ws_url` | `url` | - | 设置 WebSocket 服务器地址 |
+| `bind_target` | `target_id` | - | 绑定目标设备 |
+| `get_client_id` | 无 | - | 获取当前 clientId |
+| `get_target_id` | 无 | - | 获取当前 targetId |
+| `get_connection_status` | 无 | - | 获取连接状态详情 |
+| `send_strength` | `channel`, `mode` | `value` | mode 0/1/2 时 value 可选（连续模式时 value 为次数） |
+| `send_pulse` | `channel`, `pulses` | `duration` | pulses 为字符串数组（8字节HEX） |
+| `clear_queue` | `channel` | - | 清空指定通道波形队列 |
+| `get_qr_path` | 无 | - | 生成二维码并返回文件路径 |
+| `set_log_level` | `level` | - | 设置日志级别（DEBUG/INFO/WARNING/ERROR） |
+
+---
+
+## 注意事项
+
+- `Bridge.py` 中的 `channel` 参数接受 `1`、`2` 或 `'A'`、`'B'`、`'a'`、`'b'`，内部会统一转换。
+- `send_strength` 的连续增减模式（mode=3/4）会自动循环发送，最多执行 100 次。
+- `send_pulse` 的 `pulses` 列表最多 100 个元素，超出会被截断。
+- 所有响应均包含 `req_id` 字段（若请求中包含），用于请求-响应对应。

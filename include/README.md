@@ -1,6 +1,6 @@
 # 头文件目录（include）
 
-本目录包含项目的所有公共头文件（`.h` 及部分模板实现 `.hpp`），定义了应用程序的核心接口、数据结构、配置管理、日志系统以及与 Python 子进程通信的类。  
+本目录包含项目的所有公共头文件（`.h` 及部分模板实现 `.hpp`），定义了应用程序的核心接口、数据结构、配置管理、日志系统、规则引擎以及与 Python 子进程通信的类。  
 头文件之间通过前置声明和包含关系相互引用，形成了清晰的模块化结构。
 
 ---
@@ -12,24 +12,28 @@
 | `AppConfig.h` | 应用配置主类 `AppConfig`（单例）的声明。提供配置系统的全局入口，负责初始化、销毁、配置项的读写（支持点分隔路径）、监听器管理、批量操作、导入导出等功能。内部集成 `MultiConfigManager` 实现多级配置优先级合并。 |
 | `AppConfig_impl.hpp` | `AppConfig` 的模板方法实现，以及辅助模板类 `ConfigValue<T>`、`ConfigObject<T>` 的定义。`ConfigValue` 用于简单类型的配置项包装（带缓存和变更回调），`ConfigObject` 用于复杂结构体的配置包装，支持 JSON 序列化与验证。 |
 | `ConfigManager.h` | 单个配置管理器 `ConfigManager` 的声明。封装了 JSON 配置文件的加载、保存、键值访问（支持默认值）、批量更新（`merge_patch`）、删除及变更通知（观察者模式）。内部使用递归互斥锁保证线程安全。 |
-| `ConfigStructs.h` | 配置结构体的定义，包括通用的 `ConfigTemplate` 模板和具体的 `MainConfig` 结构体。提供 `to_json`/`from_json` 静态方法用于 JSON 转换，以及 `validate()` 方法进行字段有效性验证。 |
+| `ConfigStructs.h` | 配置结构体的定义，包括通用的 `ConfigTemplate` 模板以及具体的 `MainConfig`、`SystemConfig`、`UserConfig` 结构体。每个结构体提供 `to_json`/`from_json` 静态方法用于 JSON 转换，以及 `validate()` 方法进行字段有效性验证。 |
 | `Console.h` | Windows 控制台辅助类 `Console`（单例）的声明。用于在 GUI 程序启动时创建或附加调试控制台，设置 UTF‑8 代码页和字体，并重定向标准流。非 Windows 平台仅提供空实现。 |
 | `DebugLog.h` | 日志系统核心类 `DebugLog`（单例）的声明。支持模块级日志等级过滤、多个输出接收器（sink）、线程安全写入。提供宏 `LOG_MODULE` 用于统一格式的日志输出。 |
 | `DebugLog_utils.hpp` | 日志系统辅助工具，包含 `DebugLogUtil` 命名空间下的函数，如将 `QJsonValue` 转换为字符串、去除字符串中的换行符等，便于日志格式化。 |
 | `DefaultConfigs.h` | 默认配置提供类 `DefaultConfigs` 的声明，仅包含静态方法 `get_default_config`，根据配置名称（如 "main"、"system"、"user"）返回对应的默认 JSON 配置。 |
-| `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理，并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。 |
+| `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。 |
+| `DGLABClient_utils.hpp` | `DGLABClient` 的工具函数，目前包含 `contains_any_keyword` 辅助函数，用于在网卡名称中匹配黑/白名单关键字。 |
 | `MultiConfigManager.h` | 多配置管理器 `MultiConfigManager`（单例）的声明。维护多个 `ConfigManager` 实例的注册表，支持按优先级（`__priority` 字段）排序配置，提供合并读取、优先级冲突检测、文件热重载等功能。 |
 | `MultiConfigManager_impl.hpp` | `MultiConfigManager` 的模板方法实现，包括按优先级或名称获取/设置配置值的模板函数，以及内部排序缓存的管理。 |
 | `PythonSubprocessManager.h` | Python 子进程管理器 `PythonSubprocessManager` 的声明。基于 `QProcess` 启动外部 Python 脚本，通过解析脚本输出的端口号建立 TCP 连接（`QTcpSocket`），实现 C++ 与 Python 的 JSON 通信。提供异步调用接口 `call`，支持超时和回调。 |
+| `Rule.h` | 规则类 `Rule` 的声明。单个规则包含名称和带占位符 `{}` 的模式字符串，提供占位符数量统计、评估（将整数数组填充到模式中）以及用于 UI 显示的格式化字符串方法。 |
+| `RuleManager.h` | 规则管理器 `RuleManager`（单例）的声明。负责扫描指定目录下的 JSON 规则文件（含特定关键字），加载/保存规则文件，管理当前规则集，提供规则的增删改查、评估（变参模板）以及显示字符串生成等接口。 |
+| `RuleManager_impl.hpp` | `RuleManager` 的模板方法实现，主要提供 `evaluate` 变参模板函数，将参数转换为 `std::vector<int>` 后调用对应规则的 `evaluate` 方法。 |
 
-> **注**：`DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件未列于本目录，但属于界面设计的一部分，应与头文件配套使用。
+> **注**：`DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件虽不属头文件，但属于界面设计的一部分，应与头文件配套使用。
 
 ---
 
 ## 依赖关系
 
 - **Qt 5/6**：`DGLABClient.h`、`PythonSubprocessManager.h` 依赖 Qt Core、Widgets、Network 模块；`DebugLog_utils.hpp` 依赖 QtCore 的 JSON 类。
-- **nlohmann/json**：所有配置相关头文件（`AppConfig.h`、`ConfigManager.h`、`ConfigStructs.h` 等）依赖 JSON 解析库。
+- **nlohmann/json**：所有配置相关头文件（`AppConfig.h`、`ConfigManager.h`、`ConfigStructs.h` 等）以及规则相关头文件（`RuleManager.h`）依赖 JSON 解析库。
 - **C++20**：项目使用 C++20 标准，部分模板、概念（如 `ConfigSerializable`）要求编译器支持 C++20。
 
 ---
@@ -51,9 +55,15 @@
 - **异步调用**：提供 `call` 方法将命令提交到全局线程池执行，避免阻塞主线程；通过 `req_id` 关联请求与响应，支持超时和回调。
 - **停止安全**：析构时设置停止标志，唤醒所有等待线程，并等待线程池任务完成，防止资源泄漏。
 
-### 4. GUI 响应性
+### 4. 规则引擎
+- **模式匹配**：`Rule` 类使用 `{}` 作为占位符，可解析占位符位置并动态替换为整数参数，生成最终字符串。
+- **文件管理**：`RuleManager` 扫描配置目录下含关键字的 JSON 文件，支持创建、删除、切换规则文件，并自动解析 `rules` 对象为 `Rule` 实例。
+- **线程安全**：规则集合的读写操作使用互斥锁保护。
+
+### 5. GUI 响应性
 - **后台任务**：`DGLABClient` 将耗时操作（如 Python 调用）通过 `PythonSubprocessManager::call` 放入线程池，完成后通过信号槽将结果传回主线程更新界面。
 - **日志显示**：日志接收器 `qtSink` 将日志消息通过 `QMetaObject::invokeMethod` 安全地追加到 UI 控件，并支持按等级着色。
+- **规则管理**：规则文件的加载、保存及规则的增删改查均在 UI 线程同步执行（操作轻量），不影响流畅度。
 
 ---
 
@@ -64,6 +74,7 @@
 ```cpp
 #include "AppConfig.h"
 #include "DebugLog.h"
+#include "RuleManager.h"
 ```
 
 ### 配置系统初始化
@@ -91,7 +102,19 @@ pyMgr->call(cmd, [](const QJsonObject& resp){
 }, 5000);
 ```
 
+### 规则引擎使用
+```cpp
+// 初始化（通常在 AppConfig 初始化后调用）
+RuleManager::instance().init();
+// 加载规则文件
+RuleManager::instance().load_rule_file("rules.json");
+// 评估规则
+std::string result = RuleManager::instance().evaluate("greeting", 10, 20);
+// result 中 {} 将被替换为 10 和 20
+```
+
 ### 注意事项
 - 所有 `*_impl.hpp` 文件通常被对应的 `.h` 文件在末尾包含，无需手动引入。
 - 多线程环境下，确保对 `AppConfig` 的访问通过其提供的线程安全方法进行（内部已加锁）。
 - Python 子进程的 `Bridge.py` 必须实现 JSON 行协议（每条响应以换行符结尾），并正确处理 `req_id`。
+- 规则文件中的模式字符串必须包含正确数量的 `{}`，否则评估时会抛出 `std::invalid_argument`。

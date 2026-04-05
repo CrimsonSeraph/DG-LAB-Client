@@ -9,7 +9,7 @@ import qrcode
 
 # 配置日志模块，设置日志级别为INFO，并定义日志格式
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)  # 获取当前模块的日志记录器
+logger = logging.getLogger(__name__)    # 获取当前模块的日志记录器
 
 
 class DGLabConfig:
@@ -17,10 +17,10 @@ class DGLabConfig:
 
     def __init__(self):
         """初始化配置参数"""
-        self.ws_url = "ws://localhost:9999"          # WebSocket服务器默认地址
-        self.heartbeat_interval = 60                 # 心跳包发送间隔时间（秒）
-        self.reconnect_delay = 5                     # 连接断开后重连的延迟时间（秒）
-        self.max_message_length = 1950               # 允许发送的最大消息长度（字节）
+        self.ws_url = "ws://localhost:9999" # WebSocket服务器默认地址
+        self.heartbeat_interval = 60    # 心跳包发送间隔时间（秒）
+        self.reconnect_delay = 5    # 连接断开后重连的延迟时间（秒）
+        self.max_message_length = 1950  # 允许发送的最大消息长度（字节）
         self.is_connect = False
 
 
@@ -34,9 +34,9 @@ class DGLabClient:
         """初始化DGLab客户端实例"""
         self.config = DGLabConfig()
         self.websocket: Optional[websockets.WebSocketClientProtocol] = None
-        self.client_id: Optional[str] = None          # 由服务器分配的客户端ID
-        self.target_id: Optional[str] = None          # 绑定的目标设备ID
-        self.is_connected = False                     # WebSocket连接状态
+        self.client_id: Optional[str] = None    # 由服务器分配的客户端ID
+        self.target_id: Optional[str] = None    # 绑定的目标设备ID
+        self.is_connected = False   # WebSocket连接状态
         self.on_message_callback: Optional[Callable[[dict], None]] = None
         self.on_bind_callback: Optional[Callable[[str, str], None]] = None
         self.on_error_callback: Optional[Callable[[int, str], None]] = None
