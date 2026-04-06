@@ -131,7 +131,11 @@ bool RuleManager::save_current_rule_file() {
     }
     nlohmann::json rulesJson;
     for (const auto& [name, rule] : rules_) {
-        rulesJson[name] = rule.getPattern();
+        rulesJson[name] = {
+            {"channel", rule.getChannel()},
+            {"mode", rule.getMode()},
+            {"valuePattern", rule.getValuePattern()}
+        };
     }
     return modify_rule_file(current_file_, rulesJson);
 }
@@ -180,12 +184,6 @@ std::string RuleManager::get_rule_display_string(const std::string& ruleName) co
     return it->second.get_display_string();
 }
 
-std::string RuleManager::get_rule_pattern(const std::string& ruleName) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = rules_.find(ruleName);
-    return it != rules_.end() ? it->second.getPattern() : "";
-}
-
 std::vector<std::string> RuleManager::get_all_rule_display_strings() const {
     std::lock_guard<std::mutex> lock(mutex_);
     std::vector<std::string> result;
@@ -194,6 +192,24 @@ std::vector<std::string> RuleManager::get_all_rule_display_strings() const {
         result.push_back(rule.get_display_string());
     }
     return result;
+}
+
+std::string RuleManager::get_rule_channel(const std::string& ruleName) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = rules_.find(ruleName);
+    return it != rules_.end() ? it->second.getChannel() : "";
+}
+
+int RuleManager::get_rule_mode(const std::string& ruleName) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = rules_.find(ruleName);
+    return it != rules_.end() ? it->second.getMode() : -1;
+}
+
+std::string RuleManager::get_rule_value_pattern(const std::string& ruleName) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = rules_.find(ruleName);
+    return it != rules_.end() ? it->second.getValuePattern() : "";
 }
 
 nlohmann::json RuleManager::load_json_file(const std::string& filename) const {
@@ -236,15 +252,40 @@ bool RuleManager::save_json_file(const std::string& filename, const nlohmann::js
 void RuleManager::parse_config(const nlohmann::json& config) {
     rules_.clear();
     for (auto& [key, value] : config.items()) {
-        if (value.is_string()) {
-            std::string pattern = value.get<std::string>();
-            rules_.emplace(key, Rule(key, pattern));
+        try {
+            std::string channel = "";
+            int mode = 0;
+            std::string valuePattern;
+
+            if (value.is_string()) {
+                channel = "";
+                mode = 1;   // 默认递增模式
+                valuePattern = value.get<std::string>();
+            }
+            else if (value.is_object()) {
+                channel = value.value("channel", "");
+                mode = value.value("mode", 1);
+                valuePattern = value.value("valuePattern", "");
+                if (valuePattern.empty()) {
+                    LOG_MODULE("RuleManager", "parse_config", LOG_WARN,
+                        "规则 " << key << " 缺少 valuePattern，已跳过");
+                    continue;
+                }
+            }
+            else {
+                LOG_MODULE("RuleManager", "parse_config", LOG_WARN,
+                    "规则 " << key << " 格式无效，已跳过");
+                continue;
+            }
+
+            rules_.emplace(key, Rule(key, channel, mode, valuePattern));
             LOG_MODULE("RuleManager", "parse_config", LOG_DEBUG,
-                "加载规则: " << key << " = " << pattern);
+                "加载规则: " << key << " [ch=" << channel << ", mode=" << mode
+                << ", pattern=" << valuePattern << "]");
         }
-        else {
-            LOG_MODULE("RuleManager", "parse_config", LOG_WARN,
-                "规则 " << key << " 的值不是字符串，已忽略");
+        catch (const std::exception& e) {
+            LOG_MODULE("RuleManager", "parse_config", LOG_ERROR,
+                "解析规则 " << key << " 失败: " << e.what());
         }
     }
 }

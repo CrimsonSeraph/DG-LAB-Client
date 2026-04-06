@@ -32,7 +32,7 @@ public:
     // 保存当前加载的规则文件
     bool save_current_rule_file();
     // 获取当前加载的规则文件名
-    std::string get_current_rule_file() const { return current_file_; }
+    inline std::string get_current_rule_file() const { return current_file_; }
     // 从指定的配置管理器加载规则
     void load_rules(std::shared_ptr<ConfigManager> configManager);
     // 重新加载（如配置变化时调用）
@@ -41,12 +41,17 @@ public:
     std::vector<std::string> get_rule_names() const;
     // 获取指定规则的显示字符串（用于 UI）
     std::string get_rule_display_string(const std::string& ruleName) const;
-    std::string get_rule_pattern(const std::string& ruleName) const;
     // 获取所有规则的显示字符串数组
     std::vector<std::string> get_all_rule_display_strings() const;
-    // 评估规则：使用不定参数模板，自动检测参数数量
+    // 获取指定规则的通道
+    std::string get_rule_channel(const std::string& ruleName) const;
+    // 获取指定规则的模式
+    int get_rule_mode(const std::string& ruleName) const;
+    // 获取指定规则的值计算式
+    std::string get_rule_value_pattern(const std::string& ruleName) const;
+    // 生成所需指令
     template<typename... Args>
-    std::string evaluate(const std::string& ruleName, Args... args);
+    QJsonObject evaluateCommand(const std::string& ruleName, Args... args);
     nlohmann::json load_json_file(const std::string& filename) const;
 
 private:

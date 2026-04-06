@@ -52,7 +52,7 @@ target_include_directories(nlohmann_json INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}
 
 # -------------------- 查找 Qt --------------------
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Widgets Network Qml)
 
 if (QT_VERSION_MAJOR EQUAL 6)
     qt_standard_project_setup()
@@ -182,6 +182,7 @@ target_link_libraries(${PROJECT_NAME}
         Qt::Gui
         Qt::Widgets
         Qt::Network
+        Qt::Qml
     PRIVATE
         nlohmann_json                   # JSON 库
         Python::Python                  # Python 库

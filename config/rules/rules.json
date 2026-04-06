@@ -1,8 +1,26 @@
 {
     "__priority": 3,
     "rules": {
-        "result_1": "{}+{}-{}",
-        "result_2": "({}*{})/{}"
+        "strength_up_A": {
+            "channel": "A",
+            "mode": 1,
+            "valuePattern": "{}"
+        },
+        "strength_down_B": {
+            "channel": "B",
+            "mode": 0,
+            "valuePattern": "{}"
+        },
+        "set_10_A": {
+            "channel": "A",
+            "mode": 2,
+            "valuePattern": "10"
+        },
+        "continuous_decrease_B": {
+            "channel": "B",
+            "mode": 3,
+            "valuePattern": "{}+{}"
+        }
     },
     "version": "1.0",
     "DGLABClient": "DG-LAB-Client"

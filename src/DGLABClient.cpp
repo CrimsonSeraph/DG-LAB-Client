@@ -636,8 +636,8 @@ void DGLABClient::setup_rules_ui() {
 
     // 规则表格
     rule_table_ = new QTableWidget();
-    rule_table_->setColumnCount(2);
-    rule_table_->setHorizontalHeaderLabels({ "规则名称", "模式" });
+    rule_table_->setColumnCount(4);
+    rule_table_->setHorizontalHeaderLabels({ "规则名称", "通道", "模式", "值模式" });
     rule_table_->horizontalHeader()->setStretchLastSection(true);
     layout->addWidget(rule_table_);
 
@@ -686,10 +686,31 @@ void DGLABClient::update_rule_table() {
     auto names = rm.get_rule_names();
     rule_table_->setRowCount((int)names.size());
     for (size_t i = 0; i < names.size(); ++i) {
-        auto name = names[i];
+        const auto& name = names[i];
         rule_table_->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(name)));
-        auto pattern = rm.get_rule_display_string(name);
-        rule_table_->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(pattern)));
+
+        std::string channel = rm.get_rule_channel(name);
+        rule_table_->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(channel.empty() ? "无" : channel)));
+
+        // 获取模式字符串
+        int mode = rm.get_rule_mode(name);
+        QString modeStr;
+        switch (mode) {
+        case 0: modeStr = "递减"; break;
+        case 1: modeStr = "递增"; break;
+        case 2: modeStr = "设为"; break;
+        case 3: modeStr = "连减"; break;
+        case 4: modeStr = "连增"; break;
+        default: modeStr = "未知";
+        }
+        rule_table_->setItem(i, 2, new QTableWidgetItem(modeStr));
+
+        // 值模式（显示占位符版本）
+        std::string pattern = rm.get_rule_value_pattern(name);
+        // 将 {} 替换为 {   } 便于阅读
+        QString displayPattern = QString::fromStdString(pattern);
+        displayPattern.replace("{}", "{   }");
+        rule_table_->setItem(i, 3, new QTableWidgetItem(displayPattern));
     }
 }
 
@@ -760,15 +781,34 @@ void DGLABClient::on_add_rule() {
     bool ok;
     QString name = QInputDialog::getText(this, "添加规则", "规则名称:", QLineEdit::Normal, "", &ok);
     if (!ok || name.isEmpty()) return;
-    QString pattern = QInputDialog::getText(this, "添加规则", "模式（使用 {} 作为占位符）:", QLineEdit::Normal, "", &ok);
+
+    // 通道选择
+    QStringList channels = { "无", "A", "B" };
+    QString channel = QInputDialog::getItem(this, "选择通道", "通道:", channels, 0, false, &ok);
     if (!ok) return;
+    QString channelStr = (channel == "无") ? "" : channel;
+
+    // 模式选择
+    QStringList modes = { "递减", "递增", "设为", "连减", "连增" };
+    QString modeStr = QInputDialog::getItem(this, "选择模式", "模式:", modes, 0, false, &ok);
+    if (!ok) return;
+    int mode = modes.indexOf(modeStr);
+
+    // 值模式输入
+    QString valuePattern = QInputDialog::getText(this, "添加规则", "值表达式（使用 {} 作为占位符）:",
+        QLineEdit::Normal, "", &ok);
+    if (!ok || valuePattern.isEmpty()) return;
 
     auto& rm = RuleManager::instance();
     auto currentFile = rm.get_current_rule_file();
     try {
         nlohmann::json j = rm.load_json_file(currentFile);
         if (!j.contains("rules")) j["rules"] = nlohmann::json::object();
-        j["rules"][name.toStdString()] = pattern.toStdString();
+        j["rules"][name.toStdString()] = {
+            {"channel", channelStr.toStdString()},
+            {"mode", mode},
+            {"valuePattern", valuePattern.toStdString()}
+        };
         if (rm.modify_rule_file(currentFile, j["rules"])) {
             rm.load_rule_file(currentFile);
             update_rule_table();
@@ -776,7 +816,6 @@ void DGLABClient::on_add_rule() {
         }
         else {
             QMessageBox::warning(this, "错误", "添加规则失败");
-            LOG_MODULE("DGLABClient", "on_add_rule", LOG_ERROR, "添加规则失败: " << name.toStdString());
         }
     }
     catch (const std::exception& e) {
@@ -792,29 +831,51 @@ void DGLABClient::on_edit_rule() {
     }
     QString name = rule_table_->item(row, 0)->text();
     auto& rm = RuleManager::instance();
-    QString oldPattern = QString::fromStdString(rm.get_rule_pattern(name.toStdString()));
+
+    QString oldChannel = QString::fromStdString(rm.get_rule_channel(name.toStdString()));
+    if (oldChannel.isEmpty()) oldChannel = "无";
+    int oldMode = rm.get_rule_mode(name.toStdString());
+    QString oldPattern = QString::fromStdString(rm.get_rule_value_pattern(name.toStdString()));
+
     bool ok;
-    QString newPattern = QInputDialog::getText(this, "编辑规则", "新模式（使用 {} 作为占位符）:", QLineEdit::Normal, oldPattern, &ok);
+    // 编辑通道
+    QStringList channels = { "无", "A", "B" };
+    QString channel = QInputDialog::getItem(this, "编辑规则", "通道:", channels,
+        channels.indexOf(oldChannel), false, &ok);
+    if (!ok) return;
+    QString channelStr = (channel == "无") ? "" : channel;
+
+    // 编辑模式
+    QStringList modes = { "递减", "递增", "设为", "连减", "连增" };
+    QString modeStr = QInputDialog::getItem(this, "编辑规则", "模式:", modes, oldMode, false, &ok);
+    if (!ok) return;
+    int mode = modes.indexOf(modeStr);
+
+    // 编辑值模式
+    QString newPattern = QInputDialog::getText(this, "编辑规则", "值表达式（使用 {} 作为占位符）:",
+        QLineEdit::Normal, oldPattern, &ok);
     if (!ok) return;
 
     std::string currentFile = rm.get_current_rule_file();
     try {
         nlohmann::json j = rm.load_json_file(currentFile);
         if (!j.contains("rules")) j["rules"] = nlohmann::json::object();
-        j["rules"][name.toStdString()] = newPattern.toStdString();
+        j["rules"][name.toStdString()] = {
+            {"channel", channelStr.toStdString()},
+            {"mode", mode},
+            {"valuePattern", newPattern.toStdString()}
+        };
         if (rm.modify_rule_file(currentFile, j["rules"])) {
             rm.load_rule_file(currentFile);
             update_rule_table();
-            LOG_MODULE("DGLABClient", "on_edit_rule", LOG_INFO, "编辑规则成功: " << name.toStdString() << " -> " << newPattern.toStdString());
+            LOG_MODULE("DGLABClient", "on_edit_rule", LOG_INFO, "编辑规则成功: " << name.toStdString());
         }
         else {
             QMessageBox::warning(this, "错误", "编辑规则失败");
-            LOG_MODULE("DGLABClient", "on_edit_rule", LOG_ERROR, "编辑规则失败: " << name.toStdString());
         }
     }
     catch (const std::exception& e) {
         QMessageBox::warning(this, "错误", e.what());
-        LOG_MODULE("DGLABClient", "on_edit_rule", LOG_ERROR, "编辑规则异常: " << e.what());
     }
 }
 

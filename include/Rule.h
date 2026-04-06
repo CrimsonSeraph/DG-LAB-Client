@@ -5,32 +5,45 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <QJsonObject>
 
 class Rule {
 public:
     Rule() = default;
-    Rule(const std::string& name, const std::string& pattern);
+    Rule(const std::string& name,
+        const std::string& channel,
+        int mode,
+        const std::string& valuePattern);
 
-    // 获取规则名称
-    const std::string& getName() const { return name_; }
+    // 获取基本属性
+    inline const std::string& getName() const { return name_; }
+    inline const std::string& getChannel() const { return channel_; }
+    inline int getMode() const { return mode_; }
+    inline const std::string& getValuePattern() const { return valuePattern_; }
 
-    // 获取模式字符串
-    const std::string& getPattern() const { return pattern_; }
+    // 规范化通道输入，接受 "A", "a", "B", "b"，返回 "A", "B" 或 ""（无效输入）
+    static std::string normalizeChannel(const std::string& channel);
 
-    // 获取占位符数量（即 {} 的个数）
+    // 获取占位符数量
     size_t get_placeholder_count() const;
 
-    // 评估规则：将 values 按顺序替换到 {} 中，返回结果字符串
-    std::string evaluate(const std::vector<int>& values) const;
+    // 计算值：将参数填入 valuePattern，返回整数结果
+    int computeValue(const std::vector<int>& params) const;
 
-    // 获取用于 UI 显示的字符串：规则名称 + "=" + 每个 {} 替换为 "{   }"（内部三个空格）
+    // 生成完整的 QJsonObject 命令
+    QJsonObject generateCommand(const std::vector<int>& params) const;
+
+    // 获取用于 UI 显示的字符串
     std::string get_display_string() const;
 
 private:
     std::string name_;
-    std::string pattern_;
-    std::vector<size_t> placeholderPositions_; // 缓存 {} 的位置，提高性能
+    std::string channel_;   // "A", "B", ""
+    int mode_;  // 0-4
+    std::string valuePattern_;  // 包含 {} 的表达式
+    std::vector<size_t> placeholderPositions_;
     size_t placeholderCount_ = 0;
 
-    void parse_pattern(); // 解析 pattern，记录 {} 的位置和个数
+    void parse_pattern();   // 解析 valuePattern 中的 {}
+    std::string evaluateValuePattern(const std::vector<int>& values) const; // 返回替换后的字符串
 };
