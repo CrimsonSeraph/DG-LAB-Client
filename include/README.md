@@ -8,7 +8,7 @@
 ## 文件说明
 
 | 文件名 | 描述 |
-|--------|------|
+| - | - |
 | `AppConfig.h` | 应用配置主类 `AppConfig`（单例）的声明。提供配置系统的全局入口，负责初始化、销毁、配置项的读写（支持点分隔路径）、监听器管理、批量操作、导入导出等功能。内部集成 `MultiConfigManager` 实现多级配置优先级合并。 |
 | `AppConfig_impl.hpp` | `AppConfig` 的模板方法实现，以及辅助模板类 `ConfigValue<T>`、`ConfigObject<T>` 的定义。`ConfigValue` 用于简单类型的配置项包装（带缓存和变更回调），`ConfigObject` 用于复杂结构体的配置包装，支持 JSON 序列化与验证。 |
 | `ComboBoxDelegate.h` | **表格下拉框委托** （`ComboBoxDelegate`），用于规则表格的“通道”和“模式”列，提供 QComboBox 编辑器 |

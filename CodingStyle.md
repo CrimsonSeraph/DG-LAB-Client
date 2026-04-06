@@ -26,6 +26,7 @@
 ### 2. 缩进与空白
 
 - **缩进方式**：4 个空格（不使用 Tab）
+> 若使用 Tab，必须设置为等同于 4 个空格且最后文件保存时转换为 4 个空格
 - **行最大长度**：暂不作严格限制，但建议不超过 120 字符
 - **括号风格**：左括号与语句同行（K&R 风格）
 
@@ -44,7 +45,7 @@ if (condition) {
 | 变量名 | 小写 + 下划线（snake_case） | `user_name`, `max_count` |
 | 函数名 | 小写 + 下划线（snake_case） | `get_data()`, `save_file()` |
 | 常量/宏 | 全大写 + 下划线 | `MAX_BUFFER_SIZE` |
-| Python 模块 | 双驼峰（PascalCase） | `file_utils.py` |
+| Python 模块 | 双驼峰（PascalCase） | `FileUtils.py` |
 
 > **例外**：重载 Qt 的虚函数（如 `paintEvent`、`mousePressEvent`）时，保持 Qt 原有的命名风格，不必强制改为 snake_case。
 

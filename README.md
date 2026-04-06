@@ -7,15 +7,13 @@
 > - [四、快速开始](#四快速开始)  
 > - [五、自动化构建](#五自动化构建)  
 > - [六、使用说明](#六使用说明)  
-> - [本地 WebSocket 中转服务部署说明](#本地-websocket-中转服务部署说明)  
-> - [常见问题及解决方法](#常见问题及解决方法)  
-> - [注意事项](#注意事项)  
-> - [七、项目结构](#七项目结构)  
-> - [八、截图](#八截图)  
-> - [九、编码规范](#九编码规范)  
-> - [十、贡献指南](#十贡献指南)  
-> - [十一、许可证](#十一许可证)  
-> - [十二、联系方式](#十二联系方式)
+> - [七、本地 WebSocket 中转服务部署说明](#七本地WebSocket中转服务部署)  
+> - [八、项目结构](#八项目结构)  
+> - [九、截图](#九截图)  
+> - [十、编码规范](#十编码规范)  
+> - [十一、贡献指南](#十一贡献指南)  
+> - [十二、许可证](#十二许可证)  
+> - [十三、联系方式](#十三联系方式)
 
 一个基于 Qt 的桌面客户端，用于与 DG-Lab 服务进行 WebSocket 通信。  
 项目采用 C++20 编写，通过启动独立的 Python 子进程（`Bridge.py`）来管理与 DG-Lab 服务器的 WebSocket 连接，实现了多级配置管理、模块化日志、异步任务以及灵活的规则引擎等功能。
@@ -156,7 +154,8 @@ cpack
 **注意：** 即使有覆盖逻辑，仍不建议在不同配置文件中定义相同属性  
 配置文件中 `__priority` 字段用于定义优先级，不可删除。
 
-示例 `main.json`：
+<details>
+<summary> 示例 `main.json` </summary>
 
 ```json
 {
@@ -184,6 +183,8 @@ cpack
 }
 ```
 
+</details>
+
 **注意：** 其中 `"version"` 与 `"DGLABClient"` 为检查字段，内容随意，但 **请勿删除或修改** 此字段。
 
 ### 2. Python 脚本
@@ -196,7 +197,11 @@ cpack
 规则引擎允许您通过 JSON 文件定义一系列带占位符 `{}` 的规则，在运行时传入参数动态生成字符串（例如构造 `send_strength` 命令的 JSON）。使用步骤如下：
 
 - **规则文件存放**：默认规则目录为 `config/rules/`（可通过 `rule.path` 配置修改）。目录下的 JSON 文件若文件名包含 `rule` 关键字（可通过 `rule.key` 配置），则会显示在 UI 的规则文件列表中。
-- **规则格式**：每个规则文件应包含一个 `"rules"` 对象，键为规则名称，值为模式字符串。例如：
+- **规则格式**：每个规则文件应包含一个 `"rules"` 对象，键为规则名称，值为模式字符串。
+
+<details>
+<summary> 示例 `rules.json` </summary>
+
   ```json
   {
     "rules": {
@@ -205,6 +210,9 @@ cpack
     }
   }
   ```
+
+</details>
+
 - **规则占位符**：模式中的 `{}` 会被按顺序替换为参数。例如 `strength_up` 规则需要一个参数（通道号），调用 `RuleManager::evaluate("strength_up", 2)` 将生成 `{"cmd":"send_strength","channel":2,"mode":1}`。
 - **UI 操作**：在客户端的“配置”页面中，您可以：
   - 从下拉列表切换规则文件。
@@ -248,8 +256,8 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 ---
 
-<details>
-<summary>📡 本地 WebSocket 中转服务部署说明（点击展开）</summary>
+
+## 七、本地 WebSocket 中转服务部署
 
 ### 1. 服务说明
 
@@ -259,6 +267,10 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 - **安装 Node.js**：建议版本 12.x 或更高。您可以在 [Node.js 官网](https://nodejs.org/) 下载并安装。
 - **获取服务脚本**：从官方仓库获取后端代码，项目结构如下：
+
+<details>
+<summary> 官方仓库后端代码项目结构 </summary>
+
   ```
   socket/
   └── v2/                          # ✅ 推荐使用
@@ -273,6 +285,8 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
       │   └── package.json
       └── frontend/                # 前端控制页面 (HTML+CSS+JS)
   ```
+
+</details>
 
 ### 3. 安装与启动
 
@@ -290,7 +304,7 @@ npm install
 在 `socket/v2/backend` 目录下创建 `.env` 文件，可配置以下参数：
 
 | 变量 | 默认值 | 说明 |
-|------|--------|------|
+| - | - | - |
 | `PORT` | 9999 | WebSocket 服务端口 |
 | `HEARTBEAT_INTERVAL` | 60000 | 心跳间隔（毫秒） |
 | `DEFAULT_PUNISHMENT_TIME` | 1 | 波形发送频率（每秒次数） |
@@ -328,10 +342,8 @@ npm run dev
 
 配对成功后，您即可进行强度调节、波形发送等操作。
 
-</details>
-
 <details>
-<summary>❓ 常见问题及解决方法（点击展开）</summary>
+<summary> 常见问题及解决方法 </summary>
 
 ### Q1：端口被占用，无法启动服务
 
@@ -346,7 +358,7 @@ npm run dev
 **可能原因及解决**：
 
 | 原因 | 解决方法 |
-|------|----------|
+| - | - |
 | 手机与电脑不在同一局域网 | 确保手机连接与电脑相同的 Wi-Fi 网络 |
 | 防火墙拦截了端口 | 在防火墙中放行 WebSocket 服务使用的端口（默认 9999） |
 | 二维码中的地址错误 | 检查二维码中的 IP 地址是否为电脑的正确局域网 IP，不要使用 `127.0.0.1` 或 `localhost` |
@@ -362,7 +374,7 @@ npm run dev
 **错误码说明**：
 
 | 错误码 | 说明 |
-|--------|------|
+| - | - |
 | 400 | 此 ID 已被其他客户端绑定 |
 | 401 | 要绑定的目标客户端不存在 |
 | 402 | 收信方和寄信方不是绑定关系 |
@@ -388,7 +400,7 @@ npm run dev
 </details>
 
 <details>
-<summary>⚠️ 注意事项（点击展开）</summary>
+<summary> 注意事项 </summary>
 
 1. **客户端 ID 必须唯一**：服务端生成的 `clientId` 必须全局唯一，推荐使用 UUID v4。
 
@@ -416,10 +428,10 @@ npm run dev
 
 ---
 
-## 七、项目结构
+## 八、项目结构
 
 <details>
-<summary>目录树</summary>
+<summary> 目录树 </summary>
 
 ```
 DG-LAB-Client/
@@ -488,19 +500,19 @@ DG-LAB-Client/
 
 ---
 
-## 八、截图
+## 九、截图
 
 （暂时留空）
 
 ---
 
-## 九、编码规范
+## 十、编码规范
 
 详细的编码规范请参阅项目根目录下的 **[CodingStyle.md](CodingStyle.md)**。
 
 ---
 
-## 十、贡献指南
+## 十一、贡献指南
 
 欢迎提交 Issue 和 Pull Request。在贡献前请确保：
 
@@ -512,13 +524,13 @@ DG-LAB-Client/
 
 ---
 
-## 十一、许可证
+## 十二、许可证
 
 本项目基于 MIT 许可证开源，详情请参阅 [LICENSE.txt](LICENSE.txt) 文件。
 
 ---
 
-## 十二、联系方式
+## 十三、联系方式
 
 - 作者：[CrimsonSeraph]
 - BiliBili：[浪天幽影(UID：1741002917)](https://space.bilibili.com/1741002917?spm_id_from=333.1007.0.0)

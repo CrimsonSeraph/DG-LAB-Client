@@ -30,16 +30,16 @@
 该文件控制客户端的基础行为，包括应用信息、调试选项、日志级别、Python 脚本路径等。
 
 #### 字段说明
-| 路径                     | 类型    | 说明                                                                 |
-|--------------------------|--------|----------------------------------------------------------------------|
-| `app.name`               | string | 应用名称（显示在窗口标题等位置）                                     |
-| `app.version`            | string | 应用版本号                                                           |
-| `app.debug`              | bool   | 是否开启调试模式（Windows 下会创建调试控制台）                       |
-| `app.log.console_level`  | int    | 控制台日志输出等级：0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE    |
-| `app.log.only_type_info` | bool   | 是否仅输出类型为 INFO 的日志（用于精简输出）                         |
-| `app.log.ui_log_level`   | int    | UI 界面日志输出等级（同 console_level 枚举）                         |
-| `python.path`            | string | Python 解释器路径或可执行文件名                                     |
-| `python.packages_path`   | string | Python 第三方包安装目录的相对路径（相对于可执行文件所在目录）        |
+| 路径 | 类型 | 说明 |
+| - | - | - |
+| `app.name` | string | 应用名称（显示在窗口标题等位置） |
+| `app.version` | string | 应用版本号 |
+| `app.debug` | bool | 是否开启调试模式（Windows 下会创建调试控制台） |
+| `app.log.console_level` | int | 控制台日志输出等级：0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE |
+| `app.log.only_type_info` | bool | 是否仅输出类型为 INFO 的日志（用于精简输出） |
+| `app.log.ui_log_level` | int | UI 界面日志输出等级（同 console_level 枚举） |
+| `python.path` | string | Python 解释器路径或可执行文件名 |
+| `python.packages_path` | string | Python 第三方包安装目录的相对路径（相对于可执行文件所在目录） |
 
 ---
 

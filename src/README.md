@@ -8,7 +8,7 @@
 ## 文件说明
 
 | 文件名 | 描述 |
-|--------|------|
+| - | - |
 | `AppConfig.cpp` | 应用配置主类（`AppConfig`）的实现，采用单例模式。负责配置系统的初始化、销毁、配置项的读写（支持点分隔路径）、配置监听器管理、配置文件的导入导出，并集成了 `MultiConfigManager` 实现多级配置（main/user/system）的优先级合并与热重载。 |
 | `ComboBoxDelegate.cpp` | `ComboBoxDelegate` 的实现，为规则表格的“通道”和“模式”列提供下拉选择编辑器 |
 | `ConfigManager.cpp` | 单个配置管理器（`ConfigManager`）的实现，封装了 JSON 配置文件的加载、保存、键值访问（支持默认值）、批量更新（`merge_patch`）、删除指定键路径及变更通知（观察者模式）。内部使用递归互斥锁保证线程安全，并缓存键路径分割结果以提升性能。 |
