@@ -183,7 +183,7 @@ bool AppConfig::initialize(const std::string& config_dir) {
         catch (const std::exception& e) {
             LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "配置系统初始化失败: " << e.what());
 
-            initialized_ = true; // 仍然标记为已初始化，但使用内存配置
+            initialized_ = true;    // 仍然标记为已初始化，但使用内存配置
             LOG_MODULE("AppConfig", "initialize", LOG_WARN, "使用内存默认配置，系统将继续运行");
             return false;
         }

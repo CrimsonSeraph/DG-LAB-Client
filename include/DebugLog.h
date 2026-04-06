@@ -28,7 +28,7 @@ struct LogSink {
 
 class DebugLog {
 public:
-    static DebugLog& Instance();
+    static DebugLog& instance();
 
     DebugLog(const DebugLog&) = delete;
     DebugLog& operator=(const DebugLog&) = delete;
@@ -71,11 +71,11 @@ private:
 
 #define LOG_MODULE(module, method, level, ...) \
     do { \
-        LogLevel moduleLevel = DebugLog::Instance().get_log_level(module); \
-        bool shouldLog = DebugLog::Instance().is_only_type_info() ? (level == moduleLevel) : (level >= moduleLevel); \
+        LogLevel moduleLevel = DebugLog::instance().get_log_level(module); \
+        bool shouldLog = DebugLog::instance().is_only_type_info() ? (level == moduleLevel) : (level >= moduleLevel); \
         if (shouldLog) { \
             std::ostringstream oss; \
             oss << __VA_ARGS__; \
-            DebugLog::Instance().log(module, method, level, oss.str()); \
+            DebugLog::instance().log(module, method, level, oss.str()); \
         } \
     } while (0)

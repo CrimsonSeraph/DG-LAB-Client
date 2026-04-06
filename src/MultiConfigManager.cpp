@@ -96,7 +96,7 @@ bool MultiConfigManager::load_all() {
     std::string error_msg;
     if (has_priority_conflict_unsafe(error_msg)) {
         LOG_MODULE("MultiConfigManager", "load_all", LOG_WARN, "优先级冲突检测到: " << error_msg);
-        all_success = false;  // 标记失败，但不抛出异常
+        all_success = false;    // 标记失败，但不抛出异常
     }
 
     LOG_MODULE("MultiConfigManager", "load_all", LOG_INFO, "所有配置加载完成，全部成功=" << (all_success ? "是" : "否"));

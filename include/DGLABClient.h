@@ -45,28 +45,28 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
-    std::vector<std::string> default_blacklist = { "radmin", "vmware", "virtualbox", "virtual", "vpn", "tap", "tun" };
-    std::vector<std::string> default_whitelist = { "wlan" };
+    std::vector<std::string> default_blacklist_ = { "radmin", "vmware", "virtualbox", "virtual", "vpn", "tap", "tun" };
+    std::vector<std::string> default_whitelist_ = { "wlan" };
 
-    Ui::DGLABClientClass ui;
+    Ui::DGLABClientClass ui_;
     void append_log_message(const QString& message, int level);
     void append_colored_text(QTextEdit* edit, const QString& text);
-    QSyntaxHighlighter* log_highlighter = nullptr;
-    QSystemTrayIcon* tray_icon;
-    QMenu* tray_menu;
-    QString m_current_qr_path;
+    QSyntaxHighlighter* log_highlighter_ = nullptr;
+    QSystemTrayIcon* tray_icon_;
+    QMenu* tray_menu_;
+    QString current_qr_path_;
 
-    bool start_connect_btn_loading = false;
-    bool close_connect_btn_loading = false;
+    bool start_connect_btn_loading_ = false;
+    bool close_connect_btn_loading_ = false;
 
-    bool is_connected = false;
-    bool is_light_mode = true;
+    bool is_connected_ = false;
+    bool is_light_mode_ = true;
 
-    PythonSubprocessManager* m_pyManager;
+    PythonSubprocessManager* py_manager_;
 
-    LogLevel ui_log_level = LOG_DEBUG;
-    bool m_use_fixed_width_log = false;
-    LogSink qtSink;
+    LogLevel ui_log_level_ = LOG_DEBUG;
+    bool use_fixed_width_log_ = false;
+    LogSink qt_sink_;
 
     template<typename Callback>
     void async_call(const QJsonObject& cmd, int timeout, Callback&& callback);

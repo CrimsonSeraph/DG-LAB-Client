@@ -11,7 +11,7 @@
 #include <vector>
 
 class ConfigManager;
-class AppConfig; // 通过 AppConfig 获取配置
+class AppConfig;
 
 class RuleManager {
 public:
@@ -24,9 +24,9 @@ public:
     // 加载指定的规则文件（文件名，如 "rules.json" 或 "rule_custom.json"）
     void load_rule_file(const std::string& filename);
     // 创建新的规则文件（不能是 "rules.json"）
-    bool create_rule_file(const std::string& filename, const nlohmann::json& rulesContent);
+    bool create_rule_file(const std::string& filename, const nlohmann::json& rules_content);
     // 修改规则文件（保存当前内存中的规则到指定文件）
-    bool modify_rule_file(const std::string& filename, const nlohmann::json& rulesContent);
+    bool modify_rule_file(const std::string& filename, const nlohmann::json& rules_content);
     // 删除规则文件（不能删除 "rules.json"）
     bool delete_rule_file(const std::string& filename);
     // 保存当前加载的规则文件
@@ -34,24 +34,24 @@ public:
     // 获取当前加载的规则文件名
     inline std::string get_current_rule_file() const { return current_file_; }
     // 从指定的配置管理器加载规则
-    void load_rules(std::shared_ptr<ConfigManager> configManager);
+    void load_rules(std::shared_ptr<ConfigManager> config_manager);
     // 重新加载（如配置变化时调用）
     void reload_rules();
     // 获取所有规则名称
     std::vector<std::string> get_rule_names() const;
     // 获取指定规则的显示字符串（用于 UI）
-    std::string get_rule_display_string(const std::string& ruleName) const;
+    std::string get_rule_display_string(const std::string& rule_name) const;
     // 获取所有规则的显示字符串数组
     std::vector<std::string> get_all_rule_display_strings() const;
     // 获取指定规则的通道
-    std::string get_rule_channel(const std::string& ruleName) const;
+    std::string get_rule_channel(const std::string& rule_name) const;
     // 获取指定规则的模式
-    int get_rule_mode(const std::string& ruleName) const;
+    int get_rule_mode(const std::string& rule_name) const;
     // 获取指定规则的值计算式
-    std::string get_rule_value_pattern(const std::string& ruleName) const;
+    std::string get_rule_value_pattern(const std::string& rule_name) const;
     // 生成所需指令
     template<typename... Args>
-    QJsonObject evaluateCommand(const std::string& ruleName, Args... args);
+    QJsonObject evaluate_command(const std::string& rule_name, Args... args);
     nlohmann::json load_json_file(const std::string& filename) const;
 
 private:

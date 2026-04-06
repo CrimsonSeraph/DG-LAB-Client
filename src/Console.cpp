@@ -3,59 +3,57 @@
 #include "DebugLog.h"
 
 #ifdef _WIN32
-#include <windows.h>
 #include <iostream>
+#include <windows.h>
 #else
 #include <iostream>
 #endif
 
-Console::Console() : m_isCreated(false) {
+Console::Console() : is_created_(false) {
     // 构造函数不自动创建控制台
 }
 
 Console::~Console() {
-    Destroy();
+    destroy();
 }
 
-Console& Console::GetInstance() {
-    static Console instance;  // 局部静态变量
+Console& Console::get_instance() {
+    static Console instance;
     return instance;
 }
 
-bool Console::Create() {
-    if (m_isCreated) {
+bool Console::create() {
+    if (is_created_) {
         return true;
     }
 
 #ifdef _WIN32
-    m_isCreated = CreateDebugConsole();
+    is_created_ = create_debug_console();
 #else
     LOG_MODULE("Console", "Create", LOG_WARN, "当前操作系统不支持控制台输出！");
-    m_isCreated = false;
+    is_created_ = false;
 #endif
-    return m_isCreated;
+    return is_created_;
 }
 
-void Console::Destroy() {
+void Console::destroy() {
 #ifdef _WIN32
-    if (m_isCreated) {
+    if (is_created_) {
         FreeConsole();
-        m_isCreated = false;
+        is_created_ = false;
     }
 #else
-    m_isCreated = false;
+    is_created_ = false;
 #endif
 }
 
 #ifdef _WIN32
-bool Console::CreateDebugConsole() {
+bool Console::create_debug_console() {
     // 分配控制台
     if (!AllocConsole()) {
         DWORD error = GetLastError();
         // 如果已经分配了控制台，这也是成功的
         if (error == ERROR_ACCESS_DENIED) {
-            // 控制台可能已经存在（比如从命令行启动）
-            // 我们可以附加到现有的控制台
             if (!AttachConsole(ATTACH_PARENT_PROCESS)) {
                 return false;
             }
@@ -99,7 +97,7 @@ bool Console::CreateDebugConsole() {
     // 设置控制台字体
     CONSOLE_FONT_INFOEX cf = { 0 };
     cf.cbSize = sizeof(cf);
-    cf.dwFontSize.Y = 14;  // 字体大小
+    cf.dwFontSize.Y = 14;   // 字体大小
 
     // 尝试设置几种常见的支持Unicode的字体
     const wchar_t* fontNames[] = {

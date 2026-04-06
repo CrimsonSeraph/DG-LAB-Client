@@ -52,7 +52,7 @@
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始初始化窗口");
-    ui.setupUi(this);
+    ui_.setupUi(this);
 
     change_ui_log_level();
     setup_debug_log();
@@ -73,7 +73,7 @@ DGLABClient::DGLABClient(QWidget* parent)
 
 DGLABClient::~DGLABClient() {
     delete_old_qr_file();
-    DebugLog::Instance().unregister_log_sink("qt_ui");
+    DebugLog::instance().unregister_log_sink("qt_ui");
 }
 
 void DGLABClient::append_log_message(const QString& message, int level) {
@@ -81,7 +81,7 @@ void DGLABClient::append_log_message(const QString& message, int level) {
     QRegularExpression ansi("\\x1B\\[[0-9;]*[A-Za-z]");
     clean.remove(ansi);
     clean.replace('\r', "");
-    append_colored_text(ui.debug_log, clean);
+    append_colored_text(ui_.debug_log, clean);
 }
 
 void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
@@ -89,8 +89,8 @@ void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
     edit->insertPlainText(text + "\n");
     edit->moveCursor(QTextCursor::End);
     edit->ensureCursorVisible();
-    if (log_highlighter) {
-        log_highlighter->rehighlight();
+    if (log_highlighter_) {
+        log_highlighter_->rehighlight();
     }
 }
 
@@ -100,7 +100,7 @@ void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& cal
     QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
         try {
             LOG_MODULE("DGLABClient", "async_call", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
-            m_pyManager->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
+            py_manager_->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
                 bool ok = resp["status"].toString() == "ok";
                 QString msg = resp["message"].toString();
                 callback(ok, msg);
@@ -119,11 +119,11 @@ void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& cal
 }
 
 void DGLABClient::setup_debug_log() {
-    ui.debug_log->setReadOnly(true);
-    ui.debug_log->setStyleSheet("");
-    ui.debug_log->document()->setDefaultStyleSheet("");
-    ui.debug_log->document()->setDefaultFont(QFont("Consolas", 8));
-    ui.debug_log->setAcceptRichText(true);
+    ui_.debug_log->setReadOnly(true);
+    ui_.debug_log->setStyleSheet("");
+    ui_.debug_log->document()->setDefaultStyleSheet("");
+    ui_.debug_log->document()->setDefaultFont(QFont("Consolas", 8));
+    ui_.debug_log->setAcceptRichText(true);
 }
 
 void DGLABClient::register_log_sink() {
@@ -137,7 +137,7 @@ void DGLABClient::register_log_sink() {
         return s + QString(width - s.length(), ' ');
         };
 
-    qtSink.callback = [qptr = QPointer<DGLABClient>(this), this,
+    qt_sink_.callback = [qptr = QPointer<DGLABClient>(this), this,
         TAG1_WIDTH, TAG2_WIDTH, TAG3_WIDTH, pad_right](
             const std::string& module,
             const std::string& method,
@@ -146,11 +146,11 @@ void DGLABClient::register_log_sink() {
                 if (!qptr) return;
                 QString tag1 = "[" + QString::fromStdString(module) + "]";
                 QString tag2 = "<" + QString::fromStdString(method) + ">";
-                QString tag3 = "(" + QString::fromStdString(DebugLog::Instance().level_to_string(level)) + ")";
+                QString tag3 = "(" + QString::fromStdString(DebugLog::instance().level_to_string(level)) + ")";
                 QString msg = QString::fromStdString(message);
 
                 QString display;
-                if (m_use_fixed_width_log) {
+                if (use_fixed_width_log_) {
                     display = pad_right(tag1, TAG1_WIDTH) + " "
                         + pad_right(tag2, TAG2_WIDTH) + " "
                         + pad_right(tag3, TAG3_WIDTH) + ": "
@@ -165,9 +165,9 @@ void DGLABClient::register_log_sink() {
                     qptr->append_log_message(display, level);
                     }, Qt::AutoConnection);
         };
-    qtSink.min_level = ui_log_level;
-    DebugLog::Instance().unregister_log_sink("qt_ui");
-    DebugLog::Instance().register_log_sink("qt_ui", qtSink);
+    qt_sink_.min_level = ui_log_level_;
+    DebugLog::instance().unregister_log_sink("qt_ui");
+    DebugLog::instance().register_log_sink("qt_ui", qt_sink_);
     LOG_MODULE("DGLABClient", "register_log_sink", LOG_DEBUG, "注册 Qt Sink 完成");
 }
 
@@ -197,7 +197,7 @@ void DGLABClient::create_log_highlighter() {
             setFormat(0, text.length(), f);
         }
     };
-    log_highlighter = new LogHighlighter(ui.debug_log->document());
+    log_highlighter_ = new LogHighlighter(ui_.debug_log->document());
 }
 
 void DGLABClient::load_main_image() {
@@ -205,13 +205,13 @@ void DGLABClient::load_main_image() {
     QString image_path = ":/image/assets/normal_image/main_image.png";
     bool main_image_exists = QFile::exists(image_path);
     if (main_image_exists) {
-        ui.main_image_label->setScaledContents(true);
-        ui.main_image_label->setStyleSheet("QLabel{border-image: url(" + image_path + ") 0 0 0 0 stretch stretch;}");
-        ui.main_image_label->setText("");
+        ui_.main_image_label->setScaledContents(true);
+        ui_.main_image_label->setStyleSheet("QLabel{border-image: url(" + image_path + ") 0 0 0 0 stretch stretch;}");
+        ui_.main_image_label->setText("");
         LOG_MODULE("DGLABClient", "load_main_image", LOG_DEBUG, "首页图片加载成功");
     }
     else {
-        ui.main_image_label->setText("加载失败！");
+        ui_.main_image_label->setText("加载失败！");
         LOG_MODULE("DGLABClient", "load_main_image", LOG_ERROR, "首页图片资源不存在！");
     }
 }
@@ -221,13 +221,13 @@ void DGLABClient::create_tray_icon() {
     QString tray_icon_path = ":/image/assets/normal_image/main_image.png";
     bool tray_icon_exists = QFile::exists(tray_icon_path);
     if (tray_icon_exists) {
-        tray_icon = new QSystemTrayIcon(this);
-        tray_icon->setIcon(QIcon(tray_icon_path));
+        tray_icon_ = new QSystemTrayIcon(this);
+        tray_icon_->setIcon(QIcon(tray_icon_path));
         auto& config = AppConfig::instance();
         std::string app_name = config.get_value<std::string>("app.name", "DG-LAB-Client");
-        tray_icon->setToolTip(QString::fromStdString(app_name));
+        tray_icon_->setToolTip(QString::fromStdString(app_name));
 
-        tray_menu = new QMenu(this);
+        tray_menu_ = new QMenu(this);
         QAction* show_action = new QAction("显示", this);
         QAction* quit_action = new QAction("退出", this);
 
@@ -236,21 +236,21 @@ void DGLABClient::create_tray_icon() {
             this->activateWindow();
             });
         connect(quit_action, &QAction::triggered, qApp, &QApplication::quit);
-        tray_menu->addAction(show_action);
-        tray_menu->addSeparator();
-        tray_menu->addAction(quit_action);
-        tray_icon->setContextMenu(tray_menu);
-        connect(tray_icon, &QSystemTrayIcon::activated, this, [=](QSystemTrayIcon::ActivationReason reason) {
+        tray_menu_->addAction(show_action);
+        tray_menu_->addSeparator();
+        tray_menu_->addAction(quit_action);
+        tray_icon_->setContextMenu(tray_menu_);
+        connect(tray_icon_, &QSystemTrayIcon::activated, this, [=](QSystemTrayIcon::ActivationReason reason) {
             if (reason == QSystemTrayIcon::DoubleClick) {
                 this->showNormal();
                 this->activateWindow();
             }
             });
-        tray_icon->show();
+        tray_icon_->show();
         LOG_MODULE("DGLABClient", "create_tray_icon", LOG_DEBUG, "托盘图标加载完成");
     }
     else {
-        ui.main_image_label->setText("加载失败！");
+        ui_.main_image_label->setText("加载失败！");
         LOG_MODULE("DGLABClient", "create_tray_icon", LOG_ERROR, "托盘图标不存在！");
     }
 }
@@ -259,57 +259,57 @@ void DGLABClient::setup_widget_properties(const std::string& property, const std
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "开始设置元素属性");
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_INFO, "设置元素统一属性[" << property << "]为：" << key);
 
-    ui.all->setProperty("type", "main_page");
-    ui.all->setProperty(property.c_str(), key.c_str());
+    ui_.all->setProperty("type", "main_page");
+    ui_.all->setProperty(property.c_str(), key.c_str());
 
-    ui.left_btns_bar->setProperty("type", "glassmorphism");
-    ui.left_btns_bar->setProperty(property.c_str(), key.c_str());
+    ui_.left_btns_bar->setProperty("type", "glassmorphism");
+    ui_.left_btns_bar->setProperty(property.c_str(), key.c_str());
 
-    QList<QPushButton*> btns = ui.all->findChildren<QPushButton*>();
+    QList<QPushButton*> btns = ui_.all->findChildren<QPushButton*>();
     for (QPushButton* btn : btns) {
         btn->setProperty("type", "btns");
         btn->setProperty(property.c_str(), key.c_str());
     }
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "共加载" << btns.size() << "个按键");
 
-    ui.main_image_label->setProperty("type", "main_image_label");
-    ui.main_image_label->setProperty(property.c_str(), key.c_str());
+    ui_.main_image_label->setProperty("type", "main_image_label");
+    ui_.main_image_label->setProperty(property.c_str(), key.c_str());
 
-    ui.main_page_btns_bar->setProperty("type", "glassmorphism");
-    ui.main_page_btns_bar->setProperty(property.c_str(), key.c_str());
+    ui_.main_page_btns_bar->setProperty("type", "glassmorphism");
+    ui_.main_page_btns_bar->setProperty(property.c_str(), key.c_str());
 
-    ui.debug_log->setProperty("type", "debug_log");
-    ui.debug_log->setProperty(property.c_str(), key.c_str());
+    ui_.debug_log->setProperty("type", "debug_log");
+    ui_.debug_log->setProperty(property.c_str(), key.c_str());
 
-    ui.port_info->setProperty("type", "glassmorphism");
-    ui.port_info->setProperty(property.c_str(), key.c_str());
+    ui_.port_info->setProperty("type", "glassmorphism");
+    ui_.port_info->setProperty(property.c_str(), key.c_str());
 
     auto& config = AppConfig::instance();
     int old_port = config.get_value<int>("app.websocket.port", 9999);
-    ui.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
-    ui.port_input->setProperty("type", "input");
-    ui.port_input->setProperty(property.c_str(), key.c_str());
-    ui.port_label->setProperty("type", "label");
-    ui.port_label->setProperty(property.c_str(), key.c_str());
+    ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
+    ui_.port_input->setProperty("type", "input");
+    ui_.port_input->setProperty(property.c_str(), key.c_str());
+    ui_.port_label->setProperty("type", "label");
+    ui_.port_label->setProperty(property.c_str(), key.c_str());
 
-    ui.config_scroll_area->setProperty("type", "none");
-    ui.config_scrollAreaWidgetContents->setProperty("type", "none");
-    ui.config_widgrt->setProperty("type", "glassmorphism");
-    ui.config_widgrt->setProperty(property.c_str(), key.c_str());
+    ui_.config_scroll_area->setProperty("type", "none");
+    ui_.config_scrollAreaWidgetContents->setProperty("type", "none");
+    ui_.config_widgrt->setProperty("type", "glassmorphism");
+    ui_.config_widgrt->setProperty(property.c_str(), key.c_str());
 
-    ui.setting_scroll_area->setProperty("type", "none");
-    ui.setting_scrollAreaWidgetContents->setProperty("type", "none");
-    ui.setting_grid->setProperty("type", "glassmorphism");
-    ui.setting_grid->setProperty(property.c_str(), key.c_str());
-    ui.style_mode->setProperty("type", "glassmorphism");
-    ui.style_mode->setProperty(property.c_str(), key.c_str());
-    ui.current_style_mode->setProperty("type", "label");
-    ui.current_style_mode->setProperty(property.c_str(), key.c_str());
-    ui.style_mode_label->setProperty("type", "label");
-    ui.style_mode_label->setProperty(property.c_str(), key.c_str());
+    ui_.setting_scroll_area->setProperty("type", "none");
+    ui_.setting_scrollAreaWidgetContents->setProperty("type", "none");
+    ui_.setting_grid->setProperty("type", "glassmorphism");
+    ui_.setting_grid->setProperty(property.c_str(), key.c_str());
+    ui_.style_mode->setProperty("type", "glassmorphism");
+    ui_.style_mode->setProperty(property.c_str(), key.c_str());
+    ui_.current_style_mode->setProperty("type", "label");
+    ui_.current_style_mode->setProperty(property.c_str(), key.c_str());
+    ui_.style_mode_label->setProperty("type", "label");
+    ui_.style_mode_label->setProperty(property.c_str(), key.c_str());
 
-    ui.about_widget->setProperty("type", "glassmorphism");
-    ui.about_widget->setProperty(property.c_str(), key.c_str());
+    ui_.about_widget->setProperty("type", "glassmorphism");
+    ui_.about_widget->setProperty(property.c_str(), key.c_str());
 
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素属性完成！");
 }
@@ -317,21 +317,21 @@ void DGLABClient::setup_widget_properties(const std::string& property, const std
 void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "开始加载样式表");
     auto& config = AppConfig::instance();
-    is_light_mode = config.get_value<bool>("app.ui.is_light_mode", true);
-    setup_widget_properties("mode", is_light_mode ? "light" : "night");
-    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" << is_light_mode ? "Light" : "Night");
-    if (is_light_mode) {
+    is_light_mode_ = config.get_value<bool>("app.ui.is_light_mode", true);
+    setup_widget_properties("mode", is_light_mode_ ? "light" : "night");
+    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" << is_light_mode_ ? "Light" : "Night");
+    if (is_light_mode_) {
         load_light_stylesheet();
-        ui.current_style_mode->setText("当前模式：Light");
+        ui_.current_style_mode->setText("当前模式：Light");
     }
     else {
         load_night_stylesheet();
-        ui.current_style_mode->setText("当前模式：Night");
+        ui_.current_style_mode->setText("当前模式：Night");
     }
 }
 
 void DGLABClient::load_light_stylesheet() {
-    LOG_MODULE("DGLABClient", "oad_light_stylesheet", LOG_DEBUG, "开始加载 Light 样式表");
+    LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_DEBUG, "开始加载 Light 样式表");
     QString light_stylesheet_path = ":/style/qcss/style_light.qcss";
     bool light_stylesheet_exists = QFile::exists(light_stylesheet_path);
     if (light_stylesheet_exists) {
@@ -341,14 +341,14 @@ void DGLABClient::load_light_stylesheet() {
             QString light_style_sheet = QLatin1String(light_stylesheet_file.readAll());
             qApp->setStyleSheet(light_style_sheet);
             light_stylesheet_file.close();
-            LOG_MODULE("DGLABClient", "oad_light_stylesheet", LOG_DEBUG, "Light 样式表加载成功");
+            LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_DEBUG, "Light 样式表加载成功");
         }
         else {
-            LOG_MODULE("DGLABClient", "oad_light_stylesheet", LOG_ERROR, "Ligth 样式表打开失败！");
+            LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_ERROR, "Light 样式表打开失败！");
         }
     }
     else {
-        LOG_MODULE("DGLABClient", "oad_light_stylesheet", LOG_ERROR, "Light 样式表不存在！");
+        LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_ERROR, "Light 样式表不存在！");
     }
 }
 
@@ -370,43 +370,43 @@ void DGLABClient::load_night_stylesheet() {
         }
     }
     else {
-        LOG_MODULE("DGLABClient", "load_night_stylesheet", LOG_ERROR, "Nigth 样式表不存在！");
+        LOG_MODULE("DGLABClient", "load_night_stylesheet", LOG_ERROR, "Night 样式表不存在！");
     }
 }
 
 void DGLABClient::change_theme() {
-    LOG_MODULE("DGLABClient", "change_theme", LOG_INFO, "切换主题为：" << is_light_mode ? "Night" : "Light");
-    is_light_mode = !is_light_mode;
+    LOG_MODULE("DGLABClient", "change_theme", LOG_INFO, "切换主题为：" << is_light_mode_ ? "Night" : "Light");
+    is_light_mode_ = !is_light_mode_;
     auto& config = AppConfig::instance();
-    config.set_value<bool>("app.ui.is_light_mode", is_light_mode);
+    config.set_value<bool>("app.ui.is_light_mode", is_light_mode_);
     load_stylesheet();
 }
 
 void DGLABClient::setup_log_widget_style() {
     LOG_MODULE("DGLABClient", "setup_log_widget_style", LOG_DEBUG, "设置硬编码样式");
-    ui.debug_log->setStyleSheet("QTextEdit#debug_log { color: black; }");
-    QPalette pal = ui.debug_log->palette();
+    ui_.debug_log->setStyleSheet("QTextEdit#debug_log { color: black; }");
+    QPalette pal = ui_.debug_log->palette();
     pal.setColor(QPalette::Text, Qt::black);
     pal.setColor(QPalette::WindowText, Qt::black);
-    ui.debug_log->setPalette(pal);
+    ui_.debug_log->setPalette(pal);
 }
 
 void DGLABClient::setup_connections() {
     LOG_MODULE("DGLABClient", "setup_connections", LOG_DEBUG, "开始绑定信号与槽");
-    connect(ui.main_first_btn, &QPushButton::clicked, this, &DGLABClient::on_main_first_btn_clicked);
-    connect(ui.main_config_btn, &QPushButton::clicked, this, &DGLABClient::on_main_config_btn_clicked);
-    connect(ui.main_setting_btn, &QPushButton::clicked, this, &DGLABClient::on_main_setting_btn_clicked);
-    connect(ui.main_about_btn, &QPushButton::clicked, this, &DGLABClient::on_main_about_btn_clicked);
+    connect(ui_.main_first_btn, &QPushButton::clicked, this, &DGLABClient::on_main_first_btn_clicked);
+    connect(ui_.main_config_btn, &QPushButton::clicked, this, &DGLABClient::on_main_config_btn_clicked);
+    connect(ui_.main_setting_btn, &QPushButton::clicked, this, &DGLABClient::on_main_setting_btn_clicked);
+    connect(ui_.main_about_btn, &QPushButton::clicked, this, &DGLABClient::on_main_about_btn_clicked);
 
-    connect(ui.start_connect_btn, &QPushButton::clicked, this, &DGLABClient::on_start_connect_btn_clicked);
-    connect(ui.close_connect_btn, &QPushButton::clicked, this, &DGLABClient::on_close_connect_btn_clicked);
-    connect(ui.start_btn, &QPushButton::clicked, this, &DGLABClient::on_start_btn_clicked);
-    connect(ui.close_btn, &QPushButton::clicked, this, &DGLABClient::on_close_btn_clicked);
+    connect(ui_.start_connect_btn, &QPushButton::clicked, this, &DGLABClient::on_start_connect_btn_clicked);
+    connect(ui_.close_connect_btn, &QPushButton::clicked, this, &DGLABClient::on_close_connect_btn_clicked);
+    connect(ui_.start_btn, &QPushButton::clicked, this, &DGLABClient::on_start_btn_clicked);
+    connect(ui_.close_btn, &QPushButton::clicked, this, &DGLABClient::on_close_btn_clicked);
 
-    connect(ui.port_confirm_btn, &QPushButton::clicked, this, &DGLABClient::set_port);
-    connect(ui.show_qr_btn, &QPushButton::clicked, this, &DGLABClient::on_show_qr_btn_clicked);
+    connect(ui_.port_confirm_btn, &QPushButton::clicked, this, &DGLABClient::set_port);
+    connect(ui_.show_qr_btn, &QPushButton::clicked, this, &DGLABClient::on_show_qr_btn_clicked);
 
-    connect(ui.change_style_mode_btn, &QPushButton::clicked, this, &DGLABClient::change_theme);
+    connect(ui_.change_style_mode_btn, &QPushButton::clicked, this, &DGLABClient::change_theme);
 
     connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
     connect(this, &DGLABClient::close_finished, this, &DGLABClient::handle_close_finished);
@@ -416,30 +416,30 @@ void DGLABClient::setup_port_input_validation() {
     QIntValidator* validator = new QIntValidator(0, 65535, this);
     QLocale locale = QLocale::c();
     validator->setLocale(locale);
-    ui.port_input->setValidator(validator);
-    connect(ui.port_input, &QLineEdit::textChanged, this, [=](const QString& text) {
+    ui_.port_input->setValidator(validator);
+    connect(ui_.port_input, &QLineEdit::textChanged, this, [=](const QString& text) {
         if (text.length() > 100) {
-            ui.port_input->setText(text.left(100));
+            ui_.port_input->setText(text.left(100));
         }
         });
 }
 
 void DGLABClient::setup_default_page() {
-    ui.stackedWidget->setCurrentWidget(ui.first_page);
+    ui_.stackedWidget->setCurrentWidget(ui_.first_page);
 }
 
 void DGLABClient::init_python_manager() {
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动并连接 Python 服务");
-    m_pyManager = new PythonSubprocessManager(this);
+    py_manager_ = new PythonSubprocessManager(this);
 
-    connect(m_pyManager, &PythonSubprocessManager::started,
+    connect(py_manager_, &PythonSubprocessManager::started,
         this, [this](bool success, const QString& error) {
             if (!success) {
                 emit connect_finished(false, "Python 进程启动错误: " + error);
                 return;
             }
         });
-    connect(m_pyManager, &PythonSubprocessManager::finished,
+    connect(py_manager_, &PythonSubprocessManager::finished,
         this, [this]() {
             emit close_finished(true, "Python 进程关闭");
         });
@@ -451,7 +451,7 @@ void DGLABClient::init_python_manager() {
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径："
         << pythonPath.toStdString() << "（注：若解释器路径直接为<Python>则使用系统默认 Python 路径）");
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径：" << bridge_module);
-    m_pyManager->start_process(pythonPath, script_path);
+    py_manager_->start_process(pythonPath, script_path);
 }
 
 void DGLABClient::reset_py_log_level() {
@@ -479,9 +479,9 @@ void DGLABClient::fetch_qr_path() {
     cmd["cmd"] = "get_qr_path";
     async_call(cmd, 5000, [this](bool ok, QString msg) {
         if (ok && !msg.isEmpty()) {
-            m_current_qr_path = msg;
+            current_qr_path_ = msg;
             LOG_MODULE("DGLABClient", "fetch_qr_path", LOG_INFO,
-                "成功获取二维码路径: " << m_current_qr_path.toStdString());
+                "成功获取二维码路径: " << current_qr_path_.toStdString());
             show_qr_dialog();
         }
         else {
@@ -497,9 +497,9 @@ void DGLABClient::show_qr_dialog() {
     LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_INFO, "准备显示二维码对话框");
 
     // 检查路径是否有效且文件存在
-    if (m_current_qr_path.isEmpty() || !QFile::exists(m_current_qr_path)) {
+    if (current_qr_path_.isEmpty() || !QFile::exists(current_qr_path_)) {
         LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_WARN,
-            "二维码路径无效或文件不存在: " << m_current_qr_path.toStdString());
+            "二维码路径无效或文件不存在: " << current_qr_path_.toStdString());
         // 显示文本提示
         QDialog* dialog = new QDialog(this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
@@ -516,16 +516,16 @@ void DGLABClient::show_qr_dialog() {
     }
 
     // 加载图片
-    QPixmap pixmap(m_current_qr_path);
+    QPixmap pixmap(current_qr_path_);
     if (pixmap.isNull()) {
         LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_ERROR,
-            "无法加载二维码图片: " << m_current_qr_path.toStdString());
+            "无法加载二维码图片: " << current_qr_path_.toStdString());
         QMessageBox::warning(this, "错误", "二维码图片文件损坏或无法读取");
         return;
     }
 
     LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_INFO,
-        "成功加载二维码图片: " << m_current_qr_path.toStdString());
+        "成功加载二维码图片: " << current_qr_path_.toStdString());
 
     // 创建并显示对话框
     QDialog* dialog = new QDialog(this);
@@ -550,16 +550,16 @@ void DGLABClient::show_qr_dialog() {
 }
 
 void DGLABClient::delete_old_qr_file() {
-    if (!m_current_qr_path.isEmpty() && QFile::exists(m_current_qr_path)) {
-        if (QFile::remove(m_current_qr_path)) {
+    if (!current_qr_path_.isEmpty() && QFile::exists(current_qr_path_)) {
+        if (QFile::remove(current_qr_path_)) {
             LOG_MODULE("DGLABClient", "delete_old_qr_file", LOG_DEBUG,
-                "已删除旧二维码文件: " << m_current_qr_path.toStdString());
+                "已删除旧二维码文件: " << current_qr_path_.toStdString());
         }
         else {
             LOG_MODULE("DGLABClient", "delete_old_qr_file", LOG_WARN,
-                "删除旧二维码文件失败: " << m_current_qr_path.toStdString());
+                "删除旧二维码文件失败: " << current_qr_path_.toStdString());
         }
-        m_current_qr_path.clear();
+        current_qr_path_.clear();
     }
 }
 
@@ -579,8 +579,8 @@ QString DGLABClient::get_local_lan_ip() {
         QString ifaceName = iface.name();
         QString ifaceHuman = iface.humanReadableName();
 
-        if (DGLABClientUtil::contains_any_keyword(ifaceName, default_blacklist)
-            || DGLABClientUtil::contains_any_keyword(ifaceHuman, default_blacklist)) {
+        if (DGLABClientUtil::contains_any_keyword(ifaceName, default_blacklist_)
+            || DGLABClientUtil::contains_any_keyword(ifaceHuman, default_blacklist_)) {
             qDebug() << "黑名单过滤网卡:" << ifaceHuman;
             continue;
         }
@@ -599,8 +599,8 @@ QString DGLABClient::get_local_lan_ip() {
             fallbackIp = ipv4;
         }
 
-        if (DGLABClientUtil::contains_any_keyword(ifaceName, default_whitelist)
-            || DGLABClientUtil::contains_any_keyword(ifaceHuman, default_whitelist)) {
+        if (DGLABClientUtil::contains_any_keyword(ifaceName, default_whitelist_)
+            || DGLABClientUtil::contains_any_keyword(ifaceHuman, default_whitelist_)) {
             qDebug() << "白名单匹配网卡:" << ifaceHuman << " IP:" << ipv4;
             return ipv4;
         }
@@ -614,9 +614,9 @@ QString DGLABClient::get_local_lan_ip() {
 }
 
 void DGLABClient::setup_rules_ui() {
-    QLayout* oldLayout = ui.config_widgrt->layout();
+    QLayout* oldLayout = ui_.config_widgrt->layout();
     if (oldLayout) delete oldLayout;
-    QVBoxLayout* layout = new QVBoxLayout(ui.config_widgrt);
+    QVBoxLayout* layout = new QVBoxLayout(ui_.config_widgrt);
     layout->setContentsMargins(10, 10, 10, 10);
     layout->setSpacing(10);
 
@@ -910,34 +910,34 @@ void DGLABClient::on_delete_rule() {
 
 void DGLABClient::on_main_first_btn_clicked() {
     LOG_MODULE("DGLABClient", "on_main_first_btn_clicked", LOG_DEBUG, "main_first_btn 按键触发，跳转 first_page");
-    ui.stackedWidget->setCurrentWidget(ui.first_page);
+    ui_.stackedWidget->setCurrentWidget(ui_.first_page);
 }
 
 void DGLABClient::on_main_config_btn_clicked() {
     LOG_MODULE("DGLABClient", "on_main_config_btn_clicked", LOG_DEBUG, "main_config_btn 按键触发，跳转 config_page");
-    ui.stackedWidget->setCurrentWidget(ui.config_page);
+    ui_.stackedWidget->setCurrentWidget(ui_.config_page);
 }
 
 void DGLABClient::on_main_setting_btn_clicked() {
     LOG_MODULE("DGLABClient", "on_main_setting_btn_clicked", LOG_DEBUG, "main_setting_btn 按键触发，跳转 setting_page");
-    ui.stackedWidget->setCurrentWidget(ui.setting_page);
+    ui_.stackedWidget->setCurrentWidget(ui_.setting_page);
 }
 
 void DGLABClient::on_main_about_btn_clicked() {
     LOG_MODULE("DGLABClient", "on_main_about_btn_clicked", LOG_DEBUG, "main_about_btn 按键触发，跳转 about_page");
-    ui.stackedWidget->setCurrentWidget(ui.about_page);
+    ui_.stackedWidget->setCurrentWidget(ui_.about_page);
 }
 
 void DGLABClient::on_start_connect_btn_clicked() {
     LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "start_connect_btn 按键触发");
-    if (start_connect_btn_loading) {
+    if (start_connect_btn_loading_) {
         LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "正在连接中，忽略重复点击");
         return;
     }
-    if (!is_connected) {
+    if (!is_connected_) {
         LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "开始连接");
-        start_connect_btn_loading = true;
-        ui.start_connect_btn->setEnabled(false);
+        start_connect_btn_loading_ = true;
+        ui_.start_connect_btn->setEnabled(false);
         start_async_connect();
     }
     else {
@@ -947,14 +947,14 @@ void DGLABClient::on_start_connect_btn_clicked() {
 
 void DGLABClient::on_close_connect_btn_clicked() {
     LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "close_connect_btn 按键触发");
-    if (close_connect_btn_loading) {
+    if (close_connect_btn_loading_) {
         LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "正在断开中，忽略重复点击");
         return;
     }
-    if (is_connected) {
+    if (is_connected_) {
         LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "开始断开连接");
-        close_connect_btn_loading = true;
-        ui.close_connect_btn->setEnabled(false);
+        close_connect_btn_loading_ = true;
+        ui_.close_connect_btn->setEnabled(false);
         close_async_connect();
     }
     else {
@@ -987,13 +987,13 @@ void DGLABClient::on_show_qr_btn_clicked() {
 void DGLABClient::change_ui_log_level() {
     auto& config = AppConfig::instance();
     int new_level = config.get_value<int>("app.log.ui_log_level", 0);
-    LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_INFO, "修改 UI 日志级别: 旧=" << ui_log_level << " 新=" << new_level);
-    ui_log_level = DebugLog::int_to_log_level(new_level);
-    DebugLog::Instance().set_log_sink_level("qt_ui", ui_log_level);
+    LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_INFO, "修改 UI 日志级别: 旧=" << ui_log_level_ << " 新=" << new_level);
+    ui_log_level_ = DebugLog::int_to_log_level(new_level);
+    DebugLog::instance().set_log_sink_level("qt_ui", ui_log_level_);
 }
 
 void DGLABClient::set_port() {
-    QString input = ui.port_input->text().trimmed();
+    QString input = ui_.port_input->text().trimmed();
     bool ok;
     int port = input.toInt(&ok);
     if (ok && port >= 0 && port <= 65535) {
@@ -1005,17 +1005,17 @@ void DGLABClient::set_port() {
     else {
         LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口：" << input.toStdString());
     }
-    ui.port_input->setText("");
+    ui_.port_input->setText("");
     auto& config = AppConfig::instance();
     int old_port = config.get_value<int>("app.websocket.port", 9999);
-    ui.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
+    ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
 }
 
 void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
-    start_connect_btn_loading = false;
-    ui.start_connect_btn->setEnabled(true);
+    start_connect_btn_loading_ = false;
+    ui_.start_connect_btn->setEnabled(true);
     if (success) {
-        is_connected = true;
+        is_connected_ = true;
         LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_INFO, msg.toStdString());
         reset_py_log_level();
     }
@@ -1025,10 +1025,10 @@ void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
 }
 
 void DGLABClient::handle_close_finished(bool success, const QString& msg) {
-    close_connect_btn_loading = false;
-    ui.close_connect_btn->setEnabled(true);
+    close_connect_btn_loading_ = false;
+    ui_.close_connect_btn->setEnabled(true);
     if (success) {
-        is_connected = false;
+        is_connected_ = false;
         LOG_MODULE("DGLABClient", "handle_close_finished", LOG_INFO, msg.toStdString());
     }
     else {
@@ -1076,8 +1076,8 @@ void DGLABClient::close_async_connect() {
 }
 
 void DGLABClient::closeEvent(QCloseEvent* event) {
-    if (tray_icon->isVisible()) {
-        tray_icon->showMessage("提示", "程序已最小化到系统托盘",
+    if (tray_icon_->isVisible()) {
+        tray_icon_->showMessage("提示", "程序已最小化到系统托盘",
             QSystemTrayIcon::Information, 2000);
         this->hide();
         event->ignore();

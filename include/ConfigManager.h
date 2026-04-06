@@ -49,7 +49,7 @@ public:
     bool set(const std::string& key_path, const T& value);
 
     // 批量操作
-    bool update(const nlohmann::json& patch);  // 合并更新
+    bool update(const nlohmann::json& patch);   // 合并更新
     bool remove(const std::string& key_path);
 
     // 监听器

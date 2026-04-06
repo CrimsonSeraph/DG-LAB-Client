@@ -9,7 +9,7 @@
 
 ConfigManager::ConfigManager(const std::string& path)
     : config_path_(path) {
-    DebugLog::Instance().set_log_level("ConfigManager", LOG_DEBUG);
+    DebugLog::instance().set_log_level("ConfigManager", LOG_DEBUG);
     LOG_MODULE("ConfigManager", "ConfigManager", LOG_DEBUG, "创建 ConfigManager 对象，配置文件路径: " << path);
 }
 
@@ -19,7 +19,7 @@ bool ConfigManager::load() {
 
     if (loaded_) {
         LOG_MODULE("ConfigManager", "load", LOG_DEBUG, "配置已加载，跳过加载: " << config_path_);
-        return true;  // 已经加载过了，直接返回
+        return true;    // 已经加载过了，直接返回
     }
 
     try {
@@ -33,7 +33,7 @@ bool ConfigManager::load() {
             {
                 // 不持有锁，保存配置数据
                 nlohmann::json temp_config = config_;
-                file.close();  // 确保文件关闭
+                file.close();   // 确保文件关闭
 
                 // 创建文件并写入配置
                 try {
@@ -186,7 +186,7 @@ bool ConfigManager::remove(const std::string& key_path) {
         for (size_t i = 0; i < keys.size() - 1; ++i) {
             if (!current->contains(keys[i])) {
                 LOG_MODULE("ConfigManager", "remove", LOG_WARN, "键路径不存在: " << key_path << " (在 " << keys[i] << " 处)");
-                return false;  // 路径不存在
+                return false;   // 路径不存在
             }
             current = &(*current)[keys[i]];
         }

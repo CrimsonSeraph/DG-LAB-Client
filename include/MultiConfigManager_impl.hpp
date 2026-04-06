@@ -3,8 +3,8 @@
 #include "MultiConfigManager.h"
 #include "DebugLog.h"
 
-#include <sstream>
 #include <optional>
+#include <sstream>
 
 template<typename T>
 inline std::optional<T> MultiConfigManager::get(const std::string& key_path) const {
@@ -30,7 +30,7 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
             try {
                 auto value = config->template get<T>(key_path);
                 if (value.has_value()) {
-                    result = value;  // 高优先级覆盖
+                    result = value; // 高优先级覆盖
                 }
             }
             catch (const nlohmann::json::type_error& e) {
@@ -40,7 +40,7 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
                     << config->get<int>("__priority").value_or(0) << "）: " << e.what());
             }
             catch (const nlohmann::json::out_of_range& e) {
-                // 键不存在（应已在 config->get<T> 中返回 nullopt，但以防万一）
+                // 键不存在
                 LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_DEBUG,
                     "配置 [" << key_path << "] 不存在于优先级 "
                     << config->get<int>("__priority").value_or(0));

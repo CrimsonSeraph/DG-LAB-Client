@@ -8,14 +8,14 @@
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     // 直接创建控制台，以便在初始化配置系统时输出日志
-    Console& console = Console::GetInstance();
-    console.Create();
+    Console& console = Console::get_instance();
+    console.create();
     // 配置初始化
     auto& config = AppConfig::instance();
     std::string config_dir = "./config";
     try {
         if (!config.initialize(config_dir)) {
-            DebugLog::Instance().set_log_level("main", LOG_DEBUG);
+            DebugLog::instance().set_log_level("main", LOG_DEBUG);
             LOG_MODULE("main", "main", LOG_WARN, "配置系统初始化失败，使用内存配置");
         }
     }
@@ -30,8 +30,8 @@ int main(int argc, char* argv[]) {
     // 启用控制台
     bool enable_console = config.get_value<bool>("app.debug", false);
     if (enable_console) {
-        Console& console = Console::GetInstance();
-        if (console.Create()) {
+        Console& console = Console::get_instance();
+        if (console.create()) {
             LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用");
             LOG_MODULE("main", "main", LOG_INFO, "配置初始化完成，debug模式=" << enable_console);
         }
@@ -41,10 +41,10 @@ int main(int argc, char* argv[]) {
     }
 
     int console_log_level = config.get_value<int>("app.log.console_level", 0);
-    DebugLog::Instance().set_log_sink_level("console", static_cast<LogLevel>(console_log_level));
+    DebugLog::instance().set_log_sink_level("console", static_cast<LogLevel>(console_log_level));
     LOG_MODULE("main", "main", LOG_DEBUG, "控制台日志级别设置为: " << console_log_level);
     bool is_only_type_info = config.get_value<bool>("app.log.only_type_info", false);
-    DebugLog::Instance().set_only_type_info(is_only_type_info);
+    DebugLog::instance().set_only_type_info(is_only_type_info);
 
     // 创建窗口
     DGLABClient window;

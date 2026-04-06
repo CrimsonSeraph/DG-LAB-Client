@@ -15,39 +15,39 @@
 
 PythonSubprocessManager::PythonSubprocessManager(QObject* parent)
     : QObject(parent)
-    , m_process(new QProcess(this))
-    , m_socket(new QTcpSocket(this))
-    , m_port(0)
-    , m_responseReceived(false) {
+    , process_(new QProcess(this))
+    , socket_(new QTcpSocket(this))
+    , port_(0)
+    , response_received_(false) {
     LOG_MODULE("PythonSubprocessManager", "PythonSubprocessManager", LOG_INFO, "创建 PythonSubprocessManager 对象");
-    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+    connect(process_, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
         this, &PythonSubprocessManager::on_process_finished);
-    connect(m_process, &QProcess::errorOccurred, this, &PythonSubprocessManager::on_process_error);
-    connect(m_process, &QProcess::started, this, &PythonSubprocessManager::on_process_started);
-    connect(m_socket, &QTcpSocket::connected, this, &PythonSubprocessManager::on_socket_connected);
-    connect(m_socket, &QTcpSocket::errorOccurred, this, &PythonSubprocessManager::on_socket_error);
-    connect(m_socket, &QTcpSocket::readyRead, this, &PythonSubprocessManager::on_socket_ready_read);
-    connect(m_process, &QProcess::readyReadStandardOutput, this, &PythonSubprocessManager::handle_stdout);
-    connect(m_process, &QProcess::readyReadStandardError, this, &PythonSubprocessManager::handle_stderr);
+    connect(process_, &QProcess::errorOccurred, this, &PythonSubprocessManager::on_process_error);
+    connect(process_, &QProcess::started, this, &PythonSubprocessManager::on_process_started);
+    connect(socket_, &QTcpSocket::connected, this, &PythonSubprocessManager::on_socket_connected);
+    connect(socket_, &QTcpSocket::errorOccurred, this, &PythonSubprocessManager::on_socket_error);
+    connect(socket_, &QTcpSocket::readyRead, this, &PythonSubprocessManager::on_socket_ready_read);
+    connect(process_, &QProcess::readyReadStandardOutput, this, &PythonSubprocessManager::handle_stdout);
+    connect(process_, &QProcess::readyReadStandardError, this, &PythonSubprocessManager::handle_stderr);
 }
 
 PythonSubprocessManager::~PythonSubprocessManager() {
     LOG_MODULE("PythonSubprocessManager", "~PythonSubprocessManager", LOG_INFO, "析构，清理资源");
 
     // 通知所有等待线程退出
-    m_stopping = true;
+    stopping_ = true;
     {
-        QMutexLocker locker(&m_mutex);
-        m_waitCond.wakeAll(); // 唤醒所有等待 send_command 的线程
+        QMutexLocker locker(&mutex_);
+        wait_cond_.wakeAll();   // 唤醒所有等待 send_command 的线程
     }
 
     // 断开所有来自子对象的信号连接，避免在析构过程中触发槽函数
     LOG_MODULE("PythonSubprocessManager", "~PythonSubprocessManager", LOG_DEBUG, "开始断开信号连接");
-    if (m_process) {
-        m_process->disconnect(this);
+    if (process_) {
+        process_->disconnect(this);
     }
-    if (m_socket) {
-        m_socket->disconnect(this);
+    if (socket_) {
+        socket_->disconnect(this);
     }
 
     // 等待线程池中所有后台任务完成（避免访问已销毁的成员）
@@ -55,34 +55,34 @@ PythonSubprocessManager::~PythonSubprocessManager() {
     QThreadPool::globalInstance()->waitForDone(3000);
 
     // 终止子进程
-    if (m_process->state() != QProcess::NotRunning) {
+    if (process_->state() != QProcess::NotRunning) {
         LOG_MODULE("PythonSubprocessManager", "~PythonSubprocessManager", LOG_DEBUG, "终止 Python 进程");
-        m_process->terminate();
-        if (!m_process->waitForFinished(2000)) {
-            m_process->kill();
-            m_process->waitForFinished(1000);
+        process_->terminate();
+        if (!process_->waitForFinished(2000)) {
+            process_->kill();
+            process_->waitForFinished(1000);
         }
     }
 
     // 断开 socket 连接
-    if (m_socket->state() == QTcpSocket::ConnectedState) {
-        m_socket->disconnectFromHost();
-        m_socket->waitForDisconnected(1000);
+    if (socket_->state() == QTcpSocket::ConnectedState) {
+        socket_->disconnectFromHost();
+        socket_->waitForDisconnected(1000);
     }
 }
 
-void PythonSubprocessManager::start_process(const QString& pythonExecutable, const QString& scriptPath) {
-    m_port = 0;
+void PythonSubprocessManager::start_process(const QString& python_executable, const QString& script_path) {
+    port_ = 0;
 
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert("PYTHONIOENCODING", "utf-8");
-    m_process->setProcessEnvironment(env);
+    process_->setProcessEnvironment(env);
 
     QStringList args;
-    args << scriptPath;
-    QString correct_path = pythonExecutable;
-    m_process->start(correct_path, args);
-    if (!m_process->waitForStarted(5000)) {
+    args << script_path;
+    QString correct_path = python_executable;
+    process_->start(correct_path, args);
+    if (!process_->waitForStarted(5000)) {
         LOG_MODULE("PythonSubprocessManager", "start_process", LOG_ERROR, "启动 Python 进程失败（超时）");
         emit started(false, "无法启动Python进程");
     }
@@ -92,7 +92,7 @@ void PythonSubprocessManager::start_process(const QString& pythonExecutable, con
 }
 
 void PythonSubprocessManager::call(const QJsonObject& cmd, std::function<void(const QJsonObject&)> callback, int timeout) {
-    if (m_stopping) {
+    if (stopping_) {
         LOG_MODULE("PythonSubprocessManager", "call", LOG_WARN, "对象正在销毁，忽略新调用");
         if (callback) {
             callback({ {"status", "error"}, {"message", "对象正在销毁"} });
@@ -100,22 +100,22 @@ void PythonSubprocessManager::call(const QJsonObject& cmd, std::function<void(co
         return;
     }
 
-    int token = ++m_nextToken;
+    int token = ++next_token_;
 
     {
-        QMutexLocker locker(&m_callbackMutex);
-        m_pendingCallbacks[token] = callback;
+        QMutexLocker locker(&callback_mutex_);
+        pending_callbacks_[token] = callback;
     }
 
-    QJsonObject cmdWithToken = cmd;
-    cmdWithToken["req_id"] = token;
+    QJsonObject cmd_with_token = cmd;
+    cmd_with_token["req_id"] = token;
 
-    std::string cmd_str = DebugLogUtil::remove_newline(QJsonDocument(cmdWithToken).toJson().toStdString());
+    std::string cmd_str = DebugLogUtil::remove_newline(QJsonDocument(cmd_with_token).toJson().toStdString());
     LOG_MODULE("PythonSubprocessManager", "call", LOG_DEBUG,
         "异步调用，token=" << token << "，命令: " << cmd_str);
 
-    QThreadPool::globalInstance()->start([this, cmdWithToken, timeout, token]() {
-        if (m_stopping) {
+    QThreadPool::globalInstance()->start([this, cmd_with_token, timeout, token]() {
+        if (stopping_) {
             LOG_MODULE("PythonSubprocessManager", "call_lambda", LOG_DEBUG,
                 "对象正在销毁，后台任务提前退出，token=" << token);
             return;
@@ -123,18 +123,18 @@ void PythonSubprocessManager::call(const QJsonObject& cmd, std::function<void(co
 
         LOG_MODULE("PythonSubprocessManager", "call_lambda", LOG_DEBUG,
             "后台线程开始执行 send_command，token=" << token);
-        QJsonObject response = send_command(cmdWithToken, timeout);
+        QJsonObject response = send_command(cmd_with_token, timeout);
 
         QMetaObject::invokeMethod(this, [this, token, response]() {
             LOG_MODULE("PythonSubprocessManager", "call_lambda_callback", LOG_DEBUG,
                 "回到主线程，处理 token=" << token << " 的回调");
             std::function<void(const QJsonObject&)> cb;
             {
-                QMutexLocker locker(&m_callbackMutex);
-                auto it = m_pendingCallbacks.find(token);
-                if (it != m_pendingCallbacks.end()) {
+                QMutexLocker locker(&callback_mutex_);
+                auto it = pending_callbacks_.find(token);
+                if (it != pending_callbacks_.end()) {
                     cb = it.value();
-                    m_pendingCallbacks.erase(it);
+                    pending_callbacks_.erase(it);
                 }
             }
             if (cb) {
@@ -154,27 +154,27 @@ void PythonSubprocessManager::on_process_error(QProcess::ProcessError error) {
     emit started(false, msg);
 }
 
-void PythonSubprocessManager::on_process_finished(int exitCode, QProcess::ExitStatus status) {
+void PythonSubprocessManager::on_process_finished(int exit_code, QProcess::ExitStatus status) {
     LOG_MODULE("PythonSubprocessManager", "on_process_finished", LOG_INFO,
-        "Python 进程结束，exitCode=" << exitCode << "，status=" << (status == QProcess::NormalExit ? "Normal" : "Crash"));
+        "Python 进程结束，exitCode=" << exit_code << "，status=" << (status == QProcess::NormalExit ? "Normal" : "Crash"));
     emit finished();
 }
 
 void PythonSubprocessManager::on_socket_connected() {
     LOG_MODULE("PythonSubprocessManager", "on_socket_connected", LOG_INFO,
-        "TCP socket 已连接到端口 " << m_port);
+        "TCP socket 已连接到端口 " << port_);
     emit started(true, QString());
 }
 
 void PythonSubprocessManager::on_socket_error(QTcpSocket::SocketError error) {
     LOG_MODULE("PythonSubprocessManager", "on_socket_error", LOG_ERROR,
-        "Socket 错误: " << m_socket->errorString().toStdString() << " (error=" << error << ")");
-    emit started(false, m_socket->errorString());
+        "Socket 错误: " << socket_->errorString().toStdString() << " (error=" << error << ")");
+    emit started(false, socket_->errorString());
 }
 
 void PythonSubprocessManager::on_socket_ready_read() {
-    while (m_socket->canReadLine()) {
-        QByteArray line = m_socket->readLine();
+    while (socket_->canReadLine()) {
+        QByteArray line = socket_->readLine();
         std::string line_str = DebugLogUtil::remove_newline(line.toStdString());
         QJsonParseError err;
         QJsonDocument doc = QJsonDocument::fromJson(line, &err);
@@ -190,10 +190,10 @@ void PythonSubprocessManager::on_socket_ready_read() {
             "收到响应，token=" << token << "，内容: " << line_str);
 
         {
-            QMutexLocker locker(&m_mutex);
-            m_lastResponse = resp;
-            m_responseReceived = true;
-            m_waitCond.wakeAll();
+            QMutexLocker locker(&mutex_);
+            last_response_ = resp;
+            response_received_ = true;
+            wait_cond_.wakeAll();
         }
 
         emit command_response(token, resp);
@@ -201,46 +201,46 @@ void PythonSubprocessManager::on_socket_ready_read() {
 }
 
 void PythonSubprocessManager::handle_stdout() {
-    QByteArray data = m_process->readAllStandardOutput();
+    QByteArray data = process_->readAllStandardOutput();
     parse_port_from_output(data);
     process_output(data, false);
 }
 
-void PythonSubprocessManager::handle_stderr(){
-    QByteArray data = m_process->readAllStandardError();
+void PythonSubprocessManager::handle_stderr() {
+    QByteArray data = process_->readAllStandardError();
     process_output(data, true);
 }
 
-void PythonSubprocessManager::process_output(const QByteArray& data, bool isError){
+void PythonSubprocessManager::process_output(const QByteArray& data, bool is_error) {
     QList<QByteArray> lines = data.split('\n');
     for (const QByteArray& line : lines) {
         if (line.isEmpty()) continue;
-        QString lineStr = QString::fromUtf8(line);
+        QString line_str = QString::fromUtf8(line);
 
-        LogLevel logLevel = isError ? LOG_ERROR : LOG_INFO;
-        QString message = lineStr;
+        LogLevel log_level = is_error ? LOG_ERROR : LOG_INFO;
+        QString message = line_str;
 
         QRegularExpression re(R"(^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - (DEBUG|INFO|WARNING|ERROR) - )");
-        QRegularExpressionMatch match = re.match(lineStr);
+        QRegularExpressionMatch match = re.match(line_str);
         if (match.hasMatch()) {
-            QString levelStr = match.captured(1);
-            if (levelStr == "DEBUG") logLevel = LOG_DEBUG;
-            else if (levelStr == "INFO") logLevel = LOG_INFO;
-            else if (levelStr == "WARNING") logLevel = LOG_WARN;
-            else if (levelStr == "ERROR") logLevel = LOG_ERROR;
+            QString level_str = match.captured(1);
+            if (level_str == "DEBUG") log_level = LOG_DEBUG;
+            else if (level_str == "INFO") log_level = LOG_INFO;
+            else if (level_str == "WARNING") log_level = LOG_WARN;
+            else if (level_str == "ERROR") log_level = LOG_ERROR;
 
-            message = lineStr.mid(match.capturedLength());
+            message = line_str.mid(match.capturedLength());
         }
         else {
             message = "[Raw] " + message;
         }
 
-        LOG_MODULE("Python", isError ? "stderr" : "stdout", logLevel, message.toUtf8().constData());
+        LOG_MODULE("Python", is_error ? "stderr" : "stdout", log_level, message.toUtf8().constData());
     }
 }
 
 void PythonSubprocessManager::parse_port_from_output(const QByteArray& data) {
-    if (m_port != 0) {
+    if (port_ != 0) {
         return;
     }
 
@@ -248,10 +248,10 @@ void PythonSubprocessManager::parse_port_from_output(const QByteArray& data) {
     bool ok;
     int port = output.toInt(&ok);
     if (ok && port > 0 && port < 65536) {
-        m_port = port;
+        port_ = port;
         LOG_MODULE("PythonSubprocessManager", "parse_port_from_output", LOG_INFO,
             "从输出解析到 TCP 端口: " << port);
-        m_socket->connectToHost(QHostAddress::LocalHost, m_port);
+        socket_->connectToHost(QHostAddress::LocalHost, port_);
     }
     else {
         LOG_MODULE("PythonSubprocessManager", "parse_port_from_output", LOG_DEBUG,
@@ -264,14 +264,14 @@ void PythonSubprocessManager::send_json(const QJsonObject& obj) {
     data.append('\n');
     LOG_MODULE("PythonSubprocessManager", "send_json", LOG_DEBUG,
         "发送 JSON: " << DebugLogUtil::remove_newline(data.toStdString()));
-    m_socket->write(data);
-    m_socket->flush();
+    socket_->write(data);
+    socket_->flush();
 }
 
 QJsonObject PythonSubprocessManager::send_command(const QJsonObject& cmd, int timeout) {
-    QMutexLocker locker(&m_mutex);
-    m_responseReceived = false;
-    m_lastResponse = QJsonObject();
+    QMutexLocker locker(&mutex_);
+    response_received_ = false;
+    last_response_ = QJsonObject();
 
     std::string message = DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString());
     LOG_MODULE("PythonSubprocessManager", "send_command", LOG_DEBUG,
@@ -286,10 +286,10 @@ QJsonObject PythonSubprocessManager::send_command(const QJsonObject& cmd, int ti
         return { {"status", "error"}, {"message", "发送命令失败"} };
     }
     // 等待响应或超时，同时响应停止标志
-    while (!m_responseReceived && !m_stopping) {
-        if (!m_waitCond.wait(&m_mutex, timeout)) {
+    while (!response_received_ && !stopping_) {
+        if (!wait_cond_.wait(&mutex_, timeout)) {
             // 超时或停止
-            if (m_stopping) {
+            if (stopping_) {
                 LOG_MODULE("PythonSubprocessManager", "send_command", LOG_DEBUG,
                     "对象正在销毁，停止等待");
                 return { {"status", "error"}, {"message", "对象正在销毁"} };
@@ -300,13 +300,13 @@ QJsonObject PythonSubprocessManager::send_command(const QJsonObject& cmd, int ti
         }
     }
 
-    if (m_stopping) {
+    if (stopping_) {
         LOG_MODULE("PythonSubprocessManager", "send_command", LOG_DEBUG, "对象正在销毁，返回错误");
         return { {"status", "error"}, {"message", "对象正在销毁"} };
     }
 
-    std::string respond_str = DebugLogUtil::remove_newline(QJsonDocument(m_lastResponse).toJson().toStdString());
+    std::string respond_str = DebugLogUtil::remove_newline(QJsonDocument(last_response_).toJson().toStdString());
     LOG_MODULE("PythonSubprocessManager", "send_command", LOG_DEBUG,
         "收到响应: " << respond_str);
-    return m_lastResponse;
+    return last_response_;
 }

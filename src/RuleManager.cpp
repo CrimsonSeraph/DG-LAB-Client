@@ -60,18 +60,18 @@ void RuleManager::load_rule_file(const std::string& filename) {
     }
 }
 
-bool RuleManager::create_rule_file(const std::string& filename, const nlohmann::json& rulesContent) {
+bool RuleManager::create_rule_file(const std::string& filename, const nlohmann::json& rules_content) {
     if (filename == "rules.json") {
         LOG_MODULE("RuleManager", "create_rule_file", LOG_WARN, "不能创建默认规则文件 rules.json");
         return false;
     }
-    std::string fullPath = get_full_path(filename);
-    if (fs::exists(fullPath)) {
+    std::string full_path = get_full_path(filename);
+    if (fs::exists(full_path)) {
         LOG_MODULE("RuleManager", "create_rule_file", LOG_WARN, "文件已存在: " << filename);
         return false;
     }
     nlohmann::json j;
-    j["rules"] = rulesContent;
+    j["rules"] = rules_content;
     if (save_json_file(filename, j)) {
         scan_directory();
         return true;
@@ -79,10 +79,10 @@ bool RuleManager::create_rule_file(const std::string& filename, const nlohmann::
     return false;
 }
 
-bool RuleManager::modify_rule_file(const std::string& filename, const nlohmann::json& rulesContent) {
+bool RuleManager::modify_rule_file(const std::string& filename, const nlohmann::json& rules_content) {
     if (filename.empty()) return false;
-    std::string fullPath = get_full_path(filename);
-    if (!fs::exists(fullPath)) {
+    std::string full_path = get_full_path(filename);
+    if (!fs::exists(full_path)) {
         LOG_MODULE("RuleManager", "modify_rule_file", LOG_WARN, "文件不存在: " << filename);
         return false;
     }
@@ -92,11 +92,11 @@ bool RuleManager::modify_rule_file(const std::string& filename, const nlohmann::
         j = load_json_file(filename);
     }
     catch (...) {}
-    j["rules"] = rulesContent;
+    j["rules"] = rules_content;
     if (save_json_file(filename, j)) {
         // 如果当前加载的就是这个文件，则重新解析规则
         if (current_file_ == filename) {
-            parse_config(rulesContent);
+            parse_config(rules_content);
         }
         return true;
     }
@@ -108,9 +108,9 @@ bool RuleManager::delete_rule_file(const std::string& filename) {
         LOG_MODULE("RuleManager", "delete_rule_file", LOG_WARN, "不能删除默认规则文件 rules.json");
         return false;
     }
-    std::string fullPath = get_full_path(filename);
-    if (!fs::exists(fullPath)) return false;
-    if (fs::remove(fullPath)) {
+    std::string full_path = get_full_path(filename);
+    if (!fs::exists(full_path)) return false;
+    if (fs::remove(full_path)) {
         // 如果当前加载的文件被删除，则重新加载默认文件
         if (current_file_ == filename) {
             try {
@@ -129,24 +129,24 @@ bool RuleManager::save_current_rule_file() {
         LOG_MODULE("RuleManager", "save_current_rule_file", LOG_WARN, "没有当前加载的规则文件");
         return false;
     }
-    nlohmann::json rulesJson;
+    nlohmann::json rules_json;
     for (const auto& [name, rule] : rules_) {
-        rulesJson[name] = {
-            {"channel", rule.getChannel()},
-            {"mode", rule.getMode()},
-            {"valuePattern", rule.getValuePattern()}
+        rules_json[name] = {
+            {"channel", rule.get_channel()},
+            {"mode", rule.get_mode()},
+            {"valuePattern", rule.get_value_pattern()}
         };
     }
-    return modify_rule_file(current_file_, rulesJson);
+    return modify_rule_file(current_file_, rules_json);
 }
 
-void RuleManager::load_rules(std::shared_ptr<ConfigManager> configManager) {
+void RuleManager::load_rules(std::shared_ptr<ConfigManager> config_manager) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!configManager) {
+    if (!config_manager) {
         LOG_MODULE("RuleManager", "load_rules", LOG_ERROR, "ConfigManager 为空");
         return;
     }
-    config_manager_ = configManager;
+    config_manager_ = config_manager;
     reload_rules();
 }
 
@@ -156,13 +156,13 @@ void RuleManager::reload_rules() {
         LOG_MODULE("RuleManager", "reload_rules", LOG_WARN, "ConfigManager 未初始化");
         return;
     }
-    auto rulesJson = config_manager_->get<nlohmann::json>("rules");
-    if (!rulesJson.has_value()) {
+    auto rules_json = config_manager_->get<nlohmann::json>("rules");
+    if (!rules_json.has_value()) {
         LOG_MODULE("RuleManager", "reload_rules", LOG_WARN, "配置中没有 'rules' 字段");
         return;
     }
 
-    parse_config(rulesJson.value());
+    parse_config(rules_json.value());
 }
 
 std::vector<std::string> RuleManager::get_rule_names() const {
@@ -175,9 +175,9 @@ std::vector<std::string> RuleManager::get_rule_names() const {
     return names;
 }
 
-std::string RuleManager::get_rule_display_string(const std::string& ruleName) const {
+std::string RuleManager::get_rule_display_string(const std::string& rule_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = rules_.find(ruleName);
+    auto it = rules_.find(rule_name);
     if (it == rules_.end()) {
         return "";
     }
@@ -194,22 +194,22 @@ std::vector<std::string> RuleManager::get_all_rule_display_strings() const {
     return result;
 }
 
-std::string RuleManager::get_rule_channel(const std::string& ruleName) const {
+std::string RuleManager::get_rule_channel(const std::string& rule_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = rules_.find(ruleName);
-    return it != rules_.end() ? it->second.getChannel() : "";
+    auto it = rules_.find(rule_name);
+    return it != rules_.end() ? it->second.get_channel() : "";
 }
 
-int RuleManager::get_rule_mode(const std::string& ruleName) const {
+int RuleManager::get_rule_mode(const std::string& rule_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = rules_.find(ruleName);
-    return it != rules_.end() ? it->second.getMode() : -1;
+    auto it = rules_.find(rule_name);
+    return it != rules_.end() ? it->second.get_mode() : -1;
 }
 
-std::string RuleManager::get_rule_value_pattern(const std::string& ruleName) const {
+std::string RuleManager::get_rule_value_pattern(const std::string& rule_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    auto it = rules_.find(ruleName);
-    return it != rules_.end() ? it->second.getValuePattern() : "";
+    auto it = rules_.find(rule_name);
+    return it != rules_.end() ? it->second.get_value_pattern() : "";
 }
 
 nlohmann::json RuleManager::load_json_file(const std::string& filename) const {
@@ -242,8 +242,8 @@ std::string RuleManager::get_full_path(const std::string& filename) const {
 }
 
 bool RuleManager::save_json_file(const std::string& filename, const nlohmann::json& content) const {
-    std::string fullPath = get_full_path(filename);
-    std::ofstream file(fullPath);
+    std::string full_path = get_full_path(filename);
+    std::ofstream file(full_path);
     if (!file.is_open()) return false;
     file << content.dump(4);
     return true;
@@ -255,18 +255,18 @@ void RuleManager::parse_config(const nlohmann::json& config) {
         try {
             std::string channel = "";
             int mode = 0;
-            std::string valuePattern;
+            std::string value_pattern;
 
             if (value.is_string()) {
                 channel = "";
                 mode = 1;   // 默认递增模式
-                valuePattern = value.get<std::string>();
+                value_pattern = value.get<std::string>();
             }
             else if (value.is_object()) {
                 channel = value.value("channel", "");
                 mode = value.value("mode", 1);
-                valuePattern = value.value("valuePattern", "");
-                if (valuePattern.empty()) {
+                value_pattern = value.value("valuePattern", "");
+                if (value_pattern.empty()) {
                     LOG_MODULE("RuleManager", "parse_config", LOG_WARN,
                         "规则 " << key << " 缺少 valuePattern，已跳过");
                     continue;
@@ -278,10 +278,10 @@ void RuleManager::parse_config(const nlohmann::json& config) {
                 continue;
             }
 
-            rules_.emplace(key, Rule(key, channel, mode, valuePattern));
+            rules_.emplace(key, Rule(key, channel, mode, value_pattern));
             LOG_MODULE("RuleManager", "parse_config", LOG_DEBUG,
                 "加载规则: " << key << " [ch=" << channel << ", mode=" << mode
-                << ", pattern=" << valuePattern << "]");
+                << ", pattern=" << value_pattern << "]");
         }
         catch (const std::exception& e) {
             LOG_MODULE("RuleManager", "parse_config", LOG_ERROR,

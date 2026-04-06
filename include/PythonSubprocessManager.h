@@ -22,22 +22,23 @@ public:
     ~PythonSubprocessManager();
 
     // 启动Python子进程
-    void start_process(const QString& pythonExecutable, const QString& scriptPath);
+    void start_process(const QString& python_executable, const QString& script_path);
 
     // 检查是否已连接
-    bool is_connected() const { return m_socket && m_socket->state() == QTcpSocket::ConnectedState; }
+    bool is_connected() const { return socket_ && socket_->state() == QTcpSocket::ConnectedState; }
 
     // 发送命令
     void call(const QJsonObject& cmd, std::function<void(const QJsonObject&)> callback, int timeout = 5000);
+
 signals:
-    void started(bool success, const QString& errorString); // 子进程启动并TCP连接成功
-    void finished(); // 子进程结束
-    void command_response(int token, const QJsonObject& response); // 用于异步响应
+    void started(bool success, const QString& error_string);    // 子进程启动并TCP连接成功
+    void finished();    // 子进程结束
+    void command_response(int token, const QJsonObject& response);  // 用于异步响应
 
 private slots:
     void on_process_started();
     void on_process_error(QProcess::ProcessError error);
-    void on_process_finished(int exitCode, QProcess::ExitStatus status);
+    void on_process_finished(int exit_code, QProcess::ExitStatus status);
     void on_socket_connected();
     void on_socket_error(QTcpSocket::SocketError error);
     void on_socket_ready_read();
@@ -45,24 +46,24 @@ private slots:
     void handle_stderr();
 
 private:
-    QProcess* m_process;
-    QTcpSocket* m_socket;
-    int m_port;
+    QProcess* process_;
+    QTcpSocket* socket_;
+    int port_;
 
     // 用于同步等待响应的成员
-    QMutex m_mutex;
-    QWaitCondition m_waitCond;
-    QJsonObject m_lastResponse;
-    bool m_responseReceived;
+    QMutex mutex_;
+    QWaitCondition wait_cond_;
+    QJsonObject last_response_;
+    bool response_received_;
 
-    std::atomic<int> m_nextToken{ 0 };
-    QMap<int, std::function<void(const QJsonObject&)>> m_pendingCallbacks;
-    QMutex m_callbackMutex;
+    std::atomic<int> next_token_{ 0 };
+    QMap<int, std::function<void(const QJsonObject&)>> pending_callbacks_;
+    QMutex callback_mutex_;
 
     // 停止标志
-    std::atomic<bool> m_stopping{ false };
+    std::atomic<bool> stopping_{ false };
 
-    void process_output(const QByteArray& data, bool isError);
+    void process_output(const QByteArray& data, bool is_error);
     void parse_port_from_output(const QByteArray& data);
     void send_json(const QJsonObject& obj);
     QJsonObject send_command(const QJsonObject& cmd, int timeout);

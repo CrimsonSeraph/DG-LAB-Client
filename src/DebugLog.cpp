@@ -13,7 +13,7 @@
 #include <windows.h>
 #endif
 
-DebugLog& DebugLog::Instance() {
+DebugLog& DebugLog::instance() {
     static DebugLog instance;
     static std::once_flag flag;
     std::call_once(flag, [&]() {
@@ -24,7 +24,7 @@ DebugLog& DebugLog::Instance() {
             const std::string& message) {
                 std::string tag1 = "[" + module + "]";
                 std::string tag2 = "<" + method + ">";
-                std::string tag3 = "(" + std::string(DebugLog::Instance().level_to_string(level)) + ")";
+                std::string tag3 = "(" + std::string(DebugLog::instance().level_to_string(level)) + ")";
 
                 const int TAG1_WIDTH = 30;
                 const int TAG2_WIDTH = 35;
@@ -138,10 +138,10 @@ void DebugLog::unregister_log_sink(const std::string& name) {
 bool DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
     std::lock_guard<std::mutex> lock(sinks_mutex_);
     if (log_sinks_.find(name) == log_sinks_.end()) {
-        return false; // Sink 不存在
+        return false;   // Sink 不存在
     }
     else if (level < LOG_DEBUG || level > LOG_NONE) {
-        return false; // 无效的日志等级
+        return false;   // 无效的日志等级
     }
     auto it = log_sinks_.find(name);
     if (it != log_sinks_.end()) {

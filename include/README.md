@@ -89,7 +89,7 @@ AppConfig::instance().initialize("./config");
 ```cpp
 LOG_MODULE("MyModule", "myFunction", LOG_INFO, "Hello, world!");
 ```
-可在 `DebugLog::Instance()` 中注册自定义接收器，如 Qt 界面控件。
+可在 `DebugLog::instance()` 中注册自定义接收器，如 Qt 界面控件。
 
 ### Python 子进程调用
 ```cpp
