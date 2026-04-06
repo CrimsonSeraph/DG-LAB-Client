@@ -405,6 +405,7 @@ DG-LAB-Client/
 ├── include/                    # 公共头文件
 │   ├── AppConfig.h
 │   ├── AppConfig_impl.hpp
+│   ├── ComboBoxDelegate.h
 │   ├── ConfigManager.h
 │   ├── ConfigStructs.h
 │   ├── Console.h
@@ -413,24 +414,29 @@ DG-LAB-Client/
 │   ├── DefaultConfigs.h
 │   ├── DGLABClient.h
 │   ├── DGLABClient_utils.hpp
+│   ├── FormulaBuilderDialog.h
 │   ├── MultiConfigManager.h
 │   ├── MultiConfigManager_impl.hpp
 │   ├── PythonSubprocessManager.h
 │   ├── Rule.h
 │   ├── RuleManager.h
-│   └── RuleManager_impl.hpp
+│   ├── RuleManager_impl.hpp
+│   └── ValueModeDelegate.h
 ├── src/                        # 源文件
 │   ├── AppConfig.cpp
+│   ├── ComboBoxDelegate.cpp
 │   ├── ConfigManager.cpp
 │   ├── ConfigStructs.cpp
 │   ├── Console.cpp
 │   ├── DebugLog.cpp
 │   ├── DefaultConfigs.cpp
 │   ├── DGLABClient.cpp
+│   ├── FormulaBuilderDialog.cpp
 │   ├── MultiConfigManager.cpp
 │   ├── PythonSubprocessManager.cpp
 │   ├── Rule.cpp
-│   └── RuleManager.cpp
+│   ├── RuleManager.cpp
+│   └── ValueModeDelegate.cpp
 ├── python/                     # Python 脚本
 │   ├── Bridge.py
 │   └── WebSocketCore.py
