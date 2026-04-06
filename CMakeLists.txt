@@ -66,6 +66,12 @@ set(PROJECT_SOURCES
     include/DGLABClient.h
     src/DGLABClient.cpp
     include/DGLABClient_utils.hpp
+    include/ComboBoxDelegate.h
+    src/ComboBoxDelegate.cpp
+    include/FormulaBuilderDialog.h
+    src/FormulaBuilderDialog.cpp
+    include/ValueModeDelegate.h
+    src/ValueModeDelegate.cpp
 
     # 资源文件
     DGLABClient.qrc

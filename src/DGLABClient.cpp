@@ -1,10 +1,13 @@
 #include "DGLABClient.h"
 
 #include "AppConfig.h"
+#include "ComboBoxDelegate.h"
 #include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
+#include "FormulaBuilderDialog.h"
 #include "PythonSubprocessManager.h"
 #include "RuleManager.h"
+#include "ValueModeDelegate.h"
 
 #include <QAbstractSocket>
 #include <QAction>
@@ -639,6 +642,19 @@ void DGLABClient::setup_rules_ui() {
     rule_table_->setColumnCount(4);
     rule_table_->setHorizontalHeaderLabels({ "规则名称", "通道", "模式", "值模式" });
     rule_table_->horizontalHeader()->setStretchLastSection(true);
+
+    QStringList channelOptions = { "A", "B", "无" };
+    QStringList modeOptions = { "递减", "递增", "设为", "连减", "连增" };
+
+    // 第1列、第2列使用普通下拉框
+    rule_table_->setItemDelegateForColumn(1, new ComboBoxDelegate(channelOptions, rule_table_));
+    rule_table_->setItemDelegateForColumn(2, new ComboBoxDelegate(modeOptions, rule_table_));
+    // 第3列使用复杂公式构建器
+    rule_table_->setItemDelegateForColumn(3, new ValueModeDelegate(rule_table_));
+    // 编辑触发方式
+    rule_table_->setEditTriggers(QAbstractItemView::DoubleClicked |
+        QAbstractItemView::AnyKeyPressed);
+
     layout->addWidget(rule_table_);
 
     // 操作按钮

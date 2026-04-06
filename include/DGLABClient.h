@@ -18,8 +18,7 @@
 #include <string>
 #include <vector>
 
-class DGLABClient : public QWidget
-{
+class DGLABClient : public QWidget {
     Q_OBJECT
 
 public:
