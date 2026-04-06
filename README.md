@@ -1,5 +1,22 @@
 # DG-LAB-Client
 
+> **目录**  
+> - [一、项目简介](#一项目简介)  
+> - [二、功能特性](#二功能特性)  
+> - [三、依赖项](#三依赖项)  
+> - [四、快速开始](#四快速开始)  
+> - [五、自动化构建](#五自动化构建)  
+> - [六、使用说明](#六使用说明)  
+> - [本地 WebSocket 中转服务部署说明](#本地-websocket-中转服务部署说明)  
+> - [常见问题及解决方法](#常见问题及解决方法)  
+> - [注意事项](#注意事项)  
+> - [七、项目结构](#七项目结构)  
+> - [八、截图](#八截图)  
+> - [九、编码规范](#九编码规范)  
+> - [十、贡献指南](#十贡献指南)  
+> - [十一、许可证](#十一许可证)  
+> - [十二、联系方式](#十二联系方式)
+
 一个基于 Qt 的桌面客户端，用于与 DG-Lab 服务进行 WebSocket 通信。  
 项目采用 C++20 编写，通过启动独立的 Python 子进程（`Bridge.py`）来管理与 DG-Lab 服务器的 WebSocket 连接，实现了多级配置管理、模块化日志、异步任务以及灵活的规则引擎等功能。
 
@@ -231,7 +248,8 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 ---
 
-## 本地 WebSocket 中转服务部署说明
+<details>
+<summary>📡 本地 WebSocket 中转服务部署说明（点击展开）</summary>
 
 ### 1. 服务说明
 
@@ -310,9 +328,10 @@ npm run dev
 
 配对成功后，您即可进行强度调节、波形发送等操作。
 
----
+</details>
 
-## 常见问题及解决方法
+<details>
+<summary>❓ 常见问题及解决方法（点击展开）</summary>
 
 ### Q1：端口被占用，无法启动服务
 
@@ -366,9 +385,10 @@ npm run dev
 
 **解决方法**：检查目录和文件权限，使用有效的 JSON 格式，并在 Qt 界面的日志输出中查看具体错误信息。
 
----
+</details>
 
-## 注意事项
+<details>
+<summary>⚠️ 注意事项（点击展开）</summary>
 
 1. **客户端 ID 必须唯一**：服务端生成的 `clientId` 必须全局唯一，推荐使用 UUID v4。
 
@@ -386,17 +406,20 @@ npm run dev
 
 7. **规则文件安全**：不要删除默认的 `rules.json`，删除其他规则文件前请确保已保存重要规则。
 
----
-
 **相关资源**：
 - 官方仓库：[https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE)
 - 常见问题文档：`socket/QA/Websocket_open_source_QA_Chinese.txt`（位于仓库中）
 
 如有其他问题，请联系官方邮箱：service@dungeon-lab.com
 
+</details>
+
 ---
 
-## 八、项目结构
+## 七、项目结构
+
+<details>
+<summary>目录树</summary>
 
 ```
 DG-LAB-Client/
@@ -461,11 +484,19 @@ DG-LAB-Client/
 └── .github/workflows/build.yml  # GitHub Actions 工作流
 ```
 
+</details>
+
 ---
 
-## 九、截图
+## 八、截图
 
 （暂时留空）
+
+---
+
+## 九、编码规范
+
+详细的编码规范请参阅项目根目录下的 **[CodingStyle.md](CodingStyle.md)**。
 
 ---
 
@@ -473,7 +504,7 @@ DG-LAB-Client/
 
 欢迎提交 Issue 和 Pull Request。在贡献前请确保：
 
-- 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`，命名规范）。
+- 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`，命名规范）。更多细节请参考 [编码规范](#九编码规范)。
 - 请务必使用 UTF-8 without BOM 编码提交代码。
 - 添加或修改功能时更新相关文档（如 README.md）。
 - 确保本地测试通过（编译通过，功能正常）。

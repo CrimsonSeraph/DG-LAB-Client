@@ -3,9 +3,10 @@ import json
 import logging
 import os
 from typing import Callable, Optional
+
+import qrcode
 import websockets
 from websockets.exceptions import ConnectionClosed
-import qrcode
 
 # 配置日志模块，设置日志级别为INFO，并定义日志格式
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

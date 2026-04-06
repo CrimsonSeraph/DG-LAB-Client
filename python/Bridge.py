@@ -1,8 +1,9 @@
+from WebSocketCore import DGLabClient
+
 import asyncio
 import json
 import logging
 import sys
-from WebSocketCore import DGLabClient
 
 # 配置日志：INFO级别，包含时间、级别、消息
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
