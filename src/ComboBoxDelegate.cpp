@@ -1,14 +1,18 @@
 #include "ComboBoxDelegate.h"
 
+#include <QTimer>
+
 ComboBoxDelegate::ComboBoxDelegate(const QStringList& items, QObject* parent)
-    : QStyledItemDelegate(parent), m_items(items) {}
+    : QStyledItemDelegate(parent), items_(items) {}
 
 QWidget* ComboBoxDelegate::createEditor(QWidget* parent,
-    const QStyleOptionViewItem&,
-    const QModelIndex&) const {
+    const QStyleOptionViewItem& option,
+    const QModelIndex& index) const {
     QComboBox* combo = new QComboBox(parent);
-    combo->addItems(m_items);
+    combo->addItems(items_);
     combo->setEditable(false);  // 不允许手动输入
+    combo->setAutoFillBackground(true);
+    combo->setGeometry(option.rect);
     combo->showPopup();  // 点击后立即展开下拉
     return combo;
 }
@@ -35,6 +39,19 @@ void ComboBoxDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
 
 void ComboBoxDelegate::updateEditorGeometry(QWidget* editor,
     const QStyleOptionViewItem& option,
-    const QModelIndex&) const {
-    editor->setGeometry(option.rect);
+    const QModelIndex& index) const {
+    if (!editor) return;
+    QRect rect = option.rect;
+    if (rect.width() < 20 || rect.height() < 10) {
+        rect = option.rect;
+    }
+
+    editor->setGeometry(rect);
+    editor->updateGeometry();
+    editor->update();
+
+    if (QComboBox* combo = qobject_cast<QComboBox*>(editor)) {
+        combo->update();
+        QTimer::singleShot(0, combo, &QComboBox::showPopup);
+    }
 }

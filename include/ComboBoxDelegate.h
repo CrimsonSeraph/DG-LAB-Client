@@ -19,5 +19,5 @@ public:
         const QModelIndex& index) const override;
 
 private:
-    QStringList m_items;    // 下拉选项列表
+    QStringList items_;    // 下拉选项列表
 };

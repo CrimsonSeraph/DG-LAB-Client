@@ -654,6 +654,7 @@ void DGLABClient::setup_rules_ui() {
     // 编辑触发方式
     rule_table_->setEditTriggers(QAbstractItemView::DoubleClicked |
         QAbstractItemView::AnyKeyPressed);
+    rule_table_->viewport()->update();
 
     layout->addWidget(rule_table_);
 
