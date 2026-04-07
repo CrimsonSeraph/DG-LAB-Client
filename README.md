@@ -177,7 +177,7 @@ cpack
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "0.2.0",
+        "version": "1.0.0",
         "debug": false,
         "log": {
             "console_level": 0,

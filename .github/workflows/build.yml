@@ -107,6 +107,48 @@ jobs:
       - name: Package with CPack
         run: cpack --config build/CPackConfig.cmake -B package
 
+      # 生成不带 Python 运行时的精简压缩包
+      - name: Create without-Python archive
+        shell: bash
+        run: |
+          # 从 tag 获取版本号
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "Version: $VERSION"
+
+          # 复制完整安装目录
+          cp -r install_root install_root_no_python
+
+          # 根据平台删除 Python 运行时、标准库、第三方包
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Windows: 删除 Python DLL、标准库压缩包、第三方包目录
+            rm -f install_root_no_python/python3*.dll
+            rm -f install_root_no_python/python*.zip
+            rm -rf install_root_no_python/DLLs
+            rm -rf install_root_no_python/python/Lib
+            # 如果存在其他 site-packages 目录
+            rm -rf install_root_no_python/python/Lib/site-packages
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            # macOS: 删除 libpython 动态库、标准库目录、第三方包
+            rm -f install_root_no_python/lib/libpython*.dylib
+            rm -rf install_root_no_python/python/Lib
+            rm -rf install_root_no_python/python/Lib/site-packages
+          else  # ubuntu-22.04
+            # Linux: 删除 libpython 共享库、标准库目录、第三方包
+            rm -f install_root_no_python/lib/libpython*.so*
+            rm -rf install_root_no_python/python/Lib
+            rm -rf install_root_no_python/python/Lib/site-packages
+          fi
+
+          # 打包精简版
+          mkdir -p package
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            # Windows 使用 ZIP
+            (cd install_root_no_python && 7z a ../package/DG-LAB-Client-${VERSION}-windows-without-Python.zip *)
+          else
+            # macOS / Linux 使用 tar.gz
+            (cd install_root_no_python && tar czf ../package/DG-LAB-Client-${VERSION}-${{ runner.os }}-without-Python.tar.gz *)
+          fi
+
       # 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -120,13 +162,17 @@ jobs:
             package/*.zip
             package/*.tar.gz
             package/*.AppImage
+            package/*-without-Python.zip
+            package/*-without-Python.tar.gz
           if-no-files-found: warn
+
 
       # 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
-          files: package/*
+          files: |
+            package/*
           draft: false
           prerelease: false
         env:
