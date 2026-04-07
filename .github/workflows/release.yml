@@ -1,0 +1,76 @@
+name: Create GitHub Release with Changelog
+
+on:
+  workflow_run:
+    workflows: ["Build and Package on Tag"]
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/') }}
+    steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      # 下载 build.yml 中上传的所有 artifacts
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all_artifacts
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      # 将所有下载的 artifacts 中的文件合并到一个目录
+      - name: Organize assets
+        run: |
+          mkdir -p release_assets
+          find all_artifacts -type f -exec cp {} release_assets/ \;
+          ls -la release_assets/
+
+      # 提取 ChangeLog.md 中的更新日志
+      - name: Extract release notes
+        id: extract_notes
+        run: |
+          # 从 workflow_run 的 head_branch 中提取标签名
+          TAG_NAME=$(basename ${{ github.event.workflow_run.head_branch }})
+          VERSION=${TAG_NAME#v}
+          echo "Tag: $TAG_NAME, Version: $VERSION"
+
+          awk -v ver="## \\[$VERSION\\]" '
+            $0 ~ ver {flag=1; next}
+            /^## \[/ && flag {flag=0}
+            flag {print}
+          ' ChangeLog.md > /tmp/release_notes.md
+
+          if [ ! -s /tmp/release_notes.md ]; then
+            echo "No release notes found for $VERSION" > /tmp/release_notes.md
+          fi
+
+          {
+            echo 'release_notes<<EOF'
+            cat /tmp/release_notes.md
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      # 创建或更新 GitHub Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_name.outputs.tag }}
+          body: ${{ steps.extract_notes.outputs.release_notes }}
+          files: release_assets/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

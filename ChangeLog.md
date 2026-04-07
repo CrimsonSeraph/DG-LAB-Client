@@ -29,19 +29,21 @@
 
 ---
 
-## [0.2.0] - 2026-04-08
+## [v0.2.0] - 2026-04-08
 
 ### Added
 - 规则引擎：支持从 JSON 文件加载带 `{}` 占位符的运算规则。
 - 规则表格高级编辑：通道/模式列使用下拉框，值模式列提供可视化公式构建器（括号检查、符号插入）。
 - 通过启用 Python 子进程通过 TCP 通信支持异步调用（线程池 + 信号槽）。
+- GitHub Actions 自动化构建新增不包含 Python 标准运行库与第三方包的精简版本（`-without-Python`），适用于本地已有 Python 环境的用户。
+- GitHub Actions 自动将更新日志发布到 GitHub Releases 页面。
 
 ### Changed
 - 完善配置页面内容，添加配置文件的显示、编辑、保存等功能。
 - 日志模块添加支持多个输出接收器（控制台、Qt UI）。
-- GitHub Actions 自动化构建新增不包含 Python 标准运行库与第三方包的精简版本（`-without-Python`），适用于本地已有 Python 环境的用户。
 - 添加 Python 模块日志输出支持，日志等级与主程序同步。
 - 控制台显示格式优化。
+- 从 `build.yml` 移除上传 构建产物到 GitHub Releases 的步骤，改为单独的 `release.yml` 处理发布流程。
 
 ### Deprecated
 - 无
@@ -57,7 +59,7 @@
 
 ---
 
-## [0.1.0] - 2026-01-10
+## [v0.1.0] - 2026-01-10
 
 ### Added
 - 初始版本（未发布版本）。
@@ -88,7 +90,7 @@
 
 ## 其他
 
-**变动**：[0.2.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.1.0...v0.2.0
+**变动**：[v0.2.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.1.0...v0.2.0
 
 **变更分类**：
   - `Added` – 新增功能

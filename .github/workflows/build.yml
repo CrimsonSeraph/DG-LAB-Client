@@ -149,7 +149,7 @@ jobs:
             (cd install_root_no_python && tar czf ../package/DG-LAB-Client-${VERSION}-${{ runner.os }}-without-Python.tar.gz *)
           fi
 
-      # 将生成的安装包上传为 GitHub Actions 的 Artifact（便于查看和调试）
+      # 将生成的安装包上传为 GitHub Actions 的 Artifact
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -165,15 +165,3 @@ jobs:
             package/*-without-Python.zip
             package/*-without-Python.tar.gz
           if-no-files-found: warn
-
-
-      # 发布到 GitHub Releases（由于触发条件已是标签，此步骤会自动执行）
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            package/*
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
