@@ -1011,16 +1011,24 @@ void DGLABClient::change_ui_log_level() {
 
 void DGLABClient::set_port() {
     QString input = ui_.port_input->text().trimmed();
-    bool ok;
-    int port = input.toInt(&ok);
-    if (ok && port >= 0 && port <= 65535) {
-        LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "开始设置端口");
-        auto& config = AppConfig::instance();
-        config.set_value_with_name<int>("app.websocket.port", input.toInt(), "system");
-        LOG_MODULE("DGLABClient", "set_port", LOG_INFO, "设置端口完成：" << input.toStdString());
+    if (input.isEmpty()) {
+        QMessageBox::warning(this, "端口设置失败！", "端口号不能为空！");
+        LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！端口号为空");
     }
     else {
-        LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口：" << input.toStdString());
+        bool ok;
+        int port = input.toInt(&ok);
+        if (ok && port >= 0 && port <= 65535) {
+            LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "开始设置端口");
+            auto& config = AppConfig::instance();
+            config.set_value_with_name<int>("app.websocket.port", port, "system"); // 直接使用 port
+            QMessageBox::information(this, "端口更新完成！", "设置端口完成：" + input);
+            LOG_MODULE("DGLABClient", "set_port", LOG_INFO, "设置端口完成：" << input.toStdString());
+        }
+        else {
+            QMessageBox::warning(this, "端口设置失败！", "设置端口失败！非合法端口：" + input);
+            LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口：" << input.toStdString());
+        }
     }
     ui_.port_input->setText("");
     auto& config = AppConfig::instance();
@@ -1037,6 +1045,7 @@ void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
         reset_py_log_level();
     }
     else {
+        QMessageBox::warning(this, "连接错误！", msg);
         LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_ERROR, msg.toStdString());
     }
 }

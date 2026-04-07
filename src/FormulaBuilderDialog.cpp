@@ -1,3 +1,4 @@
+#include "DebugLog.h"
 #include "FormulaBuilderDialog.h"
 
 #include <QFont>
@@ -5,30 +6,29 @@
 #include <QHBoxLayout>
 #include <QMessageBox>
 #include <QStack>
-
 #include <QVBoxLayout>
 
 FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidget* parent)
     : QDialog(parent) {
+    LOG_MODULE("FormulaBuilderDialog", "FormulaBuilderDialog", LOG_DEBUG,
+        QString("构造对话框，初始表达式: %1").arg(initialFormula).toUtf8().constData());
+
     setWindowTitle("编辑值模式 - 计算表达式");
     resize(620, 420);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(10);
 
-    // 表达式输入框（支持手动编辑）
     expression_edit_ = new QLineEdit(initialFormula, this);
     expression_edit_->setFont(QFont("Consolas", 14));
     expression_edit_->setMinimumHeight(50);
     mainLayout->addWidget(new QLabel("计算式（{} 为占位符）："));
     mainLayout->addWidget(expression_edit_);
 
-    // 状态提示
     status_label_ = new QLabel(this);
     status_label_->setWordWrap(true);
     mainLayout->addWidget(status_label_);
 
-    // 操作按钮网格
     QGridLayout* grid = new QGridLayout();
     grid->setSpacing(6);
     QStringList tokens = { "{}", "+", "-", "*", "/", "(", ")" };
@@ -43,12 +43,10 @@ FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidge
     }
     mainLayout->addLayout(grid);
 
-    // 清除按钮
     QPushButton* clearBtn = new QPushButton("清除全部", this);
     connect(clearBtn, &QPushButton::clicked, this, &FormulaBuilderDialog::clear_formula);
     mainLayout->addWidget(clearBtn);
 
-    // 对话框按钮
     QHBoxLayout* btnLayout = new QHBoxLayout();
     QPushButton* okBtn = new QPushButton("确定", this);
     QPushButton* cancelBtn = new QPushButton("取消", this);
@@ -59,25 +57,30 @@ FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidge
     btnLayout->addWidget(cancelBtn);
     mainLayout->addLayout(btnLayout);
 
-    // 连接信号槽：表达式错误时显示警告
     connect(this, &FormulaBuilderDialog::expression_error, this, &FormulaBuilderDialog::show_error);
-
     connect(expression_edit_, &QLineEdit::textChanged, this, &FormulaBuilderDialog::update_status);
     update_status();
 }
 
 QString FormulaBuilderDialog::get_formula() const {
+    LOG_MODULE("FormulaBuilderDialog", "get_formula", LOG_DEBUG,
+        QString("返回表达式: %1").arg(expression_edit_->text()).toUtf8().constData());
     return expression_edit_->text();
 }
 
 bool FormulaBuilderDialog::expression_validity(const QString& expr, QString* error_msg) const {
-    auto setError = [error_msg](const QString& err) {
+    LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_DEBUG,
+        QString("开始验证表达式: %1").arg(expr).toUtf8().constData());
+
+    auto set_error = [error_msg](const QString& err) {
         if (error_msg) *error_msg = err;
         return false;
         };
 
-    if (expr.isEmpty())
-        return setError("表达式不能为空");
+    if (expr.isEmpty()) {
+        LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_WARN, "表达式为空");
+        return set_error("表达式不能为空");
+    }
 
     int i = 0;
     const int len = expr.length();
@@ -87,60 +90,84 @@ bool FormulaBuilderDialog::expression_validity(const QString& expr, QString* err
     while (i < len) {
         QChar ch = expr[i];
 
-        // 处理占位符 {} 或 {变量名}
         if (ch == '{') {
             int j = expr.indexOf('}', i + 1);
-            if (j == -1)
-                return setError("缺少闭合的 '}'");
-
-            // {} 或 {xxx} 整体视为一个操作数（里面可以是任意字符或空）
-            if (!expectOperand)
-                return setError("不允许连续的操作数");
-
+            if (j == -1) {
+                LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "缺少闭合的 '}'");
+                return set_error("缺少闭合的 '}'");
+            }
+            if (!expectOperand) {
+                LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "不允许连续的操作数");
+                return set_error("不允许连续的操作数");
+            }
             expectOperand = false;
             i = j + 1;
             continue;
         }
 
         if (ch == '(') {
-            if (!expectOperand) return setError("左括号位置不正确");
+            if (!expectOperand) {
+                LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "左括号位置不正确");
+                return set_error("左括号位置不正确");
+            }
             parenStack.push('(');
             expectOperand = true;
             ++i;
         }
         else if (ch == ')') {
-            if (parenStack.isEmpty()) return setError("多余的右括号");
-            if (expectOperand) return setError("右括号前必须有操作数");
+            if (parenStack.isEmpty()) {
+                LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "多余的右括号");
+                return set_error("多余的右括号");
+            }
+            if (expectOperand) {
+                LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "右括号前必须有操作数");
+                return set_error("右括号前必须有操作数");
+            }
             parenStack.pop();
             expectOperand = false;
             ++i;
         }
         else if (ch == '+' || ch == '-' || ch == '*' || ch == '/') {
-            if (expectOperand) return setError("运算符不能出现在开头或连续出现");
+            if (expectOperand) {
+                LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "运算符不能出现在开头或连续出现");
+                return set_error("运算符不能出现在开头或连续出现");
+            }
             expectOperand = true;
             ++i;
         }
         else if (ch.isSpace()) {
-            return setError("表达式中不允许空格");
+            LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "表达式中不允许空格");
+            return set_error("表达式中不允许空格");
         }
         else {
-            return setError(QString("非法字符 '%1'，只允许 + - * / ( ) { }").arg(ch));
+            LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR,
+                QString("非法字符 '%1'").arg(ch).toUtf8().constData());
+            return set_error(QString("非法字符 '%1'，只允许 + - * / ( ) { }").arg(ch));
         }
     }
 
-    if (!parenStack.isEmpty())
-        return setError("括号不匹配：缺少右括号");
-    if (expectOperand)
-        return setError("表达式不能以运算符结尾");
+    if (!parenStack.isEmpty()) {
+        LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "括号不匹配：缺少右括号");
+        return set_error("括号不匹配：缺少右括号");
+    }
+    if (expectOperand) {
+        LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, "表达式不能以运算符结尾");
+        return set_error("表达式不能以运算符结尾");
+    }
 
+    LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_DEBUG, "表达式验证通过");
     return true;
 }
 
 void FormulaBuilderDialog::clear_formula() {
+    LOG_MODULE("FormulaBuilderDialog", "clear_formula", LOG_DEBUG, "清除全部表达式");
     expression_edit_->clear();
 }
 
 void FormulaBuilderDialog::append_token(const QString& token) {
+    LOG_MODULE("FormulaBuilderDialog", "append_token", LOG_DEBUG,
+        QString("追加 token: %1").arg(token).toUtf8().constData());
+
     int pos = expression_edit_->cursorPosition();
     QString text = expression_edit_->text();
     expression_edit_->setText(text.left(pos) + token + text.mid(pos));
@@ -148,11 +175,16 @@ void FormulaBuilderDialog::append_token(const QString& token) {
 }
 
 void FormulaBuilderDialog::validate_and_accept() {
+    LOG_MODULE("FormulaBuilderDialog", "validate_and_accept", LOG_DEBUG, "用户点击确定，开始验证");
+
     QString error_msg;
     if (expression_validity(expression_edit_->text(), &error_msg)) {
+        LOG_MODULE("FormulaBuilderDialog", "validate_and_accept", LOG_INFO, "表达式合法，接受对话框");
         accept();
     }
     else {
+        LOG_MODULE("FormulaBuilderDialog", "validate_and_accept", LOG_WARN,
+            QString("表达式非法: %1").arg(error_msg).toUtf8().constData());
         emit expression_error(error_msg);
     }
 }
@@ -160,13 +192,18 @@ void FormulaBuilderDialog::validate_and_accept() {
 void FormulaBuilderDialog::update_status() {
     QString error;
     if (expression_validity(expression_edit_->text(), &error)) {
+        LOG_MODULE("FormulaBuilderDialog", "update_status", LOG_DEBUG, "状态更新：合法");
         status_label_->setText("<font color='green'>✓ 表达式合法</font>");
     }
     else {
+        LOG_MODULE("FormulaBuilderDialog", "update_status", LOG_DEBUG,
+            QString("状态更新：非法 - %1").arg(error).toUtf8().constData());
         status_label_->setText("<font color='red'>✗ " + error + "</font>");
     }
 }
 
 void FormulaBuilderDialog::show_error(const QString& msg) {
+    LOG_MODULE("FormulaBuilderDialog", "show_error", LOG_WARN,
+        QString("显示错误弹窗: %1").arg(msg).toUtf8().constData());
     QMessageBox::warning(this, "表达式错误", msg);
 }

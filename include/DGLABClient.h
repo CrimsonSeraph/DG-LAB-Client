@@ -99,6 +99,7 @@ private:
     QPushButton* add_rule_btn_;
     QPushButton* edit_rule_btn_;
     QPushButton* delete_rule_btn_;
+
     void setup_rules_ui();
     void init_rule_manager();
     void refresh_rule_file_list();
