@@ -321,7 +321,7 @@ void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "开始加载样式表");
     auto& config = AppConfig::instance();
     is_light_mode_ = config.get_value<bool>("app.ui.is_light_mode", true);
-    setup_widget_properties("mode", is_light_mode_ ? "light" : "night");
+    setup_widget_properties("mode", (is_light_mode_ ? "light" : "night"));
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" << is_light_mode_ ? "Light" : "Night");
     if (is_light_mode_) {
         load_light_stylesheet();
@@ -338,7 +338,7 @@ void DGLABClient::load_light_stylesheet() {
     QString light_stylesheet_path = ":/style/qcss/style_light.qcss";
     bool light_stylesheet_exists = QFile::exists(light_stylesheet_path);
     if (light_stylesheet_exists) {
-        LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "Light 样式表存在");
+        LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_DEBUG, "Light 样式表存在");
         QFile light_stylesheet_file(light_stylesheet_path);
         if (light_stylesheet_file.open(QFile::ReadOnly)) {
             QString light_style_sheet = QLatin1String(light_stylesheet_file.readAll());
@@ -378,7 +378,7 @@ void DGLABClient::load_night_stylesheet() {
 }
 
 void DGLABClient::change_theme() {
-    LOG_MODULE("DGLABClient", "change_theme", LOG_INFO, "切换主题为：" << is_light_mode_ ? "Night" : "Light");
+    LOG_MODULE("DGLABClient", "change_theme", LOG_INFO, "切换主题为：" << (is_light_mode_ ? "Night" : "Light"));
     is_light_mode_ = !is_light_mode_;
     auto& config = AppConfig::instance();
     config.set_value<bool>("app.ui.is_light_mode", is_light_mode_);
