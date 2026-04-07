@@ -20,14 +20,14 @@
 | `DefaultConfigs.h` | 默认配置提供类 `DefaultConfigs` 的声明，仅包含静态方法 `get_default_config`，根据配置名称（如 "main"、"system"、"user"）返回对应的默认 JSON 配置。 |
 | `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。 |
 | `DGLABClient_utils.hpp` | `DGLABClient` 的工具函数，目前包含 `contains_any_keyword` 辅助函数，用于在网卡名称中匹配黑/白名单关键字。 |
-| `ValueModeDelegate.h` | **值模式列自定义委托** （`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式  |
+| `FormulaBuilderDialog.h` | **值模式编辑对话框** （`FormulaBuilderDialog`），带按钮快速插入符号、实时括号匹配检查和合法性验证  |
 | `MultiConfigManager.h` | 多配置管理器 `MultiConfigManager`（单例）的声明。维护多个 `ConfigManager` 实例的注册表，支持按优先级（`__priority` 字段）排序配置，提供合并读取、优先级冲突检测、文件热重载等功能。 |
 | `MultiConfigManager_impl.hpp` | `MultiConfigManager` 的模板方法实现，包括按优先级或名称获取/设置配置值的模板函数，以及内部排序缓存的管理。 |
 | `PythonSubprocessManager.h` | Python 子进程管理器 `PythonSubprocessManager` 的声明。基于 `QProcess` 启动外部 Python 脚本，通过解析脚本输出的端口号建立 TCP 连接（`QTcpSocket`），实现 C++ 与 Python 的 JSON 通信。提供异步调用接口 `call`，支持超时和回调。 |
 | `Rule.h` | 规则类 `Rule` 的声明。单个规则包含名称和带占位符 `{}` 的模式字符串，提供占位符数量统计、评估（将整数数组填充到模式中）以及用于 UI 显示的格式化字符串方法。 |
 | `RuleManager.h` | 规则管理器 `RuleManager`（单例）的声明。负责扫描指定目录下的 JSON 规则文件（含特定关键字），加载/保存规则文件，管理当前规则集，提供规则的增删改查、评估（变参模板）以及显示字符串生成等接口。 |
 | `RuleManager_impl.hpp` | `RuleManager` 的模板方法实现，主要提供 `evaluate` 变参模板函数，将参数转换为 `std::vector<int>` 后调用对应规则的 `evaluate` 方法。 |
-| `FormulaBuilderDialog.h` | **值模式编辑对话框** （`FormulaBuilderDialog`），带按钮快速插入符号、实时括号匹配检查和合法性验证  |
+| `ValueModeDelegate.h` | **值模式列自定义委托** （`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式  |
 
 > **注**：`DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件虽不属头文件，但属于界面设计的一部分，应与头文件配套使用。
 

@@ -17,7 +17,7 @@
 | `DebugLog.cpp` | 日志系统核心实现（`DebugLog`），单例模式。支持模块级日志等级过滤、多个输出接收器（sink，如控制台、Qt UI）、线程安全的日志写入。提供便捷的宏 `LOG_MODULE` 用于统一格式的日志输出。 |
 | `DefaultConfigs.cpp` | 默认配置提供类（`DefaultConfigs`），静态方法 `get_default_config` 根据配置名称（"main"、"system"、"user"）返回对应的默认 JSON 配置，用于配置文件的初始化。 |
 | `DGLABClient.cpp` | Qt 主窗口类（`DGLABClient`）的实现，继承自 `QWidget`。负责界面初始化（加载样式表、图片、设置属性）、按钮事件绑定、日志显示控件（支持按日志等级着色）、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），以及通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接与断开操作（基于 `QThreadPool` 和信号槽机制）。 |
-| `FormulaBuilderDialog.cpp` | `FormulaBuilderDialog` 的实现，提供可视化公式构建器（支持 `{}`、`+-*/()`、括号检查） |
+| `FormulaBuilderDialog.cpp` | `FormulaBuilderDialog` 的实现，提供可视化公式构建器（支持 `{}`、`+-*/()`、表达式检查） |
 | `MultiConfigManager.cpp` | 多配置管理器（`MultiConfigManager`）的实现，维护多个 `ConfigManager` 实例的注册表。支持按优先级（`__priority` 字段）排序配置，合并读取时优先级高的配置覆盖优先级低的配置；提供文件热重载功能（自动检测文件修改时间并重新加载）。 |
 | `PythonSubprocessManager.cpp` | Python 子进程管理器的实现。基于 `QProcess` 启动外部 Python 脚本，通过解析脚本输出的端口号建立 TCP 连接（`QTcpSocket`），实现 C++ 与 Python 的 JSON 通信。提供异步调用接口（`call`），支持超时和回调，内部使用线程池（`QThreadPool`）避免阻塞主线程。 |
 | `Rule.cpp` | 规则类（`Rule`）的实现。单个规则包含名称和带占位符 `{}` 的模式字符串，支持解析占位符位置、统计占位符数量，并提供 `evaluate` 方法将整数数组填充到模式中生成最终字符串。 |

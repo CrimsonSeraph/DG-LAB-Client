@@ -19,10 +19,8 @@ bool ValueModeDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
         if (me->button() == Qt::LeftButton) {
             // 取出当前显示文本并还原为原始格式
             QString display = index.data(Qt::DisplayRole).toString();
-            QString raw = display;
-            raw.replace("{   }", "{}");
+            FormulaBuilderDialog dlg(display, qobject_cast<QWidget*>(parent()));
 
-            FormulaBuilderDialog dlg(raw, qobject_cast<QWidget*>(parent()));
             if (dlg.exec() == QDialog::Accepted) {
                 QString newRaw = dlg.get_formula();
                 QString newDisplay = newRaw;

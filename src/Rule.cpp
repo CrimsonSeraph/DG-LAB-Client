@@ -139,11 +139,17 @@ std::string Rule::get_display_string() const {
     std::string channel_str = channel_.empty() ? "无" : channel_;
     // 将 value_pattern_ 中的 {} 显示为 {   }
     std::string display_pattern = value_pattern_;
-    std::string placeholder = "{   }";
     size_t pos = 0;
     while ((pos = display_pattern.find("{}", pos)) != std::string::npos) {
-        display_pattern.replace(pos, 2, placeholder);
-        pos += placeholder.length();
+        // 检查是否是已经有内容
+        if (pos + 2 < display_pattern.size() && display_pattern[pos + 2] != '}') {
+            // 已经是 {变量名}，不替换
+            pos += 2;
+            continue;
+        }
+        display_pattern.replace(pos, 2, "{   }");
+        pos += 7;   // "{   }" 的长度
     }
+
     return name_ + " [" + channel_str + "] " + mode_str + ": " + display_pattern;
 }
