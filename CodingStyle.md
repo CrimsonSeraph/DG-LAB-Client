@@ -47,7 +47,8 @@ if (condition) {
 | 常量/宏 | 全大写 + 下划线 | `MAX_BUFFER_SIZE` |
 | Python 模块 | 双驼峰（PascalCase） | `FileUtils.py` |
 
-> **例外**：重载 Qt 的虚函数（如 `paintEvent`、`mousePressEvent`）时，保持 Qt 原有的命名风格，不必强制改为 snake_case。
+> **注意**：在 Python 模块中，文件名使用 PascalCase 以区分于变量和函数，但模块内的函数和变量仍使用 snake_case。
+  **例外**：重载 Qt 的虚函数（如 `paintEvent`、`mousePressEvent`）时，保持 Qt 原有的命名风格，不必强制改为 snake_case。
 
 ### 4. 导入顺序（C++ 与 Python）
 
@@ -90,7 +91,9 @@ import json
 import os
 ```
 
-### 5. 注释规范
+### 5. 头文件中的各项定义顺序
+
+### 6. 注释规范
 
 - **单行注释（独占一行）**：放在代码块前面，与代码块开头保持相同缩进级别。  
   `//` 后跟一个空格，再写注释内容。
@@ -111,8 +114,9 @@ bool is_ready = false;  // 是否准备就绪
 
 - **其他注释形式**（块注释、文档注释等）不作强制要求，可自由使用。
 
-### 6. 其他约定
+### 7. 其他约定
 
+- 头文件使用 `#pragma once` 进行防止重复包含。
 - 未在本规范中明确提及的内容（如 switch 语句格式、异常处理方式等），可保持个人习惯，后续逐步补充。
 
 ## 开发环境

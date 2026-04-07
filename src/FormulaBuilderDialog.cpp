@@ -73,7 +73,7 @@ void FormulaBuilderDialog::clear_formula() {
 }
 
 void FormulaBuilderDialog::validate_and_accept() {
-    if (parentheses_balanced(expression_edit_->text())) {
+    if (expression_validity(expression_edit_->text())) {
         accept();
     }
     else {
@@ -82,22 +82,22 @@ void FormulaBuilderDialog::validate_and_accept() {
 }
 
 void FormulaBuilderDialog::update_status() {
-    if (parentheses_balanced(expression_edit_->text())) {
-        status_label_->setText("<font color='green'>✓ 括号匹配合法</font>");
+    if (expression_validity(expression_edit_->text())) {
+        status_label_->setText("<font color='green'>✓ 表达式合法</font>");
     }
     else {
-        status_label_->setText("<font color='red'>✗ 括号不匹配</font>");
+        status_label_->setText("<font color='red'>✗ 表达式不合法</font>");
     }
 }
 
-bool FormulaBuilderDialog::parentheses_balanced(const QString& expr) const {
-    int count = 0;
+bool FormulaBuilderDialog::expression_validity(const QString& expr) const {
+    int parentheses_count = 0;
     for (const QChar& ch : expr) {
-        if (ch == '(') ++count;
-        else if (ch == ')') --count;
-        if (count < 0) return false;
+        if (ch == '(') ++parentheses_count;
+        else if (ch == ')') --parentheses_count;
+        if (parentheses_count < 0) return false;
     }
-    return count == 0;
+    return parentheses_count == 0;
 }
 
 QString FormulaBuilderDialog::get_formula() const {
