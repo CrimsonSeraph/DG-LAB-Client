@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ConfigManager.h"
 #include "ConfigStructs.h"
 #include "DebugLog.h"
 
@@ -12,9 +13,6 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-
-// 前置声明
-class ConfigManager;
 
 // ============================================
 // ConfigValue - 简单类型配置包装器
@@ -98,7 +96,7 @@ public:
     const T& get() const {
         if (!cached_value_.has_value()) {
             if (config_) {
-                cached_value_ = config_->get<T>(key_path_, default_value_);
+                cached_value_ = config_->template get<T>(key_path_, default_value_);
                 LOG_MODULE("ConfigValue", "get", LOG_DEBUG,
                     "从配置管理器读取 [" << key_path_ << "] = " << cached_value_.value());
             }
@@ -263,7 +261,7 @@ public:
     const T& get() const {
         if (!cached_value_.has_value()) {
             if (config_) {
-                auto json_obj = config_->get<nlohmann::json>(key_path_);
+                auto json_obj = config_->template get<nlohmann::json>(key_path_);
                 if (json_obj.has_value()) {
                     T obj = {};
                     T::from_json(json_obj.value(), obj);
