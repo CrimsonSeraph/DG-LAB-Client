@@ -234,7 +234,7 @@ void DGLABClient::create_tray_icon() {
         QAction* show_action = new QAction("显示", this);
         QAction* quit_action = new QAction("退出", this);
 
-        connect(show_action, &QAction::triggered, this, [=]() {
+        connect(show_action, &QAction::triggered, this, [this]() {
             this->showNormal();
             this->activateWindow();
             });
@@ -243,7 +243,7 @@ void DGLABClient::create_tray_icon() {
         tray_menu_->addSeparator();
         tray_menu_->addAction(quit_action);
         tray_icon_->setContextMenu(tray_menu_);
-        connect(tray_icon_, &QSystemTrayIcon::activated, this, [=](QSystemTrayIcon::ActivationReason reason) {
+        connect(tray_icon_, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
             if (reason == QSystemTrayIcon::DoubleClick) {
                 this->showNormal();
                 this->activateWindow();
@@ -420,7 +420,7 @@ void DGLABClient::setup_port_input_validation() {
     QLocale locale = QLocale::c();
     validator->setLocale(locale);
     ui_.port_input->setValidator(validator);
-    connect(ui_.port_input, &QLineEdit::textChanged, this, [=](const QString& text) {
+    connect(ui_.port_input, &QLineEdit::textChanged, this, [this](const QString& text) {
         if (text.length() > 100) {
             ui_.port_input->setText(text.left(100));
         }
