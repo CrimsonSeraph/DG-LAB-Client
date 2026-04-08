@@ -37,18 +37,18 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
                 // 类型不匹配：期望 T 但实际 JSON 类型不同
                 LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_WARN,
                     "配置 [" << key_path << "] 类型不匹配（优先级 "
-                    << config->get<int>("__priority").value_or(0) << "）: " << e.what());
+                    << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
             }
             catch (const nlohmann::json::out_of_range& e) {
                 // 键不存在
                 LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_DEBUG,
                     "配置 [" << key_path << "] 不存在于优先级 "
-                    << config->get<int>("__priority").value_or(0));
+                    << config->template get<int>("__priority").value_or(0));
             }
             catch (const std::exception& e) {
                 LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_ERROR,
                     "配置 [" << key_path << "] 读取失败（优先级 "
-                    << config->get<int>("__priority").value_or(0) << "）: " << e.what());
+                    << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
             }
             };
 
