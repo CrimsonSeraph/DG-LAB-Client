@@ -5,8 +5,7 @@ on:
     workflows: ["Build and Package on Tag"]
     types:
       - completed
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,7 +14,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'refs/tags/') }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') }}
     steps:
       # 检出代码
       - name: Checkout code
@@ -38,15 +37,17 @@ jobs:
           find all_artifacts -type f -exec cp {} release_assets/ \;
           ls -la release_assets/
 
-      # 提取 ChangeLog.md 中的更新日志
-      - name: Extract release notes
+      # 提取 ChangeLog.md 中的更新日志，并输出 tag_name
+      - name: Extract release notes and tag
         id: extract_notes
         run: |
-          # 从 workflow_run 的 head_branch 中提取标签名
-          TAG_NAME=$(basename ${{ github.event.workflow_run.head_branch }})
+          # 从 workflow_run 的 head_branch 中提取标签名（如 v1.0.0）
+          TAG_NAME="${{ github.event.workflow_run.head_branch }}"
           VERSION=${TAG_NAME#v}
           echo "Tag: $TAG_NAME, Version: $VERSION"
+          echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
+          # 从 ChangeLog.md 中提取对应版本的更新日志
           awk -v ver="## \\[$VERSION\\]" '
             $0 ~ ver {flag=1; next}
             /^## \[/ && flag {flag=0}
@@ -67,7 +68,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag_name.outputs.tag }}
+          tag_name: ${{ steps.extract_notes.outputs.tag_name }}
           body: ${{ steps.extract_notes.outputs.release_notes }}
           files: release_assets/*
           draft: false
