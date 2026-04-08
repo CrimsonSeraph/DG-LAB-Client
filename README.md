@@ -399,65 +399,73 @@ npm run dev
 
 ```
 DG-LAB-Client/
-├── CMakeLists.txt              # 主构建文件
-├── qt.cmake                    # Qt 相关设置
-├── include/                    # 公共头文件
-│   ├── AppConfig.h
-│   ├── AppConfig_impl.hpp
-│   ├── ComboBoxDelegate.h
-│   ├── ConfigManager.h
-│   ├── ConfigStructs.h
-│   ├── Console.h
-│   ├── DebugLog.h
-│   ├── DebugLog_utils.hpp
-│   ├── DefaultConfigs.h
-│   ├── DGLABClient.h
-│   ├── DGLABClient_utils.hpp
-│   ├── FormulaBuilderDialog.h
-│   ├── MultiConfigManager.h
-│   ├── MultiConfigManager_impl.hpp
-│   ├── PythonSubprocessManager.h
-│   ├── Rule.h
-│   ├── RuleManager.h
-│   ├── RuleManager_impl.hpp
-│   └── ValueModeDelegate.h
-├── src/                        # 源文件
-│   ├── AppConfig.cpp
-│   ├── ComboBoxDelegate.cpp
-│   ├── ConfigManager.cpp
-│   ├── ConfigStructs.cpp
-│   ├── Console.cpp
-│   ├── DebugLog.cpp
-│   ├── DefaultConfigs.cpp
-│   ├── DGLABClient.cpp
-│   ├── FormulaBuilderDialog.cpp
-│   ├── MultiConfigManager.cpp
-│   ├── PythonSubprocessManager.cpp
-│   ├── Rule.cpp
-│   ├── RuleManager.cpp
-│   └── ValueModeDelegate.cpp
-├── python/                     # Python 脚本
-│   ├── Bridge.py
-│   └── WebSocketCore.py
-├── config/                     # 默认配置文件
-│   ├── main.json
-│   ├── system.json
-│   ├── user.json
-│   └── rules/                  # 规则文件目录（自动创建）
-│       └── rules.json
-├── assets/                     # 资源文件
+├── .github/                         # GitHub 配置目录
+│   └── workflows/                   # CI/CD 工作流
+│       ├── build.yml                # 构建与测试工作流
+│       └── release.yml              # 发布工作流
+├── assets/                          # 静态资源（图片等）
 │   └── normal_image/
-│       └── main_image.png
-├── qcss/                       # Qt 样式表
-│   └── style_light.qcss
-│   └── style_night.qcss
-├── DGLABClient.qrc              # Qt 资源文件
-├── LICENSE.txt                  # 许可证文件
-├── README.md                    # 项目说明文档
-├── .editorconfig                # 编辑器配置
-├── .gitattributes               # Git 属性配置
-├── .gitignore                   # Git 忽略规则
-└── .github/workflows/build.yml  # GitHub Actions 工作流
+│       └── main_image.png           # 主界面图片
+├── config/                          # 默认配置文件目录
+│   ├── main.json                    # 主配置
+│   ├── system.json                  # 系统配置
+│   ├── user.json                    # 用户配置
+│   └── rules/                       # 规则文件目录
+│       └── rules.json               # 规则定义
+├── include/                         # 公共头文件（含 UI 文件）
+│   ├── AppConfig.h                  # 应用配置接口
+│   ├── AppConfig_impl.hpp           # 配置实现模板
+│   ├── ComboBoxDelegate.h           # 下拉框委托
+│   ├── ConfigManager.h              # 配置管理器
+│   ├── ConfigStructs.h              # 配置数据结构
+│   ├── Console.h                    # 控制台输出
+│   ├── DebugLog.h                   # 调试日志接口
+│   ├── DebugLog_utils.hpp           # 日志工具函数
+│   ├── DefaultConfigs.h             # 默认配置生成
+│   ├── DGLABClient.h                # 主窗口类定义
+│   ├── DGLABClient.ui               # Qt Designer 界面文件
+│   ├── DGLABClient_utils.hpp        # 主窗口工具函数
+│   ├── FormulaBuilderDialog.h       # 公式构建对话框
+│   ├── MultiConfigManager.h         # 多配置管理器
+│   ├── MultiConfigManager_impl.hpp  # 多配置管理实现模板
+│   ├── PythonSubprocessManager.h    # Python 子进程管理
+│   ├── Rule.h                       # 规则实体
+│   ├── RuleManager.h                # 规则管理器
+│   ├── RuleManager_impl.hpp         # 规则管理实现模板
+│   └── ValueModeDelegate.h          # 值模式委托
+├── python/                          # Python 后端脚本
+│   ├── Bridge.py                    # 桥接模块（与 C++ 交互）
+│   └── WebSocketCore.py             # WebSocket 核心逻辑
+├── qcss/                            # Qt 样式表
+│   ├── style_light.qcss             # 明亮模式样式
+│   └── style_night.qcss             # 暗夜模式样式
+├── src/                             # C++ 源文件
+│   ├── AppConfig.cpp                # 应用配置实现
+│   ├── ComboBoxDelegate.cpp         # 下拉框委托实现
+│   ├── ConfigManager.cpp            # 配置管理器实现
+│   ├── ConfigStructs.cpp            # 配置数据结构实现
+│   ├── Console.cpp                  # 控制台输出实现
+│   ├── DebugLog.cpp                 # 调试日志实现
+│   ├── DefaultConfigs.cpp           # 默认配置生成实现
+│   ├── DGLABClient.cpp              # 主窗口实现
+│   ├── FormulaBuilderDialog.cpp     # 公式构建对话框实现
+│   ├── MultiConfigManager.cpp       # 多配置管理器实现
+│   ├── PythonSubprocessManager.cpp  # Python 子进程管理实现
+│   ├── Rule.cpp                     # 规则实体实现
+│   ├── RuleManager.cpp              # 规则管理器实现
+│   └── ValueModeDelegate.cpp        # 值模式委托实现
+├── .editorconfig                    # 编辑器代码风格配置
+├── .gitattributes                   # Git 属性配置（换行符等）
+├── .gitignore                       # Git 忽略文件规则
+├── CMakeLists.txt                   # CMake 主构建脚本
+├── CMakePresets.json                # CMake 预设配置
+├── ChangeLog.md                     # 更新日志
+├── CodingStyle.md                   # 代码规范文档
+├── DGLABClient.qrc                  # Qt 资源收集文件
+├── LICENSE.txt                      # MIT 许可证
+├── README.md                        # 项目说明文档
+├── main.cpp                         # 程序入口
+└── qt.cmake                         # Qt 相关 CMake 配置片段
 ```
 
 </details>
