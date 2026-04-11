@@ -812,9 +812,10 @@ void DGLABClient::on_add_rule() {
     int mode = modes.indexOf(modeStr);
 
     // 值模式输入
-    QString valuePattern = QInputDialog::getText(this, "添加规则", "值表达式（使用 {} 作为占位符）:",
-        QLineEdit::Normal, "", &ok);
-    if (!ok || valuePattern.isEmpty()) return;
+    FormulaBuilderDialog dlg("", this);
+    if (dlg.exec() != QDialog::Accepted) return;
+    QString valuePattern = dlg.get_formula();
+    if (valuePattern.isEmpty()) return;
 
     auto& rm = RuleManager::instance();
     auto currentFile = rm.get_current_rule_file();
@@ -869,9 +870,10 @@ void DGLABClient::on_edit_rule() {
     int mode = modes.indexOf(modeStr);
 
     // 编辑值模式
-    QString newPattern = QInputDialog::getText(this, "编辑规则", "值表达式（使用 {} 作为占位符）:",
-        QLineEdit::Normal, oldPattern, &ok);
-    if (!ok) return;
+    FormulaBuilderDialog dlg(oldPattern, this);
+    if (dlg.exec() != QDialog::Accepted) return;
+    QString newPattern = dlg.get_formula();
+    if (newPattern.isEmpty()) return;
 
     std::string currentFile = rm.get_current_rule_file();
     try {
