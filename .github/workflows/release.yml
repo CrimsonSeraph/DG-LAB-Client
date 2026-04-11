@@ -41,30 +41,33 @@ jobs:
       - name: Extract release notes and tag
         id: extract_notes
         run: |
-            TAG_NAME="${{ github.event.workflow_run.head_branch }}"
-            VERSION=${TAG_NAME#v}
-            echo "Tag: $TAG_NAME, Version: $VERSION"
-            echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          TAG_NAME="${{ github.event.workflow_run.head_branch }}"
+          echo "Tag: $TAG_NAME"
 
-            awk '/版本号格式遵循/{flag=1} flag; /^---/{if(flag) exit}' ChangeLog.md > /tmp/header.md
+          awk -v tag="$TAG_NAME" '
+            /版本号格式遵循/ { start=1 }
+            start { lines[++n] = $0 }
+            $0 ~ "\\*\\*变动\\*\\*：\\[" tag "\\]:" {
+              if (start) {
+                stop=1
+                exit
+              }
+            }
+            END {
+              if (stop) {
+                for (i=1; i<=n; i++) print lines[i]
+              } else {
+              print "未找到 " tag " 对应的发布说明。"
+              }
+            }
+          ' ChangeLog.md > /tmp/release_notes.md
 
-            awk -v ver="## \\[$VERSION\\]" '
-              $0 ~ ver {flag=1; next}
-              /^## \[/ && flag {flag=0}
-              flag {print}
-            ' ChangeLog.md > /tmp/body.md
-
-            cat /tmp/header.md /tmp/body.md > /tmp/release_notes.md
-
-            if [ ! -s /tmp/release_notes.md ]; then
-              echo "No release notes found for $VERSION" > /tmp/release_notes.md
-            fi
-
-            {
-              echo 'release_notes<<EOF'
-              cat /tmp/release_notes.md
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
+          {
+            echo 'release_notes<<EOF'
+            cat /tmp/release_notes.md
+            echo 'EOF'
+            echo "tag_name=$TAG_NAME"
+          } >> "$GITHUB_OUTPUT"
 
       # 创建或更新 GitHub Release
       - name: Create Release
