@@ -745,9 +745,21 @@ void DGLABClient::on_rule_file_changed(int index) {
 
 void DGLABClient::on_create_rule_file() {
     bool ok;
-    QString name = QInputDialog::getText(this, "新建规则文件", "请输入文件名（不含.json）:", QLineEdit::Normal, "", &ok);
+    auto& config = AppConfig::instance();
+    QString keyword = QString::fromStdString(config.get_value<std::string>("rule.key", "rule"));
+    QString name = QInputDialog::getText(this, "新建规则文件",
+        "请输入文件名（不含.json，但需要包含关键字：" + keyword + "，否则会自动添加）:",
+        QLineEdit::Normal, "", &ok);
     if (!ok || name.isEmpty()) return;
-    if (!name.endsWith(".json")) name += ".json";
+    if (name.endsWith(".json", Qt::CaseInsensitive)) {
+        name = name.left(name.length() - 5);
+    }
+    if (!name.contains(keyword, Qt::CaseSensitive)) {
+        name = name + "_" + keyword;
+    }
+    if (!name.endsWith(".json", Qt::CaseInsensitive)) {
+        name += ".json";
+    }
     auto& rm = RuleManager::instance();
     auto existing = rm.get_available_rule_files();
     if (std::find(existing.begin(), existing.end(), name.toStdString()) != existing.end()) {
@@ -759,6 +771,7 @@ void DGLABClient::on_create_rule_file() {
         refresh_rule_file_list();
         int idx = rule_file_combo_->findText(name);
         if (idx >= 0) rule_file_combo_->setCurrentIndex(idx);
+        QMessageBox::information(this, "提示", "文件创建成功: " + name);
     }
     else {
         QMessageBox::warning(this, "错误", "创建文件失败");
