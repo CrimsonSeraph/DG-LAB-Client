@@ -29,6 +29,30 @@
 
 ---
 
+## [v0.2.1] - 2026-04-12
+
+### Added
+- 无
+
+### Changed
+- 创建规则添加反馈信息。
+- 减少值模式编辑下过多的调试信息输出。
+
+### Deprecated
+- 无
+
+### Removed
+- 无
+
+### Fixed
+- 统一规则编辑窗口（`添加规则` 和 `编辑规则` 触发的值模式编辑统一使用新编辑窗口）。
+- 创建规则文件时检查是否包含关键字，未包含则强制包含关键字。
+
+### Security
+- 无
+
+---
+
 ## [v0.2.0] - 2026-04-08
 
 ### Added
@@ -90,7 +114,7 @@
 
 ## 其他
 
-**变动**：[v0.2.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.1.0...v0.2.0
+**变动**：[v0.2.1]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.2.0...v0.2.1
 
 **变更分类**：
   - `Added` – 新增功能
