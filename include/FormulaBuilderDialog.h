@@ -15,7 +15,7 @@ private:
     QLineEdit* expression_edit_ = nullptr;
     QLabel* status_label_ = nullptr;
 
-    bool expression_validity(const QString& expr, QString* error_msg = nullptr) const;
+    bool expression_validity(const QString& expr, QString* error_msg = nullptr, bool suppress_log = false) const;
 
 signals:
     void expression_error(const QString& e) const;
