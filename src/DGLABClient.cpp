@@ -450,11 +450,11 @@ void DGLABClient::init_python_manager() {
     auto& config = AppConfig::instance();
     QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
     std::string bridge_module = config.get_value<std::string>("python.bridge_path", "./python/Bridge.py");
-    QString script_path = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径："
         << pythonPath.toStdString() << "（注：若解释器路径直接为<Python>则使用系统默认 Python 路径）");
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径：" << bridge_module);
     if (bridge_module.starts_with(".")) bridge_module = bridge_module.substr(1);
+    QString script_path = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
     py_manager_->start_process(pythonPath, script_path);
 }
 
