@@ -454,6 +454,7 @@ void DGLABClient::init_python_manager() {
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径："
         << pythonPath.toStdString() << "（注：若解释器路径直接为<Python>则使用系统默认 Python 路径）");
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径：" << bridge_module);
+    if (bridge_module.starts_with(".")) bridge_module = bridge_module.substr(1);
     py_manager_->start_process(pythonPath, script_path);
 }
 
