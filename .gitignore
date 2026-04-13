@@ -373,3 +373,5 @@ DG-LAB-Client.vcxproj.user
 json.hpp
 build/
 venv/
+.vscode/
+CLAUDE.md

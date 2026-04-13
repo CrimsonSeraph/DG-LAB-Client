@@ -1,5 +1,4 @@
 {
-    "__priority": 3,
     "rules": {
         "strength_up_A": {
             "channel": "A",

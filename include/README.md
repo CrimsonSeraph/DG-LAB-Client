@@ -24,9 +24,9 @@
 | `MultiConfigManager.h` | 多配置管理器 `MultiConfigManager`（单例）的声明。维护多个 `ConfigManager` 实例的注册表，支持按优先级（`__priority` 字段）排序配置，提供合并读取、优先级冲突检测、文件热重载等功能。 |
 | `MultiConfigManager_impl.hpp` | `MultiConfigManager` 的模板方法实现，包括按优先级或名称获取/设置配置值的模板函数，以及内部排序缓存的管理。 |
 | `PythonSubprocessManager.h` | Python 子进程管理器 `PythonSubprocessManager` 的声明。基于 `QProcess` 启动外部 Python 脚本，通过解析脚本输出的端口号建立 TCP 连接（`QTcpSocket`），实现 C++ 与 Python 的 JSON 通信。提供异步调用接口 `call`，支持超时和回调。 |
-| `Rule.h` | 规则类 `Rule` 的声明。单个规则包含名称和带占位符 `{}` 的模式字符串，提供占位符数量统计、评估（将整数数组填充到模式中）以及用于 UI 显示的格式化字符串方法。 |
-| `RuleManager.h` | 规则管理器 `RuleManager`（单例）的声明。负责扫描指定目录下的 JSON 规则文件（含特定关键字），加载/保存规则文件，管理当前规则集，提供规则的增删改查、评估（变参模板）以及显示字符串生成等接口。 |
-| `RuleManager_impl.hpp` | `RuleManager` 的模板方法实现，主要提供 `evaluate` 变参模板函数，将参数转换为 `std::vector<int>` 后调用对应规则的 `evaluate` 方法。 |
+| `Rule.h` | 规则类 `Rule` 的声明。单个规则包含名称、通道（A/B）、模式（0-4）和带占位符 `{}` 的值计算式。提供占位符数量统计、通道规范化、值计算（支持四则运算和括号表达式）、生成命令以及用于 UI 显示的格式化字符串方法。 |
+| `RuleManager.h` | 规则管理器 `RuleManager`（单例）的声明。负责扫描指定目录下的 JSON 规则文件（含特定关键字），加载/保存规则文件，管理当前规则集，提供规则的增删改查、命令生成（变参模板）以及显示字符串生成等接口。 |
+| `RuleManager_impl.hpp` | `RuleManager` 的模板方法实现，主要提供 `evaluate_command` 变参模板函数，将参数转换为 `std::vector<int>` 后调用对应规则的生成方法。 |
 | `ValueModeDelegate.h` | **值模式列自定义委托** （`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式  |
 
 > **注**：`DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件虽不属头文件，但属于界面设计的一部分，应与头文件配套使用。
@@ -111,13 +111,14 @@ pyMgr->call(cmd, [](const QJsonObject& resp){
 RuleManager::instance().init();
 // 加载规则文件
 RuleManager::instance().load_rule_file("rules.json");
-// 评估规则
-std::string result = RuleManager::instance().evaluate("greeting", 10, 20);
-// result 中 {} 将被替换为 10 和 20
+// 生成命令（参数将填充到 value_pattern 中计算）
+QJsonObject cmd = RuleManager::instance().evaluate_command("strength_up", 2);
+// cmd 包含: {"cmd":"send_strength", "channel":1, "mode":1, "value":2}
 ```
 
 ### 注意事项
 - 所有 `*_impl.hpp` 文件通常被对应的 `.h` 文件在末尾包含，无需手动引入。
 - 多线程环境下，确保对 `AppConfig` 的访问通过其提供的线程安全方法进行（内部已加锁）。
 - Python 子进程的 `Bridge.py` 必须实现 JSON 行协议（每条响应以换行符结尾），并正确处理 `req_id`。
-- 规则文件中的模式字符串必须包含正确数量的 `{}`，否则评估时会抛出 `std::invalid_argument`。
+- 规则文件中的 value_pattern 可以包含 `{}` 占位符，调用 `evaluate_command` 时传入的参数数量必须与占位符数量匹配。
+- 规则支持通道（A/B）和模式（0-4）配置，模式含义：0=递减, 1=递增, 2=设为, 3=连减, 4=连增。

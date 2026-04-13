@@ -20,6 +20,10 @@
 
 namespace fs = std::filesystem;
 
+// ============================================
+// 公共方法实现
+// ============================================
+
 void MultiConfigManager::register_config(const std::string& name,
     const std::string& file_path,
     bool auto_reload) {
@@ -74,6 +78,41 @@ std::shared_ptr<ConfigManager> MultiConfigManager::get_config(const std::string&
 
     LOG_MODULE("MultiConfigManager", "get_config", LOG_DEBUG, "获取配置成功: " << name);
     return it->second.manager;
+}
+
+bool MultiConfigManager::has_priority_conflict_unsafe(std::string& error_msg) const {
+    LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_DEBUG, "检查优先级冲突（无锁调用）");
+    std::set<int> priorities;
+    std::map<int, std::string> priority_to_name;
+
+    for (const auto& [name, info] : config_registry_) {
+        if (info.manager) {
+            int priority = info.priority;
+
+            // 检查重复
+            if (priorities.find(priority) != priorities.end()) {
+                std::stringstream ss;
+                ss << "优先级冲突: 配置 '" << name
+                    << "' 和 '" << priority_to_name[priority]
+                    << "' 有相同的优先级 " << priority;
+                error_msg = ss.str();
+                LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_WARN, "检测到优先级冲突: " << error_msg);
+                return true;
+            }
+
+            priorities.insert(priority);
+            priority_to_name[priority] = name;
+        }
+    }
+
+    LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_DEBUG, "未检测到优先级冲突");
+    return false;
+}
+
+bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
+    LOG_MODULE("MultiConfigManager", "has_priority_conflict", LOG_DEBUG, "检查优先级冲突（加锁）");
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+    return has_priority_conflict_unsafe(error_msg);
 }
 
 bool MultiConfigManager::load_all() {
@@ -187,41 +226,6 @@ std::vector<std::string> MultiConfigManager::get_config_names() const {
     return names;
 }
 
-bool MultiConfigManager::has_priority_conflict_unsafe(std::string& error_msg) const {
-    LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_DEBUG, "检查优先级冲突（无锁调用）");
-    std::set<int> priorities;
-    std::map<int, std::string> priority_to_name;
-
-    for (const auto& [name, info] : config_registry_) {
-        if (info.manager) {
-            int priority = info.priority;
-
-            // 检查重复
-            if (priorities.find(priority) != priorities.end()) {
-                std::stringstream ss;
-                ss << "优先级冲突: 配置 '" << name
-                    << "' 和 '" << priority_to_name[priority]
-                    << "' 有相同的优先级 " << priority;
-                error_msg = ss.str();
-                LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_WARN, "检测到优先级冲突: " << error_msg);
-                return true;
-            }
-
-            priorities.insert(priority);
-            priority_to_name[priority] = name;
-        }
-    }
-
-    LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_DEBUG, "未检测到优先级冲突");
-    return false;
-}
-
-bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
-    LOG_MODULE("MultiConfigManager", "has_priority_conflict", LOG_DEBUG, "检查优先级冲突（加锁）");
-    std::lock_guard<std::mutex> lock(registry_mutex_);
-    return has_priority_conflict_unsafe(error_msg);
-}
-
 std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs_unsafe() const {
     LOG_MODULE("MultiConfigManager", "get_sorted_configs_unsafe", LOG_DEBUG,
         (cache_dirty_ ? "缓存失效，重新排序" : "使用缓存排序结果"));
@@ -233,7 +237,6 @@ std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_confi
     for (const auto& [name, info] : config_registry_) {
         if (info.manager) {
             configs_with_priority.emplace_back(info.priority, info.manager);
-            LOG_MODULE("MultiConfigManager", "get_sorted_configs_unsafe", LOG_DEBUG, "配置: " << name << " 优先级=" << info.priority);
         }
     }
 
@@ -259,6 +262,10 @@ std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_confi
 MultiConfigManager::~MultiConfigManager() {
     save_all();
 }
+
+// ============================================
+// 私有方法实现
+// ============================================
 
 void MultiConfigManager::start_file_watcher() {
     LOG_MODULE("MultiConfigManager", "start_file_watcher", LOG_INFO, "启动文件监控线程");
@@ -290,9 +297,17 @@ void MultiConfigManager::stop_file_watcher() {
 
 void MultiConfigManager::file_watcher_loop() {
     LOG_MODULE("MultiConfigManager", "file_watcher_loop", LOG_INFO, "文件监控循环开始");
+    static int loop_count = 0;
+    const int LOG_INTERVAL = 30; // 每30次循环记录一次（约60秒）
+
     while (running_) {
         std::this_thread::sleep_for(std::chrono::seconds(2));
-        LOG_MODULE("MultiConfigManager", "file_watcher_loop", LOG_DEBUG, "文件监控循环唤醒，检查文件变化");
+        loop_count++;
+
+        // 仅在指定间隔记录调试日志
+        if (loop_count % LOG_INTERVAL == 0) {
+            LOG_MODULE("MultiConfigManager", "file_watcher_loop", LOG_DEBUG, "文件监控循环检查（已运行 " << (loop_count * 2) << " 秒）");
+        }
 
         std::lock_guard<std::mutex> lock(registry_mutex_);
 
@@ -333,18 +348,15 @@ void MultiConfigManager::file_watcher_loop() {
 }
 
 std::time_t MultiConfigManager::get_file_mod_time(const std::string& path) const {
-    LOG_MODULE("MultiConfigManager", "get_file_mod_time", LOG_DEBUG, "获取文件修改时间: " << path);
     try {
 #ifdef _WIN32
         struct _stat64 file_stat;
         if (_stat64(path.c_str(), &file_stat) == 0) {
-            LOG_MODULE("MultiConfigManager", "get_file_mod_time", LOG_DEBUG, "文件修改时间: " << file_stat.st_mtime);
             return file_stat.st_mtime;
         }
 #else
         struct stat file_stat;
         if (stat(path.c_str(), &file_stat) == 0) {
-            LOG_MODULE("MultiConfigManager", "get_file_mod_time", LOG_DEBUG, "文件修改时间: " << file_stat.st_mtime);
             return file_stat.st_mtime;
         }
 #endif

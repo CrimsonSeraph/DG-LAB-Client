@@ -20,8 +20,8 @@
 | `FormulaBuilderDialog.cpp` | `FormulaBuilderDialog` 的实现，提供可视化公式构建器（支持 `{}`、`+-*/()`、表达式检查） |
 | `MultiConfigManager.cpp` | 多配置管理器（`MultiConfigManager`）的实现，维护多个 `ConfigManager` 实例的注册表。支持按优先级（`__priority` 字段）排序配置，合并读取时优先级高的配置覆盖优先级低的配置；提供文件热重载功能（自动检测文件修改时间并重新加载）。 |
 | `PythonSubprocessManager.cpp` | Python 子进程管理器的实现。基于 `QProcess` 启动外部 Python 脚本，通过解析脚本输出的端口号建立 TCP 连接（`QTcpSocket`），实现 C++ 与 Python 的 JSON 通信。提供异步调用接口（`call`），支持超时和回调，内部使用线程池（`QThreadPool`）避免阻塞主线程。 |
-| `Rule.cpp` | 规则类（`Rule`）的实现。单个规则包含名称和带占位符 `{}` 的模式字符串，支持解析占位符位置、统计占位符数量，并提供 `generate_command` 方法将整数数组依次填充到表达式中并计算返回格式化命令。 |
-| `RuleManager.cpp` | 规则管理器（`RuleManager`）的实现，单例模式。负责扫描指定目录下的 JSON 规则文件（含特定关键字 `rule`），加载/保存规则文件，管理当前规则集，提供规则的增删改查以及显示字符串生成等接口。规则文件中的 `rules` 对象被解析为 `Rule` 对象集合。 |
+| `Rule.cpp` | 规则类（`Rule`）的实现。单个规则包含名称、通道（A/B）、模式（0-4）和带占位符 `{}` 的值计算式。支持解析占位符位置、统计占位符数量、通道规范化、值计算（支持四则运算和括号表达式）、生成命令以及用于 UI 显示的格式化字符串方法。 |
+| `RuleManager.cpp` | 规则管理器（`RuleManager`）的实现，单例模式。负责扫描指定目录下的 JSON 规则文件（含特定关键字 `rule`），加载/保存规则文件，管理当前规则集，提供规则的增删改查、命令生成（变参模板）以及显示字符串生成等接口。规则文件中的 `rules` 对象被解析为 `Rule` 对象集合。 |
 | `ValueModeDelegate.cpp` | `ValueModeDelegate` 的实现，负责“值模式”列的双击弹出公式构建对话框 |
 
 ---

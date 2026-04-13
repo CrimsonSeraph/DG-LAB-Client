@@ -25,8 +25,6 @@
 #include <QIcon>
 #include <QInputDialog>
 #include <QIntValidator>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QLabel>
 #include <QLayout>
 #include <QLineEdit>
@@ -44,7 +42,6 @@
 #include <QTableWidgetItem>
 #include <QTextCharFormat>
 #include <QTextCursor>
-#include <QThreadPool>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -95,30 +92,6 @@ void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
     if (log_highlighter_) {
         log_highlighter_->rehighlight();
     }
-}
-
-template<typename Callback>
-void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callback&& callback) {
-    LOG_MODULE("DGLABClient", "async_call", LOG_DEBUG, "在后台线程执行异步调用");
-    QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
-        try {
-            LOG_MODULE("DGLABClient", "async_call", LOG_INFO, "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
-            py_manager_->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
-                bool ok = resp["status"].toString() == "ok";
-                QString msg = resp["message"].toString();
-                callback(ok, msg);
-                }, timeout);
-        }
-        catch (const std::runtime_error& e) {
-            emit close_finished(false, QString("运行时错误: ") + e.what());
-        }
-        catch (const std::exception& e) {
-            emit close_finished(false, QString("异常: ") + e.what());
-        }
-        catch (...) {
-            emit close_finished(false, "未知异常");
-        }
-        });
 }
 
 void DGLABClient::setup_debug_log() {

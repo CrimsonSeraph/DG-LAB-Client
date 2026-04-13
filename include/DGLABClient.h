@@ -123,3 +123,5 @@ private slots:
     void on_edit_rule();
     void on_delete_rule();
 };
+
+#include "DGLABClient_template.hpp"

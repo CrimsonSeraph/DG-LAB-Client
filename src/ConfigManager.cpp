@@ -7,11 +7,18 @@
 #include <fstream>
 #include <iostream>
 
+// ============================================
+// 构造函数和析构函数
+// ============================================
+
 ConfigManager::ConfigManager(const std::string& path)
     : config_path_(path) {
     DebugLog::instance().set_log_level("ConfigManager", LOG_DEBUG);
-    LOG_MODULE("ConfigManager", "ConfigManager", LOG_DEBUG, "创建 ConfigManager 对象，配置文件路径: " << path);
 }
+
+// ============================================
+// 加载和保存
+// ============================================
 
 bool ConfigManager::load() {
     LOG_MODULE("ConfigManager", "load", LOG_INFO, "开始加载配置文件: " << config_path_);
@@ -153,6 +160,10 @@ bool ConfigManager::save() const {
     }
 }
 
+// ============================================
+// 批量操作
+// ============================================
+
 bool ConfigManager::update(const nlohmann::json& patch) {
     LOG_MODULE("ConfigManager", "update", LOG_INFO, "开始批量更新配置，补丁内容: " << patch.dump());
     std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -213,6 +224,10 @@ void ConfigManager::add_listener(std::function<void(const nlohmann::json&)> list
     LOG_MODULE("ConfigManager", "add_listener", LOG_DEBUG, "监听器添加完成，现在共有 " << observers_.size() << " 个监听器");
 }
 
+// ============================================
+// 验证配置
+// ============================================
+
 bool ConfigManager::validate() const {
     LOG_MODULE("ConfigManager", "validate", LOG_DEBUG, "开始验证配置");
     // 基础验证：确保必需字段存在
@@ -239,12 +254,19 @@ bool ConfigManager::validate() const {
     return true;
 }
 
+// ============================================
+// 保护方法实现
+// ============================================
+
 nlohmann::json ConfigManager::get_default_config() const {
     return DefaultConfigs::get_default_config("");
 }
 
+// ============================================
+// 私有方法实现
+// ============================================
+
 std::vector<std::string> ConfigManager::split_key_path(const std::string& key_path) const {
-    LOG_MODULE("ConfigManager", "split_key_path", LOG_DEBUG, "分割键路径: " << key_path);
     std::lock_guard<std::recursive_mutex> lock(mutex_);
     std::vector<std::string> result;
     std::string current;
@@ -252,7 +274,6 @@ std::vector<std::string> ConfigManager::split_key_path(const std::string& key_pa
     // 尝试从缓存获取
     auto it = split_cache_.find(key_path);
     if (it != split_cache_.end()) {
-        LOG_MODULE("ConfigManager", "split_key_path", LOG_DEBUG, "使用缓存分割键路径结果");
         return it->second;
     }
 
@@ -272,16 +293,8 @@ std::vector<std::string> ConfigManager::split_key_path(const std::string& key_pa
         result.push_back(current);
     }
 
-    // 记录分割结果
-    std::stringstream ss;
-    for (size_t i = 0; i < result.size(); ++i) {
-        if (i > 0) ss << ".";
-        ss << result[i];
-    }
-
     // 存入缓存
     split_cache_[key_path] = result;
-    LOG_MODULE("ConfigManager", "split_key_path", LOG_DEBUG, "键路径分割完成: " << key_path << " -> [" << ss.str() << "] (已缓存)");
     return result;
 }
 

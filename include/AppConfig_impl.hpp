@@ -97,13 +97,9 @@ public:
         if (!cached_value_.has_value()) {
             if (config_) {
                 cached_value_ = config_->template get<T>(key_path_, default_value_);
-                LOG_MODULE("ConfigValue", "get", LOG_DEBUG,
-                    "从配置管理器读取 [" << key_path_ << "] = " << cached_value_.value());
             }
             else {
                 cached_value_ = default_value_;
-                LOG_MODULE("ConfigValue", "get", LOG_DEBUG,
-                    "使用默认值 [" << key_path_ << "] = " << cached_value_.value());
             }
         }
         return cached_value_.value();
@@ -114,8 +110,6 @@ public:
         if (config_) {
             if (config_->set(key_path_, value)) {
                 cached_value_ = value;
-                LOG_MODULE("ConfigValue", "set", LOG_DEBUG,
-                    "设置配置 [" << key_path_ << "] = " << value);
                 try {
                     config_->save();  // 自动保存
                 }
@@ -266,13 +260,9 @@ public:
                     T obj = {};
                     T::from_json(json_obj.value(), obj);
                     cached_value_ = obj;
-                    LOG_MODULE("ConfigObject", "get", LOG_DEBUG,
-                        "从配置管理器读取对象 [" << key_path_ << "]");
                 }
                 else {
                     cached_value_ = default_value_;
-                    LOG_MODULE("ConfigObject", "get", LOG_DEBUG,
-                        "使用默认对象 [" << key_path_ << "]");
                     // 保存默认值
                     nlohmann::json j;
                     T::to_json(j, default_value_);
@@ -293,8 +283,6 @@ public:
             T::to_json(j, value);
             if (config_->set(key_path_, j)) {
                 cached_value_ = value;
-                LOG_MODULE("ConfigObject", "set", LOG_DEBUG,
-                    "设置对象配置 [" << key_path_ << "]");
                 try {
                     config_->save();
                 }

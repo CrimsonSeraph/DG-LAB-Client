@@ -267,81 +267,6 @@ bool AppConfig::check_priority_conflict(std::string& error_msg) const {
     return false;
 }
 
-void AppConfig::initialize_configs() {
-    LOG_MODULE("AppConfig", "initialize_configs", LOG_DEBUG, "调用 initialize_configs");
-    std::unique_lock<std::mutex> lock(mutex_, std::defer_lock);
-    initialize_configs_unsafe();
-}
-
-void AppConfig::initialize_configs_unsafe() {
-    LOG_MODULE("AppConfig", "initialize_configs_unsafe", LOG_DEBUG, "开始无锁初始化配置项");
-    // 确保已经初始化
-    if (!is_initialized()) {
-        LOG_MODULE("AppConfig", "initialize_configs_unsafe", LOG_ERROR, "MultiConfigManager 未初始化，无法初始化配置项");
-        throw std::runtime_error("MultiConfigManager 未初始化");
-    }
-
-    // 构造配置项
-    main_config_obj_ = ConfigObject<MainConfig>(main_config_, "main",
-        MainConfig{
-            .app_name_ = get_value_unsafe<std::string>("app.name", "DG-LAB-Client"),
-            .app_version_ = get_value_unsafe<std::string>("app.version", "1.0.0"),
-            .debug_mode_ = get_value_unsafe<bool>("app.debug", false),
-            .console_level_ = get_value_unsafe<int>("app.log.console_level", 0),
-            .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),
-            .ui_log_level_ = get_value_unsafe<int>("app.log.ui_log_level", 0),
-            .python_path_ = get_value_unsafe<std::string>("python.path", "python"),
-        });
-
-    system_config_obj_ = ConfigObject<SystemConfig>(system_config_, "system",
-        SystemConfig{
-            .websocket_port_ = get_value_unsafe<int>("app.websocket.port", 9999),
-        });
-
-    user_config_obj_ = ConfigObject<UserConfig>(user_config_, "user",
-        UserConfig{
-            .ui_is_light_ = get_value_unsafe<bool>("app.ui.is_light", true),
-            .ui_font_size_ = get_value_unsafe<int>("app.ui.font_size", 16),
-        });
-
-    //xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx", 
-    //    XXXConfig{
-    //        .nmae = get_value_unsafe<T>("name", default),
-    //        // ...
-    //    }
-    //);
-    LOG_MODULE("AppConfig", "initialize_configs_unsafe", LOG_DEBUG, "配置项初始化完成");
-}
-
-void AppConfig::create_default_configs() {
-    LOG_MODULE("AppConfig", "create_default_configs", LOG_INFO, "创建默认配置");
-
-    // 确保所有配置管理器指针已获取
-    if (!main_config_ || !system_config_ || !user_config_) {
-        LOG_MODULE("AppConfig", "create_default_configs", LOG_ERROR,
-            "配置管理器指针为空，无法创建默认配置");
-        return;
-    }
-
-    try {
-        main_config_->update(DefaultConfigs::get_default_config("main"));
-        system_config_->update(DefaultConfigs::get_default_config("system"));
-        user_config_->update(DefaultConfigs::get_default_config("user"));
-
-        // 保存到文件
-        main_config_->save();
-        system_config_->save();
-        user_config_->save();
-
-        LOG_MODULE("AppConfig", "create_default_configs", LOG_INFO,
-            "默认配置已成功写入各配置文件");
-    }
-    catch (const std::exception& e) {
-        LOG_MODULE("AppConfig", "create_default_configs", LOG_ERROR,
-            "创建默认配置时发生异常: " << e.what());
-    }
-}
-
 // ============================================
 // 批量操作实现
 // ============================================
@@ -465,74 +390,9 @@ void AppConfig::remove_config_listener(const std::string& config_name,
     }
 }
 
-void AppConfig::notify_config_changed(const std::string& config_name) {
-    LOG_MODULE("AppConfig", "notify_config_changed", LOG_DEBUG, "通知配置变更: " << config_name);
-    // 通知特定配置的监听器
-    auto it = config_listeners_.find(config_name);
-    if (it != config_listeners_.end()) {
-        LOG_MODULE("AppConfig", "notify_config_changed", LOG_DEBUG, "触发 " << config_name << " 的 " << it->second.size() << " 个监听器");
-        for (const auto& listener : it->second) {
-            try {
-                listener();
-            }
-            catch (const std::exception& e) {
-                LOG_MODULE("AppConfig", "notify_config_changed", LOG_ERROR, "配置监听器错误: " << e.what());
-            }
-        }
-    }
-
-    // 通知全局监听器
-    auto global_it = config_listeners_.find("all");
-    if (global_it != config_listeners_.end()) {
-        LOG_MODULE("AppConfig", "notify_config_changed", LOG_DEBUG, "触发全局 " << global_it->second.size() << " 个监听器");
-        for (const auto& listener : global_it->second) {
-            try {
-                listener();
-            }
-            catch (const std::exception& e) {
-                LOG_MODULE("AppConfig", "notify_config_changed", LOG_ERROR, "全局配置监听器错误: " << e.what());
-            }
-        }
-    }
-}
-
-void AppConfig::invalidate_caches() {
-    LOG_MODULE("AppConfig", "invalidate_caches", LOG_DEBUG, "使所有配置缓存失效");
-    if (!is_initialized()) {
-        LOG_MODULE("AppConfig", "invalidate_caches", LOG_WARN, "配置系统未初始化，跳过缓存失效");
-        return;
-    }
-
-    main_config_obj_.invalidate_cache();
-    system_config_obj_.invalidate_cache();
-    user_config_obj_.invalidate_cache();
-
-    //xxx_config_.invalidate_cache();
-    LOG_MODULE("AppConfig", "invalidate_caches", LOG_DEBUG, "缓存失效完成");
-}
-
 // ============================================
 // 配置验证实现
 // ============================================
-
-bool AppConfig::validate_configs() const {
-    LOG_MODULE("AppConfig", "validate_configs", LOG_DEBUG, "验证所有配置");
-    std::vector<std::string> errors;
-    bool valid = validate_all(errors);
-    if (!valid) {
-        for (const auto& err : errors) {
-            LOG_MODULE("AppConfig", "validate_configs", LOG_WARN, "配置验证错误: " << err);
-        }
-    }
-    return valid;
-}
-
-bool AppConfig::is_called_from_main_thread() const {
-    static std::thread::id main_thread_id = std::this_thread::get_id();
-    bool main = std::this_thread::get_id() == main_thread_id;
-    LOG_MODULE("AppConfig", "is_called_from_main_thread", LOG_DEBUG, "检查是否在主线程: " << (main ? "是" : "否"));
-    return main;
-}
 
 bool AppConfig::validate_all(std::vector<std::string>& errors) const {
     LOG_MODULE("AppConfig", "validate_all", LOG_DEBUG, "执行全面验证");
@@ -706,4 +566,148 @@ bool AppConfig::import_config(const std::string& name, const std::string& file_p
         LOG_MODULE("AppConfig", "import_config", LOG_ERROR, "导入配置失败: " << e.what());
         return false;
     }
+}
+
+// ============================================
+// 私有方法实现
+// ============================================
+
+void AppConfig::initialize_configs() {
+    LOG_MODULE("AppConfig", "initialize_configs", LOG_DEBUG, "调用 initialize_configs");
+    std::unique_lock<std::mutex> lock(mutex_, std::defer_lock);
+    initialize_configs_unsafe();
+}
+
+void AppConfig::initialize_configs_unsafe() {
+    LOG_MODULE("AppConfig", "initialize_configs_unsafe", LOG_DEBUG, "开始无锁初始化配置项");
+    // 确保已经初始化
+    if (!is_initialized()) {
+        LOG_MODULE("AppConfig", "initialize_configs_unsafe", LOG_ERROR, "MultiConfigManager 未初始化，无法初始化配置项");
+        throw std::runtime_error("MultiConfigManager 未初始化");
+    }
+
+    // 构造配置项
+    main_config_obj_ = ConfigObject<MainConfig>(main_config_, "main",
+        MainConfig{
+            .app_name_ = get_value_unsafe<std::string>("app.name", "DG-LAB-Client"),
+            .app_version_ = get_value_unsafe<std::string>("app.version", "1.0.0"),
+            .debug_mode_ = get_value_unsafe<bool>("app.debug", false),
+            .console_level_ = get_value_unsafe<int>("app.log.console_level", 0),
+            .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),
+            .ui_log_level_ = get_value_unsafe<int>("app.log.ui_log_level", 0),
+            .python_path_ = get_value_unsafe<std::string>("python.path", "python"),
+        });
+
+    system_config_obj_ = ConfigObject<SystemConfig>(system_config_, "system",
+        SystemConfig{
+            .websocket_port_ = get_value_unsafe<int>("app.websocket.port", 9999),
+        });
+
+    user_config_obj_ = ConfigObject<UserConfig>(user_config_, "user",
+        UserConfig{
+            .ui_is_light_ = get_value_unsafe<bool>("app.ui.is_light", true),
+            .ui_font_size_ = get_value_unsafe<int>("app.ui.font_size", 16),
+        });
+
+    //xxx_config_ = ConfigObject<XXXConfig>(xxx_config_, "xxx",
+    //    XXXConfig{
+    //        .nmae = get_value_unsafe<T>("name", default),
+    //        // ...
+    //    }
+    //);
+    LOG_MODULE("AppConfig", "initialize_configs_unsafe", LOG_DEBUG, "配置项初始化完成");
+}
+
+void AppConfig::create_default_configs() {
+    LOG_MODULE("AppConfig", "create_default_configs", LOG_INFO, "创建默认配置");
+
+    // 确保所有配置管理器指针已获取
+    if (!main_config_ || !system_config_ || !user_config_) {
+        LOG_MODULE("AppConfig", "create_default_configs", LOG_ERROR,
+            "配置管理器指针为空，无法创建默认配置");
+        return;
+    }
+
+    try {
+        main_config_->update(DefaultConfigs::get_default_config("main"));
+        system_config_->update(DefaultConfigs::get_default_config("system"));
+        user_config_->update(DefaultConfigs::get_default_config("user"));
+
+        // 保存到文件
+        main_config_->save();
+        system_config_->save();
+        user_config_->save();
+
+        LOG_MODULE("AppConfig", "create_default_configs", LOG_INFO,
+            "默认配置已成功写入各配置文件");
+    }
+    catch (const std::exception& e) {
+        LOG_MODULE("AppConfig", "create_default_configs", LOG_ERROR,
+            "创建默认配置时发生异常: " << e.what());
+    }
+}
+
+void AppConfig::invalidate_caches() {
+    LOG_MODULE("AppConfig", "invalidate_caches", LOG_DEBUG, "使所有配置缓存失效");
+    if (!is_initialized()) {
+        LOG_MODULE("AppConfig", "invalidate_caches", LOG_WARN, "配置系统未初始化，跳过缓存失效");
+        return;
+    }
+
+    main_config_obj_.invalidate_cache();
+    system_config_obj_.invalidate_cache();
+    user_config_obj_.invalidate_cache();
+
+    //xxx_config_.invalidate_cache();
+    LOG_MODULE("AppConfig", "invalidate_caches", LOG_DEBUG, "缓存失效完成");
+}
+
+void AppConfig::notify_config_changed(const std::string& config_name) {
+    LOG_MODULE("AppConfig", "notify_config_changed", LOG_DEBUG, "通知配置变更: " << config_name);
+    // 通知特定配置的监听器
+    auto it = config_listeners_.find(config_name);
+    if (it != config_listeners_.end()) {
+        LOG_MODULE("AppConfig", "notify_config_changed", LOG_DEBUG, "触发 " << config_name << " 的 " << it->second.size() << " 个监听器");
+        for (const auto& listener : it->second) {
+            try {
+                listener();
+            }
+            catch (const std::exception& e) {
+                LOG_MODULE("AppConfig", "notify_config_changed", LOG_ERROR, "配置监听器错误: " << e.what());
+            }
+        }
+    }
+
+    // 通知全局监听器
+    auto global_it = config_listeners_.find("all");
+    if (global_it != config_listeners_.end()) {
+        LOG_MODULE("AppConfig", "notify_config_changed", LOG_DEBUG, "触发全局 " << global_it->second.size() << " 个监听器");
+        for (const auto& listener : global_it->second) {
+            try {
+                listener();
+            }
+            catch (const std::exception& e) {
+                LOG_MODULE("AppConfig", "notify_config_changed", LOG_ERROR, "全局配置监听器错误: " << e.what());
+            }
+        }
+    }
+}
+
+bool AppConfig::validate_configs() const {
+    LOG_MODULE("AppConfig", "validate_configs", LOG_DEBUG, "验证所有配置");
+    std::vector<std::string> errors;
+    bool valid = validate_all(errors);
+    if (!valid) {
+        for (const auto& err : errors) {
+            LOG_MODULE("AppConfig", "validate_configs", LOG_WARN, "配置验证错误: " << err);
+        }
+    }
+    return valid;
+}
+
+bool AppConfig::is_called_from_main_thread() const {
+    static std::thread::id main_thread_id = std::this_thread::get_id();
+    bool main = std::this_thread::get_id() == main_thread_id;
+    LOG_MODULE("AppConfig", "is_called_from_main_thread", LOG_DEBUG, "检查是否在主线程: " << (main ? "是" : "否"));
+    return main;
 }

@@ -40,30 +40,19 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
                     << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
             }
             catch (const nlohmann::json::out_of_range& e) {
-                // 键不存在
-                LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_DEBUG,
-                    "配置 [" << key_path << "] 不存在于优先级 "
-                    << config->template get<int>("__priority").value_or(0));
+                // 键不存在 - 不记录日志，这是正常情况
             }
             catch (const std::exception& e) {
                 LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_ERROR,
                     "配置 [" << key_path << "] 读取失败（优先级 "
                     << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
             }
-            };
+        };
 
         for (const auto& config : sorted_configs) {
             try_get_from_config(config);
         }
 
-        if (result.has_value()) {
-            LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_DEBUG,
-                "按优先级获取配置 [" << key_path << "]: " << result.value());
-        }
-        else {
-            LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_DEBUG,
-                "按优先级获取配置 [" << key_path << "]: 未找到");
-        }
         return result;
     }
     catch (const std::exception& e) {
@@ -94,8 +83,9 @@ inline std::optional<T> MultiConfigManager::get_with_name_unsafe(const std::stri
                 if (value.has_value()) {
                     return value;
                 }
+                // 键不存在时，记录一次日志即可
                 LOG_MODULE("MultiConfigManager", "get_with_name_unsafe", LOG_WARN,
-                    "名称为 " << key_name << " 的配置管理器没有名为 [" << key_path << "]");
+                    "配置 [" << key_path << "] 在 [" << key_name << "] 中不存在");
             }
         }
 
@@ -132,8 +122,7 @@ inline bool MultiConfigManager::set_with_priority_unsafe(const std::string& key_
             if (success) {
                 it->second.manager->save();
                 LOG_MODULE("MultiConfigManager", "set_with_priority_unsafe", LOG_DEBUG,
-                    "成功设置配置 [" << key_path << "] 到优先级 " << target_priority
-                    << " 的配置管理器 (" << it->first << ")");
+                    "成功设置配置 [" << key_path << "] 到最高优先级的配置管理器 (" << it->first << ")");
                 return true;
             }
         }
@@ -167,8 +156,7 @@ template<typename T>
 inline bool MultiConfigManager::set_with_name_unsafe(const std::string& key_path,
     const T& value, const std::string& key_name) {
     LOG_MODULE("MultiConfigManager", "set_with_name_unsafe", LOG_DEBUG,
-        "尝试设置配置 [" << key_path << "] = " << value
-        << " 到名称为 " << key_name << " 的配置管理器");
+        "尝试设置配置 [" << key_path << "] 到名称为 " << key_name << " 的配置管理器");
     for (auto& [name, info] : config_registry_) {
         if (info.manager && name == key_name) {
             bool success = info.manager->set(key_path, value);
