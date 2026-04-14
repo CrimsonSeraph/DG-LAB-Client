@@ -49,6 +49,10 @@
 #include <stdexcept>
 #include <utility>
 
+// ============================================
+// 构造/析构（public）
+// ============================================
+
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始初始化窗口");
@@ -76,24 +80,144 @@ DGLABClient::~DGLABClient() {
     DebugLog::instance().unregister_log_sink("qt_ui");
 }
 
-void DGLABClient::append_log_message(const QString& message, int level) {
-    QString clean = message;
-    QRegularExpression ansi("\\x1B\\[[0-9;]*[A-Za-z]");
-    clean.remove(ansi);
-    clean.replace('\r', "");
-    append_colored_text(ui_.debug_log, clean);
+// ============================================
+// 公共接口（public）
+// ============================================
+
+void DGLABClient::on_main_first_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_main_first_btn_clicked", LOG_DEBUG, "main_first_btn 按键触发，跳转 first_page");
+    ui_.stackedWidget->setCurrentWidget(ui_.first_page);
 }
 
-void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
-    edit->moveCursor(QTextCursor::End);
-    edit->insertPlainText(text + "\n");
-    edit->moveCursor(QTextCursor::End);
-    edit->ensureCursorVisible();
-    if (log_highlighter_) {
-        log_highlighter_->rehighlight();
+void DGLABClient::on_main_config_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_main_config_btn_clicked", LOG_DEBUG, "main_config_btn 按键触发，跳转 config_page");
+    ui_.stackedWidget->setCurrentWidget(ui_.config_page);
+}
+
+void DGLABClient::on_main_setting_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_main_setting_btn_clicked", LOG_DEBUG, "main_setting_btn 按键触发，跳转 setting_page");
+    ui_.stackedWidget->setCurrentWidget(ui_.setting_page);
+}
+
+void DGLABClient::on_main_about_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_main_about_btn_clicked", LOG_DEBUG, "main_about_btn 按键触发，跳转 about_page");
+    ui_.stackedWidget->setCurrentWidget(ui_.about_page);
+}
+
+void DGLABClient::on_start_connect_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "start_connect_btn 按键触发");
+    if (start_connect_btn_loading_) {
+        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "正在连接中，忽略重复点击");
+        return;
+    }
+    if (!is_connected_) {
+        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "开始连接");
+        start_connect_btn_loading_ = true;
+        ui_.start_connect_btn->setEnabled(false);
+        start_async_connect();
+    }
+    else {
+        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "已连接");
     }
 }
 
+void DGLABClient::on_close_connect_btn_clicked() {
+    LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "close_connect_btn 按键触发");
+    if (close_connect_btn_loading_) {
+        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "正在断开中，忽略重复点击");
+        return;
+    }
+    if (is_connected_) {
+        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "开始断开连接");
+        close_connect_btn_loading_ = true;
+        ui_.close_connect_btn->setEnabled(false);
+        close_async_connect();
+    }
+    else {
+        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "没有连接");
+    }
+}
+
+void DGLABClient::on_start_btn_clicked() {
+    QJsonObject test_cmd;
+    test_cmd["cmd"] = "send_strength";
+    test_cmd["channel"] = 1;
+    test_cmd["mode"] = 1;
+    test_cmd["value"] = 10;
+    async_call(test_cmd, 5000, [this](bool ok, QString msg) {
+        if (ok) {
+            LOG_MODULE("DGLABClient", "on_start_btn_clicked", LOG_INFO, "测试命令发送成功: " << msg.toStdString());
+        }
+        else {
+            LOG_MODULE("DGLABClient", "on_start_btn_clicked", LOG_ERROR, "测试命令发送失败: " << msg.toStdString());
+        }
+        });
+}
+
+void DGLABClient::on_close_btn_clicked() {
+    // 预留实现
+}
+
+void DGLABClient::on_show_qr_btn_clicked() {
+    show_qr_dialog();
+}
+
+void DGLABClient::change_ui_log_level() {
+    auto& config = AppConfig::instance();
+    int new_level = config.get_value<int>("app.log.ui_log_level", 0);
+    LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_INFO, "修改 UI 日志级别: 旧=" << ui_log_level_ << " 新=" << new_level);
+    ui_log_level_ = DebugLog::int_to_log_level(new_level);
+    DebugLog::instance().set_log_sink_level("qt_ui", ui_log_level_);
+}
+
+void DGLABClient::set_port() {
+    QString input = ui_.port_input->text().trimmed();
+    if (input.isEmpty()) {
+        QMessageBox::warning(this, "端口设置失败！", "端口号不能为空！");
+        LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！端口号为空");
+    }
+    else {
+        bool ok;
+        int port = input.toInt(&ok);
+        if (ok && port >= 0 && port <= 65535) {
+            LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "开始设置端口");
+            auto& config = AppConfig::instance();
+            config.set_value_with_name<int>("app.websocket.port", port, "system");
+            QMessageBox::information(this, "端口更新完成！", "设置端口完成：" + input);
+            LOG_MODULE("DGLABClient", "set_port", LOG_INFO, "设置端口完成：" << input.toStdString());
+        }
+        else {
+            QMessageBox::warning(this, "端口设置失败！", "设置端口失败！非合法端口：" + input);
+            LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口：" << input.toStdString());
+        }
+    }
+    ui_.port_input->setText("");
+    auto& config = AppConfig::instance();
+    int old_port = config.get_value<int>("app.websocket.port", 9999);
+    ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
+}
+
+// ============================================
+// 重写虚函数（protected）
+// ============================================
+
+void DGLABClient::closeEvent(QCloseEvent* event) {
+    if (tray_icon_->isVisible()) {
+        tray_icon_->showMessage("提示", "程序已最小化到系统托盘",
+            QSystemTrayIcon::Information, 2000);
+        this->hide();
+        event->ignore();
+    }
+    else {
+        event->accept();
+    }
+}
+
+// ============================================
+// 私有辅助函数（private）
+// ============================================
+
+// ----- 初始化相关 -----
 void DGLABClient::setup_debug_log() {
     ui_.debug_log->setReadOnly(true);
     ui_.debug_log->setStyleSheet("");
@@ -231,71 +355,12 @@ void DGLABClient::create_tray_icon() {
     }
 }
 
-void DGLABClient::setup_widget_properties(const std::string& property, const std::string& key) {
-    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "开始设置元素属性");
-    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_INFO, "设置元素统一属性[" << property << "]为：" << key);
-
-    ui_.all->setProperty("type", "main_page");
-    ui_.all->setProperty(property.c_str(), key.c_str());
-
-    ui_.left_btns_bar->setProperty("type", "glassmorphism");
-    ui_.left_btns_bar->setProperty(property.c_str(), key.c_str());
-
-    QList<QPushButton*> btns = ui_.all->findChildren<QPushButton*>();
-    for (QPushButton* btn : btns) {
-        btn->setProperty("type", "btns");
-        btn->setProperty(property.c_str(), key.c_str());
-    }
-    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "共加载" << btns.size() << "个按键");
-
-    ui_.main_image_label->setProperty("type", "main_image_label");
-    ui_.main_image_label->setProperty(property.c_str(), key.c_str());
-
-    ui_.main_page_btns_bar->setProperty("type", "glassmorphism");
-    ui_.main_page_btns_bar->setProperty(property.c_str(), key.c_str());
-
-    ui_.debug_log->setProperty("type", "debug_log");
-    ui_.debug_log->setProperty(property.c_str(), key.c_str());
-
-    ui_.port_info->setProperty("type", "glassmorphism");
-    ui_.port_info->setProperty(property.c_str(), key.c_str());
-
-    auto& config = AppConfig::instance();
-    int old_port = config.get_value<int>("app.websocket.port", 9999);
-    ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
-    ui_.port_input->setProperty("type", "input");
-    ui_.port_input->setProperty(property.c_str(), key.c_str());
-    ui_.port_label->setProperty("type", "label");
-    ui_.port_label->setProperty(property.c_str(), key.c_str());
-
-    ui_.config_scroll_area->setProperty("type", "none");
-    ui_.config_scrollAreaWidgetContents->setProperty("type", "none");
-    ui_.config_widgrt->setProperty("type", "glassmorphism");
-    ui_.config_widgrt->setProperty(property.c_str(), key.c_str());
-
-    ui_.setting_scroll_area->setProperty("type", "none");
-    ui_.setting_scrollAreaWidgetContents->setProperty("type", "none");
-    ui_.setting_grid->setProperty("type", "glassmorphism");
-    ui_.setting_grid->setProperty(property.c_str(), key.c_str());
-    ui_.style_mode->setProperty("type", "glassmorphism");
-    ui_.style_mode->setProperty(property.c_str(), key.c_str());
-    ui_.current_style_mode->setProperty("type", "label");
-    ui_.current_style_mode->setProperty(property.c_str(), key.c_str());
-    ui_.style_mode_label->setProperty("type", "label");
-    ui_.style_mode_label->setProperty(property.c_str(), key.c_str());
-
-    ui_.about_widget->setProperty("type", "glassmorphism");
-    ui_.about_widget->setProperty(property.c_str(), key.c_str());
-
-    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素属性完成！");
-}
-
 void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "开始加载样式表");
     auto& config = AppConfig::instance();
     is_light_mode_ = config.get_value<bool>("app.ui.is_light_mode", true);
     setup_widget_properties("mode", (is_light_mode_ ? "light" : "night"));
-    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" << is_light_mode_ ? "Light" : "Night");
+    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" << (is_light_mode_ ? "Light" : "Night"));
     if (is_light_mode_) {
         load_light_stylesheet();
         ui_.current_style_mode->setText("当前模式：Light");
@@ -448,6 +513,7 @@ void DGLABClient::reset_py_log_level() {
         });
 }
 
+// ----- 二维码相关 -----
 void DGLABClient::fetch_qr_path() {
     LOG_MODULE("DGLABClient", "fetch_qr_path", LOG_INFO, "开始获取二维码路径");
     delete_old_qr_file();
@@ -473,11 +539,9 @@ void DGLABClient::fetch_qr_path() {
 void DGLABClient::show_qr_dialog() {
     LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_INFO, "准备显示二维码对话框");
 
-    // 检查路径是否有效且文件存在
     if (current_qr_path_.isEmpty() || !QFile::exists(current_qr_path_)) {
         LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_WARN,
             "二维码路径无效或文件不存在: " << current_qr_path_.toStdString());
-        // 显示文本提示
         QDialog* dialog = new QDialog(this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->setWindowTitle("DGLab 扫码连接");
@@ -492,7 +556,6 @@ void DGLABClient::show_qr_dialog() {
         return;
     }
 
-    // 加载图片
     QPixmap pixmap(current_qr_path_);
     if (pixmap.isNull()) {
         LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_ERROR,
@@ -504,7 +567,6 @@ void DGLABClient::show_qr_dialog() {
     LOG_MODULE("DGLABClient", "show_qr_dialog", LOG_INFO,
         "成功加载二维码图片: " << current_qr_path_.toStdString());
 
-    // 创建并显示对话框
     QDialog* dialog = new QDialog(this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setWindowTitle("DGLab 扫码连接");
@@ -540,12 +602,10 @@ void DGLABClient::delete_old_qr_file() {
     }
 }
 
+// ----- 网络相关 -----
 QString DGLABClient::get_local_lan_ip() {
-    auto& config = AppConfig::instance();
-
     QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
     QString fallbackIp;
-    QString whitelistIp;
 
     for (const QNetworkInterface& iface : interfaces) {
         if (!(iface.flags() & QNetworkInterface::IsUp) ||
@@ -586,10 +646,10 @@ QString DGLABClient::get_local_lan_ip() {
     if (!fallbackIp.isEmpty()) {
         return fallbackIp;
     }
-
     return "127.0.0.1";
 }
 
+// ----- 规则 UI 相关 -----
 void DGLABClient::setup_rules_ui() {
     QLayout* oldLayout = ui_.config_widgrt->layout();
     if (oldLayout) delete oldLayout;
@@ -620,14 +680,10 @@ void DGLABClient::setup_rules_ui() {
     QStringList channelOptions = { "A", "B", "无" };
     QStringList modeOptions = { "递减", "递增", "设为", "连减", "连增" };
 
-    // 第1列、第2列使用普通下拉框
     rule_table_->setItemDelegateForColumn(1, new ComboBoxDelegate(channelOptions, rule_table_));
     rule_table_->setItemDelegateForColumn(2, new ComboBoxDelegate(modeOptions, rule_table_));
-    // 第3列使用复杂公式构建器
     rule_table_->setItemDelegateForColumn(3, new ValueModeDelegate(rule_table_));
-    // 编辑触发方式
-    rule_table_->setEditTriggers(QAbstractItemView::DoubleClicked |
-        QAbstractItemView::AnyKeyPressed);
+    rule_table_->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::AnyKeyPressed);
     rule_table_->viewport()->update();
 
     layout->addWidget(rule_table_);
@@ -683,7 +739,6 @@ void DGLABClient::update_rule_table() {
         std::string channel = rm.get_rule_channel(name);
         rule_table_->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(channel.empty() ? "无" : channel)));
 
-        // 获取模式字符串
         int mode = rm.get_rule_mode(name);
         QString modeStr;
         switch (mode) {
@@ -696,13 +751,159 @@ void DGLABClient::update_rule_table() {
         }
         rule_table_->setItem(i, 2, new QTableWidgetItem(modeStr));
 
-        // 值模式（显示占位符版本）
         std::string pattern = rm.get_rule_value_pattern(name);
-        // 将 {} 替换为 {   } 便于阅读
         QString displayPattern = QString::fromStdString(pattern);
         displayPattern.replace("{}", "{   }");
         rule_table_->setItem(i, 3, new QTableWidgetItem(displayPattern));
     }
+}
+
+// ----- 样式辅助 -----
+void DGLABClient::setup_widget_properties(const std::string& property, const std::string& key) {
+    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "开始设置元素属性");
+    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素统一属性[" << property << "]为：" << key);
+
+    ui_.all->setProperty("type", "main_page");
+    ui_.all->setProperty(property.c_str(), key.c_str());
+
+    ui_.left_btns_bar->setProperty("type", "glassmorphism");
+    ui_.left_btns_bar->setProperty(property.c_str(), key.c_str());
+
+    QList<QPushButton*> btns = ui_.all->findChildren<QPushButton*>();
+    for (QPushButton* btn : btns) {
+        btn->setProperty("type", "btns");
+        btn->setProperty(property.c_str(), key.c_str());
+    }
+    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "共加载" << btns.size() << "个按键");
+
+    ui_.main_image_label->setProperty("type", "main_image_label");
+    ui_.main_image_label->setProperty(property.c_str(), key.c_str());
+
+    ui_.main_page_btns_bar->setProperty("type", "glassmorphism");
+    ui_.main_page_btns_bar->setProperty(property.c_str(), key.c_str());
+
+    ui_.debug_log->setProperty("type", "debug_log");
+    ui_.debug_log->setProperty(property.c_str(), key.c_str());
+
+    ui_.port_info->setProperty("type", "glassmorphism");
+    ui_.port_info->setProperty(property.c_str(), key.c_str());
+
+    auto& config = AppConfig::instance();
+    int old_port = config.get_value<int>("app.websocket.port", 9999);
+    ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
+    ui_.port_input->setProperty("type", "input");
+    ui_.port_input->setProperty(property.c_str(), key.c_str());
+    ui_.port_label->setProperty("type", "label");
+    ui_.port_label->setProperty(property.c_str(), key.c_str());
+
+    ui_.config_scroll_area->setProperty("type", "none");
+    ui_.config_scrollAreaWidgetContents->setProperty("type", "none");
+    ui_.config_widgrt->setProperty("type", "glassmorphism");
+    ui_.config_widgrt->setProperty(property.c_str(), key.c_str());
+
+    ui_.setting_scroll_area->setProperty("type", "none");
+    ui_.setting_scrollAreaWidgetContents->setProperty("type", "none");
+    ui_.setting_grid->setProperty("type", "glassmorphism");
+    ui_.setting_grid->setProperty(property.c_str(), key.c_str());
+    ui_.style_mode->setProperty("type", "glassmorphism");
+    ui_.style_mode->setProperty(property.c_str(), key.c_str());
+    ui_.current_style_mode->setProperty("type", "label");
+    ui_.current_style_mode->setProperty(property.c_str(), key.c_str());
+    ui_.style_mode_label->setProperty("type", "label");
+    ui_.style_mode_label->setProperty(property.c_str(), key.c_str());
+
+    ui_.about_widget->setProperty("type", "glassmorphism");
+    ui_.about_widget->setProperty(property.c_str(), key.c_str());
+
+    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素属性完成！");
+}
+
+// ----- 日志辅助 -----
+void DGLABClient::append_log_message(const QString& message, int level) {
+    QString clean = message;
+    QRegularExpression ansi("\\x1B\\[[0-9;]*[A-Za-z]");
+    clean.remove(ansi);
+    clean.replace('\r', "");
+    append_colored_text(ui_.debug_log, clean);
+}
+
+void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
+    edit->moveCursor(QTextCursor::End);
+    edit->insertPlainText(text + "\n");
+    edit->moveCursor(QTextCursor::End);
+    edit->ensureCursorVisible();
+    if (log_highlighter_) {
+        log_highlighter_->rehighlight();
+    }
+}
+
+// ============================================
+// private slots 实现
+// ============================================
+
+void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
+    start_connect_btn_loading_ = false;
+    ui_.start_connect_btn->setEnabled(true);
+    if (success) {
+        is_connected_ = true;
+        LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_INFO, msg.toStdString());
+        reset_py_log_level();
+    }
+    else {
+        QMessageBox::warning(this, "连接错误！", msg);
+        LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_ERROR, msg.toStdString());
+    }
+}
+
+void DGLABClient::handle_close_finished(bool success, const QString& msg) {
+    close_connect_btn_loading_ = false;
+    ui_.close_connect_btn->setEnabled(true);
+    if (success) {
+        is_connected_ = false;
+        LOG_MODULE("DGLABClient", "handle_close_finished", LOG_INFO, msg.toStdString());
+    }
+    else {
+        LOG_MODULE("DGLABClient", "handle_close_finished", LOG_ERROR, msg.toStdString());
+    }
+}
+
+void DGLABClient::start_async_connect() {
+    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在获取本机IP并更新WebSocket地址");
+    auto& config = AppConfig::instance();
+    int port = config.get_value<int>("app.websocket.port", 9999);
+    QString localIp = get_local_lan_ip();
+    QString wsUrl = QString("ws://%1:%2").arg(localIp).arg(port);
+    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO,
+        "使用的WebSocket地址: " << wsUrl.toStdString());
+
+    QJsonObject update_url_cmd;
+    update_url_cmd["cmd"] = "set_ws_url";
+    update_url_cmd["url"] = wsUrl;
+    async_call(update_url_cmd, 5000, [this](bool ok, QString msg) {
+        if (ok) {
+            LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "端口更新成功，继续连接");
+            QJsonObject connect_cmd;
+            connect_cmd["cmd"] = "connect";
+            async_call(connect_cmd, 5000, [this](bool ok, QString msg) {
+                emit connect_finished(ok, msg);
+                if (ok) {
+                    fetch_qr_path();
+                }
+                });
+        }
+        else {
+            emit connect_finished(false, "端口更新失败: " + msg);
+        }
+        });
+}
+
+void DGLABClient::close_async_connect() {
+    LOG_MODULE("DGLABClient", "close_async_connect", LOG_INFO, "正在断开连接");
+    QJsonObject close_cmd;
+    close_cmd["cmd"] = "close";
+    async_call(close_cmd, 5000, [this](bool ok, QString msg) {
+        emit close_finished(ok, msg);
+        });
 }
 
 void DGLABClient::on_rule_file_changed(int index) {
@@ -786,19 +987,16 @@ void DGLABClient::on_add_rule() {
     QString name = QInputDialog::getText(this, "添加规则", "规则名称:", QLineEdit::Normal, "", &ok);
     if (!ok || name.isEmpty()) return;
 
-    // 通道选择
     QStringList channels = { "无", "A", "B" };
     QString channel = QInputDialog::getItem(this, "选择通道", "通道:", channels, 0, false, &ok);
     if (!ok) return;
     QString channelStr = (channel == "无") ? "" : channel;
 
-    // 模式选择
     QStringList modes = { "递减", "递增", "设为", "连减", "连增" };
     QString modeStr = QInputDialog::getItem(this, "选择模式", "模式:", modes, 0, false, &ok);
     if (!ok) return;
     int mode = modes.indexOf(modeStr);
 
-    // 值模式输入
     FormulaBuilderDialog dlg("", this);
     if (dlg.exec() != QDialog::Accepted) return;
     QString valuePattern = dlg.get_formula();
@@ -843,20 +1041,17 @@ void DGLABClient::on_edit_rule() {
     QString oldPattern = QString::fromStdString(rm.get_rule_value_pattern(name.toStdString()));
 
     bool ok;
-    // 编辑通道
     QStringList channels = { "无", "A", "B" };
     QString channel = QInputDialog::getItem(this, "编辑规则", "通道:", channels,
         channels.indexOf(oldChannel), false, &ok);
     if (!ok) return;
     QString channelStr = (channel == "无") ? "" : channel;
 
-    // 编辑模式
     QStringList modes = { "递减", "递增", "设为", "连减", "连增" };
     QString modeStr = QInputDialog::getItem(this, "编辑规则", "模式:", modes, oldMode, false, &ok);
     if (!ok) return;
     int mode = modes.indexOf(modeStr);
 
-    // 编辑值模式
     FormulaBuilderDialog dlg(oldPattern, this);
     if (dlg.exec() != QDialog::Accepted) return;
     QString newPattern = dlg.get_formula();
@@ -911,193 +1106,5 @@ void DGLABClient::on_delete_rule() {
         catch (const std::exception& e) {
             QMessageBox::warning(this, "错误", e.what());
         }
-    }
-}
-
-void DGLABClient::on_main_first_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_first_btn_clicked", LOG_DEBUG, "main_first_btn 按键触发，跳转 first_page");
-    ui_.stackedWidget->setCurrentWidget(ui_.first_page);
-}
-
-void DGLABClient::on_main_config_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_config_btn_clicked", LOG_DEBUG, "main_config_btn 按键触发，跳转 config_page");
-    ui_.stackedWidget->setCurrentWidget(ui_.config_page);
-}
-
-void DGLABClient::on_main_setting_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_setting_btn_clicked", LOG_DEBUG, "main_setting_btn 按键触发，跳转 setting_page");
-    ui_.stackedWidget->setCurrentWidget(ui_.setting_page);
-}
-
-void DGLABClient::on_main_about_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_main_about_btn_clicked", LOG_DEBUG, "main_about_btn 按键触发，跳转 about_page");
-    ui_.stackedWidget->setCurrentWidget(ui_.about_page);
-}
-
-void DGLABClient::on_start_connect_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "start_connect_btn 按键触发");
-    if (start_connect_btn_loading_) {
-        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_DEBUG, "正在连接中，忽略重复点击");
-        return;
-    }
-    if (!is_connected_) {
-        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "开始连接");
-        start_connect_btn_loading_ = true;
-        ui_.start_connect_btn->setEnabled(false);
-        start_async_connect();
-    }
-    else {
-        LOG_MODULE("DGLABClient", "on_start_connect_btn_clicked", LOG_INFO, "已连接");
-    }
-}
-
-void DGLABClient::on_close_connect_btn_clicked() {
-    LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "close_connect_btn 按键触发");
-    if (close_connect_btn_loading_) {
-        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_DEBUG, "正在断开中，忽略重复点击");
-        return;
-    }
-    if (is_connected_) {
-        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "开始断开连接");
-        close_connect_btn_loading_ = true;
-        ui_.close_connect_btn->setEnabled(false);
-        close_async_connect();
-    }
-    else {
-        LOG_MODULE("DGLABClient", "on_close_connect_btn_clicked", LOG_INFO, "没有连接");
-    }
-}
-
-void DGLABClient::on_start_btn_clicked() {
-    QJsonObject test_cmd;
-    test_cmd["cmd"] = "send_strength";
-    test_cmd["channel"] = 1;
-    test_cmd["mode"] = 1;
-    test_cmd["value"] = 10;
-    async_call(test_cmd, 5000, [this](bool ok, QString msg) {
-        if (ok) {
-            LOG_MODULE("DGLABClient", "on_start_btn_clicked", LOG_INFO, "测试命令发送成功: " << msg.toStdString());
-        }
-        else {
-            LOG_MODULE("DGLABClient", "on_start_btn_clicked", LOG_ERROR, "测试命令发送失败: " << msg.toStdString());
-        }
-        });
-}
-
-void DGLABClient::on_close_btn_clicked() {}
-
-void DGLABClient::on_show_qr_btn_clicked() {
-    show_qr_dialog();
-}
-
-void DGLABClient::change_ui_log_level() {
-    auto& config = AppConfig::instance();
-    int new_level = config.get_value<int>("app.log.ui_log_level", 0);
-    LOG_MODULE("DGLABClient", "change_ui_log_level", LOG_INFO, "修改 UI 日志级别: 旧=" << ui_log_level_ << " 新=" << new_level);
-    ui_log_level_ = DebugLog::int_to_log_level(new_level);
-    DebugLog::instance().set_log_sink_level("qt_ui", ui_log_level_);
-}
-
-void DGLABClient::set_port() {
-    QString input = ui_.port_input->text().trimmed();
-    if (input.isEmpty()) {
-        QMessageBox::warning(this, "端口设置失败！", "端口号不能为空！");
-        LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！端口号为空");
-    }
-    else {
-        bool ok;
-        int port = input.toInt(&ok);
-        if (ok && port >= 0 && port <= 65535) {
-            LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "开始设置端口");
-            auto& config = AppConfig::instance();
-            config.set_value_with_name<int>("app.websocket.port", port, "system"); // 直接使用 port
-            QMessageBox::information(this, "端口更新完成！", "设置端口完成：" + input);
-            LOG_MODULE("DGLABClient", "set_port", LOG_INFO, "设置端口完成：" << input.toStdString());
-        }
-        else {
-            QMessageBox::warning(this, "端口设置失败！", "设置端口失败！非合法端口：" + input);
-            LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口：" << input.toStdString());
-        }
-    }
-    ui_.port_input->setText("");
-    auto& config = AppConfig::instance();
-    int old_port = config.get_value<int>("app.websocket.port", 9999);
-    ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
-}
-
-void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
-    start_connect_btn_loading_ = false;
-    ui_.start_connect_btn->setEnabled(true);
-    if (success) {
-        is_connected_ = true;
-        LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_INFO, msg.toStdString());
-        reset_py_log_level();
-    }
-    else {
-        QMessageBox::warning(this, "连接错误！", msg);
-        LOG_MODULE("DGLABClient", "handle_connect_finished", LOG_ERROR, msg.toStdString());
-    }
-}
-
-void DGLABClient::handle_close_finished(bool success, const QString& msg) {
-    close_connect_btn_loading_ = false;
-    ui_.close_connect_btn->setEnabled(true);
-    if (success) {
-        is_connected_ = false;
-        LOG_MODULE("DGLABClient", "handle_close_finished", LOG_INFO, msg.toStdString());
-    }
-    else {
-        LOG_MODULE("DGLABClient", "handle_close_finished", LOG_ERROR, msg.toStdString());
-    }
-}
-
-void DGLABClient::start_async_connect() {
-    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "正在获取本机IP并更新WebSocket地址");
-    auto& config = AppConfig::instance();
-    int port = config.get_value<int>("app.websocket.port", 9999);
-    QString localIp = get_local_lan_ip();
-    QString wsUrl = QString("ws://%1:%2").arg(localIp).arg(port);
-    LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO,
-        "使用的WebSocket地址: " << wsUrl.toStdString());
-
-    QJsonObject update_url_cmd;
-    update_url_cmd["cmd"] = "set_ws_url";
-    update_url_cmd["url"] = wsUrl;
-    async_call(update_url_cmd, 5000, [this](bool ok, QString msg) {
-        if (ok) {
-            LOG_MODULE("DGLABClient", "start_async_connect", LOG_INFO, "端口更新成功，继续连接");
-            QJsonObject connect_cmd;
-            connect_cmd["cmd"] = "connect";
-            async_call(connect_cmd, 5000, [this](bool ok, QString msg) {
-                emit connect_finished(ok, msg);
-                if (ok) {
-                    fetch_qr_path();
-                }
-                });
-        }
-        else {
-            emit connect_finished(false, "端口更新失败: " + msg);
-        }
-        });
-}
-
-void DGLABClient::close_async_connect() {
-    LOG_MODULE("DGLABClient", "close_async_connect", LOG_INFO, "正在断开连接");
-    QJsonObject close_cmd;
-    close_cmd["cmd"] = "close";
-    async_call(close_cmd, 5000, [this](bool ok, QString msg) {
-        emit close_finished(ok, msg);
-        });
-}
-
-void DGLABClient::closeEvent(QCloseEvent* event) {
-    if (tray_icon_->isVisible()) {
-        tray_icon_->showMessage("提示", "程序已最小化到系统托盘",
-            QSystemTrayIcon::Information, 2000);
-        this->hide();
-        event->ignore();
-    }
-    else {
-        event->accept();
     }
 }

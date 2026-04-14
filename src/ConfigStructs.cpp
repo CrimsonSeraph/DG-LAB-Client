@@ -6,26 +6,8 @@
 #include <string>
 
 // ============================================
-// XXXConfig 方法实现
+// MainConfig 方法实现
 // ============================================
-
-//void XXXConfig::to_json(nlohmann::json& j, const XXXConfig& config) {
-//    j = nlohmann::json{
-//        {"name", config.name},
-//    };
-//}
-
-//void XXXConfig::from_json(const nlohmann::json& j, XXXConfig& config) {
-//    j.at("name").get_to(config.name);
-//}
-
-//bool XXXConfig::validate() const {
-//    if (name.empty()) {
-//        LOG_MODULE("ConfigStructs", "validate", LOG_WARN, "name 不能为空！");
-//        return false;
-//    }
-//    return true;
-//}
 
 void MainConfig::to_json(nlohmann::json& j, const MainConfig& config) {
     j = nlohmann::json{
@@ -41,7 +23,6 @@ void MainConfig::to_json(nlohmann::json& j, const MainConfig& config) {
 }
 
 void MainConfig::from_json(const nlohmann::json& j, MainConfig& config) {
-    // 必需字段
     j.at("app.name").get_to(config.app_name_);
     j.at("app.version").get_to(config.app_version_);
     j.at("app.debug").get_to(config.debug_mode_);
@@ -56,14 +37,18 @@ bool MainConfig::validate() const {
     if (app_name_.empty()) {
         return false;
     }
-    else if (app_version_.empty()) {
+    if (app_version_.empty()) {
         return false;
     }
-    else if (python_path_.empty()) {
+    if (python_path_.empty()) {
         return false;
     }
     return true;
 }
+
+// ============================================
+// SystemConfig 方法实现
+// ============================================
 
 void SystemConfig::to_json(nlohmann::json& j, const SystemConfig& config) {
     j = nlohmann::json{
@@ -78,6 +63,10 @@ void SystemConfig::from_json(const nlohmann::json& j, SystemConfig& config) {
 bool SystemConfig::validate() const {
     return (websocket_port_ > 0 && websocket_port_ < 65536);
 }
+
+// ============================================
+// UserConfig 方法实现
+// ============================================
 
 void UserConfig::to_json(nlohmann::json& j, const UserConfig& config) {
     j = nlohmann::json{

@@ -7,18 +7,24 @@
 #include <iostream>
 #endif
 
+// ============================================
+// Console - 控制台管理类（单例，Windows 平台支持）
+// ============================================
 class Console {
 public:
-    // 单例模式获取实例（使用局部静态变量）
+    // -------------------- 单例 --------------------
+    /// @brief 获取单例实例
     static Console& get_instance();
 
-    // 手动创建和销毁控制台
-    // 会尝试创建控制台（Windows 上实际创建并返回 true，其他平台返回 false）
+    // -------------------- 公共接口 --------------------
+    /// @brief 创建控制台（Windows 上实际创建，其他平台返回 false）
+    /// @return 成功返回 true
     bool create();
-    // 销毁控制台（Windows 上实际销毁，其他平台无操作）
+
+    /// @brief 销毁控制台（Windows 上释放，其他平台无操作）
     void destroy();
 
-    // 检查控制台是否已创建
+    /// @brief 检查控制台是否已创建
     inline bool is_created() const { return is_created_; }
 
     // 禁止拷贝
@@ -26,12 +32,17 @@ public:
     Console& operator=(const Console&) = delete;
 
 private:
-    Console();  // 私有构造函数
-    ~Console(); // 私有析构函数
+    // -------------------- 构造/析构（单例私有）--------------------
+    Console();
+    ~Console();
+
+    // -------------------- 成员变量 --------------------
+    bool is_created_ = false;   ///< 控制台是否已创建
 
 #ifdef _WIN32
+    // -------------------- 私有辅助函数（Windows 专用）--------------------
+    /// @brief Windows 平台实际创建调试控制台
+    /// @return 成功返回 true
     bool create_debug_console();
 #endif
-
-    bool is_created_ = false;
 };

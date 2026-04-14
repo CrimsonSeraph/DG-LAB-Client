@@ -13,6 +13,10 @@
 #include <windows.h>
 #endif
 
+// ============================================
+// 单例（public）
+// ============================================
+
 DebugLog& DebugLog::instance() {
     static DebugLog instance;
     static std::once_flag flag;
@@ -60,6 +64,10 @@ DebugLog& DebugLog::instance() {
     return instance;
 }
 
+// ============================================
+// 日志等级控制（public）
+// ============================================
+
 void DebugLog::set_all_log_level(LogLevel level) {
     std::lock_guard<std::mutex> lock(mutex_);
     default_log_level_ = level;
@@ -70,24 +78,12 @@ void DebugLog::set_all_log_level(LogLevel level) {
 
 void DebugLog::set_all_log_level(int level) {
     switch (level) {
-    case 0:
-        set_all_log_level(LOG_DEBUG);
-        break;
-    case 1:
-        set_all_log_level(LOG_INFO);
-        break;
-    case 2:
-        set_all_log_level(LOG_WARN);
-        break;
-    case 3:
-        set_all_log_level(LOG_ERROR);
-        break;
-    case 4:
-        set_all_log_level(LOG_NONE);
-        break;
-    default:
-        set_all_log_level(LOG_DEBUG);
-        break;
+    case 0: set_all_log_level(LOG_DEBUG); break;
+    case 1: set_all_log_level(LOG_INFO);  break;
+    case 2: set_all_log_level(LOG_WARN);  break;
+    case 3: set_all_log_level(LOG_ERROR); break;
+    case 4: set_all_log_level(LOG_NONE);  break;
+    default: set_all_log_level(LOG_DEBUG); break;
     }
 }
 
@@ -110,7 +106,17 @@ LogLevel DebugLog::get_log_level(const std::string& module) const {
     return default_log_level_;
 }
 
-void DebugLog::log(const std::string& module, const std::string& method, LogLevel level, const std::string& message) {
+void DebugLog::set_default_log_level(LogLevel level) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    default_log_level_ = level;
+}
+
+// ============================================
+// 日志输出（public）
+// ============================================
+
+void DebugLog::log(const std::string& module, const std::string& method,
+    LogLevel level, const std::string& message) {
     std::lock_guard<std::mutex> lock(sinks_mutex_);
     for (const auto& pair : log_sinks_) {
         const auto& sink = pair.second;
@@ -120,10 +126,9 @@ void DebugLog::log(const std::string& module, const std::string& method, LogLeve
     }
 }
 
-void DebugLog::set_default_log_level(LogLevel level) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    default_log_level_ = level;
-}
+// ============================================
+// Sink 管理（public）
+// ============================================
 
 void DebugLog::register_log_sink(const std::string& name, const LogSink& sink) {
     std::lock_guard<std::mutex> lock(sinks_mutex_);
@@ -138,10 +143,10 @@ void DebugLog::unregister_log_sink(const std::string& name) {
 bool DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
     std::lock_guard<std::mutex> lock(sinks_mutex_);
     if (log_sinks_.find(name) == log_sinks_.end()) {
-        return false;   // Sink 不存在
+        return false;
     }
-    else if (level < LOG_DEBUG || level > LOG_NONE) {
-        return false;   // 无效的日志等级
+    if (level < LOG_DEBUG || level > LOG_NONE) {
+        return false;
     }
     auto it = log_sinks_.find(name);
     if (it != log_sinks_.end()) {
@@ -150,34 +155,27 @@ bool DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
     return true;
 }
 
+// ============================================
+// 工具函数（public）
+// ============================================
+
 const char* DebugLog::level_to_string(LogLevel level) {
     switch (level) {
-    case LOG_DEBUG:
-        return "DEBUG";
-    case LOG_INFO:
-        return "INFO";
-    case LOG_WARN:
-        return "WARN";
-    case LOG_ERROR:
-        return "ERROR";
-    default:
-        return "UNKNOWN";
+    case LOG_DEBUG: return "DEBUG";
+    case LOG_INFO:  return "INFO";
+    case LOG_WARN:  return "WARN";
+    case LOG_ERROR: return "ERROR";
+    default:        return "UNKNOWN";
     }
 }
 
 LogLevel DebugLog::int_to_log_level(int level) {
     switch (level) {
-    case 0:
-        return LOG_DEBUG;
-    case 1:
-        return LOG_INFO;
-    case 2:
-        return LOG_WARN;
-    case 3:
-        return LOG_ERROR;
-    case 4:
-        return LOG_NONE;
-    default:
-        return LOG_DEBUG;
+    case 0: return LOG_DEBUG;
+    case 1: return LOG_INFO;
+    case 2: return LOG_WARN;
+    case 3: return LOG_ERROR;
+    case 4: return LOG_NONE;
+    default: return LOG_DEBUG;
     }
 }

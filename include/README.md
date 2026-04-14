@@ -10,7 +10,8 @@
 | 文件名 | 描述 |
 | - | - |
 | `AppConfig.h` | 应用配置主类 `AppConfig`（单例）的声明。提供配置系统的全局入口，负责初始化、销毁、配置项的读写（支持点分隔路径）、监听器管理、批量操作、导入导出等功能。内部集成 `MultiConfigManager` 实现多级配置优先级合并。 |
-| `AppConfig_impl.hpp` | `AppConfig` 的模板方法实现，以及辅助模板类 `ConfigValue<T>`、`ConfigObject<T>` 的定义。`ConfigValue` 用于简单类型的配置项包装（带缓存和变更回调），`ConfigObject` 用于复杂结构体的配置包装，支持 JSON 序列化与验证。 |
+| `AppConfig_impl.hpp` | `AppConfig` 的模板方法实现，包括设置配置值、批量更新多个配置、获取配置值等 |
+| `AppConfig_utils.hpp` | `AppConfig` 的工具包装器实现，辅助模板类 `ConfigValue<T>`、`ConfigObject<T>` 的定义。`ConfigValue` 用于简单类型的配置项包装（带缓存和变更回调），`ConfigObject` 用于复杂结构体的配置包装，支持 JSON 序列化与验证。 |
 | `ComboBoxDelegate.h` | **表格下拉框委托** （`ComboBoxDelegate`），用于规则表格的“通道”和“模式”列，提供 QComboBox 编辑器 |
 | `ConfigManager.h` | 单个配置管理器 `ConfigManager` 的声明。封装了 JSON 配置文件的加载、保存、键值访问（支持默认值）、批量更新（`merge_patch`）、删除及变更通知（观察者模式）。内部使用递归互斥锁保证线程安全。 |
 | `ConfigStructs.h` | 配置结构体的定义，包括通用的 `ConfigTemplate` 模板以及具体的 `MainConfig`、`SystemConfig`、`UserConfig` 结构体。每个结构体提供 `to_json`/`from_json` 静态方法用于 JSON 转换，以及 `validate()` 方法进行字段有效性验证。 |

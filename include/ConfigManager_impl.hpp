@@ -4,10 +4,9 @@
 #include "DebugLog.h"
 
 #include <mutex>
-#include <vector>
 
 // ============================================
-// 模板函数实现
+// 模板函数实现（顺序与头文件 public 区一致）
 // ============================================
 
 template<typename T>
@@ -29,7 +28,6 @@ inline std::optional<T> ConfigManager::get(const std::string& key_path) const {
         LOG_MODULE("ConfigManager", "get", LOG_DEBUG,
             "获取配置成功 [" << key_path << "] = " << nlohmann::json(val).dump());
         return val;
-
     }
     catch (const std::exception& e) {
         LOG_MODULE("ConfigManager", "get", LOG_ERROR, "获取配置失败 [" << key_path << "]: " << e.what());
@@ -52,7 +50,6 @@ inline bool ConfigManager::set(const std::string& key_path, const T& value) {
         auto keys = split_key_path(key_path);
         nlohmann::json* current = &new_config;
 
-        // 导航到指定路径（创建不存在的中间节点）
         for (size_t i = 0; i < keys.size() - 1; ++i) {
             if (!current->contains(keys[i])) {
                 (*current)[keys[i]] = nlohmann::json::object();
@@ -60,13 +57,11 @@ inline bool ConfigManager::set(const std::string& key_path, const T& value) {
             current = &(*current)[keys[i]];
         }
 
-        // 设置最终值
         (*current)[keys.back()] = value;
         std::swap(config_, new_config);
         LOG_MODULE("ConfigManager", "set", LOG_DEBUG,
             "设置配置成功 [" << key_path << "] = " << nlohmann::json(value).dump());
         return true;
-
     }
     catch (const std::exception& e) {
         LOG_MODULE("ConfigManager", "set", LOG_ERROR, "设置配置失败 [" << key_path << "]: " << e.what());

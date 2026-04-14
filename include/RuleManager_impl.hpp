@@ -5,8 +5,12 @@
 #include <stdexcept>
 #include <vector>
 
+// ============================================
+// 模板方法实现
+// ============================================
+
 template<typename... Args>
-QJsonObject RuleManager::evaluate_command(const std::string& rule_name, Args... args) {
+inline QJsonObject RuleManager::evaluate_command(const std::string& rule_name, Args... args) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = rules_.find(rule_name);
     if (it == rules_.end()) {

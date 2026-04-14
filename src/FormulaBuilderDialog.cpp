@@ -8,6 +8,10 @@
 #include <QStack>
 #include <QVBoxLayout>
 
+// ============================================
+// 构造/析构（public）
+// ============================================
+
 FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidget* parent)
     : QDialog(parent) {
     LOG_MODULE("FormulaBuilderDialog", "FormulaBuilderDialog", LOG_DEBUG,
@@ -67,6 +71,10 @@ QString FormulaBuilderDialog::get_formula() const {
         QString("返回表达式: %1").arg(expression_edit_->text()).toUtf8().constData());
     return expression_edit_->text();
 }
+
+// ============================================
+// 私有辅助函数（private）
+// ============================================
 
 bool FormulaBuilderDialog::expression_validity(const QString& expr, QString* error_msg, bool suppress_log) const {
     if (!suppress_log) {
@@ -168,16 +176,20 @@ bool FormulaBuilderDialog::expression_validity(const QString& expr, QString* err
     return true;
 }
 
-void FormulaBuilderDialog::clear_formula() {
-    LOG_MODULE("FormulaBuilderDialog", "clear_formula", LOG_DEBUG, "清除全部表达式");
-    expression_edit_->clear();
-}
+// ============================================
+// private slots 实现
+// ============================================
 
 void FormulaBuilderDialog::append_token(const QString& token) {
     int pos = expression_edit_->cursorPosition();
     QString text = expression_edit_->text();
     expression_edit_->setText(text.left(pos) + token + text.mid(pos));
     expression_edit_->setCursorPosition(pos + token.length());
+}
+
+void FormulaBuilderDialog::clear_formula() {
+    LOG_MODULE("FormulaBuilderDialog", "clear_formula", LOG_DEBUG, "清除全部表达式");
+    expression_edit_->clear();
 }
 
 void FormulaBuilderDialog::validate_and_accept() {

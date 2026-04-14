@@ -5,16 +5,28 @@
 #include <QEvent>
 #include <QMouseEvent>
 
+// ============================================
+// 构造/析构（public）
+// ============================================
+
 ValueModeDelegate::ValueModeDelegate(QObject* parent)
     : QStyledItemDelegate(parent) {
     LOG_MODULE("ValueModeDelegate", "ValueModeDelegate", LOG_DEBUG, "构造委托对象");
 }
+
+// ============================================
+// 重写 QStyledItemDelegate 虚函数（public）
+// ============================================
 
 QWidget* ValueModeDelegate::createEditor(QWidget* parent, const QStyleOptionViewItem& option,
     const QModelIndex& index) const {
     LOG_MODULE("ValueModeDelegate", "createEditor", LOG_DEBUG, "禁用默认文本编辑，返回 nullptr");
     return nullptr;
 }
+
+// ============================================
+// 重写事件处理（protected）
+// ============================================
 
 bool ValueModeDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
     const QStyleOptionViewItem& option, const QModelIndex& index) {

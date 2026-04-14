@@ -7,16 +7,21 @@
 #include <filesystem>
 #include <fstream>
 #include <mutex>
-#include <string>
-#include <unordered_map>
-#include <vector>
+
+namespace fs = std::filesystem;
+
+// ============================================
+// 单例（public）
+// ============================================
 
 RuleManager& RuleManager::instance() {
     static RuleManager instance;
     return instance;
 }
 
-namespace fs = std::filesystem;
+// ============================================
+// 初始化（public）
+// ============================================
 
 void RuleManager::init() {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -25,7 +30,7 @@ void RuleManager::init() {
     std::string rule_key = config.get_value<std::string>("rule.key", "rule");
     rules_dir_ = rule_path;
     keyword_ = rule_key;
-    // 确保目录存在
+
     try {
         fs::create_directories(rules_dir_);
     }
@@ -34,6 +39,10 @@ void RuleManager::init() {
     }
     scan_directory();
 }
+
+// ============================================
+// 文件管理（public）
+// ============================================
 
 std::vector<std::string> RuleManager::get_available_rule_files() const {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -48,11 +57,9 @@ void RuleManager::load_rule_file(const std::string& filename) {
             LOG_MODULE("RuleManager", "load_rule_file", LOG_WARN, "文件缺少 'rules' 字段: " << filename);
             return;
         }
-        if (json.contains("rules")) {
-            parse_config(json["rules"]);
-            current_file_ = filename;
-            LOG_MODULE("RuleManager", "load_rule_file", LOG_INFO, "已加载规则文件: " << filename);
-        }
+        parse_config(json["rules"]);
+        current_file_ = filename;
+        LOG_MODULE("RuleManager", "load_rule_file", LOG_INFO, "已加载规则文件: " << filename);
     }
     catch (const std::exception& e) {
         LOG_MODULE("RuleManager", "load_rule_file", LOG_ERROR, "加载失败: " << e.what());
@@ -87,14 +94,12 @@ bool RuleManager::modify_rule_file(const std::string& filename, const nlohmann::
         return false;
     }
     nlohmann::json j;
-    // 保留原有其他字段，只替换 rules
     try {
         j = load_json_file(filename);
     }
     catch (...) {}
     j["rules"] = rules_content;
     if (save_json_file(filename, j)) {
-        // 如果当前加载的就是这个文件，则重新解析规则
         if (current_file_ == filename) {
             parse_config(rules_content);
         }
@@ -111,7 +116,6 @@ bool RuleManager::delete_rule_file(const std::string& filename) {
     std::string full_path = get_full_path(filename);
     if (!fs::exists(full_path)) return false;
     if (fs::remove(full_path)) {
-        // 如果当前加载的文件被删除，则重新加载默认文件
         if (current_file_ == filename) {
             try {
                 load_rule_file("rules.json");
@@ -140,6 +144,10 @@ bool RuleManager::save_current_rule_file() {
     return modify_rule_file(current_file_, rules_json);
 }
 
+// ============================================
+// 规则加载（从配置管理器）（public）
+// ============================================
+
 void RuleManager::load_rules(std::shared_ptr<ConfigManager> config_manager) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!config_manager) {
@@ -161,9 +169,12 @@ void RuleManager::reload_rules() {
         LOG_MODULE("RuleManager", "reload_rules", LOG_WARN, "配置中没有 'rules' 字段");
         return;
     }
-
     parse_config(rules_json.value());
 }
+
+// ============================================
+// 规则查询（public）
+// ============================================
 
 std::vector<std::string> RuleManager::get_rule_names() const {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -178,10 +189,7 @@ std::vector<std::string> RuleManager::get_rule_names() const {
 std::string RuleManager::get_rule_display_string(const std::string& rule_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = rules_.find(rule_name);
-    if (it == rules_.end()) {
-        return "";
-    }
-    return it->second.get_display_string();
+    return it != rules_.end() ? it->second.get_display_string() : "";
 }
 
 std::vector<std::string> RuleManager::get_all_rule_display_strings() const {
@@ -212,6 +220,10 @@ std::string RuleManager::get_rule_value_pattern(const std::string& rule_name) co
     return it != rules_.end() ? it->second.get_value_pattern() : "";
 }
 
+// ============================================
+// 辅助（JSON 文件读写）（public）
+// ============================================
+
 nlohmann::json RuleManager::load_json_file(const std::string& filename) const {
     std::string full_path = get_full_path(filename);
     std::ifstream file(full_path);
@@ -223,13 +235,17 @@ nlohmann::json RuleManager::load_json_file(const std::string& filename) const {
     return j;
 }
 
+// ============================================
+// 私有辅助函数实现（private）
+// ============================================
+
 void RuleManager::scan_directory() {
     available_files_.clear();
     if (!fs::exists(rules_dir_)) return;
     for (const auto& entry : fs::directory_iterator(rules_dir_)) {
         if (entry.is_regular_file() && entry.path().extension() == ".json") {
             std::string filename = entry.path().filename().string();
-            if (filename == "rules.json") continue; // 默认文件单独处理
+            if (filename == "rules.json") continue;
             if (filename.find(keyword_) != std::string::npos) {
                 available_files_.push_back(filename);
             }
@@ -238,7 +254,7 @@ void RuleManager::scan_directory() {
 }
 
 std::string RuleManager::get_full_path(const std::string& filename) const {
-    return (rules_dir_ + "/" + filename);
+    return rules_dir_ + "/" + filename;
 }
 
 bool RuleManager::save_json_file(const std::string& filename, const nlohmann::json& content) const {
@@ -259,7 +275,7 @@ void RuleManager::parse_config(const nlohmann::json& config) {
 
             if (value.is_string()) {
                 channel = "";
-                mode = 1;   // 默认递增模式
+                mode = 1;
                 value_pattern = value.get<std::string>();
             }
             else if (value.is_object()) {

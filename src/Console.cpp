@@ -9,6 +9,10 @@
 #include <iostream>
 #endif
 
+// ============================================
+// 构造/析构（private）
+// ============================================
+
 Console::Console() : is_created_(false) {
     // 构造函数不自动创建控制台
 }
@@ -17,10 +21,18 @@ Console::~Console() {
     destroy();
 }
 
+// ============================================
+// 单例（public）
+// ============================================
+
 Console& Console::get_instance() {
     static Console instance;
     return instance;
 }
+
+// ============================================
+// 公共接口（public）
+// ============================================
 
 bool Console::create() {
     if (is_created_) {
@@ -46,6 +58,10 @@ void Console::destroy() {
     is_created_ = false;
 #endif
 }
+
+// ============================================
+// 私有辅助函数（private）
+// ============================================
 
 #ifdef _WIN32
 bool Console::create_debug_console() {
@@ -81,7 +97,6 @@ bool Console::create_debug_console() {
     // 重定向标准流到控制台
     FILE* fp;
 
-    // 重定向
     freopen_s(&fp, "CONOUT$", "w", stdout);
     freopen_s(&fp, "CONOUT$", "w", stderr);
     freopen_s(&fp, "CONIN$", "r", stdin);
@@ -97,9 +112,8 @@ bool Console::create_debug_console() {
     // 设置控制台字体
     CONSOLE_FONT_INFOEX cf = { 0 };
     cf.cbSize = sizeof(cf);
-    cf.dwFontSize.Y = 14;   // 字体大小
+    cf.dwFontSize.Y = 14;
 
-    // 尝试设置几种常见的支持Unicode的字体
     const wchar_t* fontNames[] = {
         L"Consolas",
         L"Lucida Console",
@@ -121,9 +135,7 @@ bool Console::create_debug_console() {
         SetConsoleMode(hOutput, dwMode);
     }
 
-    // 设置控制台标题
     SetConsoleTitleW(L"DG-LAB-Client Debug Console");
-
     return true;
 }
 #endif

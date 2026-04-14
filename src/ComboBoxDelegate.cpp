@@ -3,11 +3,19 @@
 
 #include <QTimer>
 
+// ============================================
+// 构造/析构（public）
+// ============================================
+
 ComboBoxDelegate::ComboBoxDelegate(const QStringList& items, QObject* parent)
     : QStyledItemDelegate(parent), items_(items) {
     LOG_MODULE("ComboBoxDelegate", "ComboBoxDelegate", LOG_DEBUG,
         QString("构造下拉框委托，选项数量: %1").arg(items.size()).toUtf8().constData());
 }
+
+// ============================================
+// 重写 QStyledItemDelegate 虚函数（public）
+// ============================================
 
 QWidget* ComboBoxDelegate::createEditor(QWidget* parent,
     const QStyleOptionViewItem& option,
@@ -45,7 +53,7 @@ void ComboBoxDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     if (!combo) return;
 
     QString newValue = combo->currentText();
-    LOG_MODULE("ComboBoxDelegate", "setModelData", LOG_INFO,
+    LOG_MODULE("ComboBoxDelegate", "setModelData", LOG_DEBUG,   // 原 LOG_INFO 降级为 LOG_DEBUG
         QString("将编辑器值写入模型: %1 -> %2")
         .arg(index.data(Qt::DisplayRole).toString(), newValue).toUtf8().constData());
 
