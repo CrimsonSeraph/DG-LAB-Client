@@ -19,16 +19,12 @@ set(CMAKE_AUTORCC ON)
 include(FetchContent)
 
 # -------------------- 手动获取 nlohmann/json 单头文件 --------------------
-# 定义 json.hpp 的目标路径
 set(NLOHMANN_JSON_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
 set(NLOHMANN_JSON_HEADER "${NLOHMANN_JSON_INCLUDE_DIR}/nlohmann/json.hpp")
 
-# 如果文件不存在，则下载
 if(NOT EXISTS "${NLOHMANN_JSON_HEADER}")
     message(STATUS "Downloading json.hpp from GitHub...")
-    # 确保目录存在
     file(MAKE_DIRECTORY "${NLOHMANN_JSON_INCLUDE_DIR}/nlohmann")
-    # 下载文件（显示进度）
     file(DOWNLOAD
         "https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp"
         "${NLOHMANN_JSON_HEADER}"
@@ -46,7 +42,6 @@ else()
     message(STATUS "json.hpp already exists, skipping download")
 endif()
 
-# 创建一个接口库，只提供头文件路径
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
 
@@ -94,7 +89,6 @@ set(PROJECT_SOURCES
     # 配置样式
     include/ConfigStructs.h
     src/ConfigStructs.cpp
-    # 默认配置
     include/DefaultConfigs.h
     src/DefaultConfigs.cpp
 
@@ -104,8 +98,6 @@ set(PROJECT_SOURCES
     include/RuleManager.h
     src/RuleManager.cpp
     include/RuleManager_impl.hpp
-
-    # 控制台
     include/Console.h
     src/Console.cpp
 
@@ -128,36 +120,29 @@ else()
     add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 endif()
 
-# 显式设置 macOS Bundle 属性
 if(APPLE)
     set_target_properties(${PROJECT_NAME} PROPERTIES MACOSX_BUNDLE TRUE)
 endif()
 
-# Windows 特定设置：让程序以窗口方式运行（无控制台）
 if(WIN32)
     set_target_properties(${PROJECT_NAME}
-        PROPERTIES
-            WIN32_EXECUTABLE TRUE
+        PROPERTIES WIN32_EXECUTABLE TRUE
     )
 endif()
 
-# 复制配置文件
+# 复制配置文件、Python脚本、资源、样式表（构建后）
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/config"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/config"
     COMMENT "Copying configuration files to output directory"
 )
-
-# 复制 Python 脚本
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/python"
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/python"
     COMMENT "Copying Python scripts to output directory"
 )
-
-# 复制 assets 资源
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -166,8 +151,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
         COMMENT "Copying assets to output directory"
     )
 endif()
-
-# 复制 qcss 样式表
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/qcss/")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -178,7 +161,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/qcss/")
 endif()
 
 # -------------------- 查找 Python --------------------
-# 要求 Python 3.9+，需要解释器和开发库
 find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 
 # -------------------- 链接库 --------------------
@@ -190,140 +172,121 @@ target_link_libraries(${PROJECT_NAME}
         Qt::Network
         Qt::Qml
     PRIVATE
-        nlohmann_json                   # JSON 库
-        Python::Python                  # Python 库
+        nlohmann_json
+        Python::Python
 )
-
-# 包含头文件目录
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-
 target_compile_definitions(${PROJECT_NAME} PRIVATE PYBIND11_ASSERT_GIL_HELD_INCREF_DECREF)
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
-# 安装可执行文件
 install(TARGETS ${PROJECT_NAME}
-    RUNTIME DESTINATION .           # Windows 和 Linux 的可执行文件
-    BUNDLE DESTINATION .            # macOS 的 .app 包
-    LIBRARY DESTINATION .           # 动态库
+    RUNTIME DESTINATION .
+    BUNDLE DESTINATION .
+    LIBRARY DESTINATION .
 )
-
-# 安装 Python 脚本（所有 .py 文件）
-install(DIRECTORY python/
-    DESTINATION python
-    FILES_MATCHING PATTERN "*.py"
-)
-
-# 安装配置文件（所有 .json 文件）
-install(DIRECTORY config/
-    DESTINATION config
-    FILES_MATCHING PATTERN "*.json"
-)
-
-# 安装 assets 资源文件（如图标、图片等）
+install(DIRECTORY python/ DESTINATION python FILES_MATCHING PATTERN "*.py")
+install(DIRECTORY config/ DESTINATION config FILES_MATCHING PATTERN "*.json")
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
     install(DIRECTORY assets/ DESTINATION assets)
 endif()
-
-# 安装 qcss 样式表文件
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/qcss/")
     install(DIRECTORY qcss/ DESTINATION qcss)
 endif()
 
-# -------------------- Qt 部署工具（自动复制 Qt DLL/框架）--------------------
+# -------------------- Qt 部署工具 --------------------
 if(WIN32)
-    # 获取 Qt 的 bin 目录（从 Qt::qmake 目标中获取）
     get_target_property(_qt_qmake_location Qt${QT_VERSION_MAJOR}::qmake IMPORTED_LOCATION)
-    message(STATUS "Qt qmake location: ${_qt_qmake_location}")
     get_filename_component(QT_BINARY_DIR "${_qt_qmake_location}" DIRECTORY)
-    message(STATUS "QT_BINARY_DIR: ${QT_BINARY_DIR}")
-    # 将路径保存为缓存变量，供安装脚本使用
     set(QT_BINARY_DIR "${QT_BINARY_DIR}" CACHE INTERNAL "Qt binary directory")
 
     install(CODE [[
         message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
-        message(STATUS "CMAKE_INSTALL_PREFIX: ${CMAKE_INSTALL_PREFIX}")
-        # 在安装时查找 windeployqt（使用缓存的 QT_BINARY_DIR）
         find_program(WINDEPLOYQT_EXECUTABLE
             NAMES windeployqt windeployqt6
             HINTS "${QT_BINARY_DIR}"
             REQUIRED
         )
-        message(STATUS "Found windeployqt: ${WINDEPLOYQT_EXECUTABLE}")
         set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
-        message(STATUS "Deploy target: ${DEPLOY_TARGET}")
         execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-            --release
-            --no-translations
-            --no-system-d3d-compiler
-            --no-compiler-runtime
+            --release --no-translations --no-system-d3d-compiler --no-compiler-runtime
             "${DEPLOY_TARGET}"
             RESULT_VARIABLE _deploy_result
-            OUTPUT_VARIABLE _deploy_output
-            ERROR_VARIABLE _deploy_error
         )
-        message(STATUS "windeployqt output: ${_deploy_output}")
-        message(STATUS "windeployqt error: ${_deploy_error}")
         if(NOT _deploy_result EQUAL 0)
-            message(FATAL_ERROR "windeployqt failed! result: ${_deploy_result}")
+            message(FATAL_ERROR "windeployqt failed")
         endif()
     ]])
 elseif(APPLE)
-    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt HINTS "${QT_BINARY_DIR}" REQUIRED)
-    # 由 macdeployqt 处理 Qt 依赖将在 CI 中完成，此处仅提示
-elseif(UNIX AND NOT APPLE)
-    # Linux 下 Qt 依赖处理将在 CI 中使用 linuxdeployqt 完成，此处仅提示
-    message(STATUS "Linux: Qt dependencies will be handled by linuxdeployqt in CI.")
+    # macdeployqt 在 CI 中手动执行
+    message(STATUS "macOS: Qt deployment will be done by macdeployqt in CI")
+else()
+    message(STATUS "Linux: Qt deployment will be done by linuxdeployqt in CI")
 endif()
 
-# -------------------- Python 运行时和包依赖处理 --------------------
-# 在安装阶段复制 Python 共享库和标准库
-# 注意：这会显著增大安装包体积
-
+# -------------------- Python 运行时和第三方包安装 --------------------
 if(WIN32)
-    # Windows：复制 Python DLL（python3.dll 和 python3X.dll）
-    if(DEFINED Python_RUNTIME_LIBRARY_DIRS)
-        foreach(_dir ${Python_RUNTIME_LIBRARY_DIRS})
-            install(FILES
-                "${_dir}/python3.dll"
-                "${_dir}/python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.dll"
-                DESTINATION .
-                OPTIONAL
-            )
-        endforeach()
-    else()
-        get_filename_component(PYTHON_BIN_DIR "${Python_EXECUTABLE}" DIRECTORY)
-        install(FILES
-            "${PYTHON_BIN_DIR}/python3.dll"
-            "${PYTHON_BIN_DIR}/python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.dll"
-            DESTINATION .
-            OPTIONAL
+    # 复制 Python 核心 DLL
+    set(PYTHON_DLL_NAMES
+        "python3.dll"
+        "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.dll"
+    )
+    foreach(DLL_NAME ${PYTHON_DLL_NAMES})
+        find_file(PYTHON_DLL_PATH
+            NAMES "${DLL_NAME}"
+            HINTS ${Python_RUNTIME_LIBRARY_DIRS}
+                  "${Python_EXECUTABLE}/.."
+                  "${Python_EXECUTABLE}/../bin"
+            DOC "Path to ${DLL_NAME}"
+            REQUIRED
         )
+        if(PYTHON_DLL_PATH)
+            install(FILES "${PYTHON_DLL_PATH}" DESTINATION .)
+            message(STATUS "Found Python DLL: ${PYTHON_DLL_PATH}")
+        else()
+            message(WARNING "Could not find ${DLL_NAME}, Python subprocess may fail")
+        endif()
+    endforeach()
+
+    # 处理 Python 标准库（打包为 zip，安装时动态创建）
+    if(Python_STDLIB)
+        set(PYTHON_ZIP_NAME "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
+        install(CODE [[
+            message(STATUS "Creating Python standard library zip: ${PYTHON_ZIP_NAME}")
+            set(ZIP_SOURCE "${Python_STDLIB}")
+            set(ZIP_TARGET "${CMAKE_INSTALL_PREFIX}/${PYTHON_ZIP_NAME}")
+            file(MAKE_DIRECTORY "${CMAKE_INSTALL_PREFIX}")
+            execute_process(
+                COMMAND ${CMAKE_COMMAND} -E tar "cf" "${ZIP_TARGET}" --format=zip -- .
+                WORKING_DIRECTORY "${ZIP_SOURCE}"
+                RESULT_VARIABLE _zip_result
+            )
+            if(NOT _zip_result EQUAL 0)
+                message(FATAL_ERROR "Failed to create Python standard library zip")
+            endif()
+        ]])
     endif()
 
-    # 复制 Python 标准库（压缩包文件）
-    if(Python_STDLIB)
-        set(PYTHON_ZIP "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
-        set(PYTHON_ZIP_PATH "${CMAKE_CURRENT_BINARY_DIR}/${PYTHON_ZIP}")
-        add_custom_command(
-            OUTPUT ${PYTHON_ZIP_PATH}
-            COMMAND ${CMAKE_COMMAND} -E tar "cf" ${PYTHON_ZIP_PATH} --format=zip -- .
-            WORKING_DIRECTORY ${Python_STDLIB}
-            COMMENT "Creating ${PYTHON_ZIP} from Python standard library"
-        )
-        add_custom_target(create_python_zip ALL DEPENDS ${PYTHON_ZIP_PATH})
-        install(FILES ${PYTHON_ZIP_PATH} DESTINATION .)
+    # 复制 Python 二进制扩展模块（DLLs）
+    get_filename_component(PYTHON_ROOT "${Python_EXECUTABLE}" DIRECTORY)
+    set(PYTHON_DLLS_DIR "${PYTHON_ROOT}/DLLs")
+    if(EXISTS "${PYTHON_DLLS_DIR}")
+        install(DIRECTORY "${PYTHON_DLLS_DIR}/" DESTINATION "DLLs")
+        message(STATUS "Python DLLs directory will be installed to DLLs/")
+    else()
+        message(WARNING "Python DLLs directory not found, binary extensions may be missing")
     endif()
 
 elseif(APPLE)
     # macOS：复制 libpython 动态库
     get_target_property(PYTHON_LIB_PATH Python::Python IMPORTED_LOCATION)
-    if(PYTHON_LIB_PATH)
+    if(PYTHON_LIB_PATH AND EXISTS "${PYTHON_LIB_PATH}")
         install(FILES "${PYTHON_LIB_PATH}" DESTINATION lib)
+    else()
+        message(WARNING "Could not find libpython.dylib, Python subprocess may fail")
     endif()
-    # 复制标准库
     if(Python_STDLIB)
         install(DIRECTORY "${Python_STDLIB}/"
             DESTINATION python/Lib
@@ -336,10 +299,11 @@ elseif(APPLE)
 else()
     # Linux：复制 libpython.so
     get_target_property(PYTHON_LIB_PATH Python::Python IMPORTED_LOCATION)
-    if(PYTHON_LIB_PATH)
+    if(PYTHON_LIB_PATH AND EXISTS "${PYTHON_LIB_PATH}")
         install(FILES "${PYTHON_LIB_PATH}" DESTINATION lib)
+    else()
+        message(WARNING "Could not find libpython.so, Python subprocess may fail")
     endif()
-    # 复制标准库
     if(Python_STDLIB)
         install(DIRECTORY "${Python_STDLIB}/"
             DESTINATION python/Lib
@@ -350,39 +314,20 @@ else()
     endif()
 endif()
 
-# --- 复制 Python 二进制扩展模块（DLLs 目录）到根目录/DLLs ---
-if(WIN32)
-    get_filename_component(PYTHON_ROOT "${Python_EXECUTABLE}" DIRECTORY)
-    set(PYTHON_DLLS_DIR "${PYTHON_ROOT}/DLLs")
-    if(EXISTS "${PYTHON_DLLS_DIR}")
-        install(DIRECTORY "${PYTHON_DLLS_DIR}/" DESTINATION "DLLs")
-        message(STATUS "Python DLLs directory will be installed to DLLs/")
-    else()
-        message(WARNING "Python DLLs directory not found at ${PYTHON_DLLS_DIR}. Binary extensions may be missing.")
-    endif()
-endif()
-
-# --- 安装自定义 Python 模块---
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/python"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/python"
-    COMMENT "Copying Python scripts to output directory"
-)
-# 安装时也复制
+# 复制自定义 Python 脚本
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/
     DESTINATION python
     FILES_MATCHING PATTERN "*.py"
 )
 
-# --- 安装第三方 Python 包（从 _packages 目录）---
+# 安装第三方 Python 包（从 CI 传入的 _packages 目录）
 set(PYTHON_PACKAGES_DIR "" CACHE PATH "Directory containing Python packages to bundle")
 if(PYTHON_PACKAGES_DIR AND EXISTS "${PYTHON_PACKAGES_DIR}")
     install(DIRECTORY "${PYTHON_PACKAGES_DIR}/"
         DESTINATION "python/Lib/site-packages"
         PATTERN "__pycache__" EXCLUDE
     )
-    message(STATUS "Third-party packages will be installed to python/Lib/site-packages/")
+    message(STATUS "Third-party packages installed to python/Lib/site-packages/")
 endif()
 
 # -------------------- CPack 打包配置 --------------------
@@ -390,7 +335,7 @@ include(InstallRequiredSystemLibraries)
 
 set(CPACK_PACKAGE_NAME "DG-LAB-Client")
 set(CPACK_PACKAGE_VENDOR "CrimsonSeraph")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Qt-based client for DG-Lab with Python scripting")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Qt-based client for DG-lab with Python scripting")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
 set(CPACK_PACKAGE_VERSION_MINOR "2")
 set(CPACK_PACKAGE_VERSION_PATCH "1")
@@ -398,18 +343,16 @@ set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSIO
 set(CPACK_PACKAGE_CONTACT "your-email@example.com")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 
-# 根据平台选择默认生成器
 if(WIN32)
     set(CPACK_GENERATOR "NSIS;ZIP")
 elseif(APPLE)
     set(CPACK_GENERATOR "DragNDrop;TGZ")
 else()
-    # Linux 下生成 DEB、RPM、TGZ 以及 AppImage（将在 CI 中通过 linuxdeployqt 生成）
     set(CPACK_GENERATOR "DEB;RPM;TGZ")
+    set(CPACK_RPM_PACKAGE_REQUIRES "libc.so.6, libstdc++.so.6")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.17), libstdc++6 (>= 5)")
 endif()
 
-# 特定平台的额外设置
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libstdc++6")
 set(CPACK_NSIS_DISPLAY_NAME "DG-LAB Client")
 set(CPACK_NSIS_PACKAGE_NAME "DG-LAB Client")
 
