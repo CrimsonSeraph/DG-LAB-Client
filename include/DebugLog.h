@@ -25,7 +25,7 @@ using LogSinkCallback = std::function<void(const std::string& module,
 
 struct LogSink {
     LogSinkCallback callback;   ///< 回调函数
-    LogLevel min_level;         ///< 最小输出等级
+    LogLevel min_level; ///< 最小输出等级
 };
 
 // ============================================
@@ -90,13 +90,13 @@ private:
     ~DebugLog() = default;
 
     // -------------------- 成员变量 --------------------
-    mutable std::mutex mutex_;                              ///< 保护 module_log_levels_ 等
-    std::map<std::string, LogLevel> module_log_levels_;    ///< 各模块日志等级
-    LogLevel default_log_level_ = LOG_DEBUG;               ///< 默认日志等级
-    bool is_only_type_info_ = false;                       ///< 仅输出类型信息模式
+    mutable std::mutex mutex_;  ///< 保护 module_log_levels_ 等
+    std::map<std::string, LogLevel> module_log_levels_; ///< 各模块日志等级
+    LogLevel default_log_level_ = LOG_DEBUG;    ///< 默认日志等级
+    bool is_only_type_info_ = false;    ///< 仅输出类型信息模式
 
-    std::map<std::string, LogSink> log_sinks_;              ///< 注册的 Sink
-    mutable std::mutex sinks_mutex_;                       ///< 保护 log_sinks_
+    std::map<std::string, LogSink> log_sinks_;  ///< 注册的 Sink
+    mutable std::mutex sinks_mutex_;    ///< 保护 log_sinks_
 };
 
 // ============================================

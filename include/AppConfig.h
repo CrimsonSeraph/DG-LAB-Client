@@ -181,28 +181,28 @@ private:
     ~AppConfig();
 
     // -------------------- 成员变量 --------------------
-    MultiConfigManager* multi_config_;                      ///< 多配置管理器指针
-    std::shared_ptr<ConfigManager> main_config_;            ///< 主配置管理器
-    std::shared_ptr<ConfigManager> user_config_;            ///< 用户配置管理器
-    std::shared_ptr<ConfigManager> system_config_;          ///< 系统配置管理器
+    MultiConfigManager* multi_config_;  ///< 多配置管理器指针
+    std::shared_ptr<ConfigManager> main_config_;    ///< 主配置管理器
+    std::shared_ptr<ConfigManager> user_config_;    ///< 用户配置管理器
+    std::shared_ptr<ConfigManager> system_config_;  ///< 系统配置管理器
 
-    ConfigObject<MainConfig> main_config_obj_;              ///< 主配置对象
-    ConfigObject<SystemConfig> system_config_obj_;          ///< 系统配置对象
-    ConfigObject<UserConfig> user_config_obj_;              ///< 用户配置对象
+    ConfigObject<MainConfig> main_config_obj_;  ///< 主配置对象
+    ConfigObject<SystemConfig> system_config_obj_;  ///< 系统配置对象
+    ConfigObject<UserConfig> user_config_obj_;  ///< 用户配置对象
 
-    std::map<std::string, std::vector<std::function<void()>>> config_listeners_; ///< 配置监听器映射
-    mutable std::mutex mutex_;                              ///< 互斥锁
-    std::atomic<bool> initialized_{ false };                ///< 初始化标志
+    std::map<std::string, std::vector<std::function<void()>>> config_listeners_;    ///< 配置监听器映射
+    mutable std::mutex mutex_;  ///< 互斥锁
+    std::atomic<bool> initialized_{ false };    ///< 初始化标志
 
     // -------------------- 私有辅助函数 --------------------
-    void initialize_configs();                              ///< 初始化配置项（加锁）
-    void initialize_configs_unsafe();                       ///< 初始化配置项（不加锁）
-    void create_default_configs();                          ///< 创建默认配置文件
-    void setup_listeners();                                 ///< 设置配置变更监听
-    void invalidate_caches();                               ///< 清空所有配置缓存
+    void initialize_configs();  ///< 初始化配置项（加锁）
+    void initialize_configs_unsafe();   ///< 初始化配置项（不加锁）
+    void create_default_configs();  ///< 创建默认配置文件
+    void setup_listeners(); ///< 设置配置变更监听
+    void invalidate_caches();   ///< 清空所有配置缓存
     void notify_config_changed(const std::string& config_name); ///< 通知配置变更
-    bool validate_configs() const;                          ///< 验证所有配置（内部调用）
-    bool is_called_from_main_thread() const;                ///< 检查是否在主线程
+    bool validate_configs() const;  ///< 验证所有配置（内部调用）
+    bool is_called_from_main_thread() const;    ///< 检查是否在主线程
 };
 
 #include "AppConfig_impl.hpp"

@@ -251,7 +251,7 @@ void MultiConfigManager::stop_file_watcher() {
 void MultiConfigManager::file_watcher_loop() {
     LOG_MODULE("MultiConfigManager", "file_watcher_loop", LOG_INFO, "文件监控循环开始");
     static int loop_count = 0;
-    const int LOG_INTERVAL = 30; // 每30次循环（约60秒）记录一次
+    const int LOG_INTERVAL = 30;    // 每30次循环（约60秒）记录一次
 
     while (running_) {
         std::this_thread::sleep_for(std::chrono::seconds(2));

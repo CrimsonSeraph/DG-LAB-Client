@@ -40,22 +40,22 @@ public:
 
 private:
     // -------------------- 成员变量 --------------------
-    QProcess* process_;                         ///< 子进程对象
-    QTcpSocket* socket_;                        ///< TCP 套接字
-    int port_;                                  ///< Python 服务监听的端口
+    QProcess* process_; ///< 子进程对象
+    QTcpSocket* socket_;    ///< TCP 套接字
+    int port_;  ///< Python 服务监听的端口
 
     // 同步等待相关
-    mutable QMutex mutex_;                      ///< 保护 wait_cond_、last_response_、response_received_
-    QWaitCondition wait_cond_;                  ///< 条件变量，用于同步等待响应
-    QJsonObject last_response_;                 ///< 最近收到的响应
-    bool response_received_;                    ///< 是否已收到响应
+    mutable QMutex mutex_;  ///< 保护 wait_cond_、last_response_、response_received_
+    QWaitCondition wait_cond_;  ///< 条件变量，用于同步等待响应
+    QJsonObject last_response_; ///< 最近收到的响应
+    bool response_received_;    ///< 是否已收到响应
 
     // 异步回调相关
-    std::atomic<int> next_token_{ 0 };          ///< 下一个请求 token
+    std::atomic<int> next_token_{ 0 };  ///< 下一个请求 token
     QMap<int, std::function<void(const QJsonObject&)>> pending_callbacks_;  ///< 待处理回调
-    QMutex callback_mutex_;                     ///< 保护 pending_callbacks_
+    QMutex callback_mutex_; ///< 保护 pending_callbacks_
 
-    std::atomic<bool> stopping_{ false };       ///< 析构时停止标志
+    std::atomic<bool> stopping_{ false };   ///< 析构时停止标志
 
     // -------------------- 私有辅助函数 --------------------
     /// @brief 处理子进程输出（stdout/stderr）

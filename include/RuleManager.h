@@ -80,19 +80,19 @@ private:
     RuleManager() = default;
 
     // -------------------- 成员变量 --------------------
-    std::unordered_map<std::string, Rule> rules_;      ///< 规则映射
-    mutable std::mutex mutex_;                         ///< 保护规则映射
-    std::shared_ptr<ConfigManager> config_manager_;    ///< 配置管理器（用于从配置加载）
-    std::string rules_dir_;                            ///< 规则目录
-    std::string keyword_;                              ///< 规则文件关键字
-    std::string current_file_;                         ///< 当前加载的文件名
-    std::vector<std::string> available_files_;         ///< 可用规则文件列表
+    std::unordered_map<std::string, Rule> rules_;   ///< 规则映射
+    mutable std::mutex mutex_;  ///< 保护规则映射
+    std::shared_ptr<ConfigManager> config_manager_; ///< 配置管理器（用于从配置加载）
+    std::string rules_dir_; ///< 规则目录
+    std::string keyword_;   ///< 规则文件关键字
+    std::string current_file_;  ///< 当前加载的文件名
+    std::vector<std::string> available_files_;  ///< 可用规则文件列表
 
     // -------------------- 私有辅助函数 --------------------
-    void scan_directory();                             ///< 扫描目录获取可用文件
-    std::string get_full_path(const std::string& filename) const;  ///< 获取完整路径
+    void scan_directory();  ///< 扫描目录获取可用文件
+    std::string get_full_path(const std::string& filename) const;   ///< 获取完整路径
     bool save_json_file(const std::string& filename, const nlohmann::json& content) const;  ///< 保存 JSON 文件
-    void parse_config(const nlohmann::json& config);   ///< 解析规则配置
+    void parse_config(const nlohmann::json& config);    ///< 解析规则配置
 };
 
 #include "RuleManager_impl.hpp"

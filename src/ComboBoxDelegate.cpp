@@ -53,7 +53,7 @@ void ComboBoxDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     if (!combo) return;
 
     QString newValue = combo->currentText();
-    LOG_MODULE("ComboBoxDelegate", "setModelData", LOG_DEBUG,   // 原 LOG_INFO 降级为 LOG_DEBUG
+    LOG_MODULE("ComboBoxDelegate", "setModelData", LOG_DEBUG,
         QString("将编辑器值写入模型: %1 -> %2")
         .arg(index.data(Qt::DisplayRole).toString(), newValue).toUtf8().constData());
 

@@ -152,19 +152,19 @@ private:
     };
 
     std::unordered_map<std::string, ConfigInfo> config_registry_;   ///< 配置注册表
-    mutable std::mutex registry_mutex_;                             ///< 注册表互斥锁
-    bool hot_reload_enabled_ = false;                               ///< 热重载开关
+    mutable std::mutex registry_mutex_; ///< 注册表互斥锁
+    bool hot_reload_enabled_ = false;   ///< 热重载开关
 
-    mutable std::vector<std::shared_ptr<ConfigManager>> sorted_configs_cache_; ///< 排序缓存
-    mutable bool cache_dirty_ = true;                               ///< 缓存是否失效
+    mutable std::vector<std::shared_ptr<ConfigManager>> sorted_configs_cache_;  ///< 排序缓存
+    mutable bool cache_dirty_ = true;   ///< 缓存是否失效
 
-    std::thread file_watcher_thread_;                               ///< 文件监控线程
-    std::atomic<bool> running_{ false };                            ///< 监控线程运行标志
+    std::thread file_watcher_thread_;   ///< 文件监控线程
+    std::atomic<bool> running_{ false };    ///< 监控线程运行标志
 
     // -------------------- 私有辅助函数 --------------------
-    void start_file_watcher();          ///< 启动文件监控线程
-    void stop_file_watcher();           ///< 停止文件监控线程
-    void file_watcher_loop();           ///< 文件监控循环
+    void start_file_watcher();  ///< 启动文件监控线程
+    void stop_file_watcher();   ///< 停止文件监控线程
+    void file_watcher_loop();   ///< 文件监控循环
     std::time_t get_file_mod_time(const std::string& path) const;   ///< 获取文件修改时间
 };
 

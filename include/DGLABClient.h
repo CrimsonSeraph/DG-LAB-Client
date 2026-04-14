@@ -65,22 +65,22 @@ private:
     std::vector<std::string> default_whitelist_ = { "wlan" };
 
     // -------------------- 成员变量 --------------------
-    Ui::DGLABClientClass ui_;                      ///< UI 界面
-    QSyntaxHighlighter* log_highlighter_ = nullptr;///< 日志高亮器
-    QSystemTrayIcon* tray_icon_;                   ///< 系统托盘图标
-    QMenu* tray_menu_;                             ///< 托盘菜单
-    QString current_qr_path_;                      ///< 当前二维码文件路径
+    Ui::DGLABClientClass ui_;   ///< UI 界面
+    QSyntaxHighlighter* log_highlighter_ = nullptr; ///< 日志高亮器
+    QSystemTrayIcon* tray_icon_;    ///< 系统托盘图标
+    QMenu* tray_menu_;  ///< 托盘菜单
+    QString current_qr_path_;   ///< 当前二维码文件路径
 
-    bool start_connect_btn_loading_ = false;       ///< 连接按钮加载状态
-    bool close_connect_btn_loading_ = false;       ///< 断开按钮加载状态
-    bool is_connected_ = false;                    ///< 连接状态
-    bool is_light_mode_ = true;                    ///< 主题模式（true=亮色，false=暗色）
+    bool start_connect_btn_loading_ = false;    ///< 连接按钮加载状态
+    bool close_connect_btn_loading_ = false;    ///< 断开按钮加载状态
+    bool is_connected_ = false; ///< 连接状态
+    bool is_light_mode_ = true; ///< 主题模式（true=亮色，false=暗色）
 
-    PythonSubprocessManager* py_manager_;          ///< Python 子进程管理器
+    PythonSubprocessManager* py_manager_;   ///< Python 子进程管理器
 
-    LogLevel ui_log_level_ = LOG_DEBUG;            ///< UI 日志级别
-    bool use_fixed_width_log_ = false;             ///< 是否使用固定宽度日志格式
-    LogSink qt_sink_;                              ///< Qt UI 日志输出通道
+    LogLevel ui_log_level_ = LOG_DEBUG; ///< UI 日志级别
+    bool use_fixed_width_log_ = false;  ///< 是否使用固定宽度日志格式
+    LogSink qt_sink_;   ///< Qt UI 日志输出通道
 
     // 规则 UI 控件
     QComboBox* rule_file_combo_;

@@ -416,6 +416,7 @@ DG-LAB-Client/
 ├── include/                         # 公共头文件（含 UI 文件）
 │   ├── AppConfig.h                  # 应用配置接口
 │   ├── AppConfig_impl.hpp           # 配置实现模板
+│   ├── AppConfig_utils.hpp          # 配置包装器工具类
 │   ├── ComboBoxDelegate.h           # 下拉框委托
 │   ├── ConfigManager.h              # 配置管理器
 │   ├── ConfigStructs.h              # 配置数据结构

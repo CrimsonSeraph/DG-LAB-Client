@@ -54,4 +54,4 @@ namespace DebugLogUtil {
         return result;
     }
 
-} // namespace DebugLogUtil
+}   // namespace DebugLogUtil

@@ -34,5 +34,5 @@ public:
 
 private:
     // -------------------- 成员变量 --------------------
-    QStringList items_;   ///< 下拉选项列表
+    QStringList items_; ///< 下拉选项列表
 };

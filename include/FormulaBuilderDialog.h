@@ -25,8 +25,8 @@ public:
 
 private:
     // -------------------- 成员变量 --------------------
-    QLineEdit* expression_edit_ = nullptr;   ///< 表达式输入框
-    QLabel* status_label_ = nullptr;         ///< 状态提示标签
+    QLineEdit* expression_edit_ = nullptr;  ///< 表达式输入框
+    QLabel* status_label_ = nullptr;    ///< 状态提示标签
 
     // -------------------- 私有辅助函数 --------------------
     /// @brief 验证表达式合法性

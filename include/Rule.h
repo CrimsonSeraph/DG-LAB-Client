@@ -55,12 +55,12 @@ public:
 
 private:
     // -------------------- 成员变量 --------------------
-    std::string name_;                      ///< 规则名称
-    std::string channel_;                   ///< 通道 "A"/"B"/""
-    int mode_;                              ///< 模式 0-4
-    std::string value_pattern_;             ///< 包含 {} 的表达式
+    std::string name_;  ///< 规则名称
+    std::string channel_;   ///< 通道 "A"/"B"/""
+    int mode_;  ///< 模式 0-4
+    std::string value_pattern_; ///< 包含 {} 的表达式
     std::vector<size_t> placeholder_positions_; ///< 各占位符位置
-    size_t placeholder_count_ = 0;          ///< 占位符数量
+    size_t placeholder_count_ = 0;  ///< 占位符数量
 
     // -------------------- 私有辅助函数 --------------------
     /// @brief 解析 value_pattern_ 中的 {}，记录位置和数量

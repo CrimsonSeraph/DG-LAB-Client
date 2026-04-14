@@ -13,4 +13,4 @@ namespace DefaultConfigs {
     /// @return 默认配置的 JSON 对象
     nlohmann::json get_default_config(const std::string& config_name);
 
-} // namespace DefaultConfigs
+}   // namespace DefaultConfigs

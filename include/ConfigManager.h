@@ -96,10 +96,10 @@ protected:
 
 private:
     // -------------------- 成员变量 --------------------
-    nlohmann::json config_;                         ///< 配置数据
-    std::string config_path_;                       ///< 配置文件路径
-    mutable std::recursive_mutex mutex_;            ///< 递归互斥锁
-    bool loaded_ = false;                           ///< 是否已加载
+    nlohmann::json config_; ///< 配置数据
+    std::string config_path_;   ///< 配置文件路径
+    mutable std::recursive_mutex mutex_;    ///< 递归互斥锁
+    bool loaded_ = false;   ///< 是否已加载
 
     std::vector<std::function<void(const nlohmann::json&)>> observers_; ///< 监听器列表
 
