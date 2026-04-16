@@ -487,12 +487,15 @@ DG-LAB-Client/
 ├── .editorconfig                    # 编辑器代码风格配置
 ├── .gitattributes                   # Git 属性配置（换行符等）
 ├── .gitignore                       # Git 忽略文件规则
+├── CHANGELOG.md                     # 更新日志
 ├── CMakeLists.txt                   # CMake 主构建脚本
 ├── CMakePresets.json                # CMake 预设配置
-├── CHANGELOG.md                     # 更新日志
+├── CONTRIBUTING.md                  # 贡献指南
 ├── CodingStyle.md                   # 代码规范文档
 ├── DGLABClient.qrc                  # Qt 资源收集文件
 ├── LICENSE.txt                      # MIT 许可证
+├── NOTICE.txt                       # 声明
+├── NextStep.md                      # 项目未来计划方向
 ├── README.md                        # 项目说明文档
 ├── main.cpp                         # 程序入口
 └── qt.cmake                         # Qt 相关 CMake 配置片段
