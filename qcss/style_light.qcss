@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 /* ========== 全局基础样式 ========== */
 QWidget[type="main_page"][mode="light"] {
     background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,

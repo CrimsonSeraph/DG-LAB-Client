@@ -1,0 +1,61 @@
+================================================================================
+                              NOTICE
+================================================================================
+
+This product is licensed under the GNU General Public License, version 3
+(GPL-3.0-only). The complete text of the GPL-3.0 license is provided in the
+file "COPYING" or "LICENSE" in the root directory of this distribution.
+
+However, this product incorporates or depends on third-party software
+components that are distributed under their own license terms. Those
+components and their licenses are listed below.
+
+-------------------------------------------------------------------------------
+1. Qt Framework (Core, Gui, Widgets, Network, Qml modules)
+-------------------------------------------------------------------------------
+
+Copyright (C) The Qt Company Ltd.
+
+This product uses the Qt framework. The Qt modules listed above are
+licensed under the GNU Lesser General Public License, version 3 (LGPLv3).
+
+The complete text of the LGPLv3 is provided in the "licenses/" directory
+as:
+   - LICENSE.LGPLv3
+
+Source code for Qt is available at: https://code.qt.io/cgit/qt/
+
+-------------------------------------------------------------------------------
+2. JSON for Modern C++ (nlohmann/json)
+-------------------------------------------------------------------------------
+
+Copyright (c) 2013-2022 Niels Lohmann
+
+This product includes the "JSON for Modern C++" library (single-header
+json.hpp). It is distributed under the MIT License.
+
+The complete text of the MIT License is provided in the "licenses/"
+directory as:
+   - LICENSE.MIT
+
+The library is obtained automatically during the build process from:
+   https://github.com/nlohmann/json
+
+-------------------------------------------------------------------------------
+LICENSE SCOPE (Important)
+-------------------------------------------------------------------------------
+
+Each third-party component listed above is governed solely by its own
+license. The use of these components does not change the license of your
+own original code.
+
+- Your own code (written by you) is licensed under GPL-3.0-only.
+- The Qt framework is governed by LGPLv3.
+- The nlohmann/json library is governed by the MIT License.
+
+You must comply with the terms of each license when distributing this
+software. For details, please refer to the full license texts provided in
+the "licenses/" directory.
+
+For any questions regarding licensing, please contact the original
+copyright holders of respective components.

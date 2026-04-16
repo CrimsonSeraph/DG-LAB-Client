@@ -844,7 +844,13 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 
 ## 十三、许可证
 
-本项目基于 MIT 许可证开源，详情请参阅 [LICENSE.txt](LICENSE.txt) 文件。
+本项目自身源代码采用 **GNU General Public License v3.0 only**（GPL-3.0-only）开源。详情请参阅项目根目录下的 [LICENSE](LICENSE) 文件。
+
+本项目依赖的第三方组件适用不同的许可证：
+- **Qt 框架**（Core, Gui, Widgets, Network, Qml）：GNU Lesser General Public License v3.0（LGPLv3）
+- **nlohmann/json**：MIT 许可证
+
+有关第三方许可证的完整声明和文本，请查看 [NOTICE.txt](NOTICE.txt) 及 `licenses/` 目录。
 
 ---
 
