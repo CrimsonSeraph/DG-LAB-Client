@@ -274,19 +274,19 @@ if(WIN32)
             file(MAKE_DIRECTORY \"\${ZIP_DIR}\")
 
             execute_process(
-                COMMAND ${CMAKE_COMMAND} -E tar cf \"\${ZIP_TARGET}\" --format=zip -- .
+                COMMAND powershell -Command \"Compress-Archive -Path '*' -DestinationPath '\${ZIP_TARGET}' -Force\"
                 WORKING_DIRECTORY \"\${ZIP_SOURCE}\"
                 RESULT_VARIABLE _zip_result
                 ERROR_VARIABLE _zip_error
                 OUTPUT_VARIABLE _zip_output
             )
 
-            message(STATUS \"tar exit code: \${_zip_result}\")
+            message(STATUS \"Compress-Archive exit code: \${_zip_result}\")
             if(_zip_error)
-                message(STATUS \"tar stderr: \${_zip_error}\")
+                message(STATUS \"stderr: \${_zip_error}\")
             endif()
             if(_zip_output)
-                message(STATUS \"tar stdout: \${_zip_output}\")
+                message(STATUS \"stdout: \${_zip_output}\")
             endif()
 
             if(NOT _zip_result EQUAL 0)

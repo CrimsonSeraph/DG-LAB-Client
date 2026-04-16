@@ -35,6 +35,7 @@
 - 新增实时波形采样控件（`SampledWaveformWidget`），支持连续输入 0~1 归一化数据并以滚动折线图显示，可调节采样间隔和最大振幅比例。
 - 样式系统全面重构：使用 `type` 和 `mode` 属性选择器实现精细控件分类（导航按钮、操作按钮、标题、标签、输入框等），支持亮色/暗色主题一键切换。
 - 新增 `apply_widget_properties()` 和 `apply_inline_styles()` 方法，统一为控件设置样式属性和内联样式，提高代码可维护性。
+- 添加贡献指南 `CONTRIBUTING.md`。
 
 ### Changed
 - 完善 `DGLABClient` 的样式管理逻辑，`setup_widget_properties()` 和 `change_theme()` 方法大幅优化，主题切换更流畅。
@@ -42,6 +43,7 @@
 - 为多个模块添加更详细的注释，特别是配置系统、规则引擎和 Python 子进程管理部分。
 - 减少冗余调试信息输出，仅保留关键状态日志，降低日志噪音。
 - 样式表文件 `style_light.qcss` 和 `style_night.qcss` 完全重写，视觉效果现代化。
+- 项目协议从 `MIT` 更换为 `GPL-v3.0`，完善第三方的开源信息。
 
 ### Deprecated
 - 无

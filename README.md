@@ -20,7 +20,7 @@
 项目采用 C++20 编写，通过启动独立的 Python 子进程（`Bridge.py`）来管理与 DG-Lab 服务器的 WebSocket 连接。  
 实现了多级配置管理、模块化日志、异步任务以及灵活的规则引擎等功能。  
 当前版本号：`v0.3.0`  
-> 详细请查看： [更新日志](ChangeLog.md)。
+> 详细请查看： [更新日志](CHANGELOG.md)。
 
 ---
 
@@ -489,7 +489,7 @@ DG-LAB-Client/
 ├── .gitignore                       # Git 忽略文件规则
 ├── CMakeLists.txt                   # CMake 主构建脚本
 ├── CMakePresets.json                # CMake 预设配置
-├── ChangeLog.md                     # 更新日志
+├── CHANGELOG.md                     # 更新日志
 ├── CodingStyle.md                   # 代码规范文档
 ├── DGLABClient.qrc                  # Qt 资源收集文件
 ├── LICENSE.txt                      # MIT 许可证
@@ -834,17 +834,19 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 
 欢迎提交 Issue 和 Pull Request。在贡献前请确保：
 
-- 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`，命名规范）。更多细节请参考 [编码规范](#十编码规范)。
+- 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`，命名规范）。更多细节请参考 [编码规范](#十编码规范) 及 **[CONTRIBUTING.md](CONTRIBUTING.md)**。
 - 请务必使用 UTF-8 without BOM 编码提交代码。
 - 添加或修改功能时更新相关文档（如 README.md）。
 - 确保本地测试通过（编译通过，功能正常）。
 - 对于较大的改动，请先开 Issue 讨论。
 
+> 详细的贡献流程、代码提交规范及 Pull Request 指南，请查阅 **[CONTRIBUTING.md](CONTRIBUTING.md)**
+
 ---
 
 ## 十三、许可证
 
-本项目自身源代码采用 **GNU General Public License v3.0 only**（GPL-3.0-only）开源。详情请参阅项目根目录下的 [LICENSE](LICENSE) 文件。
+本项目自身源代码采用 **GNU General Public License v3.0 only**（GPL-3.0-only）开源。详情请参阅项目根目录下的 [LICENSE](LICENSE.txt) 文件。
 
 本项目依赖的第三方组件适用不同的许可证：
 - **Qt 框架**（Core, Gui, Widgets, Network, Qml）：GNU Lesser General Public License v3.0（LGPLv3）
