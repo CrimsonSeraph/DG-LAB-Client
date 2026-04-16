@@ -5,6 +5,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <sstream>
 #include <string>
 
 // ============================================

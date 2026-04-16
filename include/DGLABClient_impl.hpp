@@ -1,11 +1,13 @@
 #pragma once
 
-#include "DGLABClient.h"
 #include "DebugLog.h"
+#include "DGLABClient.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QThreadPool>
+
+#include <string>
 
 // ============================================
 // 模板函数实现（async_call）
@@ -16,8 +18,8 @@ inline void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callbac
     LOG_MODULE("DGLABClient", "async_call", LOG_DEBUG, "在后台线程执行异步调用");
     QThreadPool::globalInstance()->start([this, cmd, timeout, callback = std::forward<Callback>(callback)]() mutable {
         try {
-            LOG_MODULE("DGLABClient", "async_call", LOG_DEBUG,
-                "正在发送命令: " << DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString()));
+            std::string msg = "正在发送命令: " + DebugLogUtil::remove_newline(QJsonDocument(cmd).toJson().toStdString());
+            LOG_MODULE("DGLABClient", "async_call", LOG_DEBUG, msg);
             py_manager_->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
                 bool ok = resp["status"].toString() == "ok";
                 QString msg = resp["message"].toString();
