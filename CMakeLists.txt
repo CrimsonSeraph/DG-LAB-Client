@@ -101,6 +101,10 @@ set(PROJECT_SOURCES
     include/Console.h
     src/Console.cpp
 
+    # 波形绘制
+    include/SampledWaveformWidget.h
+    src/SampledWaveformWidget.cpp
+
     # Debug 日志
     include/DebugLog.h
     src/DebugLog.cpp

@@ -375,3 +375,5 @@ build/
 venv/
 .vscode/
 CLAUDE.md
+.claude/
+doc/

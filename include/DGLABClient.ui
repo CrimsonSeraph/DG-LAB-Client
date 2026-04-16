@@ -918,7 +918,7 @@
             <x>20</x>
             <y>10</y>
             <width>658</width>
-            <height>60</height>
+            <height>100</height>
            </rect>
           </property>
           <property name="font">
@@ -937,11 +937,98 @@
           <property name="geometry">
            <rect>
             <x>20</x>
-            <y>180</y>
+            <y>300</y>
             <width>658</width>
-            <height>401</height>
+            <height>281</height>
            </rect>
           </property>
+         </widget>
+         <widget class="QWidget" name="channel_waves" native="true">
+          <property name="geometry">
+           <rect>
+            <x>20</x>
+            <y>180</y>
+            <width>658</width>
+            <height>100</height>
+           </rect>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_16" stretch="1,3">
+           <item>
+            <widget class="QWidget" name="channel_info" native="true">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+             <layout class="QVBoxLayout" name="verticalLayout_5">
+              <item>
+               <widget class="QWidget" name="A_channel_info" native="true">
+                <layout class="QHBoxLayout" name="horizontalLayout_15" stretch="1,4">
+                 <item>
+                  <widget class="QLabel" name="A_channel">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="font">
+                    <font>
+                     <pointsize>16</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>A</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignmentFlag::AlignCenter</set>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="A_channel_value"/>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+              <item>
+               <widget class="QWidget" name="B_channel_info" native="true">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,4">
+                 <item>
+                  <widget class="QLabel" name="B_channel">
+                   <property name="font">
+                    <font>
+                     <pointsize>16</pointsize>
+                    </font>
+                   </property>
+                   <property name="text">
+                    <string>B</string>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignmentFlag::AlignCenter</set>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="B_channel_value"/>
+                 </item>
+                </layout>
+               </widget>
+              </item>
+             </layout>
+            </widget>
+           </item>
+           <item>
+            <widget class="SampledWaveformWidget" name="wave_show" native="true"/>
+           </item>
+          </layout>
          </widget>
         </widget>
        </widget>
@@ -952,6 +1039,14 @@
   </layout>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>SampledWaveformWidget</class>
+   <extends>QWidget</extends>
+   <header>sampledwaveformwidget.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
