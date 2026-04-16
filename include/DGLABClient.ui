@@ -1102,7 +1102,7 @@
   <customwidget>
    <class>SampledWaveformWidget</class>
    <extends>QWidget</extends>
-   <header>sampledwaveformwidget.h</header>
+   <header>SampledWaveformWidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>
