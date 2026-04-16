@@ -60,7 +60,7 @@ jobs:
               print "未找到 " tag " 对应的发布说明。"
               }
             }
-          ' ChangeLog.md > /tmp/release_notes.md
+          ' CHANGELOG.md > /tmp/release_notes.md
 
           {
             echo 'release_notes<<EOF'
