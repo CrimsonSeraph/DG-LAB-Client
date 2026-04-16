@@ -260,19 +260,39 @@ if(WIN32)
         file(TO_CMAKE_PATH "${Python_STDLIB}" PYTHON_STDLIB_CMAKE)
         file(TO_CMAKE_PATH "${CMAKE_INSTALL_PREFIX}" INSTALL_PREFIX_CMAKE)
         set(ZIP_TARGET_CMAKE "${INSTALL_PREFIX_CMAKE}/${PYTHON_ZIP_NAME}")
-    
+
+        # 配置时输出诊断信息
+        message(STATUS "Python_STDLIB (raw): ${Python_STDLIB}")
+        message(STATUS "Python_STDLIB (converted): ${PYTHON_STDLIB_CMAKE}")
+        message(STATUS "Install prefix: ${INSTALL_PREFIX_CMAKE}")
+        message(STATUS "Zip target: ${ZIP_TARGET_CMAKE}")
+
         install(CODE "
             message(STATUS \"Creating Python standard library zip: ${PYTHON_ZIP_NAME}\")
             set(ZIP_SOURCE \"${PYTHON_STDLIB_CMAKE}\")
             set(ZIP_TARGET \"${ZIP_TARGET_CMAKE}\")
+            message(STATUS \"ZIP_SOURCE = \${ZIP_SOURCE}\")
+            message(STATUS \"ZIP_TARGET = \${ZIP_TARGET}\")
+            if(NOT EXISTS \"\${ZIP_SOURCE}\")
+                message(FATAL_ERROR \"ZIP_SOURCE directory does not exist: \${ZIP_SOURCE}\")
+            endif()
             file(MAKE_DIRECTORY \"${INSTALL_PREFIX_CMAKE}\")
             execute_process(
                 COMMAND ${CMAKE_COMMAND} -E tar cf \"\${ZIP_TARGET}\" --format=zip -- .
                 WORKING_DIRECTORY \"\${ZIP_SOURCE}\"
                 RESULT_VARIABLE _zip_result
+                ERROR_VARIABLE _zip_error
+                OUTPUT_VARIABLE _zip_output
             )
+            message(STATUS \"tar exit code: \${_zip_result}\")
+            if(_zip_error)
+                message(STATUS \"tar stderr: \${_zip_error}\")
+            endif()
+            if(_zip_output)
+                message(STATUS \"tar stdout: \${_zip_output}\")
+            endif()
             if(NOT _zip_result EQUAL 0)
-                message(FATAL_ERROR \"Failed to create Python standard library zip\")
+                message(FATAL_ERROR \"Failed to create Python standard library zip (exit \${_zip_result})\")
             endif()
         ")
     endif()

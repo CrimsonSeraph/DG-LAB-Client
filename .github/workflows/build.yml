@@ -27,7 +27,7 @@ jobs:
     steps:
       # 检出代码
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # 安装 Qt（使用专用 action）
       - name: Install Qt
@@ -152,7 +152,7 @@ jobs:
 
       # 将生成的安装包上传为 GitHub Actions 的 Artifact
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: DG-LAB-Client-${{ matrix.os }}
           path: |
