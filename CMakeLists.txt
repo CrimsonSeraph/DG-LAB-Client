@@ -231,68 +231,64 @@ else()
 endif()
 
 # -------------------- Python 运行时和第三方包安装 --------------------
-if(WIN32)
-    # 复制 Python 核心 DLL
-    set(PYTHON_DLL_NAMES
-        "python3.dll"
-        "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.dll"
-    )
-    foreach(DLL_NAME ${PYTHON_DLL_NAMES})
-        find_file(PYTHON_DLL_PATH
-            NAMES "${DLL_NAME}"
-            HINTS ${Python_RUNTIME_LIBRARY_DIRS}
-                  "${Python_EXECUTABLE}/.."
-                  "${Python_EXECUTABLE}/../bin"
-            DOC "Path to ${DLL_NAME}"
-            REQUIRED
+    if(WIN32)
+        # 复制 Python 核心 DLL
+        set(PYTHON_DLL_NAMES
+            "python3.dll"
+            "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.dll"
         )
-        if(PYTHON_DLL_PATH)
-            install(FILES "${PYTHON_DLL_PATH}" DESTINATION .)
-            message(STATUS "Found Python DLL: ${PYTHON_DLL_PATH}")
-        else()
-            message(WARNING "Could not find ${DLL_NAME}, Python subprocess may fail")
-        endif()
-    endforeach()
+        foreach(DLL_NAME ${PYTHON_DLL_NAMES})
+            find_file(PYTHON_DLL_PATH
+                NAMES "${DLL_NAME}"
+                HINTS ${Python_RUNTIME_LIBRARY_DIRS}
+                      "${Python_EXECUTABLE}/.."
+                      "${Python_EXECUTABLE}/../bin"
+                DOC "Path to ${DLL_NAME}"
+                REQUIRED
+            )
+            if(PYTHON_DLL_PATH)
+                install(FILES "${PYTHON_DLL_PATH}" DESTINATION .)
+                message(STATUS "Found Python DLL: ${PYTHON_DLL_PATH}")
+            else()
+                message(WARNING "Could not find ${DLL_NAME}, Python subprocess may fail")
+            endif()
+        endforeach()
 
-    # 处理 Python 标准库（打包为 zip，安装时动态创建）
-    if(WIN32 AND Python_STDLIB)
+        # 处理 Python 标准库（打包为 zip，安装时动态创建）
+        if(WIN32 AND Python_STDLIB)
         set(PYTHON_ZIP_NAME "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
+        set(PYTHON_ZIP_PATH "${CMAKE_CURRENT_BINARY_DIR}/${PYTHON_ZIP_NAME}")
+
+        # 在配置阶段创建 zip 文件
+        message(STATUS "Creating Python standard library zip: ${PYTHON_ZIP_PATH}")
         file(TO_CMAKE_PATH "${Python_STDLIB}" PYTHON_STDLIB_CMAKE)
 
-        install(CODE "
-            set(ZIP_SOURCE \"${PYTHON_STDLIB_CMAKE}\")
-            set(ZIP_TARGET \"\${CMAKE_INSTALL_PREFIX}/${PYTHON_ZIP_NAME}\")
-            message(STATUS \"Creating Python standard library zip: ${PYTHON_ZIP_NAME}\")
-            message(STATUS \"ZIP_SOURCE = \${ZIP_SOURCE}\")
-            message(STATUS \"ZIP_TARGET = \${ZIP_TARGET}\")
-
-            if(NOT EXISTS \"\${ZIP_SOURCE}\")
-                message(FATAL_ERROR \"ZIP_SOURCE directory does not exist: \${ZIP_SOURCE}\")
-            endif()
-
-            get_filename_component(ZIP_DIR \"\${ZIP_TARGET}\" DIRECTORY)
-            file(MAKE_DIRECTORY \"\${ZIP_DIR}\")
-
+        # 使用 CMake 的 file(WRITE) 和 execute_process 在配置时执行打包
+        if(CMAKE_HOST_WIN32)
             execute_process(
-                COMMAND powershell -Command \"Compress-Archive -Path '*' -DestinationPath '\${ZIP_TARGET}' -Force\"
-                WORKING_DIRECTORY \"\${ZIP_SOURCE}\"
+                COMMAND powershell -Command "Compress-Archive -Path '*' -DestinationPath '${PYTHON_ZIP_PATH}' -Force"
+                WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
                 RESULT_VARIABLE _zip_result
                 ERROR_VARIABLE _zip_error
                 OUTPUT_VARIABLE _zip_output
             )
-
-            message(STATUS \"Compress-Archive exit code: \${_zip_result}\")
-            if(_zip_error)
-                message(STATUS \"stderr: \${_zip_error}\")
-            endif()
-            if(_zip_output)
-                message(STATUS \"stdout: \${_zip_output}\")
-            endif()
-
             if(NOT _zip_result EQUAL 0)
-                message(FATAL_ERROR \"Failed to create Python standard library zip (exit \${_zip_result})\")
+                message(FATAL_ERROR "Failed to create Python standard library zip: ${_zip_error}")
             endif()
-        ")
+        else()
+            # Linux/macOS 使用 tar
+            execute_process(
+                COMMAND ${CMAKE_COMMAND} -E tar cf "${PYTHON_ZIP_PATH}" --format=zip -- .
+                WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
+                RESULT_VARIABLE _zip_result
+            )
+            if(NOT _zip_result EQUAL 0)
+                message(FATAL_ERROR "Failed to create Python standard library zip")
+            endif()
+        endif()
+
+        # 安装生成的 zip 文件
+        install(FILES "${PYTHON_ZIP_PATH}" DESTINATION .)
     endif()
 
     # 复制 Python 二进制扩展模块（DLLs）
