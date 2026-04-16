@@ -255,28 +255,24 @@ if(WIN32)
     endforeach()
 
     # 处理 Python 标准库（打包为 zip，安装时动态创建）
-    if(Python_STDLIB)
+    if(WIN32 AND Python_STDLIB)
         set(PYTHON_ZIP_NAME "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
         file(TO_CMAKE_PATH "${Python_STDLIB}" PYTHON_STDLIB_CMAKE)
-        file(TO_CMAKE_PATH "${CMAKE_INSTALL_PREFIX}" INSTALL_PREFIX_CMAKE)
-        set(ZIP_TARGET_CMAKE "${INSTALL_PREFIX_CMAKE}/${PYTHON_ZIP_NAME}")
-
-        # 配置时输出诊断信息
-        message(STATUS "Python_STDLIB (raw): ${Python_STDLIB}")
-        message(STATUS "Python_STDLIB (converted): ${PYTHON_STDLIB_CMAKE}")
-        message(STATUS "Install prefix: ${INSTALL_PREFIX_CMAKE}")
-        message(STATUS "Zip target: ${ZIP_TARGET_CMAKE}")
 
         install(CODE "
-            message(STATUS \"Creating Python standard library zip: ${PYTHON_ZIP_NAME}\")
             set(ZIP_SOURCE \"${PYTHON_STDLIB_CMAKE}\")
-            set(ZIP_TARGET \"${ZIP_TARGET_CMAKE}\")
+            set(ZIP_TARGET \"\${CMAKE_INSTALL_PREFIX}/${PYTHON_ZIP_NAME}\")
+            message(STATUS \"Creating Python standard library zip: ${PYTHON_ZIP_NAME}\")
             message(STATUS \"ZIP_SOURCE = \${ZIP_SOURCE}\")
             message(STATUS \"ZIP_TARGET = \${ZIP_TARGET}\")
+
             if(NOT EXISTS \"\${ZIP_SOURCE}\")
                 message(FATAL_ERROR \"ZIP_SOURCE directory does not exist: \${ZIP_SOURCE}\")
             endif()
-            file(MAKE_DIRECTORY \"${INSTALL_PREFIX_CMAKE}\")
+
+            get_filename_component(ZIP_DIR \"\${ZIP_TARGET}\" DIRECTORY)
+            file(MAKE_DIRECTORY \"\${ZIP_DIR}\")
+
             execute_process(
                 COMMAND ${CMAKE_COMMAND} -E tar cf \"\${ZIP_TARGET}\" --format=zip -- .
                 WORKING_DIRECTORY \"\${ZIP_SOURCE}\"
@@ -284,6 +280,7 @@ if(WIN32)
                 ERROR_VARIABLE _zip_error
                 OUTPUT_VARIABLE _zip_output
             )
+
             message(STATUS \"tar exit code: \${_zip_result}\")
             if(_zip_error)
                 message(STATUS \"tar stderr: \${_zip_error}\")
@@ -291,6 +288,7 @@ if(WIN32)
             if(_zip_output)
                 message(STATUS \"tar stdout: \${_zip_output}\")
             endif()
+
             if(NOT _zip_result EQUAL 0)
                 message(FATAL_ERROR \"Failed to create Python standard library zip (exit \${_zip_result})\")
             endif()
