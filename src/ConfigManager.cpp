@@ -89,7 +89,7 @@ bool ConfigManager::load() {
 }
 
 bool ConfigManager::save() const {
-    LOG_MODULE("ConfigManager", "save", LOG_INFO, "开始保存配置文件: " << config_path_);
+    LOG_MODULE("ConfigManager", "save", LOG_DEBUG, "开始保存配置文件: " << config_path_);
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {

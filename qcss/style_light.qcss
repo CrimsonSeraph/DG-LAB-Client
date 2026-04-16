@@ -1,74 +1,145 @@
+/* ========== 全局基础样式 ========== */
 QWidget[type="main_page"][mode="light"] {
     background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
-                                stop: 0 rgba(255, 182, 193, 1),
-                                stop: 1 rgba(135, 206, 250, 1));
+                                stop: 0 rgba(232, 240, 254, 1),
+                                stop: 1 rgba(212, 230, 241, 1));
 }
 
+/* 玻璃拟态容器 */
 QWidget[type="glassmorphism"][mode="light"] {
-    background-color: rgba(255, 255, 255, 0.3);
-    border: 2px solid white;
+    background-color: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 12px;
+}
+
+/* 导航按钮 */
+QPushButton[type="nav_btn"][mode="light"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 rgba(108, 142, 191, 1),
+                                stop: 1 rgba(74, 106, 142, 1));
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 1);
+    padding: 8px 12px;
+}
+QPushButton[type="nav_btn"][mode="light"]:hover {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 rgba(127, 159, 191, 1),
+                                stop: 1 rgba(90, 122, 158, 1));
+}
+QPushButton[type="nav_btn"][mode="light"]:pressed {
+    background: rgba(58, 90, 126, 1);
+}
+
+/* 操作按钮 */
+QPushButton[type="action_btn"][mode="light"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 rgba(165, 196, 212, 1),
+                                stop: 1 rgba(133, 164, 180, 1));
+    border: 1px solid rgba(192, 208, 224, 1);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(44, 62, 80, 1);
+    padding: 6px 12px;
+}
+QPushButton[type="action_btn"][mode="light"]:hover {
+    background: rgba(181, 212, 228, 1);
+}
+QPushButton[type="action_btn"][mode="light"]:pressed {
+    background: rgba(117, 148, 164, 1);
+}
+
+/* 标题文字 */
+QLabel[type="title"][mode="light"] {
+    font-size: 20px;
+    font-weight: bold;
+    color: rgba(44, 62, 80, 1);
+    background: transparent;
+    qproperty-alignment: AlignCenter;
+}
+
+/* 普通标签 */
+QLabel[type="label"][mode="light"] {
+    font-size: 14px;
+    color: rgba(44, 62, 80, 1);
+    background: transparent;
+    qproperty-alignment: AlignLeft | AlignVCenter;
+}
+
+/* 图片标签 */
+QLabel[type="image"][mode="light"] {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(244, 208, 63, 1);
+    qproperty-alignment: AlignCenter;
+}
+
+/* 输入框 */
+QLineEdit[type="input"][mode="light"] {
+    background: rgba(255, 255, 255, 1);
+    border: 1px solid rgba(176, 196, 222, 1);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 14px;
+    color: rgba(44, 62, 80, 1);
+}
+QLineEdit[type="input"][mode="light"]:focus {
+    border: 1px solid rgba(74, 106, 142, 1);
+    background: rgba(240, 248, 255, 1);
+}
+
+/* 调试日志框 */
+QTextEdit[type="debug_log"][mode="light"] {
+    background: rgba(30, 30, 30, 1);
+    color: rgba(212, 212, 212, 1);
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    border: 1px solid rgba(62, 62, 62, 1);
+    border-radius: 6px;
+}
+
+/* 滚动区域 */
+QScrollArea[type="scrollarea"][mode="light"] {
+    background: transparent;
+    border: none;
+}
+
+/* 堆叠窗口 */
+QStackedWidget[type="stacked"][mode="light"] {
+    background: transparent;
+}
+
+/* 通道面板 */
+QWidget[type="channel_panel"][mode="light"] {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* 端口面板 */
+QWidget[type="port_panel"][mode="light"] {
+    background: rgba(255, 255, 255, 0.4);
     border-radius: 8px;
 }
 
-QWidget[type="none"] {
-    background-color: rgba(255, 255, 255, 0);
+/* 按钮栏 */
+QWidget[type="button_bar"][mode="light"] {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
 }
 
-QScrollArea[type="none"] {
-    background-color: rgba(255, 255, 255, 0);
+/* 子面板 */
+QWidget[type="sub_panel"][mode="light"] {
+    background: transparent;
 }
 
-QPushButton[type="btns"][mode="light"] {
-    background: rgba(232, 232, 232, 0.6);
-    border: 2px solid white;
-    border-radius: 6px;
-    font-size: 16px;
-    font-weight: bold;
-    color: gray;
-    text-align: center;
-}
-
-QPushButton[type="btns"][mode="light"]:hover {
-    background: rgba(135, 206, 250, 0.6);
-}
-
-QPushButton[type="btns"][mode="light"]:pressed {
-    background: rgba(65, 105, 225, 0.6);
-}
-
-QLabel[type="main_image_label"][mode="light"] {
-    background: rgba(255, 255, 255, 0.6);
-    border-radius: 6px;
-    font-size: 16px;
-    font-weight: bold;
-    color: rgba(255, 255, 0, 1);
-    text-align: center;
-}
-
-QLineEdit[type="input"][mode="light"] {
-    background: rgba(255, 255, 255, 0.6);
-    color: black;
-    placeholder-text-color: gray;
-}
-
-QLabel[type="label"][mode="light"] {
-    background: rgba(255, 192, 203, 0.8);
-    border-radius: 3px;
-    font-size: 16px;
-    font-weight: bold;
-    color: rgba(255, 255, 0, 1);
-    text-align: center;
-}
-
-QMenu {
-    background-color: rgba(135, 206, 255, 1);
-    border: 1px solid rgba(255, 192, 203, 1);
-    border-radius: 4px;
-    color: black;
-}
-
-QTextEdit[type="debug_log"][mode="light"] {
-    background: rgba(54, 54, 54, 1);
-    border: 2px solid white;
+/* 波形控件 */
+SampledWaveformWidget[type="waveform"][mode="light"] {
+    background: rgba(30, 30, 30, 1);
     border-radius: 6px;
 }

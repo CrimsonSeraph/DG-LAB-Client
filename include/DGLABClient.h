@@ -108,6 +108,7 @@ private:
     void setup_default_page();
     void init_python_manager();
     void reset_py_log_level();
+    void init_port_input_placeholder();
 
     // -------------------- 私有辅助函数（二维码） --------------------
     void fetch_qr_path();
@@ -125,6 +126,10 @@ private:
 
     // -------------------- 私有辅助函数（样式） --------------------
     void setup_widget_properties(const std::string& property, const std::string& key);
+    // @brief 为所有需要样式的控件设置 type 属性
+    void apply_widget_properties();
+    /// @brief 应用所有内联样式表
+    void apply_inline_styles();
 
     // -------------------- 私有辅助函数（日志） --------------------
     void append_log_message(const QString& message, int level);

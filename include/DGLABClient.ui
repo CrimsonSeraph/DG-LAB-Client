@@ -962,9 +962,39 @@
               </sizepolicy>
              </property>
              <layout class="QVBoxLayout" name="verticalLayout_5">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
               <item>
                <widget class="QWidget" name="A_channel_info" native="true">
-                <layout class="QHBoxLayout" name="horizontalLayout_15" stretch="1,4">
+                <layout class="QHBoxLayout" name="horizontalLayout_15" stretch="1,2">
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
                  <item>
                   <widget class="QLabel" name="A_channel">
                    <property name="sizePolicy">
@@ -987,7 +1017,14 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QLineEdit" name="A_channel_value"/>
+                  <widget class="QLineEdit" name="A_channel_value">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                  </widget>
                  </item>
                 </layout>
                </widget>
@@ -1000,7 +1037,22 @@
                   <verstretch>0</verstretch>
                  </sizepolicy>
                 </property>
-                <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,4">
+                <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="1,2">
+                 <property name="spacing">
+                  <number>0</number>
+                 </property>
+                 <property name="leftMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="topMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="rightMargin">
+                  <number>0</number>
+                 </property>
+                 <property name="bottomMargin">
+                  <number>0</number>
+                 </property>
                  <item>
                   <widget class="QLabel" name="B_channel">
                    <property name="font">
@@ -1017,7 +1069,14 @@
                   </widget>
                  </item>
                  <item>
-                  <widget class="QLineEdit" name="B_channel_value"/>
+                  <widget class="QLineEdit" name="B_channel_value">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                  </widget>
                  </item>
                 </layout>
                </widget>

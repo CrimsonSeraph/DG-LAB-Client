@@ -64,13 +64,15 @@ DGLABClient::DGLABClient(QWidget* parent)
     create_log_highlighter();
     load_main_image();
     create_tray_icon();
-    load_stylesheet();
     setup_log_widget_style();
     setup_connections();
     setup_port_input_validation();
     setup_default_page();
     setup_rules_ui();
     init_python_manager();
+    apply_widget_properties();
+    load_stylesheet();
+    init_port_input_placeholder();
 
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
 }
@@ -356,19 +358,30 @@ void DGLABClient::create_tray_icon() {
 }
 
 void DGLABClient::load_stylesheet() {
-    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "开始加载样式表");
+    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_DEBUG, "开始加载样式表");
     auto& config = AppConfig::instance();
     is_light_mode_ = config.get_value<bool>("app.ui.is_light_mode", true);
-    setup_widget_properties("mode", (is_light_mode_ ? "light" : "night"));
+    setup_widget_properties("mode", is_light_mode_ ? "light" : "night");
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" << (is_light_mode_ ? "Light" : "Night"));
+    QString qss_path;
     if (is_light_mode_) {
-        load_light_stylesheet();
-        ui_.current_style_mode->setText("当前模式：Light");
+        qss_path = ":/style/qcss/style_light.qcss";
     }
     else {
-        load_night_stylesheet();
-        ui_.current_style_mode->setText("当前模式：Night");
+        qss_path = ":/style/qcss/style_night.qcss";
     }
+    QFile file(qss_path);
+    if (file.open(QFile::ReadOnly)) {
+        QString style = QString::fromUtf8(file.readAll());
+        this->setProperty("mode", is_light_mode_ ? "light" : "night");
+        this->setStyleSheet(style);
+        file.close();
+    }
+    else {
+        LOG_MODULE("DGLABClient", "load_stylesheet", LOG_WARN,
+            "无法加载样式表文件：" << qss_path.toStdString());
+    }
+    apply_inline_styles();
 }
 
 void DGLABClient::load_light_stylesheet() {
@@ -416,11 +429,12 @@ void DGLABClient::load_night_stylesheet() {
 }
 
 void DGLABClient::change_theme() {
-    LOG_MODULE("DGLABClient", "change_theme", LOG_INFO, "切换主题为：" << (is_light_mode_ ? "Night" : "Light"));
+    LOG_MODULE("DGLABClient", "change_theme", LOG_DEBUG, "切换主题为：" << (is_light_mode_ ? "Night" : "Light"));
     is_light_mode_ = !is_light_mode_;
     auto& config = AppConfig::instance();
     config.set_value<bool>("app.ui.is_light_mode", is_light_mode_);
     load_stylesheet();
+    ui_.current_style_mode->setText(is_light_mode_ ? "亮色模式" : "暗色模式");
 }
 
 void DGLABClient::setup_log_widget_style() {
@@ -511,6 +525,12 @@ void DGLABClient::reset_py_log_level() {
             LOG_MODULE("DGLABClient", "reset_py_log_level", LOG_ERROR, "设置 Python 端日志级别失败: " << msg.toStdString());
         }
         });
+}
+
+void DGLABClient::init_port_input_placeholder() {
+    auto& config = AppConfig::instance();
+    int old_port = config.get_value<int>("app.websocket.port", 9999);
+    ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
 }
 
 // ----- 二维码相关 -----
@@ -763,59 +783,97 @@ void DGLABClient::setup_widget_properties(const std::string& property, const std
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "开始设置元素属性");
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素统一属性[" << property << "]为：" << key);
 
-    ui_.all->setProperty("type", "main_page");
-    ui_.all->setProperty(property.c_str(), key.c_str());
+    apply_widget_properties();
 
-    ui_.left_btns_bar->setProperty("type", "glassmorphism");
-    ui_.left_btns_bar->setProperty(property.c_str(), key.c_str());
-
-    QList<QPushButton*> btns = ui_.all->findChildren<QPushButton*>();
-    for (QPushButton* btn : btns) {
-        btn->setProperty("type", "btns");
-        btn->setProperty(property.c_str(), key.c_str());
+    // 为所有需要动态属性的控件统一设置
+    QList<QWidget*> all_widgets = ui_.all->findChildren<QWidget*>();
+    all_widgets.append(ui_.all);
+    all_widgets.append(this);
+    for (QWidget* w : all_widgets) {
+        w->setProperty(property.c_str(), key.c_str());
     }
-    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "共加载" << btns.size() << "个按键");
 
-    ui_.main_image_label->setProperty("type", "main_image_label");
-    ui_.main_image_label->setProperty(property.c_str(), key.c_str());
-
-    ui_.main_page_btns_bar->setProperty("type", "glassmorphism");
-    ui_.main_page_btns_bar->setProperty(property.c_str(), key.c_str());
-
-    ui_.debug_log->setProperty("type", "debug_log");
-    ui_.debug_log->setProperty(property.c_str(), key.c_str());
-
-    ui_.port_info->setProperty("type", "glassmorphism");
-    ui_.port_info->setProperty(property.c_str(), key.c_str());
-
-    auto& config = AppConfig::instance();
-    int old_port = config.get_value<int>("app.websocket.port", 9999);
-    ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
-    ui_.port_input->setProperty("type", "input");
-    ui_.port_input->setProperty(property.c_str(), key.c_str());
-    ui_.port_label->setProperty("type", "label");
-    ui_.port_label->setProperty(property.c_str(), key.c_str());
-
-    ui_.config_scroll_area->setProperty("type", "none");
-    ui_.config_scrollAreaWidgetContents->setProperty("type", "none");
-    ui_.config_widgrt->setProperty("type", "glassmorphism");
-    ui_.config_widgrt->setProperty(property.c_str(), key.c_str());
-
-    ui_.setting_scroll_area->setProperty("type", "none");
-    ui_.setting_scrollAreaWidgetContents->setProperty("type", "none");
-    ui_.setting_grid->setProperty("type", "glassmorphism");
-    ui_.setting_grid->setProperty(property.c_str(), key.c_str());
-    ui_.style_mode->setProperty("type", "glassmorphism");
-    ui_.style_mode->setProperty(property.c_str(), key.c_str());
-    ui_.current_style_mode->setProperty("type", "label");
-    ui_.current_style_mode->setProperty(property.c_str(), key.c_str());
-    ui_.style_mode_label->setProperty("type", "label");
-    ui_.style_mode_label->setProperty(property.c_str(), key.c_str());
-
-    ui_.about_widget->setProperty("type", "glassmorphism");
-    ui_.about_widget->setProperty(property.c_str(), key.c_str());
+    // 确保按钮的动态属性已设置
+    QList<QPushButton*> btns = ui_.all->findChildren<QPushButton*>();
+    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "共为" << btns.size() << "个按钮设置属性");
 
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素属性完成！");
+}
+
+void DGLABClient::apply_widget_properties() {
+    // 主页面背景
+    ui_.all->setProperty("type", "main_page");
+    // 毛玻璃背景控件（glassmorphism）
+    ui_.left_btns_bar->setProperty("type", "glassmorphism");
+    ui_.port_info->setProperty("type", "glassmorphism");    // 端口面板
+    ui_.channel_waves->setProperty("type", "glassmorphism");    // 通道面板
+    ui_.main_page_btns_bar->setProperty("type", "glassmorphism");   // 首页按钮栏
+    ui_.style_mode->setProperty("type", "glassmorphism");   // 样式切换面板
+    // 导航按钮
+    ui_.main_first_btn->setProperty("type", "nav_btn");
+    ui_.main_config_btn->setProperty("type", "nav_btn");
+    ui_.main_setting_btn->setProperty("type", "nav_btn");
+    ui_.main_about_btn->setProperty("type", "nav_btn");
+    // 操作按钮
+    ui_.start_connect_btn->setProperty("type", "action_btn");
+    ui_.close_connect_btn->setProperty("type", "action_btn");
+    ui_.start_btn->setProperty("type", "action_btn");
+    ui_.close_btn->setProperty("type", "action_btn");
+    ui_.port_confirm_btn->setProperty("type", "action_btn");
+    ui_.show_qr_btn->setProperty("type", "action_btn");
+    ui_.change_style_mode_btn->setProperty("type", "action_btn");
+    // 标题标签
+    ui_.main_title->setProperty("type", "title");
+    ui_.config_title->setProperty("type", "title");
+    ui_.setting_title->setProperty("type", "title");
+    ui_.about_title->setProperty("type", "title");
+    // 普通标签
+    ui_.port_label->setProperty("type", "label");
+    ui_.style_mode_label->setProperty("type", "label");
+    ui_.current_style_mode->setProperty("type", "label");
+    // 图片标签
+    ui_.main_image_label->setProperty("type", "image");
+    // 输入框
+    ui_.port_input->setProperty("type", "input");
+    ui_.A_channel_value->setProperty("type", "input");
+    ui_.B_channel_value->setProperty("type", "input");
+    // 调试日志框
+    ui_.debug_log->setProperty("type", "debug_log");
+    // 波形控件
+    ui_.wave_show->setProperty("type", "waveform");
+    // 滚动区域
+    ui_.config_scroll_area->setProperty("type", "scrollarea");
+    ui_.setting_scroll_area->setProperty("type", "scrollarea");
+    // 堆叠窗口
+    ui_.stackedWidget->setProperty("type", "stacked");
+    // 子面板（无毛玻璃效果，仅用于布局）
+    ui_.about_left_part->setProperty("type", "sub_panel");
+    ui_.about_right_part->setProperty("type", "sub_panel");
+    ui_.setting_left_part->setProperty("type", "sub_panel");
+    ui_.setting_right_part->setProperty("type", "sub_panel");
+    ui_.config_widgrt->setProperty("type", "sub_panel");
+    ui_.setting_grid->setProperty("type", "sub_panel");
+    // 字体设置
+    ui_.A_channel->setProperty("type", "font");
+    ui_.B_channel->setProperty("type", "font");
+}
+
+void DGLABClient::apply_inline_styles() {
+    QString font_color;
+    if (is_light_mode_) {
+        font_color = "rgba(0, 0, 0, 255)";
+    }
+    else {
+        font_color = "rgba(255, 255, 255, 255)";
+    }
+
+    QList<QWidget*> all_widgets = ui_.all->findChildren<QWidget*>();
+    all_widgets.append(ui_.all);
+    for (QWidget* w : all_widgets) {
+        if (w->property("type").toString() == "font") {
+            w->setStyleSheet(QString("color: %1;").arg(font_color));
+        }
+    }
 }
 
 // ----- 日志辅助 -----
