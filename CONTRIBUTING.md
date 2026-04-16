@@ -6,7 +6,9 @@
 
 ## 行为准则
 
-本项目遵守 [贡献者公约](https://www.contributor-covenant.org/version/2/1/code_of_conduct/)。参与即表示你同意遵守其条款。
+本项目遵守 [贡献者公约](https://www.contributor-covenant.org/version/2/1/code_of_conduct/)，具体细则请参阅项目根目录下的 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
+
+参与即表示你同意遵守其条款。
 
 ## 如何报告问题（Issue）
 
