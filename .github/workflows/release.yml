@@ -45,21 +45,64 @@ jobs:
           echo "Tag: $TAG_NAME"
 
           awk -v tag="$TAG_NAME" '
-            /版本号格式遵循/ { start=1 }
-            start { lines[++n] = $0 }
-            $0 ~ "\\*\\*变动\\*\\*：\\[" tag "\\]:" {
-              if (start) {
-                stop=1
-                exit
-              }
+          BEGIN {
+            header = ""
+            body = ""
+            footer = ""
+            state = 0
+            in_target = 0
+            target_start = 0
+            next_version = 0
+          }
+
+          !header_done && /^## \[v/ {
+            header_done = 1
+            state = 1
+          }
+          !header_done {
+            header = header $0 "\n"
+            next
+          }
+
+          state == 1 && $0 ~ "^## \\[" tag "\\]" {
+            state = 2
+            in_target = 1
+            body = body $0 "\n"
+            next
+          }
+
+          state == 2 {
+            if ($0 ~ "^## \\[v" || $0 ~ "^## 其他") {
+                state = 3
             }
-            END {
-              if (stop) {
-                for (i=1; i<=n; i++) print lines[i]
-              } else {
-              print "未找到 " tag " 对应的发布说明。"
-              }
+            if (state == 2) {
+                body = body $0 "\n"
             }
+            if (state == 3) {
+                footer_line = $0
+            }
+            next
+          }
+
+          state == 3 && $0 ~ "\\*\\*变动\\*\\*：\\[" tag "\\]:" {
+            # 如果上一行是“## 其他”，则一并包含
+            if (footer_line ~ "^## 其他") {
+                footer = footer_line "\n"
+            }
+            footer = footer $0 "\n"
+            state = 4
+          }
+
+          END {
+            if (state >= 2 && length(body) > 0) {
+                # 输出：全局说明 + 目标版本内容 + 变动链接（如果有）
+                printf "%s", header
+                printf "%s", body
+                if (length(footer) > 0) printf "%s", footer
+            } else {
+                print "未找到 " tag " 对应的发布说明。"
+            }
+          }
           ' CHANGELOG.md > /tmp/release_notes.md
 
           {
