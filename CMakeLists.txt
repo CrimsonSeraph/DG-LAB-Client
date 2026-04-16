@@ -257,20 +257,20 @@ if(WIN32)
     # 处理 Python 标准库（打包为 zip，安装时动态创建）
     if(Python_STDLIB)
         set(PYTHON_ZIP_NAME "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
-        install(CODE [[
-            message(STATUS "Creating Python standard library zip: ${PYTHON_ZIP_NAME}")
-            set(ZIP_SOURCE "${Python_STDLIB}")
-            set(ZIP_TARGET "${CMAKE_INSTALL_PREFIX}/${PYTHON_ZIP_NAME}")
-            file(MAKE_DIRECTORY "${CMAKE_INSTALL_PREFIX}")
+        install(CODE "
+            message(STATUS \"Creating Python standard library zip: ${PYTHON_ZIP_NAME}\")
+            set(ZIP_SOURCE \"${Python_STDLIB}\")
+            set(ZIP_TARGET \"${CMAKE_INSTALL_PREFIX}/${PYTHON_ZIP_NAME}\")
+            file(MAKE_DIRECTORY \"${CMAKE_INSTALL_PREFIX}\")
             execute_process(
-                COMMAND ${CMAKE_COMMAND} -E tar "cf" "${ZIP_TARGET}" --format=zip -- .
-                WORKING_DIRECTORY "${ZIP_SOURCE}"
+                COMMAND ${CMAKE_COMMAND} -E tar cf \"${ZIP_TARGET}\" --format=zip -- .
+                WORKING_DIRECTORY \"${ZIP_SOURCE}\"
                 RESULT_VARIABLE _zip_result
             )
             if(NOT _zip_result EQUAL 0)
-                message(FATAL_ERROR "Failed to create Python standard library zip")
+                message(FATAL_ERROR \"Failed to create Python standard library zip\")
             endif()
-        ]])
+        ")
     endif()
 
     # 复制 Python 二进制扩展模块（DLLs）
