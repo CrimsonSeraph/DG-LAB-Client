@@ -29,6 +29,34 @@
 
 ---
 
+## [v0.3.0] - 2026-04-16
+
+### Added
+- 新增实时波形采样控件（`SampledWaveformWidget`），支持连续输入 0~1 归一化数据并以滚动折线图显示，可调节采样间隔和最大振幅比例。
+- 样式系统全面重构：使用 `type` 和 `mode` 属性选择器实现精细控件分类（导航按钮、操作按钮、标题、标签、输入框等），支持亮色/暗色主题一键切换。
+- 新增 `apply_widget_properties()` 和 `apply_inline_styles()` 方法，统一为控件设置样式属性和内联样式，提高代码可维护性。
+
+### Changed
+- 完善 `DGLABClient` 的样式管理逻辑，`setup_widget_properties()` 和 `change_theme()` 方法大幅优化，主题切换更流畅。
+- 整理所有源文件和头文件的 `#include` 顺序，按自定义 > 第三方 > 标准库分组，提升代码规范性。
+- 为多个模块添加更详细的注释，特别是配置系统、规则引擎和 Python 子进程管理部分。
+- 减少冗余调试信息输出，仅保留关键状态日志，降低日志噪音。
+- 样式表文件 `style_light.qcss` 和 `style_night.qcss` 完全重写，视觉效果现代化。
+
+### Deprecated
+- 无
+
+### Removed
+- 无
+
+### Fixed
+- 修复 Linux 系统下 Python 子进程启动时路径解析错误的问题（改用 `QCoreApplication::applicationDirPath()` 拼接绝对路径）。
+
+### Security
+- 无
+
+---
+
 ## [v0.2.1] - 2026-04-12
 
 ### Added
@@ -114,7 +142,7 @@
 
 ## 其他
 
-**变动**：[v0.2.1]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.2.0...v0.2.1
+**变动**：[v0.3.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.2.1...v0.3.0
 
 **变更分类**：
   - `Added` – 新增功能

@@ -19,7 +19,7 @@
 | `DebugLog.h` | 日志系统核心类 `DebugLog`（单例）的声明。支持模块级日志等级过滤、多个输出接收器（sink）、线程安全写入。提供宏 `LOG_MODULE` 用于统一格式的日志输出。 |
 | `DebugLog_utils.hpp` | 日志系统辅助工具，包含 `DebugLogUtil` 命名空间下的函数，如将 `QJsonValue` 转换为字符串、去除字符串中的换行符等，便于日志格式化。 |
 | `DefaultConfigs.h` | 默认配置提供类 `DefaultConfigs` 的声明，仅包含静态方法 `get_default_config`，根据配置名称（如 "main"、"system"、"user"）返回对应的默认 JSON 配置。 |
-| `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。 |
+| `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。**v0.3.0 新增**：样式系统方法 `apply_widget_properties()`、`apply_inline_styles()`，以及主题切换的增强。 |
 | `DGLABClient_utils.hpp` | `DGLABClient` 的工具函数，目前包含 `contains_any_keyword` 辅助函数，用于在网卡名称中匹配黑/白名单关键字。 |
 | `FormulaBuilderDialog.h` | **值模式编辑对话框** （`FormulaBuilderDialog`），带按钮快速插入符号、实时括号匹配检查和合法性验证  |
 | `MultiConfigManager.h` | 多配置管理器 `MultiConfigManager`（单例）的声明。维护多个 `ConfigManager` 实例的注册表，支持按优先级（`__priority` 字段）排序配置，提供合并读取、优先级冲突检测、文件热重载等功能。 |
@@ -28,6 +28,7 @@
 | `Rule.h` | 规则类 `Rule` 的声明。单个规则包含名称、通道（A/B）、模式（0-4）和带占位符 `{}` 的值计算式。提供占位符数量统计、通道规范化、值计算（支持四则运算和括号表达式）、生成命令以及用于 UI 显示的格式化字符串方法。 |
 | `RuleManager.h` | 规则管理器 `RuleManager`（单例）的声明。负责扫描指定目录下的 JSON 规则文件（含特定关键字），加载/保存规则文件，管理当前规则集，提供规则的增删改查、命令生成（变参模板）以及显示字符串生成等接口。 |
 | `RuleManager_impl.hpp` | `RuleManager` 的模板方法实现，主要提供 `evaluate_command` 变参模板函数，将参数转换为 `std::vector<int>` 后调用对应规则的生成方法。 |
+| `SampledWaveformWidget.h` | **新增**：实时波形采样控件的声明。继承 `QWidget`，提供 `input_data(double)` 接口输入归一化数据，内部使用环形缓冲区存储采样点，并通过定时器驱动采样和重绘。支持设置采样间隔和最大振幅比例。 |
 | `ValueModeDelegate.h` | **值模式列自定义委托** （`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式  |
 
 > **注**：`DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件虽不属头文件，但属于界面设计的一部分，应与头文件配套使用。
@@ -36,7 +37,7 @@
 
 ## 依赖关系
 
-- **Qt 5/6**：`DGLABClient.h`、`PythonSubprocessManager.h` 依赖 Qt Core、Widgets、Network 模块；`DebugLog_utils.hpp` 依赖 QtCore 的 JSON 类。
+- **Qt 5/6**：`DGLABClient.h`、`PythonSubprocessManager.h`、`SampledWaveformWidget.h` 依赖 Qt Core、Widgets、Network 模块；`DebugLog_utils.hpp` 依赖 QtCore 的 JSON 类。
 - **nlohmann/json**：所有配置相关头文件（`AppConfig.h`、`ConfigManager.h`、`ConfigStructs.h` 等）以及规则相关头文件（`RuleManager.h`）依赖 JSON 解析库。
 - **C++20**：项目使用 C++20 标准，部分模板、概念（如 `ConfigSerializable`）要求编译器支持 C++20。
 
@@ -64,10 +65,16 @@
 - **文件管理**：`RuleManager` 扫描配置目录下含关键字的 JSON 文件，支持创建、删除、切换规则文件，并自动解析 `rules` 对象为 `Rule` 实例。
 - **线程安全**：规则集合的读写操作使用互斥锁保护。
 
-### 5. GUI 响应性
+### 5. 波形采样控件
+- **实时性**：使用独立 `QTimer` 定时采样，避免阻塞主线程；环形缓冲区无锁写入（通过索引取模），读取时加锁保护最新值。
+- **灵活性**：支持运行时调整采样间隔和振幅比例，波形重绘自动响应。
+- **可视化**：抗锯齿绿线折线，背景深色，基线灰色虚线，适应亮色/暗色主题（通过 QSS 设置背景色）。
+
+### 6. GUI 响应性
 - **后台任务**：`DGLABClient` 将耗时操作（如 Python 调用）通过 `PythonSubprocessManager::call` 放入线程池，完成后通过信号槽将结果传回主线程更新界面。
 - **日志显示**：日志接收器 `qtSink` 将日志消息通过 `QMetaObject::invokeMethod` 安全地追加到 UI 控件，并支持按等级着色。
 - **规则管理**：规则文件的加载、保存及规则的增删改查均在 UI 线程同步执行（操作轻量），不影响流畅度。
+- **样式系统**：通过 `apply_widget_properties()` 为所有控件设置 `type` 属性，配合 QSS 中的 `[type="..."]` 选择器，实现统一的主题切换和视觉风格。
 
 ---
 
