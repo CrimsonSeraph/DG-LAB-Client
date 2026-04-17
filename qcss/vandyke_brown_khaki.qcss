@@ -1,0 +1,150 @@
+/* 
+ * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+ * SPDX-License-Identifier: GPL-3.0-only
+ * 
+ * Theme: Vandyke Brown Khaki (凡戴克棕卡其)
+ * Mode: vandyke_brown_khaki
+ * Colors: Vandyke Brown #492D22, Light Khaki #D8C7B5
+ */
+
+/* ========== 全局基础样式 ========== */
+QWidget[type="main_page"][theme="vandyke_brown_khaki"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                stop: 0 rgba(73, 45, 34, 1),
+                                stop: 1 rgba(95, 65, 50, 1));
+}
+
+/* 玻璃拟态容器 */
+QWidget[type="glassmorphism"][theme="vandyke_brown_khaki"] {
+    background-color: rgba(216, 199, 181, 0.2);
+    border: 1px solid rgba(216, 199, 181, 0.5);
+    border-radius: 12px;
+}
+
+/* 导航按钮 */
+QPushButton[type="nav_btn"][theme="vandyke_brown_khaki"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 rgba(216, 199, 181, 1),
+                                stop: 1 rgba(190, 170, 150, 1));
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(73, 45, 34, 1);
+    padding: 8px 12px;
+}
+QPushButton[type="nav_btn"][theme="vandyke_brown_khaki"]:hover {
+    background: rgba(235, 215, 195, 1);
+}
+QPushButton[type="nav_btn"][theme="vandyke_brown_khaki"]:pressed {
+    background: rgba(170, 150, 130, 1);
+}
+
+/* 操作按钮 */
+QPushButton[type="action_btn"][theme="vandyke_brown_khaki"] {
+    background: rgba(73, 45, 34, 0.8);
+    border: 1px solid rgba(216, 199, 181, 0.6);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(240, 240, 240, 1);
+    padding: 6px 12px;
+}
+QPushButton[type="action_btn"][theme="vandyke_brown_khaki"]:hover {
+    background: rgba(95, 65, 50, 1);
+}
+QPushButton[type="action_btn"][theme="vandyke_brown_khaki"]:pressed {
+    background: rgba(55, 30, 20, 1);
+}
+
+/* 标题文字 */
+QLabel[type="title"][theme="vandyke_brown_khaki"] {
+    font-size: 20px;
+    font-weight: bold;
+    color: rgba(216, 199, 181, 1);
+    background: transparent;
+    qproperty-alignment: AlignCenter;
+}
+
+/* 普通标签 */
+QLabel[type="label"][theme="vandyke_brown_khaki"] {
+    font-size: 14px;
+    color: rgba(220, 210, 200, 1);
+    background: transparent;
+    qproperty-alignment: AlignLeft | AlignVCenter;
+}
+
+/* 图片标签 */
+QLabel[type="image"][theme="vandyke_brown_khaki"] {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(216, 199, 181, 1);
+    qproperty-alignment: AlignCenter;
+}
+
+/* 输入框 */
+QLineEdit[type="input"][theme="vandyke_brown_khaki"] {
+    background: rgba(55, 35, 25, 1);
+    border: 1px solid rgba(216, 199, 181, 0.5);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 14px;
+    color: rgba(240, 240, 240, 1);
+}
+QLineEdit[type="input"][theme="vandyke_brown_khaki"]:focus {
+    border: 1px solid rgba(216, 199, 181, 1);
+    background: rgba(80, 55, 40, 1);
+}
+
+/* 调试日志框 */
+QTextEdit[type="debug_log"][theme="vandyke_brown_khaki"] {
+    background: rgba(25, 15, 10, 1);
+    color: rgba(212, 212, 212, 1);
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    border: 1px solid rgba(216, 199, 181, 0.3);
+    border-radius: 6px;
+}
+
+/* 滚动区域 */
+QScrollArea[type="scrollarea"][theme="vandyke_brown_khaki"] {
+    background: transparent;
+    border: none;
+}
+
+/* 堆叠窗口 */
+QStackedWidget[type="stacked"][theme="vandyke_brown_khaki"] {
+    background: transparent;
+}
+
+/* 通道面板 */
+QWidget[type="channel_panel"][theme="vandyke_brown_khaki"] {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* 端口面板 */
+QWidget[type="port_panel"][theme="vandyke_brown_khaki"] {
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 8px;
+}
+
+/* 按钮栏 */
+QWidget[type="button_bar"][theme="vandyke_brown_khaki"] {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+}
+
+/* 子面板 */
+QWidget[type="sub_panel"][theme="vandyke_brown_khaki"] {
+    background: transparent;
+}
+
+/* 波形控件 */
+SampledWaveformWidget[type="waveform"][theme="vandyke_brown_khaki"] {
+    background: rgba(15, 8, 5, 1);
+    border-radius: 6px;
+}

@@ -1,0 +1,150 @@
+/* 
+ * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+ * SPDX-License-Identifier: GPL-3.0-only
+ * 
+ * Theme: Prussian Blue Fog (普鲁士雾灰)
+ * Mode: prussian_blue_fog
+ * Colors: Prussian Blue #003153, Fog Gray #E5DDD7
+ */
+
+/* ========== 全局基础样式 ========== */
+QWidget[type="main_page"][theme="prussian_blue_fog"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                stop: 0 rgba(0, 49, 83, 1),
+                                stop: 1 rgba(25, 75, 115, 1));
+}
+
+/* 玻璃拟态容器 */
+QWidget[type="glassmorphism"][theme="prussian_blue_fog"] {
+    background-color: rgba(229, 221, 215, 0.2);
+    border: 1px solid rgba(229, 221, 215, 0.5);
+    border-radius: 12px;
+}
+
+/* 导航按钮 */
+QPushButton[type="nav_btn"][theme="prussian_blue_fog"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 rgba(229, 221, 215, 1),
+                                stop: 1 rgba(200, 190, 180, 1));
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(0, 49, 83, 1);
+    padding: 8px 12px;
+}
+QPushButton[type="nav_btn"][theme="prussian_blue_fog"]:hover {
+    background: rgba(250, 240, 235, 1);
+}
+QPushButton[type="nav_btn"][theme="prussian_blue_fog"]:pressed {
+    background: rgba(180, 170, 160, 1);
+}
+
+/* 操作按钮 */
+QPushButton[type="action_btn"][theme="prussian_blue_fog"] {
+    background: rgba(0, 49, 83, 0.8);
+    border: 1px solid rgba(229, 221, 215, 0.6);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(240, 240, 240, 1);
+    padding: 6px 12px;
+}
+QPushButton[type="action_btn"][theme="prussian_blue_fog"]:hover {
+    background: rgba(20, 75, 115, 1);
+}
+QPushButton[type="action_btn"][theme="prussian_blue_fog"]:pressed {
+    background: rgba(0, 30, 60, 1);
+}
+
+/* 标题文字 */
+QLabel[type="title"][theme="prussian_blue_fog"] {
+    font-size: 20px;
+    font-weight: bold;
+    color: rgba(229, 221, 215, 1);
+    background: transparent;
+    qproperty-alignment: AlignCenter;
+}
+
+/* 普通标签 */
+QLabel[type="label"][theme="prussian_blue_fog"] {
+    font-size: 14px;
+    color: rgba(235, 230, 225, 1);
+    background: transparent;
+    qproperty-alignment: AlignLeft | AlignVCenter;
+}
+
+/* 图片标签 */
+QLabel[type="image"][theme="prussian_blue_fog"] {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(229, 221, 215, 1);
+    qproperty-alignment: AlignCenter;
+}
+
+/* 输入框 */
+QLineEdit[type="input"][theme="prussian_blue_fog"] {
+    background: rgba(20, 65, 100, 1);
+    border: 1px solid rgba(229, 221, 215, 0.5);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 14px;
+    color: rgba(240, 240, 240, 1);
+}
+QLineEdit[type="input"][theme="prussian_blue_fog"]:focus {
+    border: 1px solid rgba(229, 221, 215, 1);
+    background: rgba(35, 85, 125, 1);
+}
+
+/* 调试日志框 */
+QTextEdit[type="debug_log"][theme="prussian_blue_fog"] {
+    background: rgba(5, 25, 40, 1);
+    color: rgba(212, 212, 212, 1);
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    border: 1px solid rgba(229, 221, 215, 0.3);
+    border-radius: 6px;
+}
+
+/* 滚动区域 */
+QScrollArea[type="scrollarea"][theme="prussian_blue_fog"] {
+    background: transparent;
+    border: none;
+}
+
+/* 堆叠窗口 */
+QStackedWidget[type="stacked"][theme="prussian_blue_fog"] {
+    background: transparent;
+}
+
+/* 通道面板 */
+QWidget[type="channel_panel"][theme="prussian_blue_fog"] {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* 端口面板 */
+QWidget[type="port_panel"][theme="prussian_blue_fog"] {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+}
+
+/* 按钮栏 */
+QWidget[type="button_bar"][theme="prussian_blue_fog"] {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+/* 子面板 */
+QWidget[type="sub_panel"][theme="prussian_blue_fog"] {
+    background: transparent;
+}
+
+/* 波形控件 */
+SampledWaveformWidget[type="waveform"][theme="prussian_blue_fog"] {
+    background: rgba(2, 20, 35, 1);
+    border-radius: 6px;
+}

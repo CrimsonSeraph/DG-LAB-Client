@@ -1,0 +1,150 @@
+/* 
+ * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+ * SPDX-License-Identifier: GPL-3.0-only
+ * 
+ * Theme: Offwhite Camellia (无白茶花)
+ * Mode: offwhite_camellia
+ * Colors: Offwhite #F1DDDF, Camellia Red #E72D48
+ */
+
+/* ========== 全局基础样式 ========== */
+QWidget[type="main_page"][theme="offwhite_camellia"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                stop: 0 rgba(241, 221, 223, 1),
+                                stop: 1 rgba(230, 210, 212, 1));
+}
+
+/* 玻璃拟态容器 */
+QWidget[type="glassmorphism"][theme="offwhite_camellia"] {
+    background-color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(231, 45, 72, 0.4);
+    border-radius: 12px;
+}
+
+/* 导航按钮 */
+QPushButton[type="nav_btn"][theme="offwhite_camellia"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 rgba(231, 45, 72, 1),
+                                stop: 1 rgba(200, 30, 55, 1));
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 1);
+    padding: 8px 12px;
+}
+QPushButton[type="nav_btn"][theme="offwhite_camellia"]:hover {
+    background: rgba(245, 70, 95, 1);
+}
+QPushButton[type="nav_btn"][theme="offwhite_camellia"]:pressed {
+    background: rgba(180, 20, 45, 1);
+}
+
+/* 操作按钮 */
+QPushButton[type="action_btn"][theme="offwhite_camellia"] {
+    background: rgba(241, 221, 223, 0.9);
+    border: 1px solid rgba(231, 45, 72, 0.6);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(44, 44, 44, 1);
+    padding: 6px 12px;
+}
+QPushButton[type="action_btn"][theme="offwhite_camellia"]:hover {
+    background: rgba(255, 240, 240, 1);
+}
+QPushButton[type="action_btn"][theme="offwhite_camellia"]:pressed {
+    background: rgba(220, 200, 202, 1);
+}
+
+/* 标题文字 */
+QLabel[type="title"][theme="offwhite_camellia"] {
+    font-size: 20px;
+    font-weight: bold;
+    color: rgba(231, 45, 72, 1);
+    background: transparent;
+    qproperty-alignment: AlignCenter;
+}
+
+/* 普通标签 */
+QLabel[type="label"][theme="offwhite_camellia"] {
+    font-size: 14px;
+    color: rgba(44, 44, 44, 1);
+    background: transparent;
+    qproperty-alignment: AlignLeft | AlignVCenter;
+}
+
+/* 图片标签 */
+QLabel[type="image"][theme="offwhite_camellia"] {
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(231, 45, 72, 1);
+    qproperty-alignment: AlignCenter;
+}
+
+/* 输入框 */
+QLineEdit[type="input"][theme="offwhite_camellia"] {
+    background: rgba(255, 255, 255, 1);
+    border: 1px solid rgba(231, 45, 72, 0.4);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 14px;
+    color: rgba(44, 44, 44, 1);
+}
+QLineEdit[type="input"][theme="offwhite_camellia"]:focus {
+    border: 1px solid rgba(231, 45, 72, 1);
+    background: rgba(255, 250, 250, 1);
+}
+
+/* 调试日志框 */
+QTextEdit[type="debug_log"][theme="offwhite_camellia"] {
+    background: rgba(30, 30, 30, 1);
+    color: rgba(212, 212, 212, 1);
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    border: 1px solid rgba(231, 45, 72, 0.3);
+    border-radius: 6px;
+}
+
+/* 滚动区域 */
+QScrollArea[type="scrollarea"][theme="offwhite_camellia"] {
+    background: transparent;
+    border: none;
+}
+
+/* 堆叠窗口 */
+QStackedWidget[type="stacked"][theme="offwhite_camellia"] {
+    background: transparent;
+}
+
+/* 通道面板 */
+QWidget[type="channel_panel"][theme="offwhite_camellia"] {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* 端口面板 */
+QWidget[type="port_panel"][theme="offwhite_camellia"] {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+}
+
+/* 按钮栏 */
+QWidget[type="button_bar"][theme="offwhite_camellia"] {
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 8px;
+}
+
+/* 子面板 */
+QWidget[type="sub_panel"][theme="offwhite_camellia"] {
+    background: transparent;
+}
+
+/* 波形控件 */
+SampledWaveformWidget[type="waveform"][theme="offwhite_camellia"] {
+    background: rgba(10, 10, 10, 1);
+    border-radius: 6px;
+}

@@ -1,0 +1,150 @@
+/* 
+ * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+ * SPDX-License-Identifier: GPL-3.0-only
+ * 
+ * Theme: China Red Yellow (中国红黄)
+ * Mode: china_red_yellow
+ * Colors: China Red #FF0000, Light Yellow #FAEAD3
+ */
+
+/* ========== 全局基础样式 ========== */
+QWidget[type="main_page"][theme="china_red_yellow"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                stop: 0 rgba(250, 234, 211, 1),
+                                stop: 1 rgba(240, 220, 195, 1));
+}
+
+/* 玻璃拟态容器 */
+QWidget[type="glassmorphism"][theme="china_red_yellow"] {
+    background-color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 0, 0, 0.4);
+    border-radius: 12px;
+}
+
+/* 导航按钮 */
+QPushButton[type="nav_btn"][theme="china_red_yellow"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 rgba(255, 0, 0, 1),
+                                stop: 1 rgba(200, 0, 0, 1));
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 1);
+    padding: 8px 12px;
+}
+QPushButton[type="nav_btn"][theme="china_red_yellow"]:hover {
+    background: rgba(255, 50, 50, 1);
+}
+QPushButton[type="nav_btn"][theme="china_red_yellow"]:pressed {
+    background: rgba(160, 0, 0, 1);
+}
+
+/* 操作按钮 */
+QPushButton[type="action_btn"][theme="china_red_yellow"] {
+    background: rgba(250, 234, 211, 0.9);
+    border: 1px solid rgba(255, 0, 0, 0.5);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(44, 44, 44, 1);
+    padding: 6px 12px;
+}
+QPushButton[type="action_btn"][theme="china_red_yellow"]:hover {
+    background: rgba(255, 250, 240, 1);
+}
+QPushButton[type="action_btn"][theme="china_red_yellow"]:pressed {
+    background: rgba(230, 210, 190, 1);
+}
+
+/* 标题文字 */
+QLabel[type="title"][theme="china_red_yellow"] {
+    font-size: 20px;
+    font-weight: bold;
+    color: rgba(200, 0, 0, 1);
+    background: transparent;
+    qproperty-alignment: AlignCenter;
+}
+
+/* 普通标签 */
+QLabel[type="label"][theme="china_red_yellow"] {
+    font-size: 14px;
+    color: rgba(44, 44, 44, 1);
+    background: transparent;
+    qproperty-alignment: AlignLeft | AlignVCenter;
+}
+
+/* 图片标签 */
+QLabel[type="image"][theme="china_red_yellow"] {
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(255, 0, 0, 1);
+    qproperty-alignment: AlignCenter;
+}
+
+/* 输入框 */
+QLineEdit[type="input"][theme="china_red_yellow"] {
+    background: rgba(255, 255, 255, 1);
+    border: 1px solid rgba(255, 0, 0, 0.4);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 14px;
+    color: rgba(44, 44, 44, 1);
+}
+QLineEdit[type="input"][theme="china_red_yellow"]:focus {
+    border: 1px solid rgba(255, 0, 0, 1);
+    background: rgba(255, 250, 245, 1);
+}
+
+/* 调试日志框 */
+QTextEdit[type="debug_log"][theme="china_red_yellow"] {
+    background: rgba(30, 30, 30, 1);
+    color: rgba(212, 212, 212, 1);
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    border-radius: 6px;
+}
+
+/* 滚动区域 */
+QScrollArea[type="scrollarea"][theme="china_red_yellow"] {
+    background: transparent;
+    border: none;
+}
+
+/* 堆叠窗口 */
+QStackedWidget[type="stacked"][theme="china_red_yellow"] {
+    background: transparent;
+}
+
+/* 通道面板 */
+QWidget[type="channel_panel"][theme="china_red_yellow"] {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* 端口面板 */
+QWidget[type="port_panel"][theme="china_red_yellow"] {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+}
+
+/* 按钮栏 */
+QWidget[type="button_bar"][theme="china_red_yellow"] {
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 8px;
+}
+
+/* 子面板 */
+QWidget[type="sub_panel"][theme="china_red_yellow"] {
+    background: transparent;
+}
+
+/* 波形控件 */
+SampledWaveformWidget[type="waveform"][theme="china_red_yellow"] {
+    background: rgba(10, 10, 10, 1);
+    border-radius: 6px;
+}

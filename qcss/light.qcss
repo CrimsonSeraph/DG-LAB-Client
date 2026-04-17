@@ -1,24 +1,27 @@
 /*
  * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
  * SPDX-License-Identifier: GPL-3.0-only
+ * Theme: Light (浅色模式)
+ * Mode: light
+ * Colors: Ice Blue #E8F0FE, Misty Blue #D4E6F1
  */
 
 /* ========== 全局基础样式 ========== */
-QWidget[type="main_page"][mode="light"] {
+QWidget[type="main_page"][theme="light"] {
     background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
                                 stop: 0 rgba(232, 240, 254, 1),
                                 stop: 1 rgba(212, 230, 241, 1));
 }
 
 /* 玻璃拟态容器 */
-QWidget[type="glassmorphism"][mode="light"] {
+QWidget[type="glassmorphism"][theme="light"] {
     background-color: rgba(255, 255, 255, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.6);
     border-radius: 12px;
 }
 
 /* 导航按钮 */
-QPushButton[type="nav_btn"][mode="light"] {
+QPushButton[type="nav_btn"][theme="light"] {
     background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
                                 stop: 0 rgba(108, 142, 191, 1),
                                 stop: 1 rgba(74, 106, 142, 1));
@@ -29,17 +32,17 @@ QPushButton[type="nav_btn"][mode="light"] {
     color: rgba(255, 255, 255, 1);
     padding: 8px 12px;
 }
-QPushButton[type="nav_btn"][mode="light"]:hover {
+QPushButton[type="nav_btn"][theme="light"]:hover {
     background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
                                 stop: 0 rgba(127, 159, 191, 1),
                                 stop: 1 rgba(90, 122, 158, 1));
 }
-QPushButton[type="nav_btn"][mode="light"]:pressed {
+QPushButton[type="nav_btn"][theme="light"]:pressed {
     background: rgba(58, 90, 126, 1);
 }
 
 /* 操作按钮 */
-QPushButton[type="action_btn"][mode="light"] {
+QPushButton[type="action_btn"][theme="light"] {
     background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
                                 stop: 0 rgba(165, 196, 212, 1),
                                 stop: 1 rgba(133, 164, 180, 1));
@@ -50,15 +53,15 @@ QPushButton[type="action_btn"][mode="light"] {
     color: rgba(44, 62, 80, 1);
     padding: 6px 12px;
 }
-QPushButton[type="action_btn"][mode="light"]:hover {
+QPushButton[type="action_btn"][theme="light"]:hover {
     background: rgba(181, 212, 228, 1);
 }
-QPushButton[type="action_btn"][mode="light"]:pressed {
+QPushButton[type="action_btn"][theme="light"]:pressed {
     background: rgba(117, 148, 164, 1);
 }
 
 /* 标题文字 */
-QLabel[type="title"][mode="light"] {
+QLabel[type="title"][theme="light"] {
     font-size: 20px;
     font-weight: bold;
     color: rgba(44, 62, 80, 1);
@@ -67,7 +70,7 @@ QLabel[type="title"][mode="light"] {
 }
 
 /* 普通标签 */
-QLabel[type="label"][mode="light"] {
+QLabel[type="label"][theme="light"] {
     font-size: 14px;
     color: rgba(44, 62, 80, 1);
     background: transparent;
@@ -75,7 +78,7 @@ QLabel[type="label"][mode="light"] {
 }
 
 /* 图片标签 */
-QLabel[type="image"][mode="light"] {
+QLabel[type="image"][theme="light"] {
     background: rgba(255, 255, 255, 0.5);
     border-radius: 40px;
     font-size: 16px;
@@ -85,7 +88,7 @@ QLabel[type="image"][mode="light"] {
 }
 
 /* 输入框 */
-QLineEdit[type="input"][mode="light"] {
+QLineEdit[type="input"][theme="light"] {
     background: rgba(255, 255, 255, 1);
     border: 1px solid rgba(176, 196, 222, 1);
     border-radius: 4px;
@@ -93,13 +96,13 @@ QLineEdit[type="input"][mode="light"] {
     font-size: 14px;
     color: rgba(44, 62, 80, 1);
 }
-QLineEdit[type="input"][mode="light"]:focus {
+QLineEdit[type="input"][theme="light"]:focus {
     border: 1px solid rgba(74, 106, 142, 1);
     background: rgba(240, 248, 255, 1);
 }
 
 /* 调试日志框 */
-QTextEdit[type="debug_log"][mode="light"] {
+QTextEdit[type="debug_log"][theme="light"] {
     background: rgba(30, 30, 30, 1);
     color: rgba(212, 212, 212, 1);
     font-family: Consolas, monospace;
@@ -109,42 +112,42 @@ QTextEdit[type="debug_log"][mode="light"] {
 }
 
 /* 滚动区域 */
-QScrollArea[type="scrollarea"][mode="light"] {
+QScrollArea[type="scrollarea"][theme="light"] {
     background: transparent;
     border: none;
 }
 
 /* 堆叠窗口 */
-QStackedWidget[type="stacked"][mode="light"] {
+QStackedWidget[type="stacked"][theme="light"] {
     background: transparent;
 }
 
 /* 通道面板 */
-QWidget[type="channel_panel"][mode="light"] {
+QWidget[type="channel_panel"][theme="light"] {
     background: rgba(255, 255, 255, 0.3);
     border-radius: 8px;
     padding: 5px;
 }
 
 /* 端口面板 */
-QWidget[type="port_panel"][mode="light"] {
+QWidget[type="port_panel"][theme="light"] {
     background: rgba(255, 255, 255, 0.4);
     border-radius: 8px;
 }
 
 /* 按钮栏 */
-QWidget[type="button_bar"][mode="light"] {
+QWidget[type="button_bar"][theme="light"] {
     background: rgba(255, 255, 255, 0.2);
     border-radius: 8px;
 }
 
 /* 子面板 */
-QWidget[type="sub_panel"][mode="light"] {
+QWidget[type="sub_panel"][theme="light"] {
     background: transparent;
 }
 
 /* 波形控件 */
-SampledWaveformWidget[type="waveform"][mode="light"] {
+SampledWaveformWidget[type="waveform"][theme="light"] {
     background: rgba(30, 30, 30, 1);
     border-radius: 6px;
 }

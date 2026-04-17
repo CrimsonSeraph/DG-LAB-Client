@@ -1,0 +1,150 @@
+/* 
+ * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+ * SPDX-License-Identifier: GPL-3.0-only
+ * 
+ * Theme: Charcoal Pink (炭黑甜粉)
+ * Mode: charcoal_pink
+ * Colors: Charcoal #1A1A1D, Sweet Pink #E6397C
+ */
+
+/* ========== 全局基础样式 ========== */
+QWidget[type="main_page"][theme="charcoal_pink"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
+                                stop: 0 rgba(26, 26, 29, 1),
+                                stop: 1 rgba(46, 46, 55, 1));
+}
+
+/* 玻璃拟态容器 */
+QWidget[type="glassmorphism"][theme="charcoal_pink"] {
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(230, 57, 124, 0.4);
+    border-radius: 12px;
+}
+
+/* 导航按钮 */
+QPushButton[type="nav_btn"][theme="charcoal_pink"] {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
+                                stop: 0 rgba(230, 57, 124, 1),
+                                stop: 1 rgba(200, 30, 100, 1));
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 1);
+    padding: 8px 12px;
+}
+QPushButton[type="nav_btn"][theme="charcoal_pink"]:hover {
+    background: rgba(245, 80, 140, 1);
+}
+QPushButton[type="nav_btn"][theme="charcoal_pink"]:pressed {
+    background: rgba(180, 20, 85, 1);
+}
+
+/* 操作按钮 */
+QPushButton[type="action_btn"][theme="charcoal_pink"] {
+    background: rgba(60, 60, 70, 1);
+    border: 1px solid rgba(230, 57, 124, 0.6);
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(240, 240, 240, 1);
+    padding: 6px 12px;
+}
+QPushButton[type="action_btn"][theme="charcoal_pink"]:hover {
+    background: rgba(80, 80, 95, 1);
+}
+QPushButton[type="action_btn"][theme="charcoal_pink"]:pressed {
+    background: rgba(40, 40, 50, 1);
+}
+
+/* 标题文字 */
+QLabel[type="title"][theme="charcoal_pink"] {
+    font-size: 20px;
+    font-weight: bold;
+    color: rgba(230, 57, 124, 1);
+    background: transparent;
+    qproperty-alignment: AlignCenter;
+}
+
+/* 普通标签 */
+QLabel[type="label"][theme="charcoal_pink"] {
+    font-size: 14px;
+    color: rgba(220, 220, 220, 1);
+    background: transparent;
+    qproperty-alignment: AlignLeft | AlignVCenter;
+}
+
+/* 图片标签 */
+QLabel[type="image"][theme="charcoal_pink"] {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 40px;
+    font-size: 16px;
+    font-weight: bold;
+    color: rgba(230, 57, 124, 1);
+    qproperty-alignment: AlignCenter;
+}
+
+/* 输入框 */
+QLineEdit[type="input"][theme="charcoal_pink"] {
+    background: rgba(30, 30, 35, 1);
+    border: 1px solid rgba(230, 57, 124, 0.5);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 14px;
+    color: rgba(240, 240, 240, 1);
+}
+QLineEdit[type="input"][theme="charcoal_pink"]:focus {
+    border: 1px solid rgba(230, 57, 124, 1);
+    background: rgba(45, 45, 55, 1);
+}
+
+/* 调试日志框 */
+QTextEdit[type="debug_log"][theme="charcoal_pink"] {
+    background: rgba(20, 20, 25, 1);
+    color: rgba(212, 212, 212, 1);
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    border: 1px solid rgba(230, 57, 124, 0.3);
+    border-radius: 6px;
+}
+
+/* 滚动区域 */
+QScrollArea[type="scrollarea"][theme="charcoal_pink"] {
+    background: transparent;
+    border: none;
+}
+
+/* 堆叠窗口 */
+QStackedWidget[type="stacked"][theme="charcoal_pink"] {
+    background: transparent;
+}
+
+/* 通道面板 */
+QWidget[type="channel_panel"][theme="charcoal_pink"] {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 5px;
+}
+
+/* 端口面板 */
+QWidget[type="port_panel"][theme="charcoal_pink"] {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+}
+
+/* 按钮栏 */
+QWidget[type="button_bar"][theme="charcoal_pink"] {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+/* 子面板 */
+QWidget[type="sub_panel"][theme="charcoal_pink"] {
+    background: transparent;
+}
+
+/* 波形控件 */
+SampledWaveformWidget[type="waveform"][theme="charcoal_pink"] {
+    background: rgba(10, 10, 12, 1);
+    border-radius: 6px;
+}

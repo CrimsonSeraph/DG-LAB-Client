@@ -1,24 +1,27 @@
 /*
  * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
  * SPDX-License-Identifier: GPL-3.0-only
+ * Theme: Night (深色模式)
+ * Mode: night
+ * Colors: Deep Slate #2C3E50, Dark Navy #1A252F
  */
 
 /* ========== 全局基础样式 ========== */
-QWidget[type="main_page"][mode="night"] {
+QWidget[type="main_page"][theme="night"] {
     background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 1,
                                 stop: 0 rgba(44, 62, 80, 1),
                                 stop: 1 rgba(26, 37, 47, 1));
 }
 
 /* 玻璃拟态容器 */
-QWidget[type="glassmorphism"][mode="night"] {
+QWidget[type="glassmorphism"][theme="night"] {
     background-color: rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
 }
 
 /* 导航按钮 */
-QPushButton[type="nav_btn"][mode="night"] {
+QPushButton[type="nav_btn"][theme="night"] {
     background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1,
                                 stop: 0 rgba(58, 90, 126, 1),
                                 stop: 1 rgba(42, 74, 110, 1));
@@ -29,15 +32,15 @@ QPushButton[type="nav_btn"][mode="night"] {
     color: rgba(224, 224, 224, 1);
     padding: 8px 12px;
 }
-QPushButton[type="nav_btn"][mode="night"]:hover {
+QPushButton[type="nav_btn"][theme="night"]:hover {
     background: rgba(74, 106, 142, 1);
 }
-QPushButton[type="nav_btn"][mode="night"]:pressed {
+QPushButton[type="nav_btn"][theme="night"]:pressed {
     background: rgba(26, 58, 94, 1);
 }
 
 /* 操作按钮 */
-QPushButton[type="action_btn"][mode="night"] {
+QPushButton[type="action_btn"][theme="night"] {
     background: rgba(44, 62, 80, 1);
     border: 1px solid rgba(90, 110, 126, 1);
     border-radius: 6px;
@@ -46,15 +49,15 @@ QPushButton[type="action_btn"][mode="night"] {
     color: rgba(224, 224, 224, 1);
     padding: 6px 12px;
 }
-QPushButton[type="action_btn"][mode="night"]:hover {
+QPushButton[type="action_btn"][theme="night"]:hover {
     background: rgba(58, 90, 126, 1);
 }
-QPushButton[type="action_btn"][mode="night"]:pressed {
+QPushButton[type="action_btn"][theme="night"]:pressed {
     background: rgba(26, 42, 62, 1);
 }
 
 /* 标题文字 */
-QLabel[type="title"][mode="night"] {
+QLabel[type="title"][theme="night"] {
     font-size: 20px;
     font-weight: bold;
     color: rgba(240, 240, 240, 1);
@@ -63,7 +66,7 @@ QLabel[type="title"][mode="night"] {
 }
 
 /* 普通标签 */
-QLabel[type="label"][mode="night"] {
+QLabel[type="label"][theme="night"] {
     font-size: 14px;
     color: rgba(224, 224, 224, 1);
     background: transparent;
@@ -71,7 +74,7 @@ QLabel[type="label"][mode="night"] {
 }
 
 /* 图片标签 */
-QLabel[type="image"][mode="night"] {
+QLabel[type="image"][theme="night"] {
     background: rgba(0, 0, 0, 0.5);
     border-radius: 40px;
     font-size: 16px;
@@ -81,7 +84,7 @@ QLabel[type="image"][mode="night"] {
 }
 
 /* 输入框 */
-QLineEdit[type="input"][mode="night"] {
+QLineEdit[type="input"][theme="night"] {
     background: rgba(44, 62, 80, 1);
     border: 1px solid rgba(90, 110, 126, 1);
     border-radius: 4px;
@@ -89,13 +92,13 @@ QLineEdit[type="input"][mode="night"] {
     font-size: 14px;
     color: rgba(224, 224, 224, 1);
 }
-QLineEdit[type="input"][mode="night"]:focus {
+QLineEdit[type="input"][theme="night"]:focus {
     border: 1px solid rgba(108, 142, 191, 1);
     background: rgba(58, 90, 126, 1);
 }
 
 /* 调试日志框 */
-QTextEdit[type="debug_log"][mode="night"] {
+QTextEdit[type="debug_log"][theme="night"] {
     background: rgba(30, 30, 30, 1);
     color: rgba(212, 212, 212, 1);
     font-family: Consolas, monospace;
@@ -105,42 +108,42 @@ QTextEdit[type="debug_log"][mode="night"] {
 }
 
 /* 滚动区域 */
-QScrollArea[type="scrollarea"][mode="night"] {
+QScrollArea[type="scrollarea"][theme="night"] {
     background: transparent;
     border: none;
 }
 
 /* 堆叠窗口 */
-QStackedWidget[type="stacked"][mode="night"] {
+QStackedWidget[type="stacked"][theme="night"] {
     background: transparent;
 }
 
 /* 通道面板 */
-QWidget[type="channel_panel"][mode="night"] {
+QWidget[type="channel_panel"][theme="night"] {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 8px;
     padding: 5px;
 }
 
 /* 端口面板 */
-QWidget[type="port_panel"][mode="night"] {
+QWidget[type="port_panel"][theme="night"] {
     background: rgba(0, 0, 0, 0.4);
     border-radius: 8px;
 }
 
 /* 按钮栏 */
-QWidget[type="button_bar"][mode="night"] {
+QWidget[type="button_bar"][theme="night"] {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
 }
 
 /* 子面板 */
-QWidget[type="sub_panel"][mode="night"] {
+QWidget[type="sub_panel"][theme="night"] {
     background: transparent;
 }
 
 /* 波形控件 */
-SampledWaveformWidget[type="waveform"][mode="night"] {
+SampledWaveformWidget[type="waveform"][theme="night"] {
     background: rgba(10, 10, 10, 1);
     border-radius: 6px;
 }
