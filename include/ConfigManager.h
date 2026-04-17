@@ -27,9 +27,9 @@ public:
     ConfigManager(const ConfigManager&) = delete;
     ConfigManager& operator=(const ConfigManager&) = delete;
 
-    /// @brief 允许移动
-    ConfigManager(ConfigManager&&) = default;
-    ConfigManager& operator=(ConfigManager&&) = default;
+    /// @brief 禁止移动
+    ConfigManager(ConfigManager&&) = delete;
+    ConfigManager& operator=(ConfigManager&&) = delete;
 
     /// @brief 构造函数
     /// @param path 配置文件路径，默认为 "config.json"
