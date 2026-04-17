@@ -259,31 +259,35 @@ endif()
         set(PYTHON_ZIP_NAME "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
         set(PYTHON_ZIP_PATH "${CMAKE_CURRENT_BINARY_DIR}/${PYTHON_ZIP_NAME}")
 
-        # 在配置阶段创建 zip 文件
-        message(STATUS "Creating Python standard library zip: ${PYTHON_ZIP_PATH}")
-        file(TO_CMAKE_PATH "${Python_STDLIB}" PYTHON_STDLIB_CMAKE)
-
-        # 使用 CMake 的 file(WRITE) 和 execute_process 在配置时执行打包
-        if(CMAKE_HOST_WIN32)
-            execute_process(
-                COMMAND powershell -Command "Compress-Archive -Path '*' -DestinationPath '${PYTHON_ZIP_PATH}' -Force"
-                WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
-                RESULT_VARIABLE _zip_result
-                ERROR_VARIABLE _zip_error
-                OUTPUT_VARIABLE _zip_output
-            )
-            if(NOT _zip_result EQUAL 0)
-                message(FATAL_ERROR "Failed to create Python standard library zip: ${_zip_error}")
-            endif()
+        if(EXISTS "${PYTHON_ZIP_PATH}")
+            message(STATUS "Python standard library zip already exists, skipping creation: ${PYTHON_ZIP_PATH}")
         else()
-            # Linux/macOS 使用 tar
-            execute_process(
-                COMMAND ${CMAKE_COMMAND} -E tar cf "${PYTHON_ZIP_PATH}" --format=zip -- .
-                WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
-                RESULT_VARIABLE _zip_result
-            )
-            if(NOT _zip_result EQUAL 0)
-                message(FATAL_ERROR "Failed to create Python standard library zip")
+            # 在配置阶段创建 zip 文件
+            message(STATUS "Creating Python standard library zip: ${PYTHON_ZIP_PATH}")
+            file(TO_CMAKE_PATH "${Python_STDLIB}" PYTHON_STDLIB_CMAKE)
+
+            # 使用 CMake 的 file(WRITE) 和 execute_process 在配置时执行打包
+            if(CMAKE_HOST_WIN32)
+                execute_process(
+                    COMMAND powershell -Command "Compress-Archive -Path '*' -DestinationPath '${PYTHON_ZIP_PATH}' -Force"
+                    WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
+                    RESULT_VARIABLE _zip_result
+                    ERROR_VARIABLE _zip_error
+                    OUTPUT_VARIABLE _zip_output
+                )
+                if(NOT _zip_result EQUAL 0)
+                    message(FATAL_ERROR "Failed to create Python standard library zip: ${_zip_error}")
+                endif()
+            else()
+                # Linux/macOS 使用 tar
+                execute_process(
+                    COMMAND ${CMAKE_COMMAND} -E tar cf "${PYTHON_ZIP_PATH}" --format=zip -- .
+                    WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
+                    RESULT_VARIABLE _zip_result
+                )
+                if(NOT _zip_result EQUAL 0)
+                    message(FATAL_ERROR "Failed to create Python standard library zip")
+                endif()
             endif()
         endif()
 
