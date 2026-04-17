@@ -23,6 +23,26 @@
 #include <string>
 #include <vector>
 
+ // ============================================
+ // 主题枚举
+ // ============================================
+enum Theme {
+    LIGHT = 0,  ///< 浅色模式
+    NIGHT = 1,  ///< 深色模式
+    CHARCOAL_PINK = 2,  ///< 炭黑甜粉
+    DEEPSEA_CREAM = 3,  ///< 深海奶白
+    VINE_PURPLE_TEA_GREEN = 4,  ///< 藤紫钛绿
+    OFFWHITE_CAMELLIA = 5,  ///< 无白茶花
+    DARK_BLUE_CLEAR_BLUE = 6,   ///< 捣蓝清水
+    KLEIN_YELLOW = 7,   ///< 克莱因黄
+    MARS_GREEN_ROSE = 8,    ///< 马尔斯玫瑰
+    HERMES_ORANGE_NAVY = 9, ///< 爱马仕深蓝
+    TIFFANY_BLUE_CHEESE = 10,   ///< 蒂芙尼奶酪
+    CHINA_RED_YELLOW = 11,  ///< 中国红黄
+    VANDYKE_BROWN_KHAKI = 12,   ///< 凡戴克棕卡其
+    PRUSSIAN_BLUE_FOG = 13  ///< 普鲁士雾灰
+};
+
 // ============================================
 // DGLABClient - 主窗口类
 // ============================================
@@ -79,7 +99,7 @@ private:
     bool start_connect_btn_loading_ = false;    ///< 连接按钮加载状态
     bool close_connect_btn_loading_ = false;    ///< 断开按钮加载状态
     bool is_connected_ = false; ///< 连接状态
-    bool is_light_mode_ = true; ///< 主题模式（true=亮色，false=暗色）
+    Theme theme_ = LIGHT; ///< 主题
 
     PythonSubprocessManager* py_manager_;   ///< Python 子进程管理器
 
@@ -104,9 +124,8 @@ private:
     void load_main_image();
     void create_tray_icon();
     void load_stylesheet();
-    void load_light_stylesheet();
-    void load_night_stylesheet();
-    void change_theme();
+    void change_theme(const std::string& theme_str);
+    void change_theme(const QString& theme_str);
     void setup_log_widget_style();
     void setup_connections();
     void setup_port_input_validation();
@@ -135,6 +154,16 @@ private:
     void apply_widget_properties();
     /// @brief 应用所有内联样式表
     void apply_inline_styles();
+    /// @brief 将主题转化成文本（英文）
+    static QString theme_to_mode_string(Theme theme);
+    /// @brief 将文本转化成主题（英文）
+    static Theme mode_string_to_theme(const std::string& theme_str);
+    static Theme mode_string_to_theme(const QString& theme_str);
+    /// @brief 将主题转化成文本（中文）
+    static QString theme_to_mode_string_cn(Theme theme);
+    /// @brief 将文本转化成主题（中文）
+    static Theme mode_string_to_theme_cn(const std::string& theme_str);
+    static Theme mode_string_to_theme_cn(const QString& theme_str);
 
     // -------------------- 私有辅助函数（日志） --------------------
     void append_log_message(const QString& message, int level);

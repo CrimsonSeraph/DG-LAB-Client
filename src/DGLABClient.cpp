@@ -24,6 +24,7 @@
 #include <QDialog>
 #include <QFile>
 #include <QFont>
+#include <QHash>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QHostAddress>
@@ -31,6 +32,7 @@
 #include <QInputDialog>
 #include <QIntValidator>
 #include <QLabel>
+#include <QLatin1String>
 #include <QLayout>
 #include <QLineEdit>
 #include <QList>
@@ -54,9 +56,9 @@
 #include <stdexcept>
 #include <utility>
 
-// ============================================
-// 构造/析构（public）
-// ============================================
+ // ============================================
+ // 构造/析构（public）
+ // ============================================
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
@@ -364,23 +366,24 @@ void DGLABClient::create_tray_icon() {
 
 void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_DEBUG, "开始加载样式表");
+    ui_.current_style_mode->setText("加载中...");
     auto& config = AppConfig::instance();
-    is_light_mode_ = config.get_value<bool>("app.ui.is_light_mode", true);
-    setup_widget_properties("mode", is_light_mode_ ? "light" : "night");
-    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" << (is_light_mode_ ? "Light" : "Night"));
-    QString qss_path;
-    if (is_light_mode_) {
-        qss_path = ":/style/qcss/style_light.qcss";
+    theme_ = mode_string_to_theme(config.get_value<std::string>("app.ui.theme", "light"));
+    setup_widget_properties("theme", theme_to_mode_string(theme_).toStdString());
+    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" + theme_to_mode_string(theme_).toStdString());
+
+    QString qss_path = QStringLiteral(":/style/qcss/") + theme_to_mode_string(theme_) + QStringLiteral(".qcss");
+    if (!QFile::exists(qss_path)){
+        qss_path = QStringLiteral(":/style/qcss/light.qcss");
     }
-    else {
-        qss_path = ":/style/qcss/style_night.qcss";
-    }
+
     QFile file(qss_path);
     if (file.open(QFile::ReadOnly)) {
         QString style = QString::fromUtf8(file.readAll());
-        this->setProperty("mode", is_light_mode_ ? "light" : "night");
+        this->setProperty("theme", theme_to_mode_string(theme_));
         this->setStyleSheet(style);
         file.close();
+        ui_.current_style_mode->setText(theme_to_mode_string_cn(theme_));
     }
     else {
         LOG_MODULE("DGLABClient", "load_stylesheet", LOG_WARN,
@@ -389,57 +392,28 @@ void DGLABClient::load_stylesheet() {
     apply_inline_styles();
 }
 
-void DGLABClient::load_light_stylesheet() {
-    LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_DEBUG, "开始加载 Light 样式表");
-    QString light_stylesheet_path = ":/style/qcss/style_light.qcss";
-    bool light_stylesheet_exists = QFile::exists(light_stylesheet_path);
-    if (light_stylesheet_exists) {
-        LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_DEBUG, "Light 样式表存在");
-        QFile light_stylesheet_file(light_stylesheet_path);
-        if (light_stylesheet_file.open(QFile::ReadOnly)) {
-            QString light_style_sheet = QLatin1String(light_stylesheet_file.readAll());
-            qApp->setStyleSheet(light_style_sheet);
-            light_stylesheet_file.close();
-            LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_DEBUG, "Light 样式表加载成功");
-        }
-        else {
-            LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_ERROR, "Light 样式表打开失败！");
-        }
+void DGLABClient::change_theme(const std::string& theme_str) {
+    Theme new_theme = mode_string_to_theme(theme_str);
+    if (new_theme == theme_) {
+        LOG_MODULE("DGLABClient", "change_theme", LOG_DEBUG,
+            "主题未改变，当前已是：" << theme_str);
+        return;
     }
-    else {
-        LOG_MODULE("DGLABClient", "load_light_stylesheet", LOG_ERROR, "Light 样式表不存在！");
-    }
-}
 
-void DGLABClient::load_night_stylesheet() {
-    LOG_MODULE("DGLABClient", "load_night_stylesheet", LOG_DEBUG, "开始加载 Night 样式表");
-    QString night_stylesheet_path = ":/style/qcss/style_night.qcss";
-    bool night_stylesheet_exists = QFile::exists(night_stylesheet_path);
-    if (night_stylesheet_exists) {
-        LOG_MODULE("DGLABClient", "load_night_stylesheet", LOG_DEBUG, "Night 样式表存在");
-        QFile night_stylesheet_file(night_stylesheet_path);
-        if (night_stylesheet_file.open(QFile::ReadOnly)) {
-            QString night_style_sheet = QLatin1String(night_stylesheet_file.readAll());
-            qApp->setStyleSheet(night_style_sheet);
-            night_stylesheet_file.close();
-            LOG_MODULE("DGLABClient", "load_night_stylesheet", LOG_DEBUG, "Night 样式表加载成功");
-        }
-        else {
-            LOG_MODULE("DGLABClient", "load_night_stylesheet", LOG_ERROR, "Night 样式表打开失败！");
-        }
-    }
-    else {
-        LOG_MODULE("DGLABClient", "load_night_stylesheet", LOG_ERROR, "Night 样式表不存在！");
-    }
-}
+    theme_ = new_theme;
+    LOG_MODULE("DGLABClient", "change_theme", LOG_INFO,
+        "切换主题为：" << theme_str << " (枚举值: " << static_cast<int>(theme_) << ")");
 
-void DGLABClient::change_theme() {
-    LOG_MODULE("DGLABClient", "change_theme", LOG_DEBUG, "切换主题为：" << (is_light_mode_ ? "Night" : "Light"));
-    is_light_mode_ = !is_light_mode_;
     auto& config = AppConfig::instance();
-    config.set_value<bool>("app.ui.is_light_mode", is_light_mode_);
+    config.set_value<std::string>("app.ui.theme", theme_to_mode_string(theme_).toStdString());
+
     load_stylesheet();
-    ui_.current_style_mode->setText(is_light_mode_ ? "亮色模式" : "暗色模式");
+
+    ui_.current_style_mode->setText(theme_to_mode_string_cn(theme_));
+}
+
+void DGLABClient::change_theme(const QString& theme_str) {
+    change_theme(theme_str.toStdString());
 }
 
 void DGLABClient::setup_log_widget_style() {
@@ -465,8 +439,6 @@ void DGLABClient::setup_connections() {
 
     connect(ui_.port_confirm_btn, &QPushButton::clicked, this, &DGLABClient::set_port);
     connect(ui_.show_qr_btn, &QPushButton::clicked, this, &DGLABClient::on_show_qr_btn_clicked);
-
-    connect(ui_.change_style_mode_btn, &QPushButton::clicked, this, &DGLABClient::change_theme);
 
     connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
     connect(this, &DGLABClient::close_finished, this, &DGLABClient::handle_close_finished);
@@ -517,8 +489,7 @@ void DGLABClient::init_python_manager() {
 
 void DGLABClient::reset_py_log_level() {
     auto& config = AppConfig::instance();
-    //QString level = QString::fromStdString(config.get_value<std::string>("app.log_level", "DEBUG"));
-    QString level = "DEBUG";
+    QString level = QString::fromStdString(config.get_value<std::string>("app.log_level", "DEBUG"));
     QJsonObject cmd;
     cmd["cmd"] = "set_log_level";
     cmd["level"] = level;
@@ -864,12 +835,29 @@ void DGLABClient::apply_widget_properties() {
 }
 
 void DGLABClient::apply_inline_styles() {
+    LOG_MODULE("DGLABClient", "apply_inline_styles", LOG_DEBUG, "开始设置内联样式");
+    LOG_MODULE("DGLABClient", "apply_inline_styles", LOG_DEBUG, "设置内联字体样式");
     QString font_color;
-    if (is_light_mode_) {
+    static const QHash<Theme, QString> theme_font_colors = {
+        {LIGHT, "rgba(0, 0, 0, 255)"},
+        {NIGHT, "rgba(255, 255, 255, 255)"},
+        {CHARCOAL_PINK, "rgba(255, 255, 255, 255)"},
+        {DEEPSEA_CREAM, "rgba(255, 255, 255, 255)"},
+        {VINE_PURPLE_TEA_GREEN, "rgba(0, 0, 0, 255)"},
+        {OFFWHITE_CAMELLIA, "rgba(0, 0, 0, 255)"},
+        {DARK_BLUE_CLEAR_BLUE, "rgba(255, 255, 255, 255)"},
+        {KLEIN_YELLOW, "rgba(255, 255, 255, 255)"},
+        {MARS_GREEN_ROSE, "rgba(255, 255, 255, 255)"},
+        {HERMES_ORANGE_NAVY, "rgba(255, 255, 255, 255)"},
+        {TIFFANY_BLUE_CHEESE, "rgba(0, 0, 0, 255)"},
+        {CHINA_RED_YELLOW, "rgba(255, 255, 255, 255)"},
+        {VANDYKE_BROWN_KHAKI, "rgba(255, 255, 255, 255)"},
+        {PRUSSIAN_BLUE_FOG, "rgba(255, 255, 255, 255)"}
+    };
+
+    font_color = theme_font_colors.value(theme_, "");
+    if (font_color.isEmpty()) {
         font_color = "rgba(0, 0, 0, 255)";
-    }
-    else {
-        font_color = "rgba(255, 255, 255, 255)";
     }
 
     QList<QWidget*> all_widgets = ui_.all->findChildren<QWidget*>();
@@ -879,6 +867,95 @@ void DGLABClient::apply_inline_styles() {
             w->setStyleSheet(QString("color: %1;").arg(font_color));
         }
     }
+    LOG_MODULE("DGLABClient", "apply_inline_styles", LOG_DEBUG, "设置内联样式完成！");
+}
+
+QString DGLABClient::theme_to_mode_string(Theme theme) {
+    static const QHash<Theme, QString> map = {
+        {LIGHT, QStringLiteral("light")},
+        {NIGHT, QStringLiteral("night")},
+        {CHARCOAL_PINK, QStringLiteral("charcoal_pink")},
+        {DEEPSEA_CREAM, QStringLiteral("deepsea_cream")},
+        {VINE_PURPLE_TEA_GREEN, QStringLiteral("vine_purple_tea_green")},
+        {OFFWHITE_CAMELLIA, QStringLiteral("offwhite_camellia")},
+        {DARK_BLUE_CLEAR_BLUE, QStringLiteral("dark_blue_clear_blue")},
+        {KLEIN_YELLOW, QStringLiteral("klein_yellow")},
+        {MARS_GREEN_ROSE, QStringLiteral("mars_green_rose")},
+        {HERMES_ORANGE_NAVY, QStringLiteral("hermes_orange_navy")},
+        {TIFFANY_BLUE_CHEESE, QStringLiteral("tiffany_blue_cheese")},
+        {CHINA_RED_YELLOW, QStringLiteral("china_red_yellow")},
+        {VANDYKE_BROWN_KHAKI, QStringLiteral("vandyke_brown_khaki")},
+        {PRUSSIAN_BLUE_FOG, QStringLiteral("prussian_blue_fog")}
+    };
+    return map.value(theme, QStringLiteral("light"));
+}
+
+Theme DGLABClient::mode_string_to_theme(const std::string& theme_str) {
+    static const QHash<QLatin1String, Theme> map = {
+        {QLatin1String("light"), LIGHT},
+        {QLatin1String("night"), NIGHT},
+        {QLatin1String("charcoal_pink"), CHARCOAL_PINK},
+        {QLatin1String("deepsea_cream"), DEEPSEA_CREAM},
+        {QLatin1String("vine_purple_tea_green"), VINE_PURPLE_TEA_GREEN},
+        {QLatin1String("offwhite_camellia"), OFFWHITE_CAMELLIA},
+        {QLatin1String("dark_blue_clear_blue"), DARK_BLUE_CLEAR_BLUE},
+        {QLatin1String("klein_yellow"), KLEIN_YELLOW},
+        {QLatin1String("mars_green_rose"), MARS_GREEN_ROSE},
+        {QLatin1String("hermes_orange_navy"), HERMES_ORANGE_NAVY},
+        {QLatin1String("tiffany_blue_cheese"), TIFFANY_BLUE_CHEESE},
+        {QLatin1String("china_red_yellow"), CHINA_RED_YELLOW},
+        {QLatin1String("vandyke_brown_khaki"), VANDYKE_BROWN_KHAKI},
+        {QLatin1String("prussian_blue_fog"), PRUSSIAN_BLUE_FOG}
+    };
+    return map.value(QLatin1String(theme_str.c_str()), LIGHT);
+}
+
+Theme DGLABClient::mode_string_to_theme(const QString& theme_str) {
+    return mode_string_to_theme(theme_str.toStdString());
+}
+
+QString DGLABClient::theme_to_mode_string_cn(Theme theme) {
+    static const QHash<Theme, QString> map = {
+        {LIGHT, QStringLiteral("浅色模式")},
+        {NIGHT, QStringLiteral("深色模式")},
+        {CHARCOAL_PINK, QStringLiteral("炭黑甜粉")},
+        {DEEPSEA_CREAM, QStringLiteral("深海奶白")},
+        {VINE_PURPLE_TEA_GREEN, QStringLiteral("藤紫钛绿")},
+        {OFFWHITE_CAMELLIA, QStringLiteral("无白茶花")},
+        {DARK_BLUE_CLEAR_BLUE, QStringLiteral("捣蓝清水")},
+        {KLEIN_YELLOW, QStringLiteral("克莱因黄")},
+        {MARS_GREEN_ROSE, QStringLiteral("马尔斯玫瑰")},
+        {HERMES_ORANGE_NAVY, QStringLiteral("爱马仕深蓝")},
+        {TIFFANY_BLUE_CHEESE, QStringLiteral("蒂芙尼奶酪")},
+        {CHINA_RED_YELLOW, QStringLiteral("中国红黄")},
+        {VANDYKE_BROWN_KHAKI, QStringLiteral("凡戴克棕卡其")},
+        {PRUSSIAN_BLUE_FOG, QStringLiteral("普鲁士雾灰")}
+    };
+    return map.value(theme, QStringLiteral("浅色模式"));
+}
+
+Theme DGLABClient::mode_string_to_theme_cn(const std::string& theme_str) {
+    static const QHash<QString, Theme> map = {
+        {QStringLiteral("浅色模式"), LIGHT},
+        {QStringLiteral("深色模式"), NIGHT},
+        {QStringLiteral("炭黑甜粉"), CHARCOAL_PINK},
+        {QStringLiteral("深海奶白"), DEEPSEA_CREAM},
+        {QStringLiteral("藤紫钛绿"), VINE_PURPLE_TEA_GREEN},
+        {QStringLiteral("无白茶花"), OFFWHITE_CAMELLIA},
+        {QStringLiteral("捣蓝清水"), DARK_BLUE_CLEAR_BLUE},
+        {QStringLiteral("克莱因黄"), KLEIN_YELLOW},
+        {QStringLiteral("马尔斯玫瑰"), MARS_GREEN_ROSE},
+        {QStringLiteral("爱马仕深蓝"), HERMES_ORANGE_NAVY},
+        {QStringLiteral("蒂芙尼奶酪"), TIFFANY_BLUE_CHEESE},
+        {QStringLiteral("中国红黄"), CHINA_RED_YELLOW},
+        {QStringLiteral("凡戴克棕卡其"), VANDYKE_BROWN_KHAKI},
+        {QStringLiteral("普鲁士雾灰"), PRUSSIAN_BLUE_FOG}
+    };
+    return map.value(QString::fromStdString(theme_str), LIGHT);
+}
+
+Theme DGLABClient::mode_string_to_theme_cn(const QString& theme_str) {
+    return mode_string_to_theme_cn(theme_str.toStdString());
 }
 
 // ----- 日志辅助 -----

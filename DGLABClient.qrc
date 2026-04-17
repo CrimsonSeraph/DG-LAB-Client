@@ -3,7 +3,19 @@
         <file>assets/normal_image/main_image.png</file>
     </qresource>
     <qresource prefix="/style">
-        <file>qcss/style_light.qcss</file>
-        <file>qcss/style_night.qcss</file>
+        <file>qcss/charcoal_pink.qcss</file>
+        <file>qcss/china_red_yellow.qcss</file>
+        <file>qcss/dark_blue_clear_blue.qcss</file>
+        <file>qcss/deepsea_cream.qcss</file>
+        <file>qcss/hermes_orange_navy.qcss</file>
+        <file>qcss/klein_yellow.qcss</file>
+        <file>qcss/light.qcss</file>
+        <file>qcss/mars_green_rose.qcss</file>
+        <file>qcss/night.qcss</file>
+        <file>qcss/offwhite_camellia.qcss</file>
+        <file>qcss/prussian_blue_fog.qcss</file>
+        <file>qcss/tiffany_blue_cheese.qcss</file>
+        <file>qcss/vandyke_brown_khaki.qcss</file>
+        <file>qcss/vine_purple_tea_green.qcss</file>
     </qresource>
 </RCC>
