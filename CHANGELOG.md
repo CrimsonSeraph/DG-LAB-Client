@@ -169,7 +169,7 @@
 
 ## 其他
 
-**变动**：[v0.3.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.2.1...v0.3.0
+**变动**：[v0.4.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.3.0...v0.4.0
 
 **变更分类**：
   - `Added` – 新增功能

@@ -19,7 +19,7 @@
 | `DebugLog.h` | 日志系统核心类 `DebugLog`（单例）的声明。支持模块级日志等级过滤、多个输出接收器（sink）、线程安全写入。提供宏 `LOG_MODULE` 用于统一格式的日志输出。 |
 | `DebugLog_utils.hpp` | 日志系统辅助工具，包含 `DebugLogUtil` 命名空间下的函数，如将 `QJsonValue` 转换为字符串、去除字符串中的换行符等，便于日志格式化。 |
 | `DefaultConfigs.h` | 默认配置提供类 `DefaultConfigs` 的声明，仅包含静态方法 `get_default_config`，根据配置名称（如 "main"、"system"、"user"）返回对应的默认 JSON 配置。 |
-| `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。**v0.3.0 新增**：样式系统方法 `apply_widget_properties()`、`apply_inline_styles()`，以及主题切换的增强。 |
+| `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。样式系统方法 `apply_widget_properties()`、`apply_inline_styles()`，以及主题切换的增强。 |
 | `DGLABClient_utils.hpp` | `DGLABClient` 的工具函数，目前包含 `contains_any_keyword` 辅助函数，用于在网卡名称中匹配黑/白名单关键字。 |
 | `FormulaBuilderDialog.h` | **值模式编辑对话框** （`FormulaBuilderDialog`），带按钮快速插入符号、实时括号匹配检查和合法性验证  |
 | `MultiConfigManager.h` | 多配置管理器 `MultiConfigManager`（单例）的声明。维护多个 `ConfigManager` 实例的注册表，支持按优先级（`__priority` 字段）排序配置，提供合并读取、优先级冲突检测、文件热重载等功能。 |
