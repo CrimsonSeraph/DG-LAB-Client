@@ -660,7 +660,7 @@
                  <verstretch>0</verstretch>
                 </sizepolicy>
                </property>
-               <layout class="QVBoxLayout" name="verticalLayout" stretch="1,1,1,1,1,1,1,1">
+               <layout class="QVBoxLayout" name="verticalLayout" stretch="1,8">
                 <property name="spacing">
                  <number>5</number>
                 </property>
@@ -677,88 +677,7 @@
                  <number>5</number>
                 </property>
                 <item>
-                 <widget class="QWidget" name="style_mode" native="true">
-                  <property name="sizePolicy">
-                   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                    <horstretch>0</horstretch>
-                    <verstretch>0</verstretch>
-                   </sizepolicy>
-                  </property>
-                  <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,1,2">
-                   <property name="spacing">
-                    <number>10</number>
-                   </property>
-                   <property name="leftMargin">
-                    <number>20</number>
-                   </property>
-                   <property name="topMargin">
-                    <number>20</number>
-                   </property>
-                   <property name="rightMargin">
-                    <number>20</number>
-                   </property>
-                   <property name="bottomMargin">
-                    <number>20</number>
-                   </property>
-                   <item>
-                    <widget class="QLabel" name="style_mode_label">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <pointsize>16</pointsize>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>样式</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QPushButton" name="change_style_mode_btn">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <pointsize>16</pointsize>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>切换</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="current_style_mode">
-                     <property name="font">
-                      <font>
-                       <pointsize>16</pointsize>
-                      </font>
-                     </property>
-                     <property name="text">
-                      <string>当前样式</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignmentFlag::AlignCenter</set>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QWidget" name="horizontalWidget1" native="true">
+                 <widget class="QWidget" name="theme" native="true">
                   <property name="sizePolicy">
                    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                     <horstretch>0</horstretch>
@@ -771,37 +690,100 @@
                     <height>0</height>
                    </size>
                   </property>
-                  <layout class="QHBoxLayout" name="horizontalLayout_6"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,2,2">
+                   <property name="spacing">
+                    <number>0</number>
+                   </property>
+                   <property name="leftMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>0</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>0</number>
+                   </property>
+                   <item>
+                    <widget class="QLabel" name="theme_label">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>主题</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QPushButton" name="change_theme_btn">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="minimumSize">
+                      <size>
+                       <width>0</width>
+                       <height>0</height>
+                      </size>
+                     </property>
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>切换</string>
+                     </property>
+                    </widget>
+                   </item>
+                   <item>
+                    <widget class="QLabel" name="current_theme">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
+                     </property>
+                     <property name="font">
+                      <font>
+                       <pointsize>16</pointsize>
+                      </font>
+                     </property>
+                     <property name="text">
+                      <string>当前主题</string>
+                     </property>
+                     <property name="alignment">
+                      <set>Qt::AlignmentFlag::AlignCenter</set>
+                     </property>
+                    </widget>
+                   </item>
+                  </layout>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QWidget" name="horizontalWidget2" native="true">
-                  <layout class="QHBoxLayout" name="horizontalLayout_8"/>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QWidget" name="horizontalWidget4" native="true">
-                  <layout class="QHBoxLayout" name="horizontalLayout_9"/>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QWidget" name="horizontalWidget3" native="true">
-                  <layout class="QHBoxLayout" name="horizontalLayout_10"/>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QWidget" name="horizontalWidget6" native="true">
-                  <layout class="QHBoxLayout" name="horizontalLayout_11"/>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QWidget" name="horizontalWidget5" native="true">
-                  <layout class="QHBoxLayout" name="horizontalLayout_12"/>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QWidget" name="horizontalWidget7" native="true">
-                  <layout class="QHBoxLayout" name="horizontalLayout_13"/>
+                 <widget class="QWidget" name="horizontalWidget" native="true">
+                  <layout class="QHBoxLayout" name="horizontalLayout_17"/>
                  </widget>
                 </item>
                </layout>

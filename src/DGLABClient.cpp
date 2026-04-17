@@ -366,7 +366,7 @@ void DGLABClient::create_tray_icon() {
 
 void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_DEBUG, "开始加载样式表");
-    ui_.current_style_mode->setText("加载中...");
+    ui_.current_theme->setText("加载中...");
     auto& config = AppConfig::instance();
     theme_ = mode_string_to_theme(config.get_value<std::string>("app.ui.theme", "light"));
     setup_widget_properties("theme", theme_to_mode_string(theme_).toStdString());
@@ -383,7 +383,7 @@ void DGLABClient::load_stylesheet() {
         this->setProperty("theme", theme_to_mode_string(theme_));
         this->setStyleSheet(style);
         file.close();
-        ui_.current_style_mode->setText(theme_to_mode_string_cn(theme_));
+        ui_.current_theme->setText(theme_to_mode_string_cn(theme_));
     }
     else {
         LOG_MODULE("DGLABClient", "load_stylesheet", LOG_WARN,
@@ -409,7 +409,7 @@ void DGLABClient::change_theme(const std::string& theme_str) {
 
     load_stylesheet();
 
-    ui_.current_style_mode->setText(theme_to_mode_string_cn(theme_));
+    ui_.current_theme->setText(theme_to_mode_string_cn(theme_));
 }
 
 void DGLABClient::change_theme(const QString& theme_str) {
@@ -439,6 +439,8 @@ void DGLABClient::setup_connections() {
 
     connect(ui_.port_confirm_btn, &QPushButton::clicked, this, &DGLABClient::set_port);
     connect(ui_.show_qr_btn, &QPushButton::clicked, this, &DGLABClient::on_show_qr_btn_clicked);
+
+    connect(ui_.change_theme_btn, &QPushButton::clicked, this, &DGLABClient::show_theme_selector);
 
     connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
     connect(this, &DGLABClient::close_finished, this, &DGLABClient::handle_close_finished);
@@ -784,7 +786,7 @@ void DGLABClient::apply_widget_properties() {
     ui_.port_info->setProperty("type", "glassmorphism");    // 端口面板
     ui_.channel_waves->setProperty("type", "glassmorphism");    // 通道面板
     ui_.main_page_btns_bar->setProperty("type", "glassmorphism");   // 首页按钮栏
-    ui_.style_mode->setProperty("type", "glassmorphism");   // 样式切换面板
+    ui_.theme->setProperty("type", "glassmorphism");   // 样式切换面板
     // 导航按钮
     ui_.main_first_btn->setProperty("type", "nav_btn");
     ui_.main_config_btn->setProperty("type", "nav_btn");
@@ -797,7 +799,7 @@ void DGLABClient::apply_widget_properties() {
     ui_.close_btn->setProperty("type", "action_btn");
     ui_.port_confirm_btn->setProperty("type", "action_btn");
     ui_.show_qr_btn->setProperty("type", "action_btn");
-    ui_.change_style_mode_btn->setProperty("type", "action_btn");
+    ui_.change_theme_btn->setProperty("type", "action_btn");
     // 标题标签
     ui_.main_title->setProperty("type", "title");
     ui_.config_title->setProperty("type", "title");
@@ -805,8 +807,8 @@ void DGLABClient::apply_widget_properties() {
     ui_.about_title->setProperty("type", "title");
     // 普通标签
     ui_.port_label->setProperty("type", "label");
-    ui_.style_mode_label->setProperty("type", "label");
-    ui_.current_style_mode->setProperty("type", "label");
+    ui_.theme_label->setProperty("type", "label");
+    ui_.current_theme->setProperty("type", "label");
     // 图片标签
     ui_.main_image_label->setProperty("type", "image");
     // 输入框
@@ -1044,6 +1046,20 @@ void DGLABClient::close_async_connect() {
     async_call(close_cmd, 5000, [this](bool ok, QString msg) {
         emit close_finished(ok, msg);
         });
+}
+
+void DGLABClient::show_theme_selector() {
+    LOG_MODULE("DGLABClient", "show_theme_selector", LOG_DEBUG, "打开主题选择对话框");
+    ThemeSelectorDialog* dialog = new ThemeSelectorDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &ThemeSelectorDialog::theme_selected,
+        this, static_cast<void (DGLABClient::*)(Theme)>(&DGLABClient::change_theme));
+    dialog->show();
+}
+
+void DGLABClient::change_theme(Theme theme) {
+    // 复用已有的字符串版本
+    change_theme(theme_to_mode_string(theme).toStdString());
 }
 
 void DGLABClient::on_rule_file_changed(int index) {

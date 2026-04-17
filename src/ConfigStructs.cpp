@@ -75,13 +75,13 @@ bool SystemConfig::validate() const {
 
 void UserConfig::to_json(nlohmann::json& j, const UserConfig& config) {
     j = nlohmann::json{
-        {"app.ui.is_light", config.ui_is_light_},
+        {"app.ui.theme", config.theme_},
         {"app.ui.font_size", config.ui_font_size_}
     };
 }
 
 void UserConfig::from_json(const nlohmann::json& j, UserConfig& config) {
-    j.at("app.ui.is_light").get_to(config.ui_is_light_);
+    j.at("app.ui.theme").get_to(config.theme_);
     j.at("app.ui.font_size").get_to(config.ui_font_size_);
 }
 

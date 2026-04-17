@@ -446,7 +446,7 @@ void AppConfig::initialize_configs_unsafe() {
 
     user_config_obj_ = ConfigObject<UserConfig>(user_config_, "user",
         UserConfig{
-            .ui_is_light_ = get_value_unsafe<bool>("app.ui.is_light", true),
+            .theme_ = get_value_unsafe<bool>("app.ui.theme", "light"),
             .ui_font_size_ = get_value_unsafe<int>("app.ui.font_size", 16),
         });
 

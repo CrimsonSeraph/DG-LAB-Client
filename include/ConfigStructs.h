@@ -124,7 +124,7 @@ struct SystemConfig {
 
 struct UserConfig {
     // -------------------- 成员变量 --------------------
-    bool ui_is_light_ = true;
+    std::string theme_ = "light";
     int ui_font_size_ = 16;
 
     // -------------------- 静态方法 --------------------

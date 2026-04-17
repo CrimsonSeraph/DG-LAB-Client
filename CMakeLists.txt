@@ -98,14 +98,18 @@ set(PROJECT_SOURCES
     include/RuleManager.h
     src/RuleManager.cpp
     include/RuleManager_impl.hpp
-    include/Console.h
-    src/Console.cpp
 
     # 波形绘制
     include/SampledWaveformWidget.h
     src/SampledWaveformWidget.cpp
 
+    # 主题选择器
+    include/ThemeSelectorDialog.h
+    src/ThemeSelectorDialog.cpp
+
     # Debug 日志
+    include/Console.h
+    src/Console.cpp
     include/DebugLog.h
     src/DebugLog.cpp
     include/DebugLog_utils.hpp
