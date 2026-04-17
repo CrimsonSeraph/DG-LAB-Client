@@ -28,7 +28,8 @@
 | `Rule.h` | 规则类 `Rule` 的声明。单个规则包含名称、通道（A/B）、模式（0-4）和带占位符 `{}` 的值计算式。提供占位符数量统计、通道规范化、值计算（支持四则运算和括号表达式）、生成命令以及用于 UI 显示的格式化字符串方法。 |
 | `RuleManager.h` | 规则管理器 `RuleManager`（单例）的声明。负责扫描指定目录下的 JSON 规则文件（含特定关键字），加载/保存规则文件，管理当前规则集，提供规则的增删改查、命令生成（变参模板）以及显示字符串生成等接口。 |
 | `RuleManager_impl.hpp` | `RuleManager` 的模板方法实现，主要提供 `evaluate_command` 变参模板函数，将参数转换为 `std::vector<int>` 后调用对应规则的生成方法。 |
-| `SampledWaveformWidget.h` | **新增**：实时波形采样控件的声明。继承 `QWidget`，提供 `input_data(double)` 接口输入归一化数据，内部使用环形缓冲区存储采样点，并通过定时器驱动采样和重绘。支持设置采样间隔和最大振幅比例。 |
+| `SampledWaveformWidget.h` | 实时波形采样控件的声明。继承 `QWidget`，提供 `input_data(double)` 接口输入归一化数据，内部使用环形缓冲区存储采样点，并通过定时器驱动采样和重绘。支持设置采样间隔和最大振幅比例。 |
+| `ThemeSelectorDialog.h` | 主题选择对话框的声明。继承自 `QDialog`，包含 `theme_selected` 信号和私有映射（中文名、模式名、主色）。通过 `setup_ui()` 构建网格布局的主题卡片，`create_theme_card()` 创建可点击的卡片控件，用于直观的主题选择。 |
 | `ValueModeDelegate.h` | **值模式列自定义委托** （`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式  |
 
 > **注**：`DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件虽不属头文件，但属于界面设计的一部分，应与头文件配套使用。

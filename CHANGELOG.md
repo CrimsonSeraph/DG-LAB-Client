@@ -7,25 +7,50 @@
 
 ---
 
-## [Unreleased]
+## [Unreleased] (暂无版本)
 
 ### Added
-- 暂无。
+- 无
 
 ### Changed
-- 暂无。
+- 无
 
 ### Deprecated
-- 暂无。
+- 无
 
 ### Removed
-- 暂无。
+- 无
 
 ### Fixed
-- 暂无。
+- 无
 
 ### Security
-- 暂无。
+- 无
+
+---
+
+## [v0.4.0] - 2026-04-17
+
+### Added
+- 新增 12 种主题，详细见 [qcss/README.md](qcss/README.md)。
+- 样式系统再次重构：使用 `type` 和 `theme` 属性选择器实现主题切换。
+- 添加主题选择器 `ThemeSelectorDialog.h/cpp`，支持主题预览与选择。
+
+### Changed
+- 为 CMake 构建流程中 `Python 运行时和第三方包安装` 添加检查条件，防止重复打包。
+- `user.json` 中关于主题的参数 `app.ui.is_light_mode` 改成 `app.ui.theme`，参数为主题英文名，采用 **全小写+下划线** 形式。
+
+### Deprecated
+- 计划移除使用 Python 模块 `WebSocketCore.py` 实现 websocket 相关功能，转向使用 Qt 提供的 Qt WebSocket 库。
+
+### Removed
+- 移除原本的主题切换按键。
+
+### Fixed
+- 无
+
+### Security
+- 无
 
 ---
 
