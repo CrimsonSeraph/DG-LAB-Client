@@ -29,6 +29,28 @@
 
 ---
 
+## [v0.5.0] - 2026-04-19
+
+### Added
+- 新增实时显示强度，提供手动调节、锁定调节按键。
+
+### Changed
+- 无
+
+### Deprecated
+- 计划移除使用 Python 模块 `WebSocketCore.py` 实现 websocket 相关功能，转向使用 Qt 提供的 Qt WebSocket 库。
+
+### Removed
+- 无
+
+### Fixed
+- 修复 Python 模块日志格式错误。
+
+### Security
+- 无
+
+---
+
 ## [v0.4.0] - 2026-04-17
 
 ### Added
@@ -169,7 +191,7 @@
 
 ## 其他
 
-**变动**：[v0.4.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.3.0...v0.4.0
+**变动**：[v0.5.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.4.0...v0.5.0
 
 **变更分类**：
   - `Added` – 新增功能
