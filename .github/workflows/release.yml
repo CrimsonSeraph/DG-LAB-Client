@@ -46,61 +46,90 @@ jobs:
 
           awk -v tag="$TAG_NAME" '
           BEGIN {
+            state = 0   # 0=收集header，1=寻找目标版本，2=收集内容，3=查找变动链接
             header = ""
             body = ""
             footer = ""
-            state = 0
-            in_target = 0
-            target_start = 0
-            next_version = 0
+            in_skip = 0
           }
 
-          !header_done && /^## \[v/ {
-            header_done = 1
-            state = 1
-          }
-          !header_done {
+          # 状态0：收集第一个真实版本之前的介绍内容，同时跳过 [Unreleased] 块
+          state == 0 {
+            # 忽略 # Changelog 和 本文档记录 行
+            if ($0 ~ /^# Changelog/ || $0 ~ /^本文档记录/) next
+
+            # 遇到 [Unreleased] 标题，开始跳过其整个区块
+            if ($0 ~ /^## \[Unreleased\]/) {
+              in_skip = 1
+              next
+            }
+
+            # 跳过 [Unreleased] 区块内的所有行，直到下一个 ## 标题
+            if (in_skip) {
+              if ($0 ~ /^## /) {
+                in_skip = 0
+                # 如果这个标题是真实版本，转入状态1
+                if ($0 ~ /^## \[v/) {
+                  state = 1
+                  next
+                }
+              }
+              next
+            }
+
+            # 遇到第一个真实版本标题（如 ## [v0.4.0]），转入状态1
+            if ($0 ~ /^## \[v/) {
+              state = 1
+              next
+            }
+
+            # 其他行都归入 header
             header = header $0 "\n"
             next
           }
 
-          state == 1 && $0 ~ "^## \\[" tag "\\]" {
-            state = 2
-            in_target = 1
+          # 状态1：查找与 tag 匹配的版本标题
+          state == 1 {
+            if ($0 ~ "^## \\[" tag "\\]") {
+              body = body $0 "\n"
+              state = 2
+              next
+            }
+            # 遇到其他版本标题说明目标 tag 不存在
+            if ($0 ~ /^## \[v/) {
+              print "未找到 " tag " 对应的发布说明。"
+              exit 1
+            }
+            next
+          }
+
+          # 状态2：收集目标版本的内容，直到遇到下一个版本标题或“## 其他”
+          state == 2 {
+            if ($0 ~ /^## \[v/ || $0 ~ /^## 其他/) {
+              state = 3
+              next
+            }
             body = body $0 "\n"
             next
           }
 
-          state == 2 {
-            if ($0 ~ "^## \\[v" || $0 ~ "^## 其他") {
-                state = 3
-            }
-            if (state == 2) {
-                body = body $0 "\n"
-            }
-            if (state == 3) {
-                footer_line = $0
+          # 状态3：仅收集当前版本的变动链接行（不包含“## 其他”标题）
+          state == 3 {
+            if ($0 ~ "\\*\\*变动\\*\\*：\\[" tag "\\]:") {
+              footer = footer $0 "\n"
+              state = 4
             }
             next
           }
 
-          state == 3 && $0 ~ "\\*\\*变动\\*\\*：\\[" tag "\\]:" {
-            # 如果上一行是“## 其他”，则一并包含
-            if (footer_line ~ "^## 其他") {
-                footer = footer_line "\n"
-            }
-            footer = footer $0 "\n"
-            state = 4
-          }
-
           END {
             if (state >= 2 && length(body) > 0) {
-                # 输出：全局说明 + 目标版本内容 + 变动链接（如果有）
-                printf "%s", header
-                printf "%s", body
-                if (length(footer) > 0) printf "%s", footer
+              printf "%s", header
+              printf "%s", body
+              if (length(footer) > 0) printf "%s", footer
             } else {
                 print "未找到 " tag " 对应的发布说明。"
+                exit 1
             }
           }
           ' CHANGELOG.md > /tmp/release_notes.md
