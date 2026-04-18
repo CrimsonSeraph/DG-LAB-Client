@@ -80,6 +80,8 @@ DGLABClient::DGLABClient(QWidget* parent)
     apply_widget_properties();
     load_stylesheet();
     init_port_input_placeholder();
+    init_channel_info();
+    setup_channel_value_input_validation();
 
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
 }
@@ -373,7 +375,7 @@ void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" + theme_to_mode_string(theme_).toStdString());
 
     QString qss_path = QStringLiteral(":/style/qcss/") + theme_to_mode_string(theme_) + QStringLiteral(".qcss");
-    if (!QFile::exists(qss_path)){
+    if (!QFile::exists(qss_path)) {
         qss_path = QStringLiteral(":/style/qcss/light.qcss");
     }
 
@@ -442,8 +444,15 @@ void DGLABClient::setup_connections() {
 
     connect(ui_.change_theme_btn, &QPushButton::clicked, this, &DGLABClient::show_theme_selector);
 
-    connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
-    connect(this, &DGLABClient::close_finished, this, &DGLABClient::handle_close_finished);
+    connect(this, &DGLABClient::connect_finished, this, &DGLABClient::on_connect_finished);
+    connect(this, &DGLABClient::close_finished, this, &DGLABClient::on_close_finished);
+
+    connect(ui_.A_channel_value, &QLineEdit::editingFinished, this, &DGLABClient::apply_A_strength_from_input);
+    connect(ui_.B_channel_value, &QLineEdit::editingFinished, this, &DGLABClient::apply_B_strength_from_input);
+    connect(ui_.A_lock_btn, &QPushButton::clicked, this, &DGLABClient::change_A_lock);
+    connect(ui_.B_lock_btn, &QPushButton::clicked, this, &DGLABClient::change_B_lock);
+    connect(ui_.confirm_A_strength, &QPushButton::clicked, this, &DGLABClient::apply_A_strength_from_input);
+    connect(ui_.confirm_B_strength, &QPushButton::clicked, this, &DGLABClient::apply_B_strength_from_input);
 }
 
 void DGLABClient::setup_port_input_validation() {
@@ -452,8 +461,8 @@ void DGLABClient::setup_port_input_validation() {
     validator->setLocale(locale);
     ui_.port_input->setValidator(validator);
     connect(ui_.port_input, &QLineEdit::textChanged, this, [this](const QString& text) {
-        if (text.length() > 100) {
-            ui_.port_input->setText(text.left(100));
+        if (text.length() > 5) {
+            ui_.port_input->setText(text.left(5));
         }
         });
 }
@@ -477,6 +486,9 @@ void DGLABClient::init_python_manager() {
         this, [this]() {
             emit close_finished(true, "Python 进程关闭");
         });
+
+    connect(py_manager_, &PythonSubprocessManager::active_message_received,
+        this, &DGLABClient::on_active_message_received);
 
     auto& config = AppConfig::instance();
     QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
@@ -509,6 +521,17 @@ void DGLABClient::init_port_input_placeholder() {
     auto& config = AppConfig::instance();
     int old_port = config.get_value<int>("app.websocket.port", 9999);
     ui_.port_input->setPlaceholderText("请输入 WebSocket 端口号，当前端口号：" + QString::number(old_port));
+}
+
+void DGLABClient::init_channel_info() {
+    is_A_info_locked_ = false;
+    is_B_info_locked_ = false;
+    ui_.A_channel_value->setReadOnly(false);
+    ui_.B_channel_value->setReadOnly(false);
+    ui_.A_lock_btn->setText("禁用\n更改");
+    ui_.B_lock_btn->setText("禁用\n更改");
+    refresh_A_display();
+    refresh_B_display();
 }
 
 // ----- 二维码相关 -----
@@ -979,11 +1002,114 @@ void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
     }
 }
 
+void DGLABClient::refresh_A_display() {
+    if (is_A_info_locked_) {
+        ui_.A_channel_value->setText(QString::number(A_strength_));
+    }
+    else {
+        ui_.A_channel_value->setPlaceholderText(QString::number(A_strength_));
+        if (!is_connected_) {
+            A_strength_ = 0;
+            ui_.A_channel_value->setText("");
+        }
+    }
+}
+
+void DGLABClient::refresh_B_display() {
+    if (is_B_info_locked_) {
+        ui_.B_channel_value->setText(QString::number(B_strength_));
+    }
+    else {
+        ui_.B_channel_value->setPlaceholderText(QString::number(B_strength_));
+        if (!is_connected_) {
+            B_strength_ = 0;
+            ui_.B_channel_value->setText("");
+        }
+    }
+}
+
+void DGLABClient::apply_A_strength_from_input() {
+    QString text = ui_.A_channel_value->text();
+    bool ok;
+    int newVal = text.toInt(&ok);
+    if (!ok || newVal < 0 || newVal > 200) {
+        refresh_A_display();
+        return;
+    }
+    if (newVal == A_strength_) {
+        return;
+    }
+    A_strength_ = newVal;
+    refresh_A_display();
+
+    if (is_connected_) {
+        QJsonObject cmd;
+        cmd["cmd"] = "set_strength";
+        cmd["channel"] = "A";
+        cmd["mode"] = 2;
+        cmd["value"] = A_strength_;
+        async_call(cmd, 5000, [this](bool ok, QString msg) {
+            if (ok) {
+                LOG_MODULE("DGLABClient", "apply_A_strength_from_input", LOG_INFO,
+                    "A通道强度设置成功: " << msg.toStdString());
+            }
+            else {
+                LOG_MODULE("DGLABClient", "apply_A_strength_from_input", LOG_ERROR,
+                    "A通道强度设置失败: " << msg.toStdString());
+                QMessageBox::warning(this, "错误", "设置A通道强度失败: " + msg);
+            }
+            });
+    }
+    else {
+        LOG_MODULE("DGLABClient", "apply_A_strength_from_input", LOG_WARN, "未连接，无法设置A通道强度");
+        A_strength_ = 0;
+        refresh_A_display();
+    }
+}
+
+void DGLABClient::apply_B_strength_from_input() {
+    QString text = ui_.B_channel_value->text();
+    bool ok;
+    int newVal = text.toInt(&ok);
+    if (!ok || newVal < 0 || newVal > 200) {
+        refresh_B_display();
+        return;
+    }
+    if (newVal == B_strength_) {
+        return;
+    }
+    B_strength_ = newVal;
+    refresh_B_display();
+    if (is_connected_) {
+        QJsonObject cmd;
+        cmd["cmd"] = "set_strength";
+        cmd["channel"] = "B";
+        cmd["mode"] = 2;
+        cmd["value"] = B_strength_;
+        async_call(cmd, 5000, [this](bool ok, QString msg) {
+            if (ok) {
+                LOG_MODULE("DGLABClient", "apply_B_strength_from_input", LOG_INFO,
+                    "B通道强度设置成功: " << msg.toStdString());
+            }
+            else {
+                LOG_MODULE("DGLABClient", "apply_B_strength_from_input", LOG_ERROR,
+                    "B通道强度设置失败: " << msg.toStdString());
+                QMessageBox::warning(this, "错误", "设置B通道强度失败: " + msg);
+            }
+            });
+    }
+    else {
+        LOG_MODULE("DGLABClient", "apply_B_strength_from_input", LOG_WARN, "未连接，无法设置B通道强度");
+        B_strength_ = 0;
+        refresh_B_display();
+    }
+}
+
 // ============================================
 // private slots 实现
 // ============================================
 
-void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
+void DGLABClient::on_connect_finished(bool success, const QString& msg) {
     start_connect_btn_loading_ = false;
     ui_.start_connect_btn->setEnabled(true);
     if (success) {
@@ -997,7 +1123,7 @@ void DGLABClient::handle_connect_finished(bool success, const QString& msg) {
     }
 }
 
-void DGLABClient::handle_close_finished(bool success, const QString& msg) {
+void DGLABClient::on_close_finished(bool success, const QString& msg) {
     close_connect_btn_loading_ = false;
     ui_.close_connect_btn->setEnabled(true);
     if (success) {
@@ -1263,4 +1389,115 @@ void DGLABClient::on_delete_rule() {
             QMessageBox::warning(this, "错误", e.what());
         }
     }
+}
+
+void DGLABClient::on_active_message_received(const QJsonObject& message) {
+    // 消息格式：{ "type": "active_message", "data": {...} }
+    QJsonObject data = message.value("data").toObject();
+    QString msgType = data.value("type").toString();
+
+    if (msgType == "msg") {
+        QString msgContent = data.value("message").toString();
+        if (msgContent.startsWith("strength-")) {
+            // 格式: strength-A+B+A_limit+B_limit
+            QStringList parts = msgContent.mid(9).split('+');
+            if (parts.size() >= 4) {
+                bool ok1, ok2, ok3, ok4;
+                int aStr = parts[0].toInt(&ok1);
+                int bStr = parts[1].toInt(&ok2);
+                int aLim = parts[2].toInt(&ok3);
+                int bLim = parts[3].toInt(&ok4);
+                if (ok1 && ok2 && ok3 && ok4) {
+                    int A_strength_temp_ = qBound(0, aStr, 200);
+                    if (A_strength_temp_ != A_strength_) {
+                        A_strength_ = A_strength_temp_;
+                        refresh_A_display();
+                        LOG_MODULE("DGLABClient", "on_active_message_received", LOG_DEBUG,
+                            "A通道强度更新: " << A_strength_ << " (原值: " << A_strength_temp_ << ")");
+                    }
+                    int B_strength_temp_ = qBound(0, bStr, 200);
+                    if (B_strength_temp_ != B_strength_) {
+                        B_strength_ = B_strength_temp_;
+                        refresh_B_display();
+                        LOG_MODULE("DGLABClient", "on_active_message_received", LOG_DEBUG,
+                            "B通道强度更新: " << B_strength_ << " (原值: " << B_strength_temp_ << ")");
+                    }
+                    int A_limit_temp_ = qBound(0, aLim, 200);
+                    if (A_limit_temp_ != A_limit_) {
+                        A_limit_ = A_limit_temp_;
+                        LOG_MODULE("DGLABClient", "on_active_message_received", LOG_DEBUG,
+                            "A通道强度上限更新: " << A_limit_ << " (原值: " << A_limit_temp_ << ")");
+                    }
+                    int B_limit_temp_ = qBound(0, bLim, 200);
+                    if (B_limit_temp_ != B_limit_) {
+                        B_limit_ = B_limit_temp_;
+                        LOG_MODULE("DGLABClient", "on_active_message_received", LOG_DEBUG,
+                            "B通道强度上限更新: " << B_limit_ << " (原值: " << B_limit_temp_ << ")");
+                    }
+                }
+                else {
+                    LOG_MODULE("DGLABClient", "on_active_message_received", LOG_WARN,
+                        "解析强度数值失败: " << msgContent.toStdString());
+                }
+            }
+            else {
+                LOG_MODULE("DGLABClient", "on_active_message_received", LOG_WARN,
+                    "strength 消息格式错误: " << msgContent.toStdString());
+            }
+        }
+        else {
+            LOG_MODULE("DGLABClient", "on_active_message_received", LOG_DEBUG,
+                "收到普通 msg: " << msgContent.toStdString());
+        }
+    }
+    else if (msgType == "break") {
+        LOG_MODULE("DGLABClient", "on_active_message_received", LOG_INFO,
+            "收到断开指令，更新连接状态");
+        is_connected_ = false;
+    }
+    else if (msgType == "error") {
+        QString errorMsg = data.value("message").toString();
+        LOG_MODULE("DGLABClient", "on_active_message_received", LOG_ERROR,
+            "收到服务器错误: " << errorMsg.toStdString());
+    }
+    else if (msgType == "bind") {
+    }
+}
+
+void DGLABClient::setup_channel_value_input_validation() {
+    QIntValidator* validator = new QIntValidator(0, 200, this);
+    QLocale locale = QLocale::c();
+    validator->setLocale(locale);
+    ui_.A_channel_value->setValidator(validator);
+    ui_.B_channel_value->setValidator(validator);
+    connect(ui_.A_channel_value, &QLineEdit::textChanged, this, [this](const QString& text) {
+        if (text.length() > 3) {
+            ui_.A_channel_value->setText(text.left(3));
+        }
+        });
+    connect(ui_.B_channel_value, &QLineEdit::textChanged, this, [this](const QString& text) {
+        if (text.length() > 3) {
+            ui_.B_channel_value->setText(text.left(3));
+        }
+        });
+}
+
+void DGLABClient::change_A_lock() {
+    if (!is_A_info_locked_) {
+        apply_A_strength_from_input();
+    }
+    is_A_info_locked_ = !is_A_info_locked_;
+    ui_.A_channel_value->setReadOnly(is_A_info_locked_);
+    ui_.A_lock_btn->setText(is_A_info_locked_ ? "启用\n更改" : "禁用\n更改");
+    refresh_A_display();
+}
+
+void DGLABClient::change_B_lock() {
+    if (!is_B_info_locked_) {
+        apply_B_strength_from_input();
+    }
+    is_B_info_locked_ = !is_B_info_locked_;
+    ui_.B_channel_value->setReadOnly(is_B_info_locked_);
+    ui_.B_lock_btn->setText(is_B_info_locked_ ? "启用\n更改" : "禁用\n更改");
+    refresh_B_display();
 }

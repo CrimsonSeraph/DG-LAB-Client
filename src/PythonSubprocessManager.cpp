@@ -149,18 +149,18 @@ void PythonSubprocessManager::process_output(const QByteArray& data, bool is_err
         LogLevel log_level = is_error ? LOG_ERROR : LOG_INFO;
         QString message = line_str;
 
-        QRegularExpression re(R"(^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} - (DEBUG|INFO|WARNING|ERROR) - )");
-        QRegularExpressionMatch match = re.match(line_str);
+        QRegularExpression re_level(R"(\(LOG_(DEBUG|INFO|WARNING|ERROR)\))");
+        QRegularExpressionMatch match = re_level.match(line_str);
         if (match.hasMatch()) {
             QString level_str = match.captured(1);
             if (level_str == "DEBUG") log_level = LOG_DEBUG;
             else if (level_str == "INFO") log_level = LOG_INFO;
             else if (level_str == "WARNING") log_level = LOG_WARN;
             else if (level_str == "ERROR") log_level = LOG_ERROR;
-            message = line_str.mid(match.capturedLength());
+            message = line_str;
         }
         else {
-            message = "[Raw] " + message;
+            message = line_str;
         }
 
         LOG_MODULE("Python", is_error ? "stderr" : "stdout", log_level, message.toUtf8().constData());
@@ -276,20 +276,27 @@ void PythonSubprocessManager::on_socket_ready_read() {
                 "JSON 解析错误: " << err.errorString().toStdString() << "，原始数据: " << line_str);
             continue;
         }
-        QJsonObject resp = doc.object();
+        QJsonObject obj = doc.object();
 
-        int token = resp.value("req_id").toInt(0);
-        LOG_MODULE("PythonSubprocessManager", "on_socket_ready_read", LOG_DEBUG,
-            "收到响应，token=" << token << "，内容: " << line_str);
-
-        {
-            QMutexLocker locker(&mutex_);
-            last_response_ = resp;
-            response_received_ = true;
-            wait_cond_.wakeAll();
+        // 检查是否有 req_id 字段
+        if (obj.contains("req_id")) {
+            int token = obj.value("req_id").toInt();
+            LOG_MODULE("PythonSubprocessManager", "on_socket_ready_read", LOG_DEBUG,
+                "收到响应，token=" << token);
+            {
+                QMutexLocker locker(&mutex_);
+                last_response_ = obj;
+                response_received_ = true;
+                wait_cond_.wakeAll();
+            }
+            emit command_response(token, obj);
         }
-
-        emit command_response(token, resp);
+        else {
+            // 主动消息（无 req_id）
+            LOG_MODULE("PythonSubprocessManager", "on_socket_ready_read", LOG_DEBUG,
+                "收到主动消息: " << DebugLogUtil::remove_newline(line.toStdString()));
+            emit active_message_received(obj);
+        }
     }
 }
 

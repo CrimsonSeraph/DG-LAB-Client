@@ -15,6 +15,7 @@
 - 启动 TCP 服务器（绑定 `127.0.0.1`，随机端口），将端口号打印到标准输出供 C++ 客户端读取。
 - 接收 C++ 客户端发送的 JSON 命令，解析后调用 `DGLabClient` 的对应方法。
 - 将执行结果以 JSON 格式返回给 C++ 客户端（每条响应后附加换行符作为消息边界）。
+- 主动消息推送：当从 DGLab WebSocket 服务器收到任何消息（如绑定结果、强度更新、反馈、错误码、断开指令等）时，会立即通过 TCP 连接主动发送一条 JSON 给 Qt 客户端，格式为 `{"type": "active_message", "data": <原始消息对象>}`。Qt 客户端应持续监听并处理这些消息，以便实时更新界面或执行相应逻辑。
 - 支持的命令（`cmd` 字段）：
   - **连接管理**：`connect`、`close`、`set_ws_url`
   - **绑定与状态查询**：`bind_target`、`get_client_id`、`get_target_id`、`get_connection_status`
@@ -72,7 +73,8 @@
 4. `Bridge.py` 解析命令，调用 `DGLabClient` 的对应方法，等待结果。
 5. `DGLabClient` 与远程 DGLab WebSocket 服务器交互，返回结果给 `Bridge.py`。
 6. `Bridge.py` 将结果（如 `{"status":"ok","req_id":123}`）通过 TCP 返回给 C++。
-7. C++ 根据返回更新界面或继续下一步操作。
+7. 此后，每当 DGLab 服务器主动推送消息（如强度变化、绑定结果、错误等），`Bridge.py` 会立即通过同一 TCP 连接主动发送 `{"type":"active_message","data":...}` 给 C++。C++ 应保持连接打开并持续读取数据，以处理这些实时推送。
+8. C++ 根据返回更新界面或继续下一步操作。
 
 ---
 
@@ -100,7 +102,32 @@
 {"status":"ok", "message":"强度指令已发送", "req_id":1001}
 ```
 
-### 支持的命令速查表
+### 主动推送消息（Bridge.py → C++，来自 WebSocket 服务器）
+当 WebSocket 服务器发送消息时，Bridge.py 会主动推送如下格式：
+
+**绑定成功示例：**
+```json
+{"type":"active_message","data":{"type":"bind","message":"200","targetId":"xxx"}}
+```
+
+**强度更新示例：**
+```json
+{"type":"active_message","data":{"type":"msg","message":"strength-A:80"}}
+```
+
+**错误示例：**
+```json
+{"type":"active_message","data":{"type":"error","message":"401"}}
+```
+
+**断开指令示例：**
+```json
+{"type":"active_message","data":{"type":"break"}}
+```
+
+---
+
+## 支持的命令速查表
 
 | cmd | 必需参数 | 可选参数 | 说明 |
 | - | - | - | - |
@@ -125,3 +152,4 @@
 - `send_strength` 的连续增减模式（mode=3/4）会自动循环发送，最多执行 100 次。
 - `send_pulse` 的 `pulses` 列表最多 100 个元素，超出会被截断。
 - 所有响应均包含 `req_id` 字段（若请求中包含），用于请求-响应对应。
+- 主动推送消息没有 `req_id`，通过 `type` 字段区分；C++ 客户端必须持续读取 TCP 数据，不能仅按请求-响应模式处理。

@@ -218,9 +218,9 @@ class DGLabClient:
 
         elif msg_type == "msg":
             if message.startswith("strength-"):
-                logger.info(f"[DGLabClient] <_handle_received_message> (LOG_INFO): 收到强度更新: {message}")
+                logger.info(f"[DGLabClient] <_handle_received_message> (LOG_DEBUG): 收到强度更新: {message}")
             elif message.startswith("feedback-"):
-                logger.info(f"[DGLabClient] <_handle_received_message> (LOG_INFO): 收到反馈: {message}")
+                logger.info(f"[DGLabClient] <_handle_received_message> (LOG_DEBUG): 收到反馈: {message}")
             else:
                 logger.debug(f"[DGLabClient] <_handle_received_message> (LOG_DEBUG): 收到普通消息: {message}")
 

@@ -82,6 +82,13 @@ private:
     bool is_connected_ = false; ///< 连接状态
     Theme theme_ = LIGHT; ///< 主题
 
+    int A_strength_ = 0;    ///< 强度 A（0-200）
+    int B_strength_ = 0;    ///< 强度 B（0-200）
+    int A_limit_ = 200; ///< A通道上限（默认200）
+    int B_limit_ = 200; ///< B通道上限（默认200）
+    bool is_A_info_locked_ = false;   ///< A通道强度禁止手动更改状态
+    bool is_B_info_locked_ = false;   ///< B通道强度禁止手动更改状态
+
     PythonSubprocessManager* py_manager_;   ///< Python 子进程管理器
 
     LogLevel ui_log_level_ = LOG_DEBUG; ///< UI 日志级别
@@ -114,6 +121,7 @@ private:
     void init_python_manager();
     void reset_py_log_level();
     void init_port_input_placeholder();
+    void init_channel_info();
 
     // -------------------- 私有辅助函数（二维码） --------------------
     void fetch_qr_path();
@@ -150,18 +158,26 @@ private:
     void append_log_message(const QString& message, int level);
     void append_colored_text(QTextEdit* edit, const QString& text);
 
+    // -------------------- 私有辅助函数（连接控制） --------------------
+    void refresh_A_display();
+    void refresh_B_display();
+    void apply_A_strength_from_input();
+    void apply_B_strength_from_input();
+
 signals:
     void connect_finished(bool success, const QString& message);
     void close_finished(bool success, const QString& message);
 
 private slots:
     // 连接相关槽函数
-    void handle_connect_finished(bool success, const QString& msg);
-    void handle_close_finished(bool success, const QString& msg);
+    void on_connect_finished(bool success, const QString& msg);
+    void on_close_finished(bool success, const QString& msg);
     void start_async_connect();
     void close_async_connect();
-    void show_theme_selector(); ///< 显示主题选择对话框
-    void change_theme(Theme theme); ///< 直接通过枚举切换主题
+
+    // 主题相关槽函数
+    void show_theme_selector();
+    void change_theme(Theme theme);
 
     // 规则文件管理槽函数
     void on_rule_file_changed(int index);
@@ -173,6 +189,14 @@ private slots:
     void on_add_rule();
     void on_edit_rule();
     void on_delete_rule();
+
+    // 消息处理槽函数
+    void on_active_message_received(const QJsonObject& message);
+
+    // 强度槽函数
+    void setup_channel_value_input_validation();
+    void change_A_lock();
+    void change_B_lock();
 };
 
 #include "DGLABClient_impl.hpp"

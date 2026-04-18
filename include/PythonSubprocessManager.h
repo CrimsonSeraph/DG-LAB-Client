@@ -85,6 +85,9 @@ signals:
     /// @brief 收到命令响应时发出（用于异步响应）
     void command_response(int token, const QJsonObject& response);
 
+    /// @brief 收到 Python 主动消息时发出（不包含响应）
+    void active_message_received(const QJsonObject& message);
+
 private slots:
     // 进程事件
     void on_process_started();

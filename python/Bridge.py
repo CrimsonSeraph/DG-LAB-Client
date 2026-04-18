@@ -25,6 +25,7 @@ class DGLabServer:
         self.dglab = DGLabClient()
         self.server = None
         self.qt_client = None
+        self.dglab.set_on_message(self._on_ws_message)
 
     @staticmethod
     def _normalize_channel(channel):
@@ -107,6 +108,16 @@ class DGLabServer:
         writer.write(data)
         await writer.drain()
         logger.debug(f"[DGLabServer] <send_response> (LOG_DEBUG): 响应已发送: {response}")
+
+    def _on_ws_message(self, data: dict):
+        """同步回调：将来自 WebSocket 服务器的消息转发给已连接的 Qt 客户端"""
+        if self.qt_client is None:
+            return
+        response = {
+            "type": "active_message",
+            "data": data
+        }
+        asyncio.create_task(self.send_response(self.qt_client, response))
 
     async def process_command(self, cmd):
         """
@@ -282,7 +293,7 @@ class DGLabServer:
                 # 设置根日志器，确保所有模块生效
                 logging.getLogger().setLevel(valid_levels[level_str])
                 response = {"status": "ok", "message": f"日志级别已设置为 {level_str}"}
-                logger.info(f"日志级别已动态修改为 {level_str}")
+                logger.info(f"[DGLabServer] <process_command> (LOG_INFO):日志级别已动态修改为 {level_str}")
             else:
                 response = {"status": "error", "message": f"无效的日志级别: {level_str}"}
 
