@@ -46,66 +46,71 @@ jobs:
 
           awk -v tag="$TAG_NAME" '
           BEGIN {
-            state = 0   # 0=收集header，1=寻找目标版本，2=收集内容，3=查找变动链接
+            state = 0   # 0=收集header，1=寻找目标版本（跳过不匹配的版本块），2=收集目标版本内容，3=收集变动链接
             header = ""
             body = ""
             footer = ""
-            in_skip = 0
+            skip_unreleased = 0
+            found = 0
           }
 
-          # 状态0：收集第一个真实版本之前的介绍内容，同时跳过 [Unreleased] 块
+          # 忽略 # Changelog 和 本文档记录 行
+          /^# Changelog/ || /^本文档记录/ { next }
+
+          # 跳过 [Unreleased] 整个区块
+          /^## \[Unreleased\]/ {
+            skip_unreleased = 1
+            next
+          }
+          skip_unreleased && /^## / {
+            skip_unreleased = 0
+          }
+          skip_unreleased { next }
+
+          # 状态0：收集 header（从文件开始到第一个版本标题之前）
           state == 0 {
-            # 忽略 # Changelog 和 本文档记录 行
-            if ($0 ~ /^# Changelog/ || $0 ~ /^本文档记录/) next
-
-            # 遇到 [Unreleased] 标题，开始跳过其整个区块
-            if ($0 ~ /^## \[Unreleased\]/) {
-              in_skip = 1
-              next
-            }
-
-            # 跳过 [Unreleased] 区块内的所有行，直到下一个 ## 标题
-            if (in_skip) {
-              if ($0 ~ /^## /) {
-                in_skip = 0
-                # 如果这个标题是真实版本，转入状态1
-                if ($0 ~ /^## \[v/) {
-                  state = 1
-                  next
-                }
-              }
-              next
-            }
-
-            # 遇到第一个真实版本标题（如 ## [v0.4.0]），转入状态1
             if ($0 ~ /^## \[v/) {
-              state = 1
-              next
+              # 遇到版本标题，检查是否为目标 tag
+              if ($0 ~ "^## \\[" tag "\\]") {
+                # 匹配成功，进入状态2并记录标题行
+                body = body $0 "\n"
+                state = 2
+                found = 1
+                next
+              } else {
+                # 不是目标 tag，进入状态1跳过当前版本块
+                state = 1
+                # 当前行是版本标题，但不属于目标，直接跳过该行（不加入任何输出）
+                next
+              }
             }
-
-            # 其他行都归入 header
+            # 未遇到版本标题，继续收集 header
             header = header $0 "\n"
             next
           }
 
-          # 状态1：查找与 tag 匹配的版本标题
+          # 状态1：跳过当前不匹配的版本块，直到下一个版本标题或“## 其他”
           state == 1 {
-            if ($0 ~ "^## \\[" tag "\\]") {
-              body = body $0 "\n"
-              state = 2
-              next
+            if ($0 ~ /^## \[v/ || $0 ~ /^## 其他/) {
+              # 遇到新的版本标题或“## 其他”，重新检查
+              if ($0 ~ "^## \\[" tag "\\]") {
+                # 匹配到目标 tag
+                body = body $0 "\n"
+                state = 2
+                found = 1
+              } else {
+                # 仍不匹配，继续停留在状态1（跳过这个标题）
+                state = 1
+              }
             }
-            # 遇到其他版本标题说明目标 tag 不存在
-            if ($0 ~ /^## \[v/) {
-              print "未找到 " tag " 对应的发布说明。"
-              exit 1
-            }
+            # 无论是否匹配，当前行都不输出（跳过）
             next
           }
 
           # 状态2：收集目标版本的内容，直到遇到下一个版本标题或“## 其他”
           state == 2 {
             if ($0 ~ /^## \[v/ || $0 ~ /^## 其他/) {
+              # 遇到结束标记，转入状态3准备收集变动链接
               state = 3
               next
             }
@@ -113,7 +118,7 @@ jobs:
             next
           }
 
-          # 状态3：仅收集当前版本的变动链接行（不包含“## 其他”标题）
+          # 状态3：收集变动链接行（仅当当前行包含目标 tag 的链接）
           state == 3 {
             if ($0 ~ "\\*\\*变动\\*\\*：\\[" tag "\\]:") {
               footer = footer $0 "\n"
@@ -123,13 +128,14 @@ jobs:
           }
 
           END {
-            if (state >= 2 && length(body) > 0) {
+            if (found) {
+              # 输出 header + body + footer，并去除首尾多余换行
               printf "%s", header
               printf "%s", body
-              if (length(footer) > 0) printf "%s", footer
+              if (footer != "") printf "%s", footer
             } else {
-                print "未找到 " tag " 对应的发布说明。"
-                exit 1
+              print "未找到 " tag " 对应的发布说明。" > "/dev/stderr"
+              exit 1
             }
           }
           ' CHANGELOG.md > /tmp/release_notes.md
