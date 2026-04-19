@@ -6,52 +6,168 @@
 #include "DebugLog.h"
 #include "SampledWaveformWidget.h"
 
+#include <QMutex>
 #include <QPainter>
 #include <QPen>
+#include <QVector>
+#include <QWidget>
 
 #include <algorithm>
+#include <vector>
+#include <map>
+#include <string>
+
+// ============================================
+// 构造/析构（public）
+// ============================================
 
 SampledWaveformWidget::SampledWaveformWidget(QWidget* parent)
     : QWidget(parent)
-    , sample_index_(0)
-    , latest_input_value_(0.0)
-    , has_new_input_(false)
     , sample_interval_ms_(kDefaultSampleIntervalMs)
-    , max_amplitude_(kDefaultMaxAmplitude) {
-    // 初始化采样缓冲区，全部填0
-    samples_.fill(0.0, kMaxSamplePoints);
+    , max_amplitude_(kDefaultMaxAmplitude)
+    , max_listeners_(kDefaultMaxListeners) {
+    ensure_default_listener();
 
-    // 启动采样定时器
     sample_timer_.setInterval(sample_interval_ms_);
     connect(&sample_timer_, &QTimer::timeout, this, &SampledWaveformWidget::on_sample_timer);
     sample_timer_.start();
 
-    // 设置黑色背景
     setAutoFillBackground(true);
     QPalette pal = palette();
     pal.setColor(QPalette::Window, Qt::black);
     setPalette(pal);
 
-    LOG_MODULE("SampledWaveformWidget", "set_max_amplitude", LOG_DEBUG,
-        "初始化完成，采样间隔=" << sample_interval_ms_ << "ms，最大振幅比例=" << max_amplitude_);
+    LOG_MODULE("SampledWaveformWidget", "SampledWaveformWidget", LOG_DEBUG,
+        "初始化完成，采样间隔=" << sample_interval_ms_ << "ms，最大振幅比例=" << max_amplitude_
+        << "，最大监听器数量=" << max_listeners_);
 }
 
-void SampledWaveformWidget::input_data(double value) {
+// ============================================
+// 监听器管理（public）
+// ============================================
+
+bool SampledWaveformWidget::add_listener(const std::string& name, const QColor& color) {
     QMutexLocker locker(&mutex_);
-    value = qBound(0.0, value, 1.0);
-    latest_input_value_ = value;
-    has_new_input_ = true;
+    if (listeners_.find(name) != listeners_.end()) {
+        LOG_MODULE("SampledWaveformWidget", "add_listener", LOG_WARN,
+            "监听器已存在: " << name);
+        return false;
+    }
+    if (listeners_.size() >= static_cast<size_t>(max_listeners_)) {
+        LOG_MODULE("SampledWaveformWidget", "add_listener", LOG_WARN,
+            "监听器数量已达上限 (" << max_listeners_ << ")，无法添加: " << name);
+        return false;
+    }
+    listeners_.emplace(name, ListenerData(color));
+    LOG_MODULE("SampledWaveformWidget", "add_listener", LOG_INFO,
+        "添加监听器成功: " << name << ", 颜色: " << color.name().toStdString()
+        << ", 当前数量: " << listeners_.size());
+    update();
+    return true;
 }
+
+bool SampledWaveformWidget::remove_listener(const std::string& name) {
+    QMutexLocker locker(&mutex_);
+    if (name == "default") {
+        LOG_MODULE("SampledWaveformWidget", "remove_listener", LOG_WARN,
+            "不允许删除默认监听器 \"default\"");
+        return false;
+    }
+    auto it = listeners_.find(name);
+    if (it == listeners_.end()) {
+        LOG_MODULE("SampledWaveformWidget", "remove_listener", LOG_WARN,
+            "监听器不存在: " << name);
+        return false;
+    }
+    listeners_.erase(it);
+    LOG_MODULE("SampledWaveformWidget", "remove_listener", LOG_INFO,
+        "移除监听器成功: " << name << ", 剩余数量: " << listeners_.size());
+    update();
+    return true;
+}
+
+bool SampledWaveformWidget::set_listener_color(const std::string& name, const QColor& color) {
+    QMutexLocker locker(&mutex_);
+    auto it = listeners_.find(name);
+    if (it == listeners_.end()) {
+        LOG_MODULE("SampledWaveformWidget", "set_listener_color", LOG_WARN,
+            "监听器不存在: " << name);
+        return false;
+    }
+    it->second.color = color;
+    LOG_MODULE("SampledWaveformWidget", "set_listener_color", LOG_DEBUG,
+        "修改监听器颜色: " << name << " -> " << color.name().toStdString());
+    update();
+    return true;
+}
+
+std::vector<std::string> SampledWaveformWidget::get_listener_names() const {
+    QMutexLocker locker(&mutex_);
+    std::vector<std::string> names;
+    names.reserve(listeners_.size());
+    for (const auto& pair : listeners_) {
+        names.push_back(pair.first);
+    }
+    return names;
+}
+
+bool SampledWaveformWidget::has_listener(const std::string& name) const {
+    QMutexLocker locker(&mutex_);
+    return listeners_.find(name) != listeners_.end();
+}
+
+void SampledWaveformWidget::set_max_listeners(int limit) {
+    if (limit < 1) {
+        LOG_MODULE("SampledWaveformWidget", "set_max_listeners", LOG_WARN,
+            "无效上限值 " << limit << "，保持原值 " << max_listeners_);
+        return;
+    }
+    max_listeners_ = limit;
+    LOG_MODULE("SampledWaveformWidget", "set_max_listeners", LOG_DEBUG,
+        "最大监听器数量更新为: " << max_listeners_);
+}
+
+// ============================================
+// 数据输入（public）
+// ============================================
+
+void SampledWaveformWidget::input_data(const std::string& listener_name, double value) {
+    value = qBound(0.0, value, 1.0);
+    QMutexLocker locker(&mutex_);
+    auto it = listeners_.find(listener_name);
+    if (it == listeners_.end()) {
+        if (listener_name == "default") {
+            ensure_default_listener();
+            it = listeners_.find("default");
+            if (it == listeners_.end()) {
+                LOG_MODULE("SampledWaveformWidget", "input_data", LOG_ERROR,
+                    "无法创建默认监听器");
+                return;
+            }
+        }
+        else {
+            LOG_MODULE("SampledWaveformWidget", "input_data", LOG_WARN,
+                "监听器不存在，数据被丢弃: " << listener_name);
+            return;
+        }
+    }
+    it->second.latest_value = value;
+    it->second.has_new_input = true;
+}
+
+// ============================================
+// 全局配置（public）
+// ============================================
 
 void SampledWaveformWidget::set_sample_interval_ms(int ms) {
     if (ms <= 0) {
-        LOG_MODULE("SampledWaveformWidget", "set_max_amplitude", LOG_WARN,
+        LOG_MODULE("SampledWaveformWidget", "set_sample_interval_ms", LOG_WARN,
             "无效采样间隔=" << ms << "，保持原值=" << sample_interval_ms_);
         return;
     }
     sample_interval_ms_ = ms;
     sample_timer_.setInterval(ms);
-    LOG_MODULE("SampledWaveformWidget", "set_max_amplitude", LOG_DEBUG,
+    LOG_MODULE("SampledWaveformWidget", "set_sample_interval_ms", LOG_DEBUG,
         "采样间隔已更新为 " << ms << "ms");
 }
 
@@ -62,26 +178,9 @@ void SampledWaveformWidget::set_max_amplitude(double ratio) {
     update();
 }
 
-void SampledWaveformWidget::on_sample_timer() {
-    double value_to_sample = 0.0;
-    {
-        QMutexLocker locker(&mutex_);
-        if (has_new_input_) {
-            value_to_sample = latest_input_value_;
-            has_new_input_ = false;
-        }
-        else {
-            value_to_sample = 0.0;
-        }
-    }
-    add_sample(value_to_sample);
-    update();
-}
-
-void SampledWaveformWidget::add_sample(double value) {
-    samples_[sample_index_] = value;
-    sample_index_ = (sample_index_ + 1) % kMaxSamplePoints;
-}
+// ============================================
+// Qt 事件处理（protected）
+// ============================================
 
 void SampledWaveformWidget::paintEvent(QPaintEvent* event) {
     QPainter painter(this);
@@ -94,38 +193,87 @@ void SampledWaveformWidget::paintEvent(QPaintEvent* event) {
     const int left_margin = 0;
     const int right_margin = 0;
 
-    // 灰色虚线基线
+    // 绘制灰色虚线基线
     painter.setPen(QPen(Qt::gray, 1, Qt::DashLine));
     painter.drawLine(left_margin, baseline_y, w - right_margin, baseline_y);
 
-    // 获取有序采样点（从旧到新）
-    QVector<double> ordered_samples;
-    ordered_samples.reserve(kMaxSamplePoints);
-    for (int i = 0; i < kMaxSamplePoints; ++i) {
-        int idx = (sample_index_ + i) % kMaxSamplePoints;
-        ordered_samples.append(samples_[idx]);
+    // 复制监听器数据快照，避免绘制过程中被修改
+    std::map<std::string, ListenerData> snapshot;
+    {
+        QMutexLocker locker(&mutex_);
+        snapshot = listeners_;
     }
 
-    // 构建折线点集
-    QVector<QPointF> points;
-    points.reserve(kMaxSamplePoints);
     double step = static_cast<double>(w - left_margin - right_margin) / (kMaxSamplePoints - 1);
     double amplitude_range = baseline_y - top_margin;
 
-    for (int i = 0; i < kMaxSamplePoints; ++i) {
-        double x = left_margin + i * step;
-        double y = baseline_y - amplitude_range * max_amplitude_ * ordered_samples[i];
-        y = qBound(static_cast<double>(top_margin), y, static_cast<double>(baseline_y));
-        points.append(QPointF(x, y));
-    }
+    for (const auto& pair : snapshot) {
+        const ListenerData& data = pair.second;
+        // 构建有序采样点（从旧到新）
+        QVector<double> ordered_samples;
+        ordered_samples.reserve(kMaxSamplePoints);
+        for (int i = 0; i < kMaxSamplePoints; ++i) {
+            int idx = (data.sample_index + i) % kMaxSamplePoints;
+            ordered_samples.append(data.samples[idx]);
+        }
 
-    // 绘制绿色波形
-    painter.setPen(QPen(Qt::green, 2));
-    for (int i = 0; i < points.size() - 1; ++i) {
-        painter.drawLine(points[i], points[i + 1]);
+        // 构建折线点集
+        QVector<QPointF> points;
+        points.reserve(kMaxSamplePoints);
+        for (int i = 0; i < kMaxSamplePoints; ++i) {
+            double x = left_margin + i * step;
+            double y = baseline_y - amplitude_range * max_amplitude_ * ordered_samples[i];
+            y = qBound(static_cast<double>(top_margin), y, static_cast<double>(baseline_y));
+            points.append(QPointF(x, y));
+        }
+
+        painter.setPen(QPen(data.color, 2));
+        for (int i = 0; i < points.size() - 1; ++i) {
+            painter.drawLine(points[i], points[i + 1]);
+        }
     }
 }
 
 void SampledWaveformWidget::resizeEvent(QResizeEvent* event) {
     update();
+}
+
+// ============================================
+// 定时器槽函数（private slots）
+// ============================================
+
+void SampledWaveformWidget::on_sample_timer() {
+    QMutexLocker locker(&mutex_);
+    for (auto& pair : listeners_) {
+        const std::string& name = pair.first;
+        ListenerData& data = pair.second;
+        double value_to_sample = data.has_new_input ? data.latest_value : 0.0;
+        data.has_new_input = false;
+        add_sample(name, value_to_sample);
+    }
+    update();
+}
+
+// ============================================
+// 私有辅助函数（private）
+// ============================================
+
+void SampledWaveformWidget::add_sample(const std::string& name, double value) {
+    auto it = listeners_.find(name);
+    if (it == listeners_.end()) {
+        LOG_MODULE("SampledWaveformWidget", "add_sample", LOG_ERROR,
+            "试图为不存在的监听器添加采样点: " << name);
+        return;
+    }
+    ListenerData& data = it->second;
+    data.samples[data.sample_index] = value;
+    data.sample_index = (data.sample_index + 1) % kMaxSamplePoints;
+}
+
+void SampledWaveformWidget::ensure_default_listener() {
+    if (listeners_.find("default") == listeners_.end()) {
+        listeners_.emplace("default", ListenerData(Qt::green));
+        LOG_MODULE("SampledWaveformWidget", "ensure_default_listener", LOG_DEBUG,
+            "自动创建默认监听器 \"default\"，颜色绿色");
+    }
 }
