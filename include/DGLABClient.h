@@ -194,7 +194,7 @@ private slots:
     void on_active_message_received(const QJsonObject& message);
 
     // 强度槽函数
-    void setup_channel_value_input_validation();
+    void setup_channel_value_editor_input_validation();
     void change_A_lock();
     void change_B_lock();
 };

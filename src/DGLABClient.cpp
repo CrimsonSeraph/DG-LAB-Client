@@ -82,7 +82,7 @@ DGLABClient::DGLABClient(QWidget* parent)
     load_stylesheet();
     init_port_input_placeholder();
     init_channel_info();
-    setup_channel_value_input_validation();
+    setup_channel_value_editor_input_validation();
 
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
 }
@@ -457,8 +457,8 @@ void DGLABClient::setup_connections() {
     connect(this, &DGLABClient::connect_finished, this, &DGLABClient::on_connect_finished);
     connect(this, &DGLABClient::close_finished, this, &DGLABClient::on_close_finished);
 
-    connect(ui_.A_channel_value, &QLineEdit::editingFinished, this, &DGLABClient::apply_A_strength_from_input);
-    connect(ui_.B_channel_value, &QLineEdit::editingFinished, this, &DGLABClient::apply_B_strength_from_input);
+    connect(ui_.A_channel_value_editor, &QLineEdit::editingFinished, this, &DGLABClient::apply_A_strength_from_input);
+    connect(ui_.B_channel_value_editor, &QLineEdit::editingFinished, this, &DGLABClient::apply_B_strength_from_input);
     connect(ui_.A_lock_btn, &QPushButton::clicked, this, &DGLABClient::change_A_lock);
     connect(ui_.B_lock_btn, &QPushButton::clicked, this, &DGLABClient::change_B_lock);
     connect(ui_.confirm_A_strength, &QPushButton::clicked, this, &DGLABClient::apply_A_strength_from_input);
@@ -536,8 +536,8 @@ void DGLABClient::init_port_input_placeholder() {
 void DGLABClient::init_channel_info() {
     is_A_info_locked_ = false;
     is_B_info_locked_ = false;
-    ui_.A_channel_value->setReadOnly(false);
-    ui_.B_channel_value->setReadOnly(false);
+    ui_.A_channel_value_editor->setReadOnly(false);
+    ui_.B_channel_value_editor->setReadOnly(false);
     ui_.A_lock_btn->setText("禁用\n更改");
     ui_.B_lock_btn->setText("禁用\n更改");
     refresh_A_display();
@@ -813,9 +813,11 @@ void DGLABClient::apply_widget_properties() {
     // 毛玻璃背景控件（glassmorphism）
     ui_.left_btns_bar->setProperty("type", "glassmorphism");
     ui_.port_info->setProperty("type", "glassmorphism");    // 端口面板
-    ui_.channel_waves->setProperty("type", "glassmorphism");    // 通道面板
     ui_.main_page_btns_bar->setProperty("type", "glassmorphism");   // 首页按钮栏
     ui_.theme->setProperty("type", "glassmorphism");   // 样式切换面板
+    ui_.first_page_main->setProperty("type", "glassmorphism");  // 首页主面板
+    ui_.A_channel_info_all->setProperty("type", "glassmorphism");   // A通道信息面板
+    ui_.B_channel_info_all->setProperty("type", "glassmorphism");   // B通道信息面板
     // 导航按钮
     ui_.main_first_btn->setProperty("type", "nav_btn");
     ui_.main_config_btn->setProperty("type", "nav_btn");
@@ -850,8 +852,8 @@ void DGLABClient::apply_widget_properties() {
     ui_.main_image_label->setProperty("type", "image");
     // 输入框
     ui_.port_input->setProperty("type", "input");
-    ui_.A_channel_value->setProperty("type", "input");
-    ui_.B_channel_value->setProperty("type", "input");
+    ui_.A_channel_value_editor->setProperty("type", "input");
+    ui_.B_channel_value_editor->setProperty("type", "input");
     // 调试日志框
     ui_.debug_log->setProperty("type", "debug_log");
     // 波形控件
@@ -871,6 +873,8 @@ void DGLABClient::apply_widget_properties() {
     // 字体设置
     ui_.A_channel->setProperty("type", "font");
     ui_.B_channel->setProperty("type", "font");
+    ui_.A_channel_value->setProperty("type", "font");
+    ui_.B_channel_value->setProperty("type", "font");
 }
 
 void DGLABClient::apply_inline_styles() {
@@ -1018,32 +1022,34 @@ void DGLABClient::append_colored_text(QTextEdit* edit, const QString& text) {
 
 void DGLABClient::refresh_A_display() {
     if (is_A_info_locked_) {
-        ui_.A_channel_value->setText(QString::number(A_strength_));
+        ui_.A_channel_value_editor->setText(QString::number(A_strength_));
     }
     else {
-        ui_.A_channel_value->setPlaceholderText(QString::number(A_strength_));
+        ui_.A_channel_value_editor->setPlaceholderText(QString::number(A_strength_));
         if (!is_connected_) {
             A_strength_ = 0;
-            ui_.A_channel_value->setText("");
+            ui_.A_channel_value_editor->setText("");
         }
     }
+    ui_.A_channel_value->setText(QString::number(A_strength_));
 }
 
 void DGLABClient::refresh_B_display() {
     if (is_B_info_locked_) {
-        ui_.B_channel_value->setText(QString::number(B_strength_));
+        ui_.B_channel_value_editor->setText(QString::number(B_strength_));
     }
     else {
-        ui_.B_channel_value->setPlaceholderText(QString::number(B_strength_));
+        ui_.B_channel_value_editor->setPlaceholderText(QString::number(B_strength_));
         if (!is_connected_) {
             B_strength_ = 0;
-            ui_.B_channel_value->setText("");
+            ui_.B_channel_value_editor->setText("");
         }
     }
+    ui_.B_channel_value->setText(QString::number(B_strength_));
 }
 
 void DGLABClient::apply_A_strength_from_input() {
-    QString text = ui_.A_channel_value->text();
+    QString text = ui_.A_channel_value_editor->text();
     bool ok;
     int newVal = text.toInt(&ok);
     if (!ok || newVal < 0 || newVal > 200) {
@@ -1082,7 +1088,7 @@ void DGLABClient::apply_A_strength_from_input() {
 }
 
 void DGLABClient::apply_B_strength_from_input() {
-    QString text = ui_.B_channel_value->text();
+    QString text = ui_.B_channel_value_editor->text();
     bool ok;
     int newVal = text.toInt(&ok);
     if (!ok || newVal < 0 || newVal > 200) {
@@ -1478,20 +1484,20 @@ void DGLABClient::on_active_message_received(const QJsonObject& message) {
     }
 }
 
-void DGLABClient::setup_channel_value_input_validation() {
+void DGLABClient::setup_channel_value_editor_input_validation() {
     QIntValidator* validator = new QIntValidator(0, 200, this);
     QLocale locale = QLocale::c();
     validator->setLocale(locale);
-    ui_.A_channel_value->setValidator(validator);
-    ui_.B_channel_value->setValidator(validator);
-    connect(ui_.A_channel_value, &QLineEdit::textChanged, this, [this](const QString& text) {
+    ui_.A_channel_value_editor->setValidator(validator);
+    ui_.B_channel_value_editor->setValidator(validator);
+    connect(ui_.A_channel_value_editor, &QLineEdit::textChanged, this, [this](const QString& text) {
         if (text.length() > 3) {
-            ui_.A_channel_value->setText(text.left(3));
+            ui_.A_channel_value_editor->setText(text.left(3));
         }
         });
-    connect(ui_.B_channel_value, &QLineEdit::textChanged, this, [this](const QString& text) {
+    connect(ui_.B_channel_value_editor, &QLineEdit::textChanged, this, [this](const QString& text) {
         if (text.length() > 3) {
-            ui_.B_channel_value->setText(text.left(3));
+            ui_.B_channel_value_editor->setText(text.left(3));
         }
         });
 }
@@ -1501,8 +1507,8 @@ void DGLABClient::change_A_lock() {
         apply_A_strength_from_input();
     }
     is_A_info_locked_ = !is_A_info_locked_;
-    ui_.A_channel_value->setReadOnly(is_A_info_locked_);
-    ui_.A_lock_btn->setText(is_A_info_locked_ ? "启用\n更改" : "禁用\n更改");
+    ui_.A_channel_value_editor->setReadOnly(is_A_info_locked_);
+    ui_.A_lock_btn->setText(is_A_info_locked_ ? "启用更改" : "禁用更改");
     refresh_A_display();
 }
 
@@ -1511,7 +1517,7 @@ void DGLABClient::change_B_lock() {
         apply_B_strength_from_input();
     }
     is_B_info_locked_ = !is_B_info_locked_;
-    ui_.B_channel_value->setReadOnly(is_B_info_locked_);
-    ui_.B_lock_btn->setText(is_B_info_locked_ ? "启用\n更改" : "禁用\n更改");
+    ui_.B_channel_value_editor->setReadOnly(is_B_info_locked_);
+    ui_.B_lock_btn->setText(is_B_info_locked_ ? "启用更改" : "禁用更改");
     refresh_B_display();
 }
