@@ -56,6 +56,11 @@ QPushButton[type="action_btn"][theme="vandyke_brown_khaki"]:hover {
 QPushButton[type="action_btn"][theme="vandyke_brown_khaki"]:pressed {
     background: rgba(55, 30, 20, 1);
 }
+QPushButton[type="action_btn"][theme="vandyke_brown_khaki"][btn_size="small"] {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 /* 标题文字 */
 QLabel[type="title"][theme="vandyke_brown_khaki"] {

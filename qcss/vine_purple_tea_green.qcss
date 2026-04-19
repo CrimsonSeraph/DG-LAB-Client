@@ -39,6 +39,11 @@ QPushButton[type="nav_btn"][theme="vine_purple_tea_green"]:hover {
 QPushButton[type="nav_btn"][theme="vine_purple_tea_green"]:pressed {
     background: rgba(65, 55, 120, 1);
 }
+QPushButton[type="action_btn"][theme="vine_purple_tea_green"][btn_size="small"] {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 /* 操作按钮 */
 QPushButton[type="action_btn"][theme="vine_purple_tea_green"] {

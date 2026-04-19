@@ -56,6 +56,11 @@ QPushButton[type="action_btn"][theme="tiffany_blue_cheese"]:hover {
 QPushButton[type="action_btn"][theme="tiffany_blue_cheese"]:pressed {
     background: rgba(100, 190, 180, 1);
 }
+QPushButton[type="action_btn"][theme="tiffany_blue_cheese"][btn_size="small"] {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 /* 标题文字 */
 QLabel[type="title"][theme="tiffany_blue_cheese"] {

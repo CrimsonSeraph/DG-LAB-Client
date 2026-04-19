@@ -56,6 +56,11 @@ QPushButton[type="action_btn"][theme="prussian_blue_fog"]:hover {
 QPushButton[type="action_btn"][theme="prussian_blue_fog"]:pressed {
     background: rgba(0, 30, 60, 1);
 }
+QPushButton[type="action_btn"][theme="prussian_blue_fog"][btn_size="small"] {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 /* 标题文字 */
 QLabel[type="title"][theme="prussian_blue_fog"] {

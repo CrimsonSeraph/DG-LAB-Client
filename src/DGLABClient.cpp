@@ -392,6 +392,15 @@ void DGLABClient::load_stylesheet() {
             "无法加载样式表文件：" << qss_path.toStdString());
     }
     apply_inline_styles();
+
+    QList<QWidget*> all_widgets = this->findChildren<QWidget*>();
+    for(QWidget* widget : all_widgets) {
+        widget->style()->unpolish(widget);
+        widget->style()->polish(widget);
+        widget->update();
+    }
+
+    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_DEBUG, "样式表加载完成");
 }
 
 void DGLABClient::change_theme(const std::string& theme_str) {
@@ -784,8 +793,6 @@ void DGLABClient::setup_widget_properties(const std::string& property, const std
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "开始设置元素属性");
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素统一属性[" << property << "]为：" << key);
 
-    apply_widget_properties();
-
     // 为所有需要动态属性的控件统一设置
     QList<QWidget*> all_widgets = ui_.all->findChildren<QWidget*>();
     all_widgets.append(ui_.all);
@@ -794,9 +801,7 @@ void DGLABClient::setup_widget_properties(const std::string& property, const std
         w->setProperty(property.c_str(), key.c_str());
     }
 
-    // 确保按钮的动态属性已设置
-    QList<QPushButton*> btns = ui_.all->findChildren<QPushButton*>();
-    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "共为" << btns.size() << "个按钮设置属性");
+    apply_widget_properties();
 
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素属性完成！");
 }
@@ -823,6 +828,14 @@ void DGLABClient::apply_widget_properties() {
     ui_.port_confirm_btn->setProperty("type", "action_btn");
     ui_.show_qr_btn->setProperty("type", "action_btn");
     ui_.change_theme_btn->setProperty("type", "action_btn");
+    ui_.A_lock_btn->setProperty("type", "action_btn");
+    ui_.B_lock_btn->setProperty("type", "action_btn");
+    ui_.confirm_A_strength->setProperty("type", "action_btn");
+    ui_.confirm_B_strength->setProperty("type", "action_btn");
+    ui_.A_lock_btn->setProperty("btn_size", "small");
+    ui_.B_lock_btn->setProperty("btn_size", "small");
+    ui_.confirm_A_strength->setProperty("btn_size", "small");
+    ui_.confirm_B_strength->setProperty("btn_size", "small");
     // 标题标签
     ui_.main_title->setProperty("type", "title");
     ui_.config_title->setProperty("type", "title");

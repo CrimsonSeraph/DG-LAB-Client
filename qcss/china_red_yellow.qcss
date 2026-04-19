@@ -56,6 +56,11 @@ QPushButton[type="action_btn"][theme="china_red_yellow"]:hover {
 QPushButton[type="action_btn"][theme="china_red_yellow"]:pressed {
     background: rgba(230, 210, 190, 1);
 }
+QPushButton[type="action_btn"][theme="china_red_yellow"][btn_size="small"] {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 /* 标题文字 */
 QLabel[type="title"][theme="china_red_yellow"] {

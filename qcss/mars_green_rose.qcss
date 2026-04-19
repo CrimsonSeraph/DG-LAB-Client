@@ -56,6 +56,11 @@ QPushButton[type="action_btn"][theme="mars_green_rose"]:hover {
 QPushButton[type="action_btn"][theme="mars_green_rose"]:pressed {
     background: rgba(0, 100, 95, 1);
 }
+QPushButton[type="action_btn"][theme="mars_green_rose"][btn_size="small"] {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 /* 标题文字 */
 QLabel[type="title"][theme="mars_green_rose"] {

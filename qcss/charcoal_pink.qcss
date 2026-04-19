@@ -56,6 +56,11 @@ QPushButton[type="action_btn"][theme="charcoal_pink"]:hover {
 QPushButton[type="action_btn"][theme="charcoal_pink"]:pressed {
     background: rgba(40, 40, 50, 1);
 }
+QPushButton[type="action_btn"][theme="charcoal_pink"][btn_size="small"] {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 /* 标题文字 */
 QLabel[type="title"][theme="charcoal_pink"] {

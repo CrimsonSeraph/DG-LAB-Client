@@ -56,6 +56,11 @@ QPushButton[type="action_btn"][theme="deepsea_cream"]:hover {
 QPushButton[type="action_btn"][theme="deepsea_cream"]:pressed {
     background: rgba(10, 30, 100, 1);
 }
+QPushButton[type="action_btn"][theme="deepsea_cream"][btn_size="small"] {
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
 
 /* 标题文字 */
 QLabel[type="title"][theme="deepsea_cream"] {
