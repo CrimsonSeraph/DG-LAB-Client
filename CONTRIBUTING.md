@@ -42,7 +42,7 @@
 - 操作系统：Windows 10 / macOS 14 / Ubuntu 22.04
 - Qt 版本：5.15.2 / 6.5.0
 - Python 版本：3.9 / 3.11
-- 项目版本或 commit hash：v0.5.0 或 xxxxxx
+- 项目版本或 commit hash：v0.5.1 或 xxxxxx
 
 **额外信息**
 其他你觉得有用的信息。
