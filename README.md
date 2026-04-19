@@ -295,20 +295,26 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 - **移除监听器**：调用 `remove_listener(name)`（不可删除默认的 `"default"` 监听器）。
 - **调整颜色**：调用 `set_listener_color(name, color)` 动态修改波形颜色。
 - **全局配置**：通过 `set_sample_interval_ms(ms)` 和 `set_max_amplitude(ratio)` 调整采样间隔和最大振幅比例。
+- **支持范围输入**：提供 `set_input_range()` 方法，允许为每个监听器设置输入值的最小值和最大值，控件内部将输入值归一化到 0~1 后进行绘制，适应不同量级的数据输入。
 
 <details>
 <summary>示例代码</summary>
 
 ```cpp
-SampledWaveformWidget *wave = new SampledWaveformWidget(this);
-wave->set_sample_interval_ms(30);
-wave->set_max_amplitude(0.9);
-// 添加两个监听器：通道A（红色）和通道B（蓝色）
-wave->add_listener("channel_A", Qt::red);
-wave->add_listener("channel_B", Qt::blue);
-// 每收到新的强度值就调用
-wave->input_data("channel_A", a_strength / 200.0);
-wave->input_data("channel_B", b_strength / 200.0);
+SampledWaveformWidget* wave = ui_.wave_show;
+
+// 添加监听器，范围 0~200（例如强度值）
+wave->add_listener("strength_A", Qt::red, 0.0, 200.0);
+// 或者先添加后设置范围
+wave->add_listener("strength_B", Qt::blue);
+wave->set_input_range("strength_B", 0, 200);
+
+// 输入原始值 50 -> 归一化 0.25，波形显示在 1/4 高度
+wave->input_data("strength_A", 50);
+wave->input_data("strength_B", 150); // 归一化 0.75
+
+// 超出范围会被钳位：输入 250 -> 钳位到 200 -> 归一化 1.0
+wave->input_data("strength_A", 250);
 ```
 
 </details>

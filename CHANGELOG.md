@@ -29,6 +29,37 @@
 
 ---
 
+## [v0.5.1] - 2026-04-19
+
+### Added
+- 波形控件 `SampledWaveformWidget` 支持多监听器（多通道）实时显示。
+  - 新增 `add_listener(name, color)`、`remove_listener(name)`、`set_listener_color(name, color)` 等接口。
+  - 每个监听器独立采样缓冲区（环形，默认200点）和独立颜色。
+  - 提供默认监听器 `"default"`（绿色），兼容旧版单曲线接口。
+  - 提供为每个监听器设置输入范围 `set_input_range()` 的两个重载，经过统一化为 0~1 归一化数据输入。
+- 增加最大监听器数量限制（默认16，可通过 `set_max_listeners()` 调整）。
+- 所有监听器操作及数据输入均添加日志记录，便于调试。
+- 为按键添加 `btn_size` 属性 `small` 用于显示小号按键。
+
+### Changed
+- 优化 `paintEvent` 绘制性能：先拷贝监听器快照再绘制，避免长时间持有锁。
+- 完善 Doxygen 注释，头文件与源文件分类注释格式规范化。
+- 优化 UI 布局。
+
+### Deprecated
+- 计划移除使用 Python 模块 `WebSocketCore.py` 实现 websocket 相关功能，转向使用 Qt 提供的 Qt WebSocket 库。
+
+### Removed
+- 无
+
+### Fixed
+- 无
+
+### Security
+- 无
+
+---
+
 ## [v0.5.0] - 2026-04-19
 
 ### Added
@@ -191,7 +222,7 @@
 
 ## 其他
 
-**变动**：[v0.5.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.4.0...v0.5.0
+**变动**：[v0.5.1]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.0...v0.5.1
 
 **变更分类**：
   - `Added` – 新增功能

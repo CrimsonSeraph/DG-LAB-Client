@@ -46,7 +46,13 @@ SampledWaveformWidget::SampledWaveformWidget(QWidget* parent)
 // 监听器管理（public）
 // ============================================
 
-bool SampledWaveformWidget::add_listener(const std::string& name, const QColor& color) {
+bool SampledWaveformWidget::add_listener(const std::string& name, const QColor& color, double min, double max) {
+    if (min >= max) {
+        LOG_MODULE("SampledWaveformWidget", "add_listener", LOG_WARN,
+            "无效范围: min=" << min << " >= max=" << max << "，使用默认范围 [0,1]");
+        min = 0.0;
+        max = 1.0;
+    }
     QMutexLocker locker(&mutex_);
     if (listeners_.find(name) != listeners_.end()) {
         LOG_MODULE("SampledWaveformWidget", "add_listener", LOG_WARN,
@@ -58,12 +64,16 @@ bool SampledWaveformWidget::add_listener(const std::string& name, const QColor& 
             "监听器数量已达上限 (" << max_listeners_ << ")，无法添加: " << name);
         return false;
     }
-    listeners_.emplace(name, ListenerData(color));
+    listeners_.emplace(name, ListenerData(color, min, max));
     LOG_MODULE("SampledWaveformWidget", "add_listener", LOG_INFO,
         "添加监听器成功: " << name << ", 颜色: " << color.name().toStdString()
-        << ", 当前数量: " << listeners_.size());
+        << ", 范围: [" << min << ", " << max << "], 当前数量: " << listeners_.size());
     update();
     return true;
+}
+
+bool SampledWaveformWidget::add_listener(const std::string& name, const QColor& color) {
+    return add_listener(name, color, 0.0, 1.0);
 }
 
 bool SampledWaveformWidget::remove_listener(const std::string& name) {
@@ -132,7 +142,6 @@ void SampledWaveformWidget::set_max_listeners(int limit) {
 // ============================================
 
 void SampledWaveformWidget::input_data(const std::string& listener_name, double value) {
-    value = qBound(0.0, value, 1.0);
     QMutexLocker locker(&mutex_);
     auto it = listeners_.find(listener_name);
     if (it == listeners_.end()) {
@@ -151,8 +160,58 @@ void SampledWaveformWidget::input_data(const std::string& listener_name, double 
             return;
         }
     }
-    it->second.latest_value = value;
-    it->second.has_new_input = true;
+
+    ListenerData& data = it->second;
+    double min = data.input_min;
+    double max = data.input_max;
+
+    // 钳位原始值到 [min, max]
+    double clamped = value;
+    if (clamped < min) {
+        clamped = min;
+        LOG_MODULE("SampledWaveformWidget", "input_data", LOG_DEBUG,
+            "原始值 " << value << " 低于下限 " << min << "，已钳位");
+    }
+    else if (clamped > max) {
+        clamped = max;
+        LOG_MODULE("SampledWaveformWidget", "input_data", LOG_DEBUG,
+            "原始值 " << value << " 高于上限 " << max << "，已钳位");
+    }
+
+    // 线性映射到 [0, 1]
+    double normalized = (clamped - min) / (max - min);
+    // 防止浮点误差导致超出 [0,1]
+    normalized = qBound(0.0, normalized, 1.0);
+
+    data.latest_value = normalized;
+    data.has_new_input = true;
+
+    LOG_MODULE("SampledWaveformWidget", "input_data", LOG_DEBUG,
+        "监听器 " << listener_name << " 原始值=" << value
+        << " -> 归一化=" << normalized);
+}
+
+void SampledWaveformWidget::set_input_range(const std::string& name, double min, double max) {
+    if (min >= max) {
+        LOG_MODULE("SampledWaveformWidget", "set_input_range", LOG_WARN,
+            "无效范围: min=" << min << " >= max=" << max << "，设置被忽略");
+        return;
+    }
+    QMutexLocker locker(&mutex_);
+    auto it = listeners_.find(name);
+    if (it == listeners_.end()) {
+        LOG_MODULE("SampledWaveformWidget", "set_input_range", LOG_WARN,
+            "监听器不存在: " << name);
+        return;
+    }
+    it->second.input_min = min;
+    it->second.input_max = max;
+    LOG_MODULE("SampledWaveformWidget", "set_input_range", LOG_DEBUG,
+        "监听器 " << name << " 范围已更新为 [" << min << ", " << max << "]");
+}
+
+void SampledWaveformWidget::set_input_range(const std::string& name, int min, int max) {
+    set_input_range(name, static_cast<double>(min), static_cast<double>(max));
 }
 
 // ============================================
@@ -272,8 +331,8 @@ void SampledWaveformWidget::add_sample(const std::string& name, double value) {
 
 void SampledWaveformWidget::ensure_default_listener() {
     if (listeners_.find("default") == listeners_.end()) {
-        listeners_.emplace("default", ListenerData(Qt::green));
+        listeners_.emplace("default", ListenerData(Qt::green, 0.0, 1.0));
         LOG_MODULE("SampledWaveformWidget", "ensure_default_listener", LOG_DEBUG,
-            "自动创建默认监听器 \"default\"，颜色绿色");
+            "自动创建默认监听器 \"default\"，颜色绿色，范围 [0,1]");
     }
 }

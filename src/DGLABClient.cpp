@@ -12,6 +12,7 @@
 #include "FormulaBuilderDialog.h"
 #include "PythonSubprocessManager.h"
 #include "RuleManager.h"
+#include "SampledWaveformWidget.h"
 #include "ValueModeDelegate.h"
 
 #include <QAbstractSocket>

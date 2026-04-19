@@ -35,9 +35,12 @@ public:
      * @brief 添加一个监听器
      * @param name 监听器名称（唯一标识）
      * @param color 波形颜色
+     * @param min 输入值的原始最小值（包含）
+     * @param max 输入值的原始最大值（包含）
      * @return true 添加成功，false 失败（名称已存在或已达上限）
      */
-    bool add_listener(const std::string& name, const QColor& color);
+    bool add_listener(const std::string& name, const QColor& color, double min, double max);
+    bool add_listener(const std::string& name, const QColor& color);    ///> 不设置输入范围的重载版本（默认 0.0~1.0）
 
     /*
      * @brief 移除监听器
@@ -94,6 +97,24 @@ public:
      */
     inline void input_data(double value) { input_data("default", value); }
 
+    /*
+     * @brief 设置监听器的原始输入范围（浮点数版本）
+     * @param name 监听器名称
+     * @param min 原始最小值（包含）
+     * @param max 原始最大值（包含）
+     * @note 后续调用 input_data() 时，原始值会被线性映射到 [0,1] 范围。
+     *       若 min >= max，设置无效并输出警告。
+     */
+    void set_input_range(const std::string& name, double min, double max);
+
+    /*
+     * @brief 设置监听器的原始输入范围（整数版本）
+     * @param name 监听器名称
+     * @param min 原始最小值（包含）
+     * @param max 原始最大值（包含）
+     */
+    void set_input_range(const std::string& name, int min, int max);
+
     // -------------------- 全局配置 --------------------
     /*
      * @brief 获取采样间隔
@@ -146,13 +167,20 @@ private:
         double latest_value;    ///> 最新的输入值（待采样）
         bool has_new_input; ///> 是否有新输入未采样
         QColor color;   ///> 波形颜色
+        double input_min;   ///> 原始输入最小值（线性映射到0）
+        double input_max;   ///> 原始输入最大值（线性映射到1）
 
-        /*
-         * @brief 构造函数
-         * @param col 波形颜色，默认为绿色
-         */
+         // 默认构造函数（范围 [0,1]）
         inline ListenerData(const QColor& col = Qt::green)
-            : sample_index(0), latest_value(0.0), has_new_input(false), color(col) {
+            : sample_index(0), latest_value(0.0), has_new_input(false), color(col),
+            input_min(0.0), input_max(1.0) {
+            samples.fill(0.0, kMaxSamplePoints);
+        }
+
+        // 带范围的构造函数
+        inline ListenerData(const QColor& col, double min, double max)
+            : sample_index(0), latest_value(0.0), has_new_input(false), color(col),
+            input_min(min), input_max(max) {
             samples.fill(0.0, kMaxSamplePoints);
         }
     };
