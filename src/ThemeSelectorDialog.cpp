@@ -85,22 +85,22 @@ ThemeSelectorDialog::ThemeSelectorDialog(QWidget* parent)
         {PRUSSIAN_BLUE_FOG, "prussian_blue_fog"}
     };
 
-    // 初始化主题主色映射（基于您提供的配色信息）
+    // 初始化主题主色映射
     primary_colors_ = {
-        {LIGHT, QColor(0xE8, 0xF0, 0xFE)},           // Ice Blue
-        {NIGHT, QColor(0x2C, 0x3E, 0x50)},           // Deep Slate
-        {CHARCOAL_PINK, QColor(0x1A, 0x1A, 0x1D)},   // Charcoal
-        {DEEPSEA_CREAM, QColor(0x12, 0x2E, 0x8A)},   // Deepsea Blue
-        {VINE_PURPLE_TEA_GREEN, QColor(0x91, 0xC5, 0x3A)}, // Vine Purple
-        {OFFWHITE_CAMELLIA, QColor(0xF1, 0xDD, 0xDF)},     // Offwhite
-        {DARK_BLUE_CLEAR_BLUE, QColor(0x11, 0x30, 0x56)},  // Dark Blue
-        {KLEIN_YELLOW, QColor(0x00, 0x2E, 0xA6)},          // Klein Blue
-        {MARS_GREEN_ROSE, QColor(0x01, 0x84, 0x7F)},       // Mars Green
-        {HERMES_ORANGE_NAVY, QColor(0xFF, 0x77, 0x0F)},    // Hermes Orange
-        {TIFFANY_BLUE_CHEESE, QColor(0x81, 0xD8, 0xCF)},   // Tiffany Blue
-        {CHINA_RED_YELLOW, QColor(0xFF, 0x00, 0x00)},      // China Red
-        {VANDYKE_BROWN_KHAKI, QColor(0x49, 0x2D, 0x22)},   // Vandyke Brown
-        {PRUSSIAN_BLUE_FOG, QColor(0x00, 0x31, 0x53)}      // Prussian Blue
+        {LIGHT, QColor(0xE8, 0xF0, 0xFE)},  // Ice Blue
+        {NIGHT, QColor(0x2C, 0x3E, 0x50)},  // Deep Slate
+        {CHARCOAL_PINK, QColor(0x1A, 0x1A, 0x1D)},  // Charcoal
+        {DEEPSEA_CREAM, QColor(0x12, 0x2E, 0x8A)},  // Deepsea Blue
+        {VINE_PURPLE_TEA_GREEN, QColor(0x91, 0xC5, 0x3A)},  // Vine Purple
+        {OFFWHITE_CAMELLIA, QColor(0xF1, 0xDD, 0xDF)},  // Offwhite
+        {DARK_BLUE_CLEAR_BLUE, QColor(0x11, 0x30, 0x56)},   // Dark Blue
+        {KLEIN_YELLOW, QColor(0x00, 0x2E, 0xA6)},   // Klein Blue
+        {MARS_GREEN_ROSE, QColor(0x01, 0x84, 0x7F)},    // Mars Green
+        {HERMES_ORANGE_NAVY, QColor(0xFF, 0x77, 0x0F)}, // Hermes Orange
+        {TIFFANY_BLUE_CHEESE, QColor(0x81, 0xD8, 0xCF)},    // Tiffany Blue
+        {CHINA_RED_YELLOW, QColor(0xFF, 0x00, 0x00)},   // China Red
+        {VANDYKE_BROWN_KHAKI, QColor(0x49, 0x2D, 0x22)},    // Vandyke Brown
+        {PRUSSIAN_BLUE_FOG, QColor(0x00, 0x31, 0x53)}   // Prussian Blue
     };
 
     setup_ui();

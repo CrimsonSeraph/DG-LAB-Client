@@ -67,6 +67,10 @@ set(PROJECT_SOURCES
     src/FormulaBuilderDialog.cpp
     include/ValueModeDelegate.h
     src/ValueModeDelegate.cpp
+    include/EditableLabel.h
+    src/EditableLabel.cpp
+    include/IpSelector.h
+    src/IpSelector.cpp
 
     # 资源文件
     DGLABClient.qrc

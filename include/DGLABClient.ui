@@ -10,6 +10,12 @@
     <height>1023</height>
    </rect>
   </property>
+  <property name="minimumSize">
+   <size>
+    <width>800</width>
+    <height>600</height>
+   </size>
+  </property>
   <property name="maximumSize">
    <size>
     <width>1440</width>
@@ -41,6 +47,9 @@
    <item>
     <widget class="QWidget" name="all" native="true">
      <layout class="QVBoxLayout" name="all_layout">
+      <property name="spacing">
+       <number>10</number>
+      </property>
       <property name="leftMargin">
        <number>20</number>
       </property>
@@ -110,220 +119,167 @@
           <widget class="QWidget" name="navigation_bar" native="true">
            <layout class="QHBoxLayout" name="navigatio_bar_layout">
             <property name="spacing">
-             <number>0</number>
+             <number>20</number>
             </property>
             <property name="leftMargin">
-             <number>0</number>
+             <number>10</number>
             </property>
             <property name="topMargin">
-             <number>0</number>
+             <number>10</number>
             </property>
             <property name="rightMargin">
-             <number>0</number>
+             <number>10</number>
             </property>
             <property name="bottomMargin">
-             <number>0</number>
+             <number>10</number>
             </property>
             <item>
-             <widget class="QWidget" name="left_navigation_bar" native="true">
-              <property name="minimumSize">
-               <size>
-                <width>0</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>850</width>
-                <height>80</height>
-               </size>
-              </property>
-              <layout class="QHBoxLayout" name="left_navigation_bar_layout">
-               <property name="spacing">
-                <number>20</number>
-               </property>
-               <property name="leftMargin">
-                <number>10</number>
-               </property>
-               <property name="topMargin">
-                <number>10</number>
-               </property>
-               <property name="rightMargin">
-                <number>10</number>
-               </property>
-               <property name="bottomMargin">
-                <number>10</number>
-               </property>
-               <item>
-                <widget class="QPushButton" name="main_page_btn">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>150</width>
-                   <height>60</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>首页</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="config_page_btn">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>150</width>
-                   <height>60</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>配置</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="rule_page_btn">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>150</width>
-                   <height>60</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>规则</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="module_page_btn">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>150</width>
-                   <height>60</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>模块</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="about_page_btn">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>150</width>
-                   <height>60</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>关于</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
-             </widget>
-            </item>
-            <item>
-             <widget class="QWidget" name="right_navigation_bar" native="true">
+             <widget class="QPushButton" name="main_page_btn">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Maximum" vsizetype="Maximum">
-                <horstretch>1</horstretch>
-                <verstretch>1</verstretch>
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
                </sizepolicy>
               </property>
               <property name="maximumSize">
                <size>
-                <width>430</width>
-                <height>80</height>
+                <width>150</width>
+                <height>60</height>
                </size>
               </property>
-              <property name="layoutDirection">
-               <enum>Qt::LayoutDirection::LeftToRight</enum>
+              <property name="text">
+               <string>首页</string>
               </property>
-              <layout class="QHBoxLayout" name="right_navigation_bar_layout">
-               <property name="spacing">
-                <number>20</number>
-               </property>
-               <property name="leftMargin">
-                <number>100</number>
-               </property>
-               <property name="topMargin">
-                <number>10</number>
-               </property>
-               <property name="rightMargin">
-                <number>10</number>
-               </property>
-               <property name="bottomMargin">
-                <number>10</number>
-               </property>
-               <item>
-                <widget class="QPushButton" name="minimize_btn">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>150</width>
-                   <height>60</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>最小化</string>
-                 </property>
-                </widget>
-               </item>
-               <item>
-                <widget class="QPushButton" name="close_btn">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="maximumSize">
-                  <size>
-                   <width>150</width>
-                   <height>60</height>
-                  </size>
-                 </property>
-                 <property name="text">
-                  <string>关闭</string>
-                 </property>
-                </widget>
-               </item>
-              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="config_page_btn">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>150</width>
+                <height>60</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>配置</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="rule_page_btn">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>150</width>
+                <height>60</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>规则</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="module_page_btn">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>150</width>
+                <height>60</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>模块</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="about_page_btn">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>150</width>
+                <height>60</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>关于</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <spacer name="right_navigation_bar_spacer">
+              <property name="orientation">
+               <enum>Qt::Orientation::Horizontal</enum>
+              </property>
+              <property name="sizeType">
+               <enum>QSizePolicy::Policy::Preferred</enum>
+              </property>
+              <property name="sizeHint" stdset="0">
+               <size>
+                <width>40</width>
+                <height>20</height>
+               </size>
+              </property>
+             </spacer>
+            </item>
+            <item>
+             <widget class="QPushButton" name="minimize_btn">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>150</width>
+                <height>60</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>最小化</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="close_btn">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>150</width>
+                <height>60</height>
+               </size>
+              </property>
+              <property name="text">
+               <string>关闭</string>
+              </property>
              </widget>
             </item>
            </layout>
@@ -347,7 +303,7 @@
          </size>
         </property>
         <property name="currentIndex">
-         <number>2</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="main_page">
          <layout class="QVBoxLayout" name="main_page_layout">
@@ -403,16 +359,10 @@
                  <number>10</number>
                 </property>
                 <item>
-                 <widget class="QWidget" name="A_main" native="true">
-                  <property name="maximumSize">
-                   <size>
-                    <width>1170</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <layout class="QHBoxLayout" name="A_main_layout">
+                 <widget class="QWidget" name="A_card_left" native="true">
+                  <layout class="QVBoxLayout" name="A_card_left_layout">
                    <property name="spacing">
-                    <number>20</number>
+                    <number>0</number>
                    </property>
                    <property name="leftMargin">
                     <number>0</number>
@@ -424,37 +374,130 @@
                     <number>0</number>
                    </property>
                    <property name="bottomMargin">
-                    <number>162</number>
+                    <number>0</number>
                    </property>
                    <item>
-                    <widget class="QWidget" name="A_info" native="true">
+                    <widget class="QWidget" name="A_main" native="true">
                      <property name="maximumSize">
                       <size>
-                       <width>420</width>
-                       <height>150</height>
+                       <width>1170</width>
+                       <height>16777215</height>
                       </size>
                      </property>
-                     <layout class="QVBoxLayout" name="A_info_layout">
+                     <layout class="QHBoxLayout" name="A_main_layout">
                       <property name="spacing">
                        <number>20</number>
                       </property>
                       <property name="leftMargin">
-                       <number>20</number>
+                       <number>0</number>
                       </property>
                       <property name="topMargin">
-                       <number>20</number>
+                       <number>0</number>
                       </property>
                       <property name="rightMargin">
-                       <number>20</number>
+                       <number>0</number>
                       </property>
                       <property name="bottomMargin">
-                       <number>20</number>
+                       <number>0</number>
                       </property>
                       <item>
-                       <widget class="QWidget" name="A_strength_card" native="true">
-                        <layout class="QHBoxLayout" name="A_strength_card_layout">
+                       <widget class="QWidget" name="A_info" native="true">
+                        <property name="maximumSize">
+                         <size>
+                          <width>420</width>
+                          <height>150</height>
+                         </size>
+                        </property>
+                        <layout class="QVBoxLayout" name="A_info_layout">
                          <property name="spacing">
-                          <number>0</number>
+                          <number>20</number>
+                         </property>
+                         <property name="leftMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>20</number>
+                         </property>
+                         <item>
+                          <widget class="QWidget" name="A_strength_card" native="true">
+                           <layout class="QHBoxLayout" name="A_strength_card_layout">
+                            <property name="spacing">
+                             <number>0</number>
+                            </property>
+                            <property name="leftMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="topMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="rightMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="bottomMargin">
+                             <number>0</number>
+                            </property>
+                            <item>
+                             <widget class="QLabel" name="A_strength_label">
+                              <property name="text">
+                               <string>A 通道强度：</string>
+                              </property>
+                              <property name="alignment">
+                               <set>Qt::AlignmentFlag::AlignCenter</set>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <widget class="EditableLabel" name="A_strength_show_label">
+                              <property name="text">
+                               <string>A 强度数值</string>
+                              </property>
+                              <property name="alignment">
+                               <set>Qt::AlignmentFlag::AlignCenter</set>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <spacer name="A_strength_card_spacer">
+                              <property name="orientation">
+                               <enum>Qt::Orientation::Horizontal</enum>
+                              </property>
+                              <property name="sizeType">
+                               <enum>QSizePolicy::Policy::Preferred</enum>
+                              </property>
+                              <property name="sizeHint" stdset="0">
+                               <size>
+                                <width>40</width>
+                                <height>20</height>
+                               </size>
+                              </property>
+                             </spacer>
+                            </item>
+                           </layout>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="SampledWaveformWidget" name="A_strength_wave" native="true"/>
+                         </item>
+                        </layout>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QWidget" name="A_normal_cards" native="true">
+                        <property name="maximumSize">
+                         <size>
+                          <width>730</width>
+                          <height>150</height>
+                         </size>
+                        </property>
+                        <layout class="QHBoxLayout" name="A_normal_cards_layout">
+                         <property name="spacing">
+                          <number>20</number>
                          </property>
                          <property name="leftMargin">
                           <number>0</number>
@@ -463,81 +506,95 @@
                           <number>0</number>
                          </property>
                          <property name="rightMargin">
-                          <number>80</number>
+                          <number>0</number>
                          </property>
                          <property name="bottomMargin">
                           <number>0</number>
                          </property>
                          <item>
-                          <widget class="QLabel" name="A_strength_label">
-                           <property name="text">
-                            <string>A 通道强度：</string>
-                           </property>
-                           <property name="alignment">
-                            <set>Qt::AlignmentFlag::AlignCenter</set>
-                           </property>
+                          <widget class="QWidget" name="A_module_card" native="true">
+                           <layout class="QVBoxLayout" name="A_module_card_layout">
+                            <property name="spacing">
+                             <number>0</number>
+                            </property>
+                            <property name="leftMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="topMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="rightMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="bottomMargin">
+                             <number>0</number>
+                            </property>
+                           </layout>
                           </widget>
                          </item>
                          <item>
-                          <widget class="QLabel" name="A_strength_show_label">
-                           <property name="text">
-                            <string>A 强度数值</string>
-                           </property>
-                           <property name="alignment">
-                            <set>Qt::AlignmentFlag::AlignCenter</set>
-                           </property>
+                          <widget class="QWidget" name="A_rule_card" native="true">
+                           <layout class="QVBoxLayout" name="A_rule_card_layout">
+                            <property name="spacing">
+                             <number>0</number>
+                            </property>
+                            <property name="leftMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="topMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="rightMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="bottomMargin">
+                             <number>0</number>
+                            </property>
+                           </layout>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QWidget" name="A_wave_card" native="true">
+                           <layout class="QVBoxLayout" name="A_wave_card_layout">
+                            <property name="spacing">
+                             <number>0</number>
+                            </property>
+                            <property name="leftMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="topMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="rightMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="bottomMargin">
+                             <number>0</number>
+                            </property>
+                           </layout>
                           </widget>
                          </item>
                         </layout>
                        </widget>
                       </item>
-                      <item>
-                       <widget class="SampledWaveformWidget" name="A_strength_wave" native="true"/>
-                      </item>
                      </layout>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QWidget" name="A_normal_cards" native="true">
-                     <property name="maximumSize">
+                    <spacer name="A_card_left_spacer">
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                     <property name="sizeType">
+                      <enum>QSizePolicy::Policy::Preferred</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
                       <size>
-                       <width>730</width>
-                       <height>150</height>
+                       <width>20</width>
+                       <height>40</height>
                       </size>
                      </property>
-                     <layout class="QHBoxLayout" name="A_normal_cards_layout">
-                      <property name="spacing">
-                       <number>20</number>
-                      </property>
-                      <property name="leftMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="topMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="rightMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="bottomMargin">
-                       <number>0</number>
-                      </property>
-                      <item>
-                       <widget class="QWidget" name="A_module_card" native="true">
-                        <layout class="QVBoxLayout" name="A_module_card_layout"/>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QWidget" name="A_rule_card" native="true">
-                        <layout class="QVBoxLayout" name="A_rule_card_layout"/>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QWidget" name="A_wave_card" native="true">
-                        <layout class="QVBoxLayout" name="A_wave_card_layout"/>
-                       </widget>
-                      </item>
-                     </layout>
-                    </widget>
+                    </spacer>
                    </item>
                   </layout>
                  </widget>
@@ -567,7 +624,7 @@
                     <number>0</number>
                    </property>
                    <property name="bottomMargin">
-                    <number>332</number>
+                    <number>0</number>
                    </property>
                    <item>
                     <widget class="QPushButton" name="A_start_btn">
@@ -587,6 +644,22 @@
                       <string>启动</string>
                      </property>
                     </widget>
+                   </item>
+                   <item>
+                    <spacer name="A_contral_bar_spacer">
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                     <property name="sizeType">
+                      <enum>QSizePolicy::Policy::Preferred</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
+                      <size>
+                       <width>20</width>
+                       <height>40</height>
+                      </size>
+                     </property>
+                    </spacer>
                    </item>
                   </layout>
                  </widget>
@@ -613,16 +686,10 @@
                  <number>10</number>
                 </property>
                 <item>
-                 <widget class="QWidget" name="B_main" native="true">
-                  <property name="maximumSize">
-                   <size>
-                    <width>1170</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <layout class="QHBoxLayout" name="B_main_layout">
+                 <widget class="QWidget" name="B_card_left" native="true">
+                  <layout class="QVBoxLayout" name="B_card_left_layout">
                    <property name="spacing">
-                    <number>20</number>
+                    <number>0</number>
                    </property>
                    <property name="leftMargin">
                     <number>0</number>
@@ -634,35 +701,128 @@
                     <number>0</number>
                    </property>
                    <property name="bottomMargin">
-                    <number>162</number>
+                    <number>0</number>
                    </property>
                    <item>
-                    <widget class="QWidget" name="B_info" native="true">
+                    <widget class="QWidget" name="B_main" native="true">
                      <property name="maximumSize">
                       <size>
-                       <width>420</width>
-                       <height>150</height>
+                       <width>1170</width>
+                       <height>16777215</height>
                       </size>
                      </property>
-                     <layout class="QVBoxLayout" name="B_info_layout">
+                     <layout class="QHBoxLayout" name="B_main_layout">
                       <property name="spacing">
                        <number>20</number>
                       </property>
                       <property name="leftMargin">
-                       <number>20</number>
+                       <number>0</number>
                       </property>
                       <property name="topMargin">
-                       <number>20</number>
+                       <number>0</number>
                       </property>
                       <property name="rightMargin">
-                       <number>20</number>
+                       <number>0</number>
                       </property>
                       <property name="bottomMargin">
-                       <number>20</number>
+                       <number>0</number>
                       </property>
                       <item>
-                       <widget class="QWidget" name="B_strength_card" native="true">
-                        <layout class="QHBoxLayout" name="B_strength_card_layout">
+                       <widget class="QWidget" name="B_info" native="true">
+                        <property name="maximumSize">
+                         <size>
+                          <width>420</width>
+                          <height>150</height>
+                         </size>
+                        </property>
+                        <layout class="QVBoxLayout" name="B_info_layout">
+                         <property name="spacing">
+                          <number>20</number>
+                         </property>
+                         <property name="leftMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>20</number>
+                         </property>
+                         <item>
+                          <widget class="QWidget" name="B_strength_card" native="true">
+                           <layout class="QHBoxLayout" name="B_strength_card_layout">
+                            <property name="spacing">
+                             <number>20</number>
+                            </property>
+                            <property name="leftMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="topMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="rightMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="bottomMargin">
+                             <number>0</number>
+                            </property>
+                            <item>
+                             <widget class="QLabel" name="B_strength_label">
+                              <property name="text">
+                               <string>B 通道强度：</string>
+                              </property>
+                              <property name="alignment">
+                               <set>Qt::AlignmentFlag::AlignCenter</set>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <widget class="EditableLabel" name="B_strength_show_label">
+                              <property name="text">
+                               <string>B 强度数值</string>
+                              </property>
+                              <property name="alignment">
+                               <set>Qt::AlignmentFlag::AlignCenter</set>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <spacer name="B_strength_card_spacer">
+                              <property name="orientation">
+                               <enum>Qt::Orientation::Horizontal</enum>
+                              </property>
+                              <property name="sizeType">
+                               <enum>QSizePolicy::Policy::Preferred</enum>
+                              </property>
+                              <property name="sizeHint" stdset="0">
+                               <size>
+                                <width>40</width>
+                                <height>20</height>
+                               </size>
+                              </property>
+                             </spacer>
+                            </item>
+                           </layout>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="SampledWaveformWidget" name="B_channel_strength_wave" native="true"/>
+                         </item>
+                        </layout>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QWidget" name="B_normal_cards" native="true">
+                        <property name="maximumSize">
+                         <size>
+                          <width>730</width>
+                          <height>150</height>
+                         </size>
+                        </property>
+                        <layout class="QHBoxLayout" name="B_normal_cards_layout">
                          <property name="spacing">
                           <number>20</number>
                          </property>
@@ -673,81 +833,47 @@
                           <number>0</number>
                          </property>
                          <property name="rightMargin">
-                          <number>80</number>
+                          <number>0</number>
                          </property>
                          <property name="bottomMargin">
                           <number>0</number>
                          </property>
                          <item>
-                          <widget class="QLabel" name="B_strength_label">
-                           <property name="text">
-                            <string>B 通道强度：</string>
-                           </property>
-                           <property name="alignment">
-                            <set>Qt::AlignmentFlag::AlignCenter</set>
-                           </property>
+                          <widget class="QWidget" name="B_module_card" native="true">
+                           <layout class="QVBoxLayout" name="B_module_card_layout"/>
                           </widget>
                          </item>
                          <item>
-                          <widget class="QLabel" name="B_strength_show_label">
-                           <property name="text">
-                            <string>B 强度数值</string>
-                           </property>
-                           <property name="alignment">
-                            <set>Qt::AlignmentFlag::AlignCenter</set>
-                           </property>
+                          <widget class="QWidget" name="B_rule_card" native="true">
+                           <layout class="QVBoxLayout" name="B_rule_card_layout"/>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QWidget" name="B_wave_card" native="true">
+                           <layout class="QVBoxLayout" name="B_wave_card_layout"/>
                           </widget>
                          </item>
                         </layout>
                        </widget>
                       </item>
-                      <item>
-                       <widget class="SampledWaveformWidget" name="B_channel_strength_wave" native="true"/>
-                      </item>
                      </layout>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QWidget" name="B_normal_cards" native="true">
-                     <property name="maximumSize">
+                    <spacer name="B_card_left_spacer">
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                     <property name="sizeType">
+                      <enum>QSizePolicy::Policy::Preferred</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
                       <size>
-                       <width>730</width>
-                       <height>150</height>
+                       <width>20</width>
+                       <height>40</height>
                       </size>
                      </property>
-                     <layout class="QHBoxLayout" name="B_normal_cards_layout">
-                      <property name="spacing">
-                       <number>20</number>
-                      </property>
-                      <property name="leftMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="topMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="rightMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="bottomMargin">
-                       <number>0</number>
-                      </property>
-                      <item>
-                       <widget class="QWidget" name="B_module_card" native="true">
-                        <layout class="QVBoxLayout" name="B_module_card_layout"/>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QWidget" name="B_rule_card" native="true">
-                        <layout class="QVBoxLayout" name="B_rule_card_layout"/>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QWidget" name="B_wave_card" native="true">
-                        <layout class="QVBoxLayout" name="B_wave_card_layout"/>
-                       </widget>
-                      </item>
-                     </layout>
-                    </widget>
+                    </spacer>
                    </item>
                   </layout>
                  </widget>
@@ -774,7 +900,7 @@
                     <number>0</number>
                    </property>
                    <property name="bottomMargin">
-                    <number>332</number>
+                    <number>0</number>
                    </property>
                    <item>
                     <widget class="QPushButton" name="B_start_btn">
@@ -794,6 +920,22 @@
                       <string>启动</string>
                      </property>
                     </widget>
+                   </item>
+                   <item>
+                    <spacer name="B_contral_bar_spacer">
+                     <property name="orientation">
+                      <enum>Qt::Orientation::Vertical</enum>
+                     </property>
+                     <property name="sizeType">
+                      <enum>QSizePolicy::Policy::Preferred</enum>
+                     </property>
+                     <property name="sizeHint" stdset="0">
+                      <size>
+                       <width>20</width>
+                       <height>40</height>
+                      </size>
+                     </property>
+                    </spacer>
                    </item>
                   </layout>
                  </widget>
@@ -825,6 +967,12 @@
           </property>
           <item>
            <widget class="QWidget" name="port_bar" native="true">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>80</height>
+             </size>
+            </property>
             <property name="maximumSize">
              <size>
               <width>1360</width>
@@ -848,51 +996,130 @@
               <number>0</number>
              </property>
              <item>
-              <widget class="QWidget" name="port_left_bar" native="true">
-               <layout class="QHBoxLayout" name="port_left_bar_layout">
-                <property name="spacing">
-                 <number>20</number>
-                </property>
-                <property name="leftMargin">
-                 <number>10</number>
-                </property>
-                <property name="topMargin">
-                 <number>10</number>
-                </property>
-                <property name="rightMargin">
-                 <number>10</number>
-                </property>
-                <property name="bottomMargin">
-                 <number>10</number>
-                </property>
-               </layout>
+              <widget class="EditableLabel" name="IP_label">
+               <property name="maximumSize">
+                <size>
+                 <width>230</width>
+                 <height>60</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>本机 IP</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
               </widget>
              </item>
              <item>
-              <widget class="QWidget" name="port_right_bar" native="true">
+              <widget class="QLabel" name="colo_label">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
                <property name="maximumSize">
                 <size>
-                 <width>170</width>
-                 <height>80</height>
+                 <width>20</width>
+                 <height>60</height>
                 </size>
                </property>
-               <layout class="QHBoxLayout" name="port_right_bar_layout">
-                <property name="spacing">
-                 <number>20</number>
-                </property>
-                <property name="leftMargin">
-                 <number>10</number>
-                </property>
-                <property name="topMargin">
-                 <number>10</number>
-                </property>
-                <property name="rightMargin">
-                 <number>10</number>
-                </property>
-                <property name="bottomMargin">
-                 <number>10</number>
-                </property>
-               </layout>
+               <property name="text">
+                <string>：</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="EditableLabel" name="port_label">
+               <property name="maximumSize">
+                <size>
+                 <width>150</width>
+                 <height>60</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>端口</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="confirm_port_btn">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>150</width>
+                 <height>60</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>确定</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <spacer name="port_bar_spacer">
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Policy::Preferred</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item>
+              <widget class="QPushButton" name="show_qr_btn">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>150</width>
+                 <height>60</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>显示二维码</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="connect_btn">
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>150</width>
+                 <height>60</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>连接</string>
+               </property>
               </widget>
              </item>
             </layout>
@@ -900,9 +1127,9 @@
           </item>
           <item>
            <widget class="QWidget" name="config_cards" native="true">
-            <layout class="QHBoxLayout" name="config_cards_layout" stretch="1,1">
+            <layout class="QVBoxLayout" name="config_cards_layout" stretch="1,1">
              <property name="spacing">
-              <number>20</number>
+              <number>0</number>
              </property>
              <property name="leftMargin">
               <number>0</number>
@@ -914,11 +1141,11 @@
               <number>0</number>
              </property>
              <property name="bottomMargin">
-              <number>444</number>
+              <number>0</number>
              </property>
              <item>
-              <widget class="QWidget" name="config_cards_part_one" native="true">
-               <layout class="QVBoxLayout" name="config_cards_part_one_layout" stretch="1,1">
+              <widget class="QWidget" name="config_top_cards" native="true">
+               <layout class="QHBoxLayout" name="config_top_cards_layout" stretch="1,1">
                 <property name="spacing">
                  <number>20</number>
                 </property>
@@ -935,157 +1162,414 @@
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QWidget" name="wave_card" native="true">
-                  <layout class="QHBoxLayout" name="wave_card_layout" stretch="1,1,0">
+                 <widget class="QWidget" name="config_cards_part_one" native="true">
+                  <layout class="QVBoxLayout" name="config_cards_part_one_layout" stretch="1,1">
                    <property name="spacing">
                     <number>20</number>
                    </property>
                    <property name="leftMargin">
-                    <number>10</number>
+                    <number>0</number>
                    </property>
                    <property name="topMargin">
-                    <number>10</number>
+                    <number>0</number>
                    </property>
                    <property name="rightMargin">
-                    <number>10</number>
+                    <number>0</number>
                    </property>
                    <property name="bottomMargin">
-                    <number>10</number>
+                    <number>0</number>
                    </property>
                    <item>
-                    <widget class="QWidget" name="config_A_wave_card" native="true">
-                     <property name="maximumSize">
-                      <size>
-                       <width>230</width>
-                       <height>150</height>
-                      </size>
-                     </property>
-                     <layout class="QVBoxLayout" name="config_A_wave_card_layout" stretch="4,5">
+                    <widget class="QWidget" name="wave_card" native="true">
+                     <layout class="QHBoxLayout" name="wave_card_layout" stretch="1,1,0">
                       <property name="spacing">
-                       <number>10</number>
+                       <number>20</number>
                       </property>
                       <property name="leftMargin">
-                       <number>20</number>
+                       <number>10</number>
                       </property>
                       <property name="topMargin">
-                       <number>20</number>
+                       <number>10</number>
                       </property>
                       <property name="rightMargin">
-                       <number>20</number>
+                       <number>10</number>
                       </property>
                       <property name="bottomMargin">
-                       <number>20</number>
+                       <number>10</number>
                       </property>
                       <item>
-                       <widget class="QLabel" name="A_wave_name_label">
-                        <property name="text">
-                         <string>A 波形名称</string>
+                       <widget class="QWidget" name="config_A_wave_card" native="true">
+                        <property name="maximumSize">
+                         <size>
+                          <width>230</width>
+                          <height>150</height>
+                         </size>
                         </property>
-                        <property name="alignment">
-                         <set>Qt::AlignmentFlag::AlignCenter</set>
-                        </property>
+                        <layout class="QVBoxLayout" name="config_A_wave_card_layout" stretch="4,5">
+                         <property name="spacing">
+                          <number>10</number>
+                         </property>
+                         <property name="leftMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>20</number>
+                         </property>
+                         <item>
+                          <widget class="QLabel" name="A_wave_name_label">
+                           <property name="text">
+                            <string>A 波形名称</string>
+                           </property>
+                           <property name="alignment">
+                            <set>Qt::AlignmentFlag::AlignCenter</set>
+                           </property>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="SampledWaveformWidget" name="A_wave_show" native="true"/>
+                         </item>
+                        </layout>
                        </widget>
                       </item>
                       <item>
-                       <widget class="SampledWaveformWidget" name="A_wave_show" native="true"/>
+                       <widget class="QWidget" name="config_B_wave_card" native="true">
+                        <property name="maximumSize">
+                         <size>
+                          <width>230</width>
+                          <height>150</height>
+                         </size>
+                        </property>
+                        <layout class="QVBoxLayout" name="config_B_wave_card_layout" stretch="4,5">
+                         <property name="spacing">
+                          <number>10</number>
+                         </property>
+                         <property name="leftMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>20</number>
+                         </property>
+                         <item>
+                          <widget class="QLabel" name="B_wave_name_label">
+                           <property name="text">
+                            <string>B 波形名称</string>
+                           </property>
+                           <property name="alignment">
+                            <set>Qt::AlignmentFlag::AlignCenter</set>
+                           </property>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="SampledWaveformWidget" name="B_wave_show" native="true"/>
+                         </item>
+                        </layout>
+                       </widget>
+                      </item>
+                      <item>
+                       <widget class="QWidget" name="wave_contra_bar" native="true">
+                        <layout class="QVBoxLayout" name="wave_contra_bar_layout">
+                         <property name="spacing">
+                          <number>20</number>
+                         </property>
+                         <property name="leftMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>0</number>
+                         </property>
+                         <item>
+                          <widget class="QPushButton" name="confirm_wave_btn">
+                           <property name="sizePolicy">
+                            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                             <horstretch>0</horstretch>
+                             <verstretch>0</verstretch>
+                            </sizepolicy>
+                           </property>
+                           <property name="maximumSize">
+                            <size>
+                             <width>150</width>
+                             <height>60</height>
+                            </size>
+                           </property>
+                           <property name="text">
+                            <string>确定波形</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QPushButton" name="creat_wave_btn">
+                           <property name="sizePolicy">
+                            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                             <horstretch>0</horstretch>
+                             <verstretch>0</verstretch>
+                            </sizepolicy>
+                           </property>
+                           <property name="maximumSize">
+                            <size>
+                             <width>150</width>
+                             <height>60</height>
+                            </size>
+                           </property>
+                           <property name="text">
+                            <string>创建波形</string>
+                           </property>
+                          </widget>
+                         </item>
+                        </layout>
+                       </widget>
                       </item>
                      </layout>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QWidget" name="config_B_wave_card" native="true">
-                     <property name="maximumSize">
-                      <size>
-                       <width>230</width>
-                       <height>150</height>
-                      </size>
-                     </property>
-                     <layout class="QVBoxLayout" name="config_B_wave_card_layout" stretch="4,5">
+                    <widget class="QWidget" name="theme_card" native="true">
+                     <layout class="QHBoxLayout" name="theme_card_layout" stretch="1,1,0">
                       <property name="spacing">
+                       <number>20</number>
+                      </property>
+                      <property name="leftMargin">
                        <number>10</number>
                       </property>
-                      <property name="leftMargin">
-                       <number>20</number>
-                      </property>
                       <property name="topMargin">
-                       <number>20</number>
+                       <number>10</number>
                       </property>
                       <property name="rightMargin">
-                       <number>20</number>
+                       <number>10</number>
                       </property>
                       <property name="bottomMargin">
-                       <number>20</number>
+                       <number>10</number>
                       </property>
                       <item>
-                       <widget class="QLabel" name="B_wave_name_label">
-                        <property name="text">
-                         <string>B 波形名称</string>
+                       <widget class="QWidget" name="theme_one_card" native="true">
+                        <property name="maximumSize">
+                         <size>
+                          <width>230</width>
+                          <height>150</height>
+                         </size>
                         </property>
-                        <property name="alignment">
-                         <set>Qt::AlignmentFlag::AlignCenter</set>
-                        </property>
+                        <layout class="QVBoxLayout" name="theme_one_card_layout">
+                         <property name="spacing">
+                          <number>10</number>
+                         </property>
+                         <property name="leftMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>20</number>
+                         </property>
+                         <item>
+                          <widget class="QLabel" name="theme_one_name_label">
+                           <property name="text">
+                            <string>主题名称</string>
+                           </property>
+                           <property name="alignment">
+                            <set>Qt::AlignmentFlag::AlignCenter</set>
+                           </property>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QWidget" name="theme_one_colors" native="true">
+                           <layout class="QHBoxLayout" name="theme_one_colors_layout">
+                            <property name="spacing">
+                             <number>10</number>
+                            </property>
+                            <property name="leftMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="topMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="rightMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="bottomMargin">
+                             <number>0</number>
+                            </property>
+                            <item>
+                             <widget class="QLabel" name="theme_one_main_color_label">
+                              <property name="text">
+                               <string>主题主色</string>
+                              </property>
+                              <property name="alignment">
+                               <set>Qt::AlignmentFlag::AlignCenter</set>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <widget class="QLabel" name="theme_one_sec_color_label">
+                              <property name="text">
+                               <string>主题副色</string>
+                              </property>
+                              <property name="alignment">
+                               <set>Qt::AlignmentFlag::AlignCenter</set>
+                              </property>
+                             </widget>
+                            </item>
+                           </layout>
+                          </widget>
+                         </item>
+                        </layout>
                        </widget>
                       </item>
                       <item>
-                       <widget class="SampledWaveformWidget" name="B_wave_show" native="true"/>
-                      </item>
-                     </layout>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QWidget" name="wave_contra_bar" native="true">
-                     <layout class="QVBoxLayout" name="wave_contra_bar_layout">
-                      <property name="spacing">
-                       <number>20</number>
-                      </property>
-                      <property name="leftMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="topMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="rightMargin">
-                       <number>0</number>
-                      </property>
-                      <property name="bottomMargin">
-                       <number>0</number>
-                      </property>
-                      <item>
-                       <widget class="QPushButton" name="confirm_wave_btn">
-                        <property name="sizePolicy">
-                         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                          <horstretch>0</horstretch>
-                          <verstretch>0</verstretch>
-                         </sizepolicy>
-                        </property>
+                       <widget class="QWidget" name="theme_two_card" native="true">
                         <property name="maximumSize">
                          <size>
-                          <width>150</width>
-                          <height>60</height>
+                          <width>230</width>
+                          <height>150</height>
                          </size>
                         </property>
-                        <property name="text">
-                         <string>确定波形</string>
-                        </property>
+                        <layout class="QVBoxLayout" name="theme_two_card_layout">
+                         <property name="spacing">
+                          <number>10</number>
+                         </property>
+                         <property name="leftMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>20</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>20</number>
+                         </property>
+                         <item>
+                          <widget class="QLabel" name="theme_two_name_label">
+                           <property name="text">
+                            <string>主题名称</string>
+                           </property>
+                           <property name="alignment">
+                            <set>Qt::AlignmentFlag::AlignCenter</set>
+                           </property>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QWidget" name="theme_two_colors" native="true">
+                           <layout class="QHBoxLayout" name="theme_two_colors_layout">
+                            <property name="spacing">
+                             <number>10</number>
+                            </property>
+                            <property name="leftMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="topMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="rightMargin">
+                             <number>0</number>
+                            </property>
+                            <property name="bottomMargin">
+                             <number>0</number>
+                            </property>
+                            <item>
+                             <widget class="QLabel" name="theme_two_main_color_label">
+                              <property name="text">
+                               <string>主题主色</string>
+                              </property>
+                              <property name="alignment">
+                               <set>Qt::AlignmentFlag::AlignCenter</set>
+                              </property>
+                             </widget>
+                            </item>
+                            <item>
+                             <widget class="QLabel" name="theme_two_sec_color_label">
+                              <property name="text">
+                               <string>主题副色</string>
+                              </property>
+                              <property name="alignment">
+                               <set>Qt::AlignmentFlag::AlignCenter</set>
+                              </property>
+                             </widget>
+                            </item>
+                           </layout>
+                          </widget>
+                         </item>
+                        </layout>
                        </widget>
                       </item>
                       <item>
-                       <widget class="QPushButton" name="creat_wave_btn">
-                        <property name="sizePolicy">
-                         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                          <horstretch>0</horstretch>
-                          <verstretch>0</verstretch>
-                         </sizepolicy>
-                        </property>
-                        <property name="maximumSize">
-                         <size>
-                          <width>150</width>
-                          <height>60</height>
-                         </size>
-                        </property>
-                        <property name="text">
-                         <string>创建波形</string>
-                        </property>
+                       <widget class="QWidget" name="theme_contral_bar" native="true">
+                        <layout class="QVBoxLayout" name="theme_contral_bar_layout">
+                         <property name="spacing">
+                          <number>20</number>
+                         </property>
+                         <property name="leftMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="topMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="rightMargin">
+                          <number>0</number>
+                         </property>
+                         <property name="bottomMargin">
+                          <number>0</number>
+                         </property>
+                         <item>
+                          <widget class="QPushButton" name="theme_list_btn">
+                           <property name="sizePolicy">
+                            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                             <horstretch>0</horstretch>
+                             <verstretch>0</verstretch>
+                            </sizepolicy>
+                           </property>
+                           <property name="maximumSize">
+                            <size>
+                             <width>150</width>
+                             <height>60</height>
+                            </size>
+                           </property>
+                           <property name="text">
+                            <string>主题列表</string>
+                           </property>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QPushButton" name="creat_theme_btn">
+                           <property name="sizePolicy">
+                            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                             <horstretch>0</horstretch>
+                             <verstretch>0</verstretch>
+                            </sizepolicy>
+                           </property>
+                           <property name="maximumSize">
+                            <size>
+                             <width>150</width>
+                             <height>60</height>
+                            </size>
+                           </property>
+                           <property name="text">
+                            <string>自定义主题</string>
+                           </property>
+                          </widget>
+                         </item>
+                        </layout>
                        </widget>
                       </item>
                      </layout>
@@ -1095,10 +1579,10 @@
                  </widget>
                 </item>
                 <item>
-                 <widget class="QWidget" name="theme_card" native="true">
-                  <layout class="QHBoxLayout" name="theme_card_layout" stretch="1,1,0">
+                 <widget class="QWidget" name="debug_log_card" native="true">
+                  <layout class="QHBoxLayout" name="debug_log_card_2">
                    <property name="spacing">
-                    <number>20</number>
+                    <number>10</number>
                    </property>
                    <property name="leftMargin">
                     <number>10</number>
@@ -1113,164 +1597,24 @@
                     <number>10</number>
                    </property>
                    <item>
-                    <widget class="QWidget" name="theme_one_card" native="true">
+                    <widget class="QTextEdit" name="debug_log">
                      <property name="maximumSize">
                       <size>
-                       <width>230</width>
-                       <height>150</height>
+                       <width>490</width>
+                       <height>340</height>
                       </size>
                      </property>
-                     <layout class="QVBoxLayout" name="theme_one_card_layout">
-                      <property name="spacing">
-                       <number>10</number>
-                      </property>
-                      <property name="leftMargin">
-                       <number>20</number>
-                      </property>
-                      <property name="topMargin">
-                       <number>20</number>
-                      </property>
-                      <property name="rightMargin">
-                       <number>20</number>
-                      </property>
-                      <property name="bottomMargin">
-                       <number>20</number>
-                      </property>
-                      <item>
-                       <widget class="QLabel" name="theme_one_name_label">
-                        <property name="text">
-                         <string>主题名称</string>
-                        </property>
-                        <property name="alignment">
-                         <set>Qt::AlignmentFlag::AlignCenter</set>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QWidget" name="theme_one_colors" native="true">
-                        <layout class="QHBoxLayout" name="theme_one_colors_layout">
-                         <property name="spacing">
-                          <number>10</number>
-                         </property>
-                         <property name="leftMargin">
-                          <number>0</number>
-                         </property>
-                         <property name="topMargin">
-                          <number>0</number>
-                         </property>
-                         <property name="rightMargin">
-                          <number>0</number>
-                         </property>
-                         <property name="bottomMargin">
-                          <number>0</number>
-                         </property>
-                         <item>
-                          <widget class="QLabel" name="theme_one_main_color_label">
-                           <property name="text">
-                            <string>主题主色</string>
-                           </property>
-                           <property name="alignment">
-                            <set>Qt::AlignmentFlag::AlignCenter</set>
-                           </property>
-                          </widget>
-                         </item>
-                         <item>
-                          <widget class="QLabel" name="theme_one_sec_color_label">
-                           <property name="text">
-                            <string>主题副色</string>
-                           </property>
-                           <property name="alignment">
-                            <set>Qt::AlignmentFlag::AlignCenter</set>
-                           </property>
-                          </widget>
-                         </item>
-                        </layout>
-                       </widget>
-                      </item>
-                     </layout>
                     </widget>
                    </item>
                    <item>
-                    <widget class="QWidget" name="theme_two_card" native="true">
-                     <property name="maximumSize">
-                      <size>
-                       <width>230</width>
-                       <height>150</height>
-                      </size>
+                    <widget class="QWidget" name="log_contral" native="true">
+                     <property name="sizePolicy">
+                      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                       <horstretch>0</horstretch>
+                       <verstretch>0</verstretch>
+                      </sizepolicy>
                      </property>
-                     <layout class="QVBoxLayout" name="theme_two_card_layout">
-                      <property name="spacing">
-                       <number>10</number>
-                      </property>
-                      <property name="leftMargin">
-                       <number>20</number>
-                      </property>
-                      <property name="topMargin">
-                       <number>20</number>
-                      </property>
-                      <property name="rightMargin">
-                       <number>20</number>
-                      </property>
-                      <property name="bottomMargin">
-                       <number>20</number>
-                      </property>
-                      <item>
-                       <widget class="QLabel" name="theme_two_name_label">
-                        <property name="text">
-                         <string>主题名称</string>
-                        </property>
-                        <property name="alignment">
-                         <set>Qt::AlignmentFlag::AlignCenter</set>
-                        </property>
-                       </widget>
-                      </item>
-                      <item>
-                       <widget class="QWidget" name="theme_two_colors" native="true">
-                        <layout class="QHBoxLayout" name="theme_two_colors_layout">
-                         <property name="spacing">
-                          <number>10</number>
-                         </property>
-                         <property name="leftMargin">
-                          <number>0</number>
-                         </property>
-                         <property name="topMargin">
-                          <number>0</number>
-                         </property>
-                         <property name="rightMargin">
-                          <number>0</number>
-                         </property>
-                         <property name="bottomMargin">
-                          <number>0</number>
-                         </property>
-                         <item>
-                          <widget class="QLabel" name="theme_two_main_color_label">
-                           <property name="text">
-                            <string>主题主色</string>
-                           </property>
-                           <property name="alignment">
-                            <set>Qt::AlignmentFlag::AlignCenter</set>
-                           </property>
-                          </widget>
-                         </item>
-                         <item>
-                          <widget class="QLabel" name="theme_two_sec_color_label">
-                           <property name="text">
-                            <string>主题副色</string>
-                           </property>
-                           <property name="alignment">
-                            <set>Qt::AlignmentFlag::AlignCenter</set>
-                           </property>
-                          </widget>
-                         </item>
-                        </layout>
-                       </widget>
-                      </item>
-                     </layout>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QWidget" name="theme_contral_bar" native="true">
-                     <layout class="QVBoxLayout" name="theme_contral_bar_layout">
+                     <layout class="QVBoxLayout" name="log_contral_layout" stretch="0,0,0">
                       <property name="spacing">
                        <number>20</number>
                       </property>
@@ -1287,7 +1631,7 @@
                        <number>0</number>
                       </property>
                       <item>
-                       <widget class="QPushButton" name="theme_list_btn">
+                       <widget class="QPushButton" name="export_log_btn">
                         <property name="sizePolicy">
                          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                           <horstretch>0</horstretch>
@@ -1301,12 +1645,12 @@
                          </size>
                         </property>
                         <property name="text">
-                         <string>主题列表</string>
+                         <string>导出日志</string>
                         </property>
                        </widget>
                       </item>
                       <item>
-                       <widget class="QPushButton" name="creat_theme_btn">
+                       <widget class="QPushButton" name="more_log_setting_btn">
                         <property name="sizePolicy">
                          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                           <horstretch>0</horstretch>
@@ -1320,9 +1664,25 @@
                          </size>
                         </property>
                         <property name="text">
-                         <string>自定义主题</string>
+                         <string>更多设置</string>
                         </property>
                        </widget>
+                      </item>
+                      <item>
+                       <spacer name="log_contral_spacer">
+                        <property name="orientation">
+                         <enum>Qt::Orientation::Vertical</enum>
+                        </property>
+                        <property name="sizeType">
+                         <enum>QSizePolicy::Policy::Preferred</enum>
+                        </property>
+                        <property name="sizeHint" stdset="0">
+                         <size>
+                          <width>20</width>
+                          <height>40</height>
+                         </size>
+                        </property>
+                       </spacer>
                       </item>
                      </layout>
                     </widget>
@@ -1334,94 +1694,20 @@
               </widget>
              </item>
              <item>
-              <widget class="QWidget" name="debug_log_card" native="true">
-               <layout class="QHBoxLayout" name="debug_log_card_2">
-                <property name="spacing">
-                 <number>10</number>
-                </property>
-                <property name="leftMargin">
-                 <number>10</number>
-                </property>
-                <property name="topMargin">
-                 <number>10</number>
-                </property>
-                <property name="rightMargin">
-                 <number>10</number>
-                </property>
-                <property name="bottomMargin">
-                 <number>10</number>
-                </property>
-                <item>
-                 <widget class="QTextEdit" name="debug_log">
-                  <property name="maximumSize">
-                   <size>
-                    <width>490</width>
-                    <height>340</height>
-                   </size>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QWidget" name="log_contral" native="true">
-                  <layout class="QVBoxLayout" name="log_contral_layout">
-                   <property name="spacing">
-                    <number>20</number>
-                   </property>
-                   <property name="leftMargin">
-                    <number>0</number>
-                   </property>
-                   <property name="topMargin">
-                    <number>0</number>
-                   </property>
-                   <property name="rightMargin">
-                    <number>0</number>
-                   </property>
-                   <property name="bottomMargin">
-                    <number>200</number>
-                   </property>
-                   <item>
-                    <widget class="QPushButton" name="export_log_btn">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>150</width>
-                       <height>60</height>
-                      </size>
-                     </property>
-                     <property name="text">
-                      <string>导出日志</string>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QPushButton" name="more_log_setting_btn">
-                     <property name="sizePolicy">
-                      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-                       <horstretch>0</horstretch>
-                       <verstretch>0</verstretch>
-                      </sizepolicy>
-                     </property>
-                     <property name="maximumSize">
-                      <size>
-                       <width>150</width>
-                       <height>60</height>
-                      </size>
-                     </property>
-                     <property name="text">
-                      <string>更多设置</string>
-                     </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </widget>
-                </item>
-               </layout>
-              </widget>
+              <spacer name="config_cards_spacer">
+               <property name="orientation">
+                <enum>Qt::Orientation::Vertical</enum>
+               </property>
+               <property name="sizeType">
+                <enum>QSizePolicy::Policy::Preferred</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+              </spacer>
              </item>
             </layout>
            </widget>
@@ -1446,8 +1732,8 @@
            <number>0</number>
           </property>
           <item>
-           <widget class="QWidget" name="gridWidget" native="true">
-            <layout class="QGridLayout" name="gridLayout">
+           <widget class="QWidget" name="rules_list" native="true">
+            <layout class="QGridLayout" name="rules_list_layout">
              <property name="leftMargin">
               <number>0</number>
              </property>
@@ -1547,6 +1833,11 @@
    <extends>QWidget</extends>
    <header>SampledWaveformWidget.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>EditableLabel</class>
+   <extends>QLabel</extends>
+   <header>EditableLabel.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

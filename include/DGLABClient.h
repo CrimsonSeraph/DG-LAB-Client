@@ -35,22 +35,46 @@ public:
     explicit DGLABClient(QWidget* parent = nullptr);
     ~DGLABClient();
 
-    // -------------------- 公共接口（页面导航） --------------------
-    void on_main_first_btn_clicked();
-    void on_main_config_btn_clicked();
-    void on_main_setting_btn_clicked();
-    void on_main_about_btn_clicked();
-
-    // -------------------- 公共接口（连接控制） --------------------
-    void on_start_connect_btn_clicked();
-    void on_close_connect_btn_clicked();
-    void on_start_btn_clicked();
-    void on_close_btn_clicked();
-    void on_show_qr_btn_clicked();
-
-    // -------------------- 公共接口（设置） --------------------
+    // -------------------- 初始化 --------------------
+    void normal_init();
+    void init_log();
+    void init_label();
+    void init_connect() const;
+    void init_style();
     void change_ui_log_level();
+
+    // -------------------- 页面导航 --------------------
+    void refresh_icon();
+    void change_main_page();
+    void change_config_page();
+    void change_rule_page();
+    void change_module_page();
+    void change_about_page();
+    void connect_about_page() const;
+
+    // -------------------- 通道控制 --------------------
+    void refresh_channel_info();
+    void enable_A();
+    void enable_B();
+    void setup_channel_value_editor_input_validation();
+    void connect_about_channel_contral() const;
+
+    // -------------------- 连接相关 --------------------
+    void set_port_label_mode();
+    void refresh_connect_label();
+    void handle_connect();
+    void refresh_ip();
+    void set_ip();
+    void refresh_port_label();
+    void setup_port_input_validation();
     void set_port();
+    void cache_port(const QString& input);
+    void connect_about_connect() const;
+    inline QString get_ip_cache_() { return ip_cache_; };
+
+    // -------------------- 主题相关 --------------------
+    void refresh_theme_label();
+    void connect_about_theme() const;
 
     // -------------------- 模板方法（异步调用） --------------------
     /// @brief 异步调用 Python 服务
@@ -66,10 +90,6 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
-    // -------------------- 常量 --------------------
-    std::vector<std::string> default_blacklist_ = { "radmin", "vmware", "virtualbox", "virtual", "vpn", "tap", "tun" };
-    std::vector<std::string> default_whitelist_ = { "wlan" };
-
     // -------------------- 成员变量 --------------------
     Ui::DGLABClientClass ui_;   ///< UI 界面
     QSyntaxHighlighter* log_highlighter_ = nullptr; ///< 日志高亮器
@@ -77,17 +97,18 @@ private:
     QMenu* tray_menu_;  ///< 托盘菜单
     QString current_qr_path_;   ///< 当前二维码文件路径
 
-    bool start_connect_btn_loading_ = false;    ///< 连接按钮加载状态
-    bool close_connect_btn_loading_ = false;    ///< 断开按钮加载状态
+    QString ip_cache_ = "127.0.0.1";   ///< 连接 IP 地址
+    int port_cache_ = 9999; ///< 连接端口
+    bool connect_btn_loading_ = false;  ///< 连接按钮加载状态
     bool is_connected_ = false; ///< 连接状态
     Theme theme_ = LIGHT; ///< 主题
 
+    bool is_A_start = false;    ///< A通道启动状态
+    bool is_B_start = false;    ///< B通道启动状态
     int A_strength_ = 0;    ///< 强度 A（0-200）
     int B_strength_ = 0;    ///< 强度 B（0-200）
     int A_limit_ = 200; ///< A通道上限（默认200）
     int B_limit_ = 200; ///< B通道上限（默认200）
-    bool is_A_info_locked_ = false;   ///< A通道强度禁止手动更改状态
-    bool is_B_info_locked_ = false;   ///< B通道强度禁止手动更改状态
 
     PythonSubprocessManager* py_manager_;   ///< Python 子进程管理器
 
@@ -109,31 +130,25 @@ private:
     void setup_debug_log();
     void register_log_sink();
     void create_log_highlighter();
-    void load_main_image();
     void create_tray_icon();
+
     void load_stylesheet();
     void change_theme(const std::string& theme_str);
     void change_theme(const QString& theme_str);
     void setup_log_widget_style();
+
     void setup_connections();
-    void setup_port_input_validation();
     void setup_default_page();
     void init_python_manager();
     void reset_py_log_level();
-    void init_port_input_placeholder();
-    void init_channel_info();
 
     // -------------------- 私有辅助函数（二维码） --------------------
     void fetch_qr_path();
     void show_qr_dialog();
     void delete_old_qr_file();
 
-    // -------------------- 私有辅助函数（网络） --------------------
-    QString get_local_lan_ip();
-
     // -------------------- 私有辅助函数（规则 UI） --------------------
     void setup_rules_ui();
-    void init_rule_manager();
     void refresh_rule_file_list();
     void update_rule_table();
 
@@ -159,10 +174,9 @@ private:
     void append_colored_text(QTextEdit* edit, const QString& text);
 
     // -------------------- 私有辅助函数（连接控制） --------------------
-    void refresh_A_display();
-    void refresh_B_display();
-    void apply_A_strength_from_input();
-    void apply_B_strength_from_input();
+    void refresh_channel_strength();
+    void apply_A_strength(const QString& new_strength);
+    void apply_B_strength(const QString& new_strength);
 
 signals:
     void connect_finished(bool success, const QString& message);
@@ -170,8 +184,8 @@ signals:
 
 private slots:
     // 连接相关槽函数
-    void on_connect_finished(bool success, const QString& msg);
-    void on_close_finished(bool success, const QString& msg);
+    void handle_connect_finished(bool success, const QString& msg);
+    void handle_close_finished(bool success, const QString& msg);
     void start_async_connect();
     void close_async_connect();
 
@@ -193,10 +207,6 @@ private slots:
     // 消息处理槽函数
     void on_active_message_received(const QJsonObject& message);
 
-    // 强度槽函数
-    void setup_channel_value_editor_input_validation();
-    void change_A_lock();
-    void change_B_lock();
 };
 
 #include "DGLABClient_impl.hpp"
