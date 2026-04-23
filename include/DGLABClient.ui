@@ -10,12 +10,6 @@
     <height>1023</height>
    </rect>
   </property>
-  <property name="minimumSize">
-   <size>
-    <width>800</width>
-    <height>600</height>
-   </size>
-  </property>
   <property name="maximumSize">
    <size>
     <width>1440</width>
@@ -238,8 +232,8 @@
               </property>
               <property name="sizeHint" stdset="0">
                <size>
-                <width>40</width>
-                <height>20</height>
+                <width>90</width>
+                <height>60</height>
                </size>
               </property>
              </spacer>
@@ -303,7 +297,7 @@
          </size>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="main_page">
          <layout class="QVBoxLayout" name="main_page_layout">
@@ -472,8 +466,8 @@
                               </property>
                               <property name="sizeHint" stdset="0">
                                <size>
-                                <width>40</width>
-                                <height>20</height>
+                                <width>120</width>
+                                <height>45</height>
                                </size>
                               </property>
                              </spacer>
@@ -590,8 +584,8 @@
                      </property>
                      <property name="sizeHint" stdset="0">
                       <size>
-                       <width>20</width>
-                       <height>40</height>
+                       <width>60</width>
+                       <height>222</height>
                       </size>
                      </property>
                     </spacer>
@@ -655,8 +649,8 @@
                      </property>
                      <property name="sizeHint" stdset="0">
                       <size>
-                       <width>20</width>
-                       <height>40</height>
+                       <width>60</width>
+                       <height>312</height>
                       </size>
                      </property>
                     </spacer>
@@ -799,8 +793,8 @@
                               </property>
                               <property name="sizeHint" stdset="0">
                                <size>
-                                <width>40</width>
-                                <height>20</height>
+                                <width>120</width>
+                                <height>45</height>
                                </size>
                               </property>
                              </spacer>
@@ -869,8 +863,8 @@
                      </property>
                      <property name="sizeHint" stdset="0">
                       <size>
-                       <width>20</width>
-                       <height>40</height>
+                       <width>60</width>
+                       <height>222</height>
                       </size>
                      </property>
                     </spacer>
@@ -931,8 +925,8 @@
                      </property>
                      <property name="sizeHint" stdset="0">
                       <size>
-                       <width>20</width>
-                       <height>40</height>
+                       <width>60</width>
+                       <height>312</height>
                       </size>
                      </property>
                     </spacer>
@@ -1078,8 +1072,8 @@
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>40</width>
-                 <height>20</height>
+                 <width>600</width>
+                 <height>60</height>
                 </size>
                </property>
               </spacer>
@@ -1678,8 +1672,8 @@
                         </property>
                         <property name="sizeHint" stdset="0">
                          <size>
-                          <width>20</width>
-                          <height>40</height>
+                          <width>60</width>
+                          <height>180</height>
                          </size>
                         </property>
                        </spacer>
@@ -1703,8 +1697,8 @@
                </property>
                <property name="sizeHint" stdset="0">
                 <size>
-                 <width>20</width>
-                 <height>40</height>
+                 <width>60</width>
+                 <height>384</height>
                 </size>
                </property>
               </spacer>
