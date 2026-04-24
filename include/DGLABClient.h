@@ -135,8 +135,8 @@ private:
     void change_theme(const std::string& theme_str);
     void change_theme(const QString& theme_str);
     void setup_log_widget_style();
+    void refresh_style();
 
-    void setup_connections();
     void setup_default_page();
     void init_python_manager();
     void reset_py_log_level();

@@ -109,7 +109,7 @@ void DGLABClient::init_label() {
     refresh_theme_label();
 }
 
-void DGLABClient::init_connect() const{
+void DGLABClient::init_connect() const {
     connect_about_page();
     connect_about_channel_contral();
     connect_about_connect();
@@ -119,6 +119,7 @@ void DGLABClient::init_style() {
     setup_log_widget_style();
     apply_widget_properties();
     load_stylesheet();
+    refresh_style();
 }
 
 // ============================================
@@ -347,8 +348,7 @@ void DGLABClient::connect_about_connect() const {
     connect(ui_.show_qr_btn, &QPushButton::clicked, this, &DGLABClient::show_qr_dialog);
 }
 
-void DGLABClient::refresh_theme_label() {
-}
+void DGLABClient::refresh_theme_label() {}
 
 void DGLABClient::connect_about_theme() const {
     connect(ui_.theme_list_btn, &QPushButton::clicked, this, &DGLABClient::show_theme_selector);
@@ -565,6 +565,15 @@ void DGLABClient::setup_log_widget_style() {
     ui_.debug_log->setPalette(pal);
 }
 
+void DGLABClient::refresh_style() {
+    QList<QWidget*> widgets = this->findChildren<QWidget*>();
+    for (QWidget* w : widgets) {
+        w->style()->unpolish(w);
+        w->style()->polish(w);
+        w->update();
+    }
+}
+
 void DGLABClient::setup_default_page() {
     ui_.center_pages->setCurrentWidget(ui_.main_page);
 }
@@ -763,6 +772,11 @@ void DGLABClient::setup_rules_ui() {
 
     refresh_rule_file_list();
     update_rule_table();
+
+    add_rule_btn_->setProperty("button_type", "special");
+    edit_rule_btn_->setProperty("button_type", "special");
+    delete_rule_btn_->setProperty("button_type", "emphasis");
+    rule_table_->horizontalHeader()->setProperty("type", "table_header");
     LOG_MODULE("DGLABClient", "setup_rules_ui", LOG_INFO, "规则UI初始化完成");
 }
 
@@ -828,73 +842,67 @@ void DGLABClient::setup_widget_properties(const std::string& property, const std
 }
 
 void DGLABClient::apply_widget_properties() {
-    // 主页面背景
-    //ui_.all->setProperty("type", "main_page");
-    // 毛玻璃背景控件（glassmorphism）
-    //ui_.left_btns_bar->setProperty("type", "glassmorphism");
-    //ui_.port_info->setProperty("type", "glassmorphism");    // 端口面板
-    //ui_.main_page_btns_bar->setProperty("type", "glassmorphism");   // 首页按钮栏
-    //ui_.theme->setProperty("type", "glassmorphism");   // 样式切换面板
-    //ui_.first_page_main->setProperty("type", "glassmorphism");  // 首页主面板
-    //ui_.A_channel_info_all->setProperty("type", "glassmorphism");   // A通道信息面板
-    //ui_.B_channel_info_all->setProperty("type", "glassmorphism");   // B通道信息面板
-    // 导航按钮
-    //ui_.main_first_btn->setProperty("type", "nav_btn");
-    //ui_.main_config_btn->setProperty("type", "nav_btn");
-    //ui_.main_setting_btn->setProperty("type", "nav_btn");
-    //ui_.main_about_btn->setProperty("type", "nav_btn");
-    // 操作按钮
-    //ui_.start_connect_btn->setProperty("type", "action_btn");
-    //ui_.close_connect_btn->setProperty("type", "action_btn");
-    //ui_.start_btn->setProperty("type", "action_btn");
-    //ui_.close_btn->setProperty("type", "action_btn");
-    //ui_.port_confirm_btn->setProperty("type", "action_btn");
-    //ui_.show_qr_btn->setProperty("type", "action_btn");
-    //ui_.change_theme_btn->setProperty("type", "action_btn");
-    //ui_.A_lock_btn->setProperty("type", "action_btn");
-    //ui_.B_lock_btn->setProperty("type", "action_btn");
-    //ui_.confirm_A_strength->setProperty("type", "action_btn");
-    //ui_.confirm_B_strength->setProperty("type", "action_btn");
-    //ui_.A_lock_btn->setProperty("btn_size", "small");
-    //ui_.B_lock_btn->setProperty("btn_size", "small");
-    //ui_.confirm_A_strength->setProperty("btn_size", "small");
-    //ui_.confirm_B_strength->setProperty("btn_size", "small");
-    // 标题标签
-    //ui_.main_title->setProperty("type", "title");
-    //ui_.config_title->setProperty("type", "title");
-    //ui_.setting_title->setProperty("type", "title");
-    //ui_.about_title->setProperty("type", "title");
-    // 普通标签
-    //ui_.port_label->setProperty("type", "label");
-    //ui_.theme_label->setProperty("type", "label");
-    //ui_.current_theme->setProperty("type", "label");
-    // 图片标签
-    //ui_.app_icon->setProperty("type", "image");
-    // 输入框
-    //ui_.port_input->setProperty("type", "input");
-    //ui_.A_channel_value_editor->setProperty("type", "input");
-    //ui_.B_channel_value_editor->setProperty("type", "input");
-    // 调试日志框
-    //ui_.debug_log->setProperty("type", "debug_log");
-    // 波形控件
-    //ui_.wave_show->setProperty("type", "waveform");
-    // 滚动区域
-    //ui_.config_scroll_area->setProperty("type", "scrollarea");
-    //ui_.setting_scroll_area->setProperty("type", "scrollarea");
-    // 堆叠窗口
-    //ui_.center_pages->setProperty("type", "stacked");
-    // 子面板（无毛玻璃效果，仅用于布局）
-    //ui_.about_left_part->setProperty("type", "sub_panel");
-    //ui_.about_right_part->setProperty("type", "sub_panel");
-    //ui_.setting_left_part->setProperty("type", "sub_panel");
-    //ui_.setting_right_part->setProperty("type", "sub_panel");
-    //ui_.config_widgrt->setProperty("type", "sub_panel");
-    //ui_.setting_grid->setProperty("type", "sub_panel");
-    // 字体设置
-    //ui_.A_channel->setProperty("type", "font");
-    //ui_.B_channel->setProperty("type", "font");
-    //ui_.A_channel_value->setProperty("type", "font");
-    //ui_.B_channel_value->setProperty("type", "font");
+    ui_.all->setProperty("type", "main_page");
+
+    // ========== 设置半透玻璃面板 ==========
+    // 导航栏
+    ui_.navigation_bar->setProperty("type", "glass_panel");
+    // 通道信息卡片
+    ui_.A_info->setProperty("type", "glass_panel");
+    ui_.B_info->setProperty("type", "glass_panel");
+    // 通道模块/规则/波形卡片
+    ui_.A_module_card->setProperty("type", "glass_panel");
+    ui_.B_module_card->setProperty("type", "glass_panel");
+    ui_.A_rule_card->setProperty("type", "glass_panel");
+    ui_.B_rule_card->setProperty("type", "glass_panel");
+    ui_.A_wave_card->setProperty("type", "glass_panel");
+    ui_.B_wave_card->setProperty("type", "glass_panel");
+    // 通道控制栏
+    ui_.A_contral_bar->setProperty("type", "glass_panel");
+    ui_.B_contral_bar->setProperty("type", "glass_panel");
+    // 配置页各个面板
+    ui_.port_bar->setProperty("type", "glass_panel");
+    ui_.debug_log_card->setProperty("type", "glass_panel");
+    ui_.theme_card->setProperty("type", "glass_panel");
+    ui_.wave_card->setProperty("type", "glass_panel");
+    ui_.config_A_wave_card->setProperty("type", "glass_panel");
+    ui_.config_B_wave_card->setProperty("type", "glass_panel");
+    ui_.theme_one_card->setProperty("type", "glass_panel");
+    ui_.theme_two_card->setProperty("type", "glass_panel");
+
+    // 内层子卡片
+    ui_.A_strength_card->setProperty("type", "glass_panel_inner");
+    ui_.B_strength_card->setProperty("type", "glass_panel_inner");
+
+    // 页面切换按钮 (type="nav_btn")
+    ui_.main_page_btn->setProperty("type", "nav_btn");
+    ui_.config_page_btn->setProperty("type", "nav_btn");
+    ui_.rule_page_btn->setProperty("type", "nav_btn");
+    ui_.module_page_btn->setProperty("type", "nav_btn");
+    ui_.about_page_btn->setProperty("type", "nav_btn");
+
+    // 特殊功能按钮 (button_type="special") 金色系
+    ui_.minimize_btn->setProperty("button_type", "special");
+    ui_.connect_btn->setProperty("button_type", "special");
+    ui_.confirm_wave_btn->setProperty("button_type", "special");
+    ui_.theme_list_btn->setProperty("button_type", "special");
+    ui_.creat_theme_btn->setProperty("button_type", "special");
+    ui_.export_log_btn->setProperty("button_type", "special");
+    ui_.confirm_port_btn->setProperty("button_type", "special");
+    ui_.show_qr_btn->setProperty("button_type", "special");
+    ui_.A_start_btn->setProperty("button_type", "special");
+    ui_.B_start_btn->setProperty("button_type", "special");
+    ui_.creat_wave_btn->setProperty("button_type", "special");
+    ui_.more_log_setting_btn->setProperty("button_type", "special");
+
+    // 强调按钮 (button_type="emphasis") 红色系
+    ui_.close_btn->setProperty("button_type", "emphasis");
+
+    // 设置字体大小属性
+    ui_.app_icon->setProperty("font_size", "L");
+    ui_.A_strength_show_label->setProperty("font_size", "M");
+    ui_.B_strength_show_label->setProperty("font_size", "M");
+    ui_.debug_log->setProperty("font_size", "S");
 }
 
 void DGLABClient::apply_inline_styles() {
