@@ -242,13 +242,15 @@ void SampledWaveformWidget::set_max_amplitude(double ratio) {
 // ============================================
 
 void SampledWaveformWidget::paintEvent(QPaintEvent* event) {
+    const int w = width();
+    const int h = height();
+    const int top_margin = 5;
+    const int baseline_y = h - 5;
+    if (baseline_y <= top_margin) return;
+
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing, true);
 
-    const int w = width();
-    const int h = height();
-    const int baseline_y = h - 5;   // 底部边距5像素
-    const int top_margin = 5;
     const int left_margin = 0;
     const int right_margin = 0;
 
