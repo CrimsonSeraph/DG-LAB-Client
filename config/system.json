@@ -2,6 +2,7 @@
     "__priority": 1,
     "app": {
         "websocket": {
+            "ip": "127.0.0.1",
             "port": 9999
         }
     },

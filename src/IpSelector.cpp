@@ -1,3 +1,4 @@
+#include "DebugLog.h"
 #include "IpSelector.h"
 
 #include <QNetworkInterface>
@@ -61,13 +62,16 @@ namespace {
         : QDialog(parent)
         , blacklist_(current_blacklist)
         , whitelist_(current_whitelist) {
+        LOG_MODULE("IpSelector", "IpSelectionDialog", LOG_DEBUG, "对话框构造开始");
         setup_ui();
         refresh_ip_list();
         setWindowTitle("IP 选择器");
         resize(600, 400);
+        LOG_MODULE("IpSelector", "IpSelectionDialog", LOG_DEBUG, "对话框构造完成");
     }
 
     void IpSelectionDialog::setup_ui() {
+        LOG_MODULE("IpSelector", "setup_ui", LOG_DEBUG, "初始化UI");
         QVBoxLayout* main_layout = new QVBoxLayout(this);
         QHBoxLayout* lists_layout = new QHBoxLayout;
 
@@ -134,9 +138,11 @@ namespace {
         button_layout->addWidget(ok_btn_);
         button_layout->addWidget(cancel_btn_);
         main_layout->addLayout(button_layout);
+        LOG_MODULE("IpSelector", "setup_ui", LOG_DEBUG, "UI初始化完成");
     }
 
     void IpSelectionDialog::on_blacklist_add() {
+        LOG_MODULE("IpSelector", "on_blacklist_add", LOG_DEBUG, "添加黑名单关键词");
         QString keyword = blacklist_input_->text().trimmed();
         if (keyword.isEmpty()) {
             QMessageBox::warning(this, "提示", "关键词不能为空");
@@ -151,6 +157,7 @@ namespace {
     }
 
     void IpSelectionDialog::on_blacklist_remove() {
+        LOG_MODULE("IpSelector", "on_blacklist_remove", LOG_DEBUG, "删除黑名单关键词");
         QListWidgetItem* item = blacklist_widget_->currentItem();
         if (item) {
             QString keyword = item->text();
@@ -161,6 +168,7 @@ namespace {
     }
 
     void IpSelectionDialog::on_whitelist_add() {
+        LOG_MODULE("IpSelector", "on_whitelist_add", LOG_DEBUG, "添加白名单关键词");
         QString keyword = whitelist_input_->text().trimmed();
         if (keyword.isEmpty()) {
             QMessageBox::warning(this, "提示", "关键词不能为空");
@@ -175,6 +183,7 @@ namespace {
     }
 
     void IpSelectionDialog::on_whitelist_remove() {
+        LOG_MODULE("IpSelector", "on_whitelist_remove", LOG_DEBUG, "删除白名单关键词");
         QListWidgetItem* item = whitelist_widget_->currentItem();
         if (item) {
             QString keyword = item->text();
@@ -185,6 +194,7 @@ namespace {
     }
 
     QStringList IpSelectionDialog::get_filtered_ips() const {
+        LOG_MODULE("IpSelector", "get_filtered_ips", LOG_DEBUG, "开始获取过滤后的IP列表");
         QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
         QStringList valid_ips;
 
@@ -216,19 +226,34 @@ namespace {
                 valid_ips.append(ipv4);
             }
         }
+        QString msg = QString("找到 %1 个有效IP").arg(valid_ips.size());
+        LOG_MODULE("IpSelector", "get_filtered_ips", LOG_DEBUG, msg.toStdString());
         return valid_ips;
     }
 
     void IpSelectionDialog::refresh_ip_list() {
+        LOG_MODULE("IpSelector", "refresh_ip_list", LOG_DEBUG, "刷新IP列表");
         ip_list_widget_->clear();
         QStringList ips = get_filtered_ips();
         ip_list_widget_->addItems(ips);
         if (ips.isEmpty()) {
             ip_list_widget_->addItem("（无可用 IP）");
             ok_btn_->setEnabled(false);
+            LOG_MODULE("IpSelector", "refresh_ip_list", LOG_WARN, "无可用IP");
         }
         else {
             ok_btn_->setEnabled(true);
+            QString msg = QString("列表刷新完成，共%1个IP").arg(ips.size());
+            LOG_MODULE("IpSelector", "refresh_ip_list", LOG_DEBUG, msg.toStdString());
+        }
+        // 记录当前选中的IP（刷新后可能丢失选中）
+        QListWidgetItem* current = ip_list_widget_->currentItem();
+        if (current) {
+            QString msg = QString("当前选中项: %1").arg(current->text());
+            LOG_MODULE("IpSelector", "refresh_ip_list", LOG_DEBUG, msg.toStdString());
+        }
+        else {
+            LOG_MODULE("IpSelector", "refresh_ip_list", LOG_DEBUG, "当前无选中项");
         }
     }
 
@@ -236,13 +261,16 @@ namespace {
         QListWidgetItem* item = ip_list_widget_->currentItem();
         if (item && item->text() != "（无可用 IP）") {
             selected_ip_ = item->text();
+            LOG_MODULE("IpSelector", "on_ip_selection_changed", LOG_INFO, "用户手动选中IP: " + selected_ip_.toStdString());
         }
         else {
             selected_ip_.clear();
+            LOG_MODULE("IpSelector", "on_ip_selection_changed", LOG_DEBUG, "选中项被清除");
         }
     }
 
     void IpSelectionDialog::on_auto_select() {
+        LOG_MODULE("IpSelector", "on_auto_select", LOG_INFO, "用户点击自动匹配按钮");
         QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
         QString fallback_ip;
         for (const QNetworkInterface& iface : interfaces) {
@@ -276,7 +304,8 @@ namespace {
             if (IpSelector::contains_any_keyword(iface_name, whitelist_) ||
                 IpSelector::contains_any_keyword(iface_human, whitelist_)) {
                 selected_ip_ = ipv4;
-                QMessageBox::information(this, "自动匹配", QString("自动匹配到 IP：%1").arg(ipv4));
+                LOG_MODULE("IpSelector", "on_auto_select", LOG_INFO, "自动匹配到白名单IP: " + ipv4.toStdString());
+                QMessageBox::information(this, "自动匹配", QString("自动匹配到 IP: %1").arg(ipv4));
                 accept();
                 return;
             }
@@ -284,33 +313,43 @@ namespace {
 
         if (!fallback_ip.isEmpty()) {
             selected_ip_ = fallback_ip;
-            QMessageBox::information(this, "自动匹配", QString("未匹配到白名单，使用默认 IP：%1").arg(fallback_ip));
+            LOG_MODULE("IpSelector", "on_auto_select", LOG_INFO, "未匹配到白名单，使用默认IP: " + fallback_ip.toStdString());
+            QMessageBox::information(this, "自动匹配", QString("未匹配到白名单，使用默认 IP: %1").arg(fallback_ip));
             accept();
         }
         else {
+            LOG_MODULE("IpSelector", "on_auto_select", LOG_ERROR, "没有找到任何有效IP");
             QMessageBox::warning(this, "自动匹配", "没有找到任何有效的 IP 地址");
             reject();
         }
     }
 
     void IpSelectionDialog::on_accept() {
-        if (selected_ip_.isEmpty()) {
-            QMessageBox::warning(this, "提示", "请先选择一个 IP 地址");
-            return;
+        QListWidgetItem* current = ip_list_widget_->currentItem();
+        LOG_MODULE("IpSelector", "on_accept", LOG_INFO, "用户点击确定按钮");
+        if (current && current->text() != "（无可用 IP）") {
+            QString chosen = current->text();
+            selected_ip_ = chosen;
+            LOG_MODULE("IpSelector", "on_accept", LOG_INFO, "确定时选中的IP: " + chosen.toStdString() + "（来自列表当前项）");
+            accept();
         }
-        accept();
+        else {
+            LOG_MODULE("IpSelector", "on_accept", LOG_WARN, "确定时没有有效选中项");
+            QMessageBox::warning(this, "提示", "请先选择一个 IP 地址");
+        }
     }
-
 }
 
 IpSelector* IpSelector::instance() {
     if (!instance_) {
         instance_ = new IpSelector();
+        LOG_MODULE("IpSelector", "instance", LOG_INFO, "单例实例创建");
     }
     return instance_;
 }
 
 QString IpSelector::auto_select_ip() {
+    LOG_MODULE("IpSelector", "auto_select_ip", LOG_DEBUG, "自动选择IP开始");
     QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
     QString fallback_ip;
 
@@ -322,7 +361,6 @@ QString IpSelector::auto_select_ip() {
 
         if (is_interface_filtered(iface)) {
             QString iface_human = iface.humanReadableName();
-            qDebug() << "黑名单过滤网卡:" << iface_human;
             continue;
         }
 
@@ -337,22 +375,25 @@ QString IpSelector::auto_select_ip() {
         QString iface_human = iface.humanReadableName();
         if (contains_any_keyword(iface_name, whitelist_) ||
             contains_any_keyword(iface_human, whitelist_)) {
-            qDebug() << "白名单匹配网卡:" << iface_human << " IP:" << ipv4;
             ip_cache_ = ipv4;
+            LOG_MODULE("IpSelector", "auto_select_ip", LOG_INFO, "自动选择IP结果(白名单): " + ipv4.toStdString());
             return ipv4;
         }
     }
 
     if (!fallback_ip.isEmpty()) {
         ip_cache_ = fallback_ip;
+        LOG_MODULE("IpSelector", "auto_select_ip", LOG_INFO, "自动选择IP结果(默认): " + fallback_ip.toStdString());
         return fallback_ip;
     }
 
     ip_cache_ = "127.0.0.1";
+    LOG_MODULE("IpSelector", "auto_select_ip", LOG_WARN, "无有效IP，使用127.0.0.1");
     return "127.0.0.1";
 }
 
 QString IpSelector::show_selection_dialog(QWidget* parent) {
+    LOG_MODULE("IpSelector", "show_selection_dialog", LOG_DEBUG, "弹出IP选择对话框");
     IpSelectionDialog dialog(blacklist_, whitelist_, parent);
     if (dialog.exec() == QDialog::Accepted) {
         // 更新本地的黑白名单为用户编辑后的版本
@@ -362,8 +403,10 @@ QString IpSelector::show_selection_dialog(QWidget* parent) {
         if (!selected.isEmpty()) {
             ip_cache_ = selected;
         }
+        LOG_MODULE("IpSelector", "show_selection_dialog", LOG_INFO, "对话框返回IP: " + selected.toStdString());
         return selected;
     }
+    LOG_MODULE("IpSelector", "show_selection_dialog", LOG_INFO, "对话框取消，返回空字符串");
     return QString();
 }
 
@@ -372,6 +415,8 @@ QStringList IpSelector::get_blacklist() const {
 }
 
 void IpSelector::set_blacklist(const QStringList& list) {
+    QString msg = QString("设置黑名单: %1").arg(list.join(","));
+    LOG_MODULE("IpSelector", "set_blacklist", LOG_DEBUG, msg.toStdString());
     blacklist_ = list;
 }
 
@@ -380,6 +425,8 @@ QStringList IpSelector::get_whitelist() const {
 }
 
 void IpSelector::set_whitelist(const QStringList& list) {
+    QString msg = QString("设置白名单: %1").arg(list.join(","));
+    LOG_MODULE("IpSelector", "set_whitelist", LOG_DEBUG, msg.toStdString());
     whitelist_ = list;
 }
 
@@ -397,9 +444,11 @@ IpSelector::IpSelector(QObject* parent)
     blacklist_ << "vmware" << "virtual" << "docker" << "vbox";
     whitelist_ << "以太网" << "wlan" << "en0" << "eth";
     ip_cache_ = "127.0.0.1";
+    LOG_MODULE("IpSelector", "IpSelector", LOG_DEBUG, "IpSelector对象构造完成，默认黑白名单已设置");
 }
 
 QStringList IpSelector::get_all_valid_ips() const {
+    LOG_MODULE("IpSelector", "get_all_valid_ips", LOG_DEBUG, "获取所有有效IP");
     QList<QNetworkInterface> interfaces = QNetworkInterface::allInterfaces();
     QStringList result;
 
@@ -418,14 +467,21 @@ QStringList IpSelector::get_all_valid_ips() const {
             result.append(ipv4);
         }
     }
+    QString msg = QString("找到%1个有效IP").arg(result.size());
+    LOG_MODULE("IpSelector", "get_all_valid_ips", LOG_DEBUG, msg.toStdString());
     return result;
 }
 
 bool IpSelector::is_interface_filtered(const QNetworkInterface& iface) const {
     QString iface_name = iface.name();
     QString iface_human = iface.humanReadableName();
-    return contains_any_keyword(iface_name, blacklist_) ||
+    bool filtered = contains_any_keyword(iface_name, blacklist_) ||
         contains_any_keyword(iface_human, blacklist_);
+    if (filtered) {
+        QString msg = QString("接口被过滤: %1 (%2)").arg(iface_human, iface_name);
+        LOG_MODULE("IpSelector", "is_interface_filtered", LOG_DEBUG, msg.toStdString());
+    }
+    return filtered;
 }
 
 QString IpSelector::get_ipv4_from_interface(const QNetworkInterface& iface) const {

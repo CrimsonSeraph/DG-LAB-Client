@@ -21,7 +21,7 @@ namespace DebugLogUtil {
     /// @brief 将 QJsonValue 转换为可读字符串
     /// @param val JSON 值
     /// @return 字符串表示
-    inline std::string jsonValueToString(const QJsonValue& val) {
+    inline std::string json_value_to_string(const QJsonValue& val) {
         if (val.isString()) return val.toString().toStdString();
         if (val.isDouble()) return std::to_string(val.toDouble());
         if (val.isBool()) return val.toBool() ? "true" : "false";

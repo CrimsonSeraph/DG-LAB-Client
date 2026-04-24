@@ -67,12 +67,12 @@ int Rule::compute_value(const std::vector<int>& params) const {
     if (mode_ == 2) {
         raw_value = std::clamp(raw_value, 0, 200);
         LOG_MODULE("Rule", "computeValue", LOG_DEBUG,
-            "设为模式：原始值 = " << raw_value << "（已钳位到 [0, 200]）");
+            "设为模式: 原始值 = " << raw_value << "（已钳位到 [0, 200]）");
     }
     else if (mode_ == 3 || mode_ == 4) {
         raw_value = std::clamp(raw_value, 1, 100);
         LOG_MODULE("Rule", "computeValue", LOG_DEBUG,
-            "连续模式：重复次数 = " << raw_value << "（已钳位到 [1, 100]）");
+            "连续模式: 重复次数 = " << raw_value << "（已钳位到 [1, 100]）");
     }
     return raw_value;
 }

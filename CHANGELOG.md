@@ -3,7 +3,7 @@
 本文档记录 DG-LAB-Client 所有 notable 的版本变更。
 
 版本号格式遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)  
-> **注意**：当前主版本号为 0（表示开发测试阶段，尚不具备获取数据功能，只有处理数据、发送指令能力）。
+> **注意**: 当前主版本号为 0（表示开发测试阶段，尚不具备获取数据功能，只有处理数据、发送指令能力）。
 
 ---
 
@@ -42,7 +42,7 @@
 - 为按键添加 `btn_size` 属性 `small` 用于显示小号按键。
 
 ### Changed
-- 优化 `paintEvent` 绘制性能：先拷贝监听器快照再绘制，避免长时间持有锁。
+- 优化 `paintEvent` 绘制性能: 先拷贝监听器快照再绘制，避免长时间持有锁。
 - 完善 Doxygen 注释，头文件与源文件分类注释格式规范化。
 - 优化 UI 布局。
 
@@ -86,7 +86,7 @@
 
 ### Added
 - 新增 12 种主题，详细见 [qcss/README.md](qcss/README.md)。
-- 样式系统再次重构：使用 `type` 和 `theme` 属性选择器实现主题切换。
+- 样式系统再次重构: 使用 `type` 和 `theme` 属性选择器实现主题切换。
 - 添加主题选择器 `ThemeSelectorDialog.h/cpp`，支持主题预览与选择。
 
 ### Changed
@@ -111,7 +111,7 @@
 
 ### Added
 - 新增实时波形采样控件（`SampledWaveformWidget`），支持连续输入 0~1 归一化数据并以滚动折线图显示，可调节采样间隔和最大振幅比例。
-- 样式系统全面重构：使用 `type` 和 `mode` 属性选择器实现精细控件分类（导航按钮、操作按钮、标题、标签、输入框等），支持亮色/暗色主题一键切换。
+- 样式系统全面重构: 使用 `type` 和 `mode` 属性选择器实现精细控件分类（导航按钮、操作按钮、标题、标签、输入框等），支持亮色/暗色主题一键切换。
 - 新增 `apply_widget_properties()` 和 `apply_inline_styles()` 方法，统一为控件设置样式属性和内联样式，提高代码可维护性。
 - 添加贡献指南 `CONTRIBUTING.md`。
 
@@ -164,8 +164,8 @@
 ## [v0.2.0] - 2026-04-08
 
 ### Added
-- 规则引擎：支持从 JSON 文件加载带 `{}` 占位符的运算规则。
-- 规则表格高级编辑：通道/模式列使用下拉框，值模式列提供可视化公式构建器（括号检查、符号插入）。
+- 规则引擎: 支持从 JSON 文件加载带 `{}` 占位符的运算规则。
+- 规则表格高级编辑: 通道/模式列使用下拉框，值模式列提供可视化公式构建器（括号检查、符号插入）。
 - 通过启用 Python 子进程通过 TCP 通信支持异步调用（线程池 + 信号槽）。
 - GitHub Actions 自动化构建新增不包含 Python 标准运行库与第三方包的精简版本（`-without-Python`），适用于本地已有 Python 环境的用户。
 - GitHub Actions 自动将更新日志发布到 GitHub Releases 页面。
@@ -200,7 +200,7 @@
 - 完善的日志系统，支持模块化日志等级控制线程安全写入。
 - 清晰的控制台输出格式以及可以限制的日志等级输出。
 - 内嵌 Python 解释器执行 Python 模块。
-- 用于与 DG-LAB 官方提供的 websocket 服务通讯的 Python 模块：`WebSocketCore.py`。
+- 用于与 DG-LAB 官方提供的 websocket 服务通讯的 Python 模块: `WebSocketCore.py`。
 - GitHub Actions 自动化构建（Windows / Linux / macOS）。
 
 ### Changed
@@ -222,9 +222,9 @@
 
 ## 其他
 
-**变动**：[v0.5.1]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.0...v0.5.1
+**变动**: [v0.5.1]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.0...v0.5.1
 
-**变更分类**：
+**变更分类**: 
   - `Added` – 新增功能
   - `Changed` – 现有功能变更
   - `Deprecated` – 标记即将移除的功能

@@ -10,7 +10,7 @@ import json
 import logging
 import sys
 
-# 配置日志：INFO级别，包含时间、级别、消息
+# 配置日志: INFO级别，包含时间、级别、消息
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("dglab_server")  # 独立的日志记录器
 
@@ -110,7 +110,7 @@ class DGLabServer:
         logger.debug(f"[DGLabServer] <send_response> (LOG_DEBUG): 响应已发送: {response}")
 
     def _on_ws_message(self, data: dict):
-        """同步回调：将来自 WebSocket 服务器的消息转发给已连接的 Qt 客户端"""
+        """同步回调: 将来自 WebSocket 服务器的消息转发给已连接的 Qt 客户端"""
         if self.qt_client is None:
             return
         response = {

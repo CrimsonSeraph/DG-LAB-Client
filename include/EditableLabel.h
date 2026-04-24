@@ -51,10 +51,10 @@ private:
     QLineEdit* line_edit_;  ///< 内嵌的文本编辑器
     bool editing_;  ///< 是否正处于编辑模式
 
-    /// @brief 进入编辑模式：显示 QLineEdit 并隐藏标签自身内容
+    /// @brief 进入编辑模式: 显示 QLineEdit 并隐藏标签自身内容
     void enter_edit_mode();
 
-    /// @brief 退出编辑模式：将编辑器的文本同步回标签，隐藏编辑器
+    /// @brief 退出编辑模式: 将编辑器的文本同步回标签，隐藏编辑器
     void exit_edit_mode();
 
     /// @brief 调整编辑器的几何尺寸，使其与标签可视区域一致

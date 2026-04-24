@@ -21,7 +21,7 @@
 
 ### Bug 报告模板
 
-请尽量使用以下模板填写：
+请尽量使用以下模板填写: 
 
 ```markdown
 **描述**
@@ -39,10 +39,10 @@
 如果有，请附上相关截图或控制台输出日志（注意脱敏）。
 
 **环境信息**
-- 操作系统：Windows 10 / macOS 14 / Ubuntu 22.04
-- Qt 版本：5.15.2 / 6.5.0
-- Python 版本：3.9 / 3.11
-- 项目版本或 commit hash：v0.5.1 或 xxxxxx
+- 操作系统: Windows 10 / macOS 14 / Ubuntu 22.04
+- Qt 版本: 5.15.2 / 6.5.0
+- Python 版本: 3.9 / 3.11
+- 项目版本或 commit hash: v0.5.1 或 xxxxxx
 
 **额外信息**
 其他你觉得有用的信息。
@@ -70,34 +70,34 @@
 
 ### 1. 分支与同步
 
-- 从 `main` 分支创建你的功能分支：`git checkout -b feature/your-feature-name` 或 `fix/bug-description`。
-- 提交前请先 rebase 到最新的 `main` 分支：`git fetch origin && git rebase origin/main`。
+- 从 `main` 分支创建你的功能分支: `git checkout -b feature/your-feature-name` 或 `fix/bug-description`。
+- 提交前请先 rebase 到最新的 `main` 分支: `git fetch origin && git rebase origin/main`。
 - 解决可能出现的冲突。
 
 ### 2. 代码风格
 
 本项目有详细的编码规范，请务必遵守 **[CodingStyle.md](CodingStyle.md)** 中的规则。
 
-关键要点回顾：
-- **编码**：UTF‑8 without BOM，换行符 CRLF（Windows 风格），文件末尾保留一个空行。
-- **缩进**：4 个空格，不使用 Tab。
-- **命名**：
-  - C++ 类：`PascalCase`
-  - 变量/函数：`snake_case`
-  - 常量/宏：`UPPER_CASE`
-  - Python 模块文件名：`PascalCase`（如 `Bridge.py`）
+关键要点回顾: 
+- **编码**: UTF‑8 without BOM，换行符 CRLF（Windows 风格），文件末尾保留一个空行。
+- **缩进**: 4 个空格，不使用 Tab。
+- **命名**: 
+  - C++ 类: `PascalCase`
+  - 变量/函数: `snake_case`
+  - 常量/宏: `UPPER_CASE`
+  - Python 模块文件名: `PascalCase`（如 `Bridge.py`）
   - Qt 虚函数（如 `paintEvent`）保持 Qt 原有风格。
-- **头文件**：使用 `#pragma once`。
-- **头文件分区顺序**：`public:` → `protected:` → `private:` → `signals:` → `private slots:`。每个分区内部按规则排列。
-- **源文件**：函数定义顺序必须与头文件声明顺序一致。
-- **注释**：复杂函数使用 Doxygen 风格（`/// @brief` 等）；简单函数可用单行注释。
-- **日志**：合理使用 `LOG_MODULE` 宏，避免高频输出。
+- **头文件**: 使用 `#pragma once`。
+- **头文件分区顺序**: `public:` → `protected:` → `private:` → `signals:` → `private slots:`。每个分区内部按规则排列。
+- **源文件**: 函数定义顺序必须与头文件声明顺序一致。
+- **注释**: 复杂函数使用 Doxygen 风格（`/// @brief` 等）；简单函数可用单行注释。
+- **日志**: 合理使用 `LOG_MODULE` 宏，避免高频输出。
 
 > 如果你的编辑器支持，可以配置自动格式化（项目根目录有 `.editorconfig`）。
 
 ### 3. Commit 规范
 
-我们推荐使用语义化的提交信息格式：
+我们推荐使用语义化的提交信息格式: 
 
 ```
 <type>(<scope>): <subject>
@@ -107,13 +107,13 @@
 <footer>
 ```
 
-- **type**：`feat`（新功能）、`fix`（Bug 修复）、`docs`（文档）、`style`（格式，不影响代码逻辑）、`refactor`（重构）、`perf`（性能优化）、`test`（测试）、`chore`（构建/工具变动）
-- **scope**（可选）：影响的模块，如 `config`、`rule`、`python`、`ui` 等
-- **subject**：简短描述，不超过 50 字符，使用英文或中文（尽量英文）
-- **body**（可选）：详细描述改动的原因和内容
-- **footer**（可选）：关闭 Issue 用 `Closes #123`
+- **type**: `feat`（新功能）、`fix`（Bug 修复）、`docs`（文档）、`style`（格式，不影响代码逻辑）、`refactor`（重构）、`perf`（性能优化）、`test`（测试）、`chore`（构建/工具变动）
+- **scope**（可选）: 影响的模块，如 `config`、`rule`、`python`、`ui` 等
+- **subject**: 简短描述，不超过 50 字符，使用英文或中文（尽量英文）
+- **body**（可选）: 详细描述改动的原因和内容
+- **footer**（可选）: 关闭 Issue 用 `Closes #123`
 
-**示例**：
+**示例**: 
 
 ```
 feat(rule): add formula builder dialog
@@ -138,7 +138,7 @@ Prevent Bridge.py from hanging when server is unreachable.
 ### 5. 提交 PR
 
 - 推送到你自己的 fork 仓库后，在 GitHub 上发起 Pull Request。
-- PR 标题应简明扼要，内容描述：
+- PR 标题应简明扼要，内容描述: 
   - 解决了什么问题（关联 Issue 编号）。
   - 改动的简要概述。
   - 如果引入破坏性更改，请说明。

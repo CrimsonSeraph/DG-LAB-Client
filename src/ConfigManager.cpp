@@ -213,7 +213,7 @@ nlohmann::json ConfigManager::get_default_config() const {
 // ============================================
 
 std::vector<std::string> ConfigManager::split_key_path(const std::string& key_path) const {
-    // 注意：调用此函数前必须已持有 mutex_，因此内部不再加锁
+    // 注意: 调用此函数前必须已持有 mutex_，因此内部不再加锁
     auto it = split_cache_.find(key_path);
     if (it != split_cache_.end()) {
         return it->second;

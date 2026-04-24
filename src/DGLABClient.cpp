@@ -57,6 +57,7 @@
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <utility>
 
  // ============================================
@@ -104,8 +105,7 @@ void DGLABClient::init_label() {
     refresh_channel_info();
     refresh_channel_strength();
     refresh_connect_label();
-    refresh_ip();
-    refresh_port_label();
+    refresh_ip_port_label();
     refresh_theme_label();
 }
 
@@ -272,23 +272,23 @@ void DGLABClient::handle_connect() {
     }
 }
 
-void DGLABClient::refresh_ip() {
-    auto ip_selector = IpSelector::instance();
-    ip_cache_ = ip_selector->auto_select_ip();
-    ui_.IP_label->setText(ip_cache_);
-}
-
 void DGLABClient::set_ip() {
     auto ip_selector = IpSelector::instance();
     QString selected = ip_selector->show_selection_dialog(this);
     ip_cache_ = selected.isEmpty() ? ip_cache_ : selected;
+    auto& config = AppConfig::instance();
+    config.set_value_with_name<std::string>("app.websocket.ip", ip_cache_.toStdString(), "system");
+    refresh_ip_port_label();
 }
 
-void DGLABClient::refresh_port_label() {
+void DGLABClient::refresh_ip_port_label() {
     auto& config = AppConfig::instance();
     int old_port = config.get_value<int>("app.websocket.port", 9999);
     port_cache_ = old_port;
     ui_.port_label->setText(QString::number(port_cache_));
+    std::string old_ip = config.get_value<std::string>("app.websocket.ip", "127.0.0.1");
+    ip_cache_ = QString::fromStdString(old_ip);
+    ui_.IP_label->setText(ip_cache_);
 }
 
 void DGLABClient::setup_port_input_validation() {
@@ -298,19 +298,22 @@ void DGLABClient::setup_port_input_validation() {
     ui_.port_label->set_validator(validator);
 }
 
-void DGLABClient::set_port() {
-    LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "设置端口");
+void DGLABClient::set_ip_port() {
+    LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "设置 IP 及端口");
     if (port_cache_ >= 0 && port_cache_ <= 65535) {
         LOG_MODULE("DGLABClient", "set_port", LOG_DEBUG, "开始设置端口");
         auto& config = AppConfig::instance();
         config.set_value_with_name<int>("app.websocket.port", port_cache_, "system");
-        QMessageBox::information(this, "端口更新完成！", "设置端口完成：" + QString::number(port_cache_));
-        LOG_MODULE("DGLABClient", "set_port", LOG_INFO, "设置端口完成：" << port_cache_);
+        config.set_value_with_name<std::string>("app.websocket.ip", ip_cache_.toStdString(), "system");
+        QString msg = "设置 IP 及端口: " + ip_cache_ + ":" + QString::number(port_cache_);
+        QMessageBox::information(this, "信息更新完成！", msg);
+        LOG_MODULE("DGLABClient", "set_port", LOG_INFO, msg.toStdString());
     }
     else {
-        QMessageBox::warning(this, "端口设置失败！", "设置端口失败！非合法端口：" + QString::number(port_cache_));
-        LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口：" << port_cache_);
+        QMessageBox::warning(this, "端口设置失败！", "设置端口失败！非合法端口: " + QString::number(port_cache_));
+        LOG_MODULE("DGLABClient", "set_port", LOG_WARN, "设置端口失败！非合法端口: " << port_cache_);
     }
+    refresh_ip_port_label();
 }
 
 void DGLABClient::cache_port(const QString& input) {
@@ -326,8 +329,8 @@ void DGLABClient::cache_port(const QString& input) {
             port_cache_ = port;
         }
         else {
-            QMessageBox::warning(this, "端口设置失败！", "设置端口失败！非合法端口：" + input);
-            LOG_MODULE("DGLABClient", "cache_port", LOG_WARN, "设置端口失败！非合法端口：" << input.toStdString());
+            QMessageBox::warning(this, "端口设置失败！", "设置端口失败！非合法端口: " + input);
+            LOG_MODULE("DGLABClient", "cache_port", LOG_WARN, "设置端口失败！非合法端口: " << input.toStdString());
         }
     }
     ui_.port_label->setText(QString::number(port_cache_));
@@ -337,7 +340,7 @@ void DGLABClient::connect_about_connect() const {
     LOG_MODULE("DGLABClient", "connect_about_connect", LOG_DEBUG, "连接连接相关槽函数");
     connect(this, &DGLABClient::connect_finished, this, &DGLABClient::handle_connect_finished);
     connect(this, &DGLABClient::close_finished, this, &DGLABClient::handle_close_finished);
-    connect(ui_.confirm_port_btn, &QPushButton::clicked, this, &DGLABClient::set_port);
+    connect(ui_.confirm_port_btn, &QPushButton::clicked, this, &DGLABClient::set_ip_port);
     connect(ui_.IP_label, &EditableLabel::double_clicked, this, &DGLABClient::set_ip);
     connect(ui_.port_label, &EditableLabel::text_edited, this, &DGLABClient::cache_port);
     connect(ui_.connect_btn, &QPushButton::clicked, this, &DGLABClient::handle_connect);
@@ -498,7 +501,7 @@ void DGLABClient::load_stylesheet() {
     auto& config = AppConfig::instance();
     theme_ = mode_string_to_theme(config.get_value<std::string>("app.ui.theme", "light"));
     setup_widget_properties("theme", theme_to_mode_string(theme_).toStdString());
-    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式：" + theme_to_mode_string(theme_).toStdString());
+    LOG_MODULE("DGLABClient", "load_stylesheet", LOG_INFO, "当前样式: " + theme_to_mode_string(theme_).toStdString());
 
     QString qss_path = QStringLiteral(":/style/qcss/") + theme_to_mode_string(theme_) + QStringLiteral(".qcss");
     if (!QFile::exists(qss_path)) {
@@ -515,7 +518,7 @@ void DGLABClient::load_stylesheet() {
     }
     else {
         LOG_MODULE("DGLABClient", "load_stylesheet", LOG_WARN,
-            "无法加载样式表文件：" << qss_path.toStdString());
+            "无法加载样式表文件: " << qss_path.toStdString());
     }
     apply_inline_styles();
 
@@ -533,13 +536,13 @@ void DGLABClient::change_theme(const std::string& theme_str) {
     Theme new_theme = mode_string_to_theme(theme_str);
     if (new_theme == theme_) {
         LOG_MODULE("DGLABClient", "change_theme", LOG_DEBUG,
-            "主题未改变，当前已是：" << theme_str);
+            "主题未改变，当前已是: " << theme_str);
         return;
     }
 
     theme_ = new_theme;
     LOG_MODULE("DGLABClient", "change_theme", LOG_INFO,
-        "切换主题为：" << theme_str << " (枚举值: " << static_cast<int>(theme_) << ")");
+        "切换主题为: " << theme_str << " (枚举值: " << static_cast<int>(theme_) << ")");
 
     auto& config = AppConfig::instance();
     config.set_value<std::string>("app.ui.theme", theme_to_mode_string(theme_).toStdString());
@@ -588,9 +591,9 @@ void DGLABClient::init_python_manager() {
     auto& config = AppConfig::instance();
     QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
     std::string bridge_module = config.get_value<std::string>("python.bridge_path", "./python/Bridge.py");
-    LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径："
-        << pythonPath.toStdString() << "（注：若解释器路径直接为<Python>则使用系统默认 Python 路径）");
-    LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径：" << bridge_module);
+    LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径: "
+        << pythonPath.toStdString() << "（注: 若解释器路径直接为<Python>则使用系统默认 Python 路径）");
+    LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径: " << bridge_module);
     if (bridge_module.starts_with(".")) bridge_module = bridge_module.substr(1);
     QString script_path = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
     py_manager_->start_process(pythonPath, script_path);
@@ -809,7 +812,7 @@ void DGLABClient::update_rule_table() {
 // ----- 样式辅助 -----
 void DGLABClient::setup_widget_properties(const std::string& property, const std::string& key) {
     LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "开始设置元素属性");
-    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素统一属性[" << property << "]为：" << key);
+    LOG_MODULE("DGLABClient", "setup_widget_properties", LOG_DEBUG, "设置元素统一属性[" << property << "]为: " << key);
 
     // 为所有需要动态属性的控件统一设置
     QList<QWidget*> all_widgets = ui_.all->findChildren<QWidget*>();
@@ -1223,7 +1226,7 @@ void DGLABClient::on_create_rule_file() {
     auto& config = AppConfig::instance();
     QString keyword = QString::fromStdString(config.get_value<std::string>("rule.key", "rule"));
     QString name = QInputDialog::getText(this, "新建规则文件",
-        "请输入文件名（不含.json，但需要包含关键字：" + keyword + "，否则会自动添加）:",
+        "请输入文件名（不含.json，但需要包含关键字: " + keyword + "，否则会自动添加）:",
         QLineEdit::Normal, "", &ok);
     if (!ok || name.isEmpty()) return;
     if (name.endsWith(".json", Qt::CaseInsensitive)) {
@@ -1410,7 +1413,7 @@ void DGLABClient::on_delete_rule() {
 }
 
 void DGLABClient::on_active_message_received(const QJsonObject& message) {
-    // 消息格式：{ "type": "active_message", "data": {...} }
+    // 消息格式: { "type": "active_message", "data": {...} }
     QJsonObject data = message.value("data").toObject();
     QString msgType = data.value("type").toString();
 

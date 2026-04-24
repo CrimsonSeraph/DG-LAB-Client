@@ -50,7 +50,7 @@ public:
     /// @brief 设置所有模块的日志等级（枚举版本）
     void set_all_log_level(LogLevel level);
 
-    /// @brief 设置所有模块的日志等级（整数版本：0=DEBUG,1=INFO,2=WARN,3=ERROR,4=NONE）
+    /// @brief 设置所有模块的日志等级（整数版本: 0=DEBUG,1=INFO,2=WARN,3=ERROR,4=NONE）
     void set_all_log_level(int level);
 
     /// @brief 设置是否仅输出与模块等级匹配的日志（类型信息模式）

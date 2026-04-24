@@ -31,7 +31,7 @@ FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidge
     expression_edit_ = new QLineEdit(initialFormula, this);
     expression_edit_->setFont(QFont("Consolas", 14));
     expression_edit_->setMinimumHeight(50);
-    mainLayout->addWidget(new QLabel("计算式（{} 为占位符，仅支持整数）："));
+    mainLayout->addWidget(new QLabel("计算式（{} 为占位符，仅支持整数）: "));
     mainLayout->addWidget(expression_edit_);
 
     status_label_ = new QLabel(this);
@@ -169,7 +169,7 @@ bool FormulaBuilderDialog::expression_validity(const QString& expr, QString* err
     }
 
     if (!parenStack.isEmpty()) {
-        return set_error("括号不匹配：缺少右括号");
+        return set_error("括号不匹配: 缺少右括号");
     }
     if (expectOperand) {
         return set_error("表达式不能以运算符结尾");

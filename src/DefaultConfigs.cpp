@@ -10,9 +10,9 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-// ============================================
-// 默认配置工厂实现
-// ============================================
+ // ============================================
+ // 默认配置工厂实现
+ // ============================================
 
 nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name) {
     if (config_name == "main") {
@@ -45,6 +45,7 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             {"__priority", 1},
             {"app", {
                 {"websocket", {
+                    {"ip","127.0.0.1"},
                     {"port", 9999}
                 }}
             }},

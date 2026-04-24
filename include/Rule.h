@@ -45,7 +45,7 @@ public:
     /// @brief 获取占位符数量
     size_t get_placeholder_count() const;
 
-    /// @brief 计算值：将参数填入表达式并求值，根据模式钳位
+    /// @brief 计算值: 将参数填入表达式并求值，根据模式钳位
     /// @param values 参数列表（数量必须匹配占位符）
     /// @return 计算结果（已钳位）
     int compute_value(const std::vector<int>& values) const;

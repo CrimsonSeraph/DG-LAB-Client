@@ -63,11 +63,10 @@ public:
     void set_port_label_mode();
     void refresh_connect_label();
     void handle_connect();
-    void refresh_ip();
     void set_ip();
-    void refresh_port_label();
+    void refresh_ip_port_label();
     void setup_port_input_validation();
-    void set_port();
+    void set_ip_port();
     void cache_port(const QString& input);
     void connect_about_connect() const;
     inline QString get_ip_cache_() { return ip_cache_; };

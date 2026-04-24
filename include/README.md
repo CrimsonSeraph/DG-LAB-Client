@@ -32,60 +32,60 @@
 | `ThemeSelectorDialog.h` | 主题选择对话框的声明。继承自 `QDialog`，包含 `theme_selected` 信号和私有映射（中文名、模式名、主色）。通过 `setup_ui()` 构建网格布局的主题卡片，`create_theme_card()` 创建可点击的卡片控件，用于直观的主题选择。 |
 | `ValueModeDelegate.h` | **值模式列自定义委托** （`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式  |
 
-> **注**：`DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件虽不属头文件，但属于界面设计的一部分，应与头文件配套使用。
+> **注**: `DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件虽不属头文件，但属于界面设计的一部分，应与头文件配套使用。
 
 ---
 
 ## 依赖关系
 
-- **Qt 5/6**：`DGLABClient.h`、`PythonSubprocessManager.h`、`SampledWaveformWidget.h` 依赖 Qt Core、Widgets、Network 模块；`DebugLog_utils.hpp` 依赖 QtCore 的 JSON 类。
-- **nlohmann/json**：所有配置相关头文件（`AppConfig.h`、`ConfigManager.h`、`ConfigStructs.h` 等）以及规则相关头文件（`RuleManager.h`）依赖 JSON 解析库。
-- **C++20**：项目使用 C++20 标准，部分模板、概念（如 `ConfigSerializable`）要求编译器支持 C++20。
+- **Qt 5/6**: `DGLABClient.h`、`PythonSubprocessManager.h`、`SampledWaveformWidget.h` 依赖 Qt Core、Widgets、Network 模块；`DebugLog_utils.hpp` 依赖 QtCore 的 JSON 类。
+- **nlohmann/json**: 所有配置相关头文件（`AppConfig.h`、`ConfigManager.h`、`ConfigStructs.h` 等）以及规则相关头文件（`RuleManager.h`）依赖 JSON 解析库。
+- **C++20**: 项目使用 C++20 标准，部分模板、概念（如 `ConfigSerializable`）要求编译器支持 C++20。
 
 ---
 
 ## 设计要点
 
 ### 1. 配置系统
-- **多级配置**：通过 `MultiConfigManager` 管理多个 `ConfigManager` 实例（main/user/system），每个实例有独立优先级，读取时高优先级覆盖低优先级。
-- **类型安全**：`ConfigValue<T>` 和 `ConfigObject<T>` 包装配置项，提供类型安全的读写、缓存和变更回调，避免直接操作 JSON。
-- **热重载**：`MultiConfigManager` 支持文件监控，当配置文件变化时自动重新加载并通知监听器。
+- **多级配置**: 通过 `MultiConfigManager` 管理多个 `ConfigManager` 实例（main/user/system），每个实例有独立优先级，读取时高优先级覆盖低优先级。
+- **类型安全**: `ConfigValue<T>` 和 `ConfigObject<T>` 包装配置项，提供类型安全的读写、缓存和变更回调，避免直接操作 JSON。
+- **热重载**: `MultiConfigManager` 支持文件监控，当配置文件变化时自动重新加载并通知监听器。
 
 ### 2. 日志系统
-- **模块化过滤**：每个模块可独立设置日志等级，支持按等级输出或仅输出指定等级的日志。
-- **多接收器**：可注册多个 `LogSink`（如控制台、UI 控件），每个接收器可设置独立的最低等级，日志消息会分发到所有符合条件的接收器。
-- **线程安全**：所有日志写入操作均受互斥锁保护，确保多线程环境下的安全性。
+- **模块化过滤**: 每个模块可独立设置日志等级，支持按等级输出或仅输出指定等级的日志。
+- **多接收器**: 可注册多个 `LogSink`（如控制台、UI 控件），每个接收器可设置独立的最低等级，日志消息会分发到所有符合条件的接收器。
+- **线程安全**: 所有日志写入操作均受互斥锁保护，确保多线程环境下的安全性。
 
 ### 3. Python 子进程通信
-- **进程管理**：`PythonSubprocessManager` 通过 `QProcess` 启动独立 Python 进程，子进程启动后立即输出监听端口，主进程通过 `QTcpSocket` 连接。
-- **异步调用**：提供 `call` 方法将命令提交到全局线程池执行，避免阻塞主线程；通过 `req_id` 关联请求与响应，支持超时和回调。
-- **停止安全**：析构时设置停止标志，唤醒所有等待线程，并等待线程池任务完成，防止资源泄漏。
+- **进程管理**: `PythonSubprocessManager` 通过 `QProcess` 启动独立 Python 进程，子进程启动后立即输出监听端口，主进程通过 `QTcpSocket` 连接。
+- **异步调用**: 提供 `call` 方法将命令提交到全局线程池执行，避免阻塞主线程；通过 `req_id` 关联请求与响应，支持超时和回调。
+- **停止安全**: 析构时设置停止标志，唤醒所有等待线程，并等待线程池任务完成，防止资源泄漏。
 
 ### 4. 规则引擎
-- **模式匹配**：`Rule` 类使用 `{}` 作为占位符，可解析占位符位置并动态替换为整数参数，生成最终字符串。
-- **文件管理**：`RuleManager` 扫描配置目录下含关键字的 JSON 文件，支持创建、删除、切换规则文件，并自动解析 `rules` 对象为 `Rule` 实例。
-- **线程安全**：规则集合的读写操作使用互斥锁保护。
+- **模式匹配**: `Rule` 类使用 `{}` 作为占位符，可解析占位符位置并动态替换为整数参数，生成最终字符串。
+- **文件管理**: `RuleManager` 扫描配置目录下含关键字的 JSON 文件，支持创建、删除、切换规则文件，并自动解析 `rules` 对象为 `Rule` 实例。
+- **线程安全**: 规则集合的读写操作使用互斥锁保护。
 
 ### 5. 波形采样控件
-- **实时性**：使用独立 `QTimer` 定时采样，避免阻塞主线程；环形缓冲区无锁写入（通过索引取模），读取时加锁保护最新值。
-- **灵活性**：提供 `add_listener()`、`remove_listener()`、`set_listener_color()` 等接口，方便运行时动态调整。
-- **可视化**：抗锯齿绿线折线，背景深色，基线灰色虚线，适应亮色/暗色主题（通过 QSS 设置背景色）。
-- **多监听器支持**：控件可同时显示多条波形曲线，每条曲线独立采样、独立颜色，适用于同时监控多个数据源（如 A/B 通道强度、传感器数值等）。
-- **线程安全**：内部使用 `QMutex` 保护监听器映射及最新输入值，保证多线程输入的安全性。
-- **支持范围输入**：提供 `set_input_range()` 方法，允许为每个监听器设置输入值的最小值和最大值，控件内部将输入值归一化到 0~1 后进行绘制，适应不同量级的数据输入。
+- **实时性**: 使用独立 `QTimer` 定时采样，避免阻塞主线程；环形缓冲区无锁写入（通过索引取模），读取时加锁保护最新值。
+- **灵活性**: 提供 `add_listener()`、`remove_listener()`、`set_listener_color()` 等接口，方便运行时动态调整。
+- **可视化**: 抗锯齿绿线折线，背景深色，基线灰色虚线，适应亮色/暗色主题（通过 QSS 设置背景色）。
+- **多监听器支持**: 控件可同时显示多条波形曲线，每条曲线独立采样、独立颜色，适用于同时监控多个数据源（如 A/B 通道强度、传感器数值等）。
+- **线程安全**: 内部使用 `QMutex` 保护监听器映射及最新输入值，保证多线程输入的安全性。
+- **支持范围输入**: 提供 `set_input_range()` 方法，允许为每个监听器设置输入值的最小值和最大值，控件内部将输入值归一化到 0~1 后进行绘制，适应不同量级的数据输入。
 
 ### 6. GUI 响应性
-- **后台任务**：`DGLABClient` 将耗时操作（如 Python 调用）通过 `PythonSubprocessManager::call` 放入线程池，完成后通过信号槽将结果传回主线程更新界面。
-- **日志显示**：日志接收器 `qtSink` 将日志消息通过 `QMetaObject::invokeMethod` 安全地追加到 UI 控件，并支持按等级着色。
-- **规则管理**：规则文件的加载、保存及规则的增删改查均在 UI 线程同步执行（操作轻量），不影响流畅度。
-- **样式系统**：通过 `apply_widget_properties()` 为所有控件设置 `type` 属性，配合 QSS 中的 `[type="..."]` 选择器，实现统一的主题切换和视觉风格。
+- **后台任务**: `DGLABClient` 将耗时操作（如 Python 调用）通过 `PythonSubprocessManager::call` 放入线程池，完成后通过信号槽将结果传回主线程更新界面。
+- **日志显示**: 日志接收器 `qtSink` 将日志消息通过 `QMetaObject::invokeMethod` 安全地追加到 UI 控件，并支持按等级着色。
+- **规则管理**: 规则文件的加载、保存及规则的增删改查均在 UI 线程同步执行（操作轻量），不影响流畅度。
+- **样式系统**: 通过 `apply_widget_properties()` 为所有控件设置 `type` 属性，配合 QSS 中的 `[type="..."]` 选择器，实现统一的主题切换和视觉风格。
 
 ---
 
 ## 使用说明
 
 ### 包含头文件
-项目中只需包含所需模块的头文件，例如：
+项目中只需包含所需模块的头文件，例如: 
 ```cpp
 #include "AppConfig.h"
 #include "DebugLog.h"
@@ -93,14 +93,14 @@
 ```
 
 ### 配置系统初始化
-在应用程序启动时调用：
+在应用程序启动时调用: 
 ```cpp
 AppConfig::instance().initialize("./config");
 ```
 之后可通过 `AppConfig::instance().get_value<T>("key", default)` 读取配置。
 
 ### 日志输出
-使用宏 `LOG_MODULE`：
+使用宏 `LOG_MODULE`: 
 ```cpp
 LOG_MODULE("MyModule", "myFunction", LOG_INFO, "Hello, world!");
 ```
@@ -133,4 +133,4 @@ QJsonObject cmd = RuleManager::instance().evaluate_command("strength_up", 2);
 - 多线程环境下，确保对 `AppConfig` 的访问通过其提供的线程安全方法进行（内部已加锁）。
 - Python 子进程的 `Bridge.py` 必须实现 JSON 行协议（每条响应以换行符结尾），并正确处理 `req_id`。
 - 规则文件中的 value_pattern 可以包含 `{}` 占位符，调用 `evaluate_command` 时传入的参数数量必须与占位符数量匹配。
-- 规则支持通道（A/B）和模式（0-4）配置，模式含义：0=递减, 1=递增, 2=设为, 3=连减, 4=连增。
+- 规则支持通道（A/B）和模式（0-4）配置，模式含义: 0=递减, 1=递增, 2=设为, 3=连减, 4=连增。

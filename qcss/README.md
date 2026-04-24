@@ -32,13 +32,13 @@
 | `style_vandyke_brown_khaki.qcss` | Vandyke Brown Khaki (凡戴克棕卡其) | `vandyke_brown_khaki` | Vandyke Brown #492D22, Light Khaki #D8C7B5 |
 | `style_prussian_blue_fog.qcss` | Prussian Blue Fog (普鲁士雾灰) | `prussian_blue_fog` | Prussian Blue #003153, Fog Gray #E5DDD7 |
 
-> **注意**：样式文件中使用了统一的 `type` 属性选择器（如 `[type="nav_btn"]`）和 `theme` 属性选择器（如 `[theme="charcoal_pink"]`），不同主题仅通过 `theme` 值区分配色。
+> **注意**: 样式文件中使用了统一的 `type` 属性选择器（如 `[type="nav_btn"]`）和 `theme` 属性选择器（如 `[theme="charcoal_pink"]`），不同主题仅通过 `theme` 值区分配色。
 
 ---
 
 ## 控件类型（type 属性）
 
-无论使用哪个主题，以下 `type` 属性值均被支持，用于匹配对应的控件样式：
+无论使用哪个主题，以下 `type` 属性值均被支持，用于匹配对应的控件样式: 
 
 | 属性值 | 控件类型 | 说明 |
 | - | - | - |
@@ -59,7 +59,7 @@
 | `sub_panel` | 子面板 | 完全透明，用于布局 |
 | `waveform` | 波形控件（自定义） | 深色背景，圆角 |
 
-示例样式片段（浅色模式导航按钮）：
+示例样式片段（浅色模式导航按钮）: 
 
 ```css
 QPushButton[type="nav_btn"][theme="light"] {
@@ -78,7 +78,7 @@ QPushButton[type="nav_btn"][theme="light"]:hover {
 }
 ```
 
-暗夜模式示例（相同的 `type`，不同的 `theme`）：
+暗夜模式示例（相同的 `type`，不同的 `theme`）: 
 ```css
 QPushButton[type="nav_btn"][theme="night"] {
     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -94,11 +94,11 @@ QPushButton[type="nav_btn"][theme="night"] {
 
 应用程序通过 `AppConfig` 读取当前选中的主题（存储为 `Theme` 枚举值，如 `LIGHT`, `NIGHT`, `CHARCOAL_PINK` 等）。在 `DGLABClient` 初始化时，根据配置加载对应的样式文件，并调用 `apply_widget_properties()` 为所有需要样式的控件设置 `type` 和 `theme` 属性。
 
-**切换主题**：
+**切换主题**: 
 - 点击界面上的“切换主题”按钮，弹出主题选择菜单或循环切换。
 - 内部修改配置中的 `theme` 值，重新加载样式表并刷新所有控件的 `theme` 属性。
 
-**动态设置示例**：
+**动态设置示例**: 
 
 ```cpp
 QString themeStr = theme_to_mode_string(current_theme);
@@ -109,7 +109,7 @@ mainWindow->setProperty("theme", theme_str);
 load_stylesheet(theme_str);
 ```
 
-**注意事项**：
+**注意事项**: 
 - 所有自定义控件（如 `SampledWaveformWidget`）也通过 `[type="waveform"]` 选择器设置背景和圆角。
 - 样式文件中的 `theme` 属性由代码动态设置，与 `type` 属性共同作用。
 - 如需添加新的控件类型，请在 `apply_widget_properties()` 中为对应控件设置唯一的 `type` 字符串，并在所有样式文件中定义相应规则。

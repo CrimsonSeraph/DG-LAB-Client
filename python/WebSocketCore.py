@@ -384,7 +384,7 @@ class DGLabClient:
         格式: https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<服务器地址>/<客户端ID>
         """
         if not self.client_id:
-            logger.error("[DGLabClient] <generate_qr_content> (LOG_ERROR): 无法生成二维码：client_id 为空")
+            logger.error("[DGLabClient] <generate_qr_content> (LOG_ERROR): 无法生成二维码: client_id 为空")
             return None
         server_address = self.config.ws_url.split('://')[1]
         qr = f"https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://{server_address}/{self.client_id}"

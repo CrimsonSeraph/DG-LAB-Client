@@ -314,7 +314,7 @@ endif()
     endif()
 
 elseif(APPLE)
-    # macOS：复制 libpython 动态库
+    # macOS: 复制 libpython 动态库
     get_target_property(PYTHON_LIB_PATH Python::Python IMPORTED_LOCATION)
     if(PYTHON_LIB_PATH AND EXISTS "${PYTHON_LIB_PATH}")
         install(FILES "${PYTHON_LIB_PATH}" DESTINATION lib)
@@ -331,7 +331,7 @@ elseif(APPLE)
     endif()
 
 else()
-    # Linux：复制 libpython.so
+    # Linux: 复制 libpython.so
     get_target_property(PYTHON_LIB_PATH Python::Python IMPORTED_LOCATION)
     if(PYTHON_LIB_PATH AND EXISTS "${PYTHON_LIB_PATH}")
         install(FILES "${PYTHON_LIB_PATH}" DESTINATION lib)
