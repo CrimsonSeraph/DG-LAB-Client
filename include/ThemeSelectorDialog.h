@@ -50,6 +50,7 @@ private:
     QMap<Theme, QString> chinese_names_;    ///< 主题中文名映射
     QMap<Theme, QString> mode_names_;   ///< 主题英文模式名映射
     QMap<Theme, QColor> primary_colors_;    ///< 主题主色映射
+    QMap<Theme, QColor> secondary_colors_;  ///< 主题副色映射
 
     // -------------------- 私有辅助函数 --------------------
     void setup_ui();    ///< 初始化界面
@@ -57,6 +58,7 @@ private:
         const QString& chinese_name,
         const QString& mode_name,
         const QColor& primary_color,
+        const QColor& secondary_color,
         QGridLayout* layout,
         int row, int col);
 };

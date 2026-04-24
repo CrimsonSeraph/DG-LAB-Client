@@ -76,7 +76,7 @@ DGLABClient::DGLABClient(QWidget* parent)
     init_label();
     init_connect();
 
-    connect(ui_.minimize_btn, &QPushButton::clicked, this, &QWidget::showMinimized);
+    connect(ui_.minimize_btn, &QPushButton::clicked, this, &DGLABClient::close);
     connect(ui_.close_btn, &QPushButton::clicked, qApp, &QApplication::quit);
     setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
     setWindowFlag(Qt::WindowCloseButtonHint, false);
@@ -118,6 +118,7 @@ void DGLABClient::init_connect() const {
     connect_about_page();
     connect_about_channel_contral();
     connect_about_connect();
+    connect_about_theme();
 }
 
 void DGLABClient::init_style() {
@@ -551,8 +552,6 @@ void DGLABClient::change_theme(const std::string& theme_str) {
     config.set_value<std::string>("app.ui.theme", theme_to_mode_string(theme_).toStdString());
 
     load_stylesheet();
-
-    //ui_.current_theme->setText(theme_to_mode_string_cn(theme_));
 }
 
 void DGLABClient::change_theme(const QString& theme_str) {
@@ -874,9 +873,6 @@ void DGLABClient::apply_widget_properties() {
     ui_.B_rule_card->setProperty("type", "glass_panel");
     ui_.A_wave_card->setProperty("type", "glass_panel");
     ui_.B_wave_card->setProperty("type", "glass_panel");
-    // 通道控制栏
-    ui_.A_contral_bar->setProperty("type", "glass_panel");
-    ui_.B_contral_bar->setProperty("type", "glass_panel");
     // 配置页各个面板
     ui_.port_bar->setProperty("type", "glass_panel");
     ui_.debug_log_card->setProperty("type", "glass_panel");

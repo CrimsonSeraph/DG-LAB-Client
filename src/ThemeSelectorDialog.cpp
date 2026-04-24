@@ -103,6 +103,24 @@ ThemeSelectorDialog::ThemeSelectorDialog(QWidget* parent)
         {PRUSSIAN_BLUE_FOG, QColor(0x00, 0x31, 0x53)}   // Prussian Blue
     };
 
+    // 初始化主题副色映射
+    secondary_colors_ = {
+        {LIGHT, QColor(0xD4, 0xE6, 0xF1)},  // Misty Blue
+        {NIGHT, QColor(0x1A, 0x25, 0x2F)},  // Dark Navy
+        {CHARCOAL_PINK, QColor(0xE6, 0x39, 0x7C)},  // Sweet Pink
+        {DEEPSEA_CREAM, QColor(0xF5, 0xEF, 0xEA)},  // Soft Milk White
+        {VINE_PURPLE_TEA_GREEN, QColor(0x5E, 0x55, 0xA2)},  // Titanium Green
+        {OFFWHITE_CAMELLIA, QColor(0xE7, 0x2D, 0x48)},  // Camellia Red
+        {DARK_BLUE_CLEAR_BLUE, QColor(0x91, 0xD5, 0xD3)},   // Clear Blue
+        {KLEIN_YELLOW, QColor(0xFF, 0xE7, 0x6F)},   // Pine Flower Yellow
+        {MARS_GREEN_ROSE, QColor(0xF9, 0xD2, 0xE4)},    // Rose Pink
+        {HERMES_ORANGE_NAVY, QColor(0x00, 0x00, 0x26)}, // Navy Blue
+        {TIFFANY_BLUE_CHEESE, QColor(0xF8, 0xF5, 0xD6)},    // Cheese Yellow
+        {CHINA_RED_YELLOW, QColor(0xFA, 0xEA, 0xD3)},   // Light Yellow
+        {VANDYKE_BROWN_KHAKI, QColor(0xD8, 0xC7, 0xB5)},  // Light Khaki
+        {PRUSSIAN_BLUE_FOG, QColor(0xE5, 0xDD, 0xD7)}     // Fog Gray
+    };
+
     setup_ui();
     setWindowTitle("选择主题");
     resize(700, 500);
@@ -146,8 +164,8 @@ void ThemeSelectorDialog::setup_ui() {
         QString ch_name = chinese_names_.value(theme, "未知");
         QString mode_name = mode_names_.value(theme, "unknown");
         QColor primary_color = primary_colors_.value(theme, Qt::gray);
-
-        create_theme_card(theme, ch_name, mode_name, primary_color, grid_layout, row, col);
+        QColor secondary_color = secondary_colors_.value(theme, Qt::lightGray);
+        create_theme_card(theme, ch_name, mode_name, primary_color, secondary_color, grid_layout, row, col);
 
         col++;
         if (col >= max_cols) {
@@ -172,6 +190,7 @@ void ThemeSelectorDialog::create_theme_card(Theme theme,
     const QString& chinese_name,
     const QString& mode_name,
     const QColor& primary_color,
+    const QColor& secondary_color,
     QGridLayout* layout,
     int row, int col) {
     ClickableCard* card = new ClickableCard(nullptr);
@@ -179,6 +198,7 @@ void ThemeSelectorDialog::create_theme_card(Theme theme,
 
     QVBoxLayout* card_layout = new QVBoxLayout(card);
 
+    // 中文名称
     QLabel* name_label = new QLabel(chinese_name, card);
     QFont name_font = name_label->font();
     name_font.setPointSize(12);
@@ -186,24 +206,32 @@ void ThemeSelectorDialog::create_theme_card(Theme theme,
     name_label->setFont(name_font);
     card_layout->addWidget(name_label);
 
+    // 英文模式名
     QLabel* mode_label = new QLabel(mode_name, card);
     mode_label->setStyleSheet("color: gray;");
     card_layout->addWidget(mode_label);
 
+    // 主色和副色块水平布局
     QHBoxLayout* color_layout = new QHBoxLayout();
-    QLabel* color_block = new QLabel(card);
-    color_block->setFixedSize(40, 20);
-    color_block->setStyleSheet(QString("background-color: %1; border: 1px solid gray;")
+
+    // 主色块
+    QLabel* primary_block = new QLabel(card);
+    primary_block->setFixedSize(40, 20);
+    primary_block->setStyleSheet(QString("background-color: %1; border: 1px solid gray;")
         .arg(primary_color.name()));
-    color_layout->addWidget(color_block);
+    color_layout->addWidget(primary_block);
 
-    QLabel* color_code_label = new QLabel(primary_color.name(), card);
-    color_code_label->setStyleSheet("font-family: monospace;");
-    color_layout->addWidget(color_code_label);
-    color_layout->addStretch();
+    // 副色块
+    QLabel* secondary_block = new QLabel(card);
+    secondary_block->setFixedSize(40, 20);
+    secondary_block->setStyleSheet(QString("background-color: %1; border: 1px solid gray;")
+        .arg(secondary_color.name()));
+    color_layout->addWidget(secondary_block);
 
+    
+    color_layout->addStretch(); // 右侧弹簧
     card_layout->addLayout(color_layout);
-    card_layout->addStretch();
+    card_layout->addStretch();  // 底部弹簧
 
     connect(card, &ClickableCard::clicked, this, [this, theme, mode_name]() {
         LOG_MODULE("ThemeSelectorDialog", "create_theme_card", LOG_DEBUG,

@@ -1,12 +1,11 @@
 /*
  * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
  * SPDX-License-Identifier: GPL-3.0-only
- * Theme: Light (浅色模式)
+ * Theme: 浅色模式
  * Mode: light
  * Colors: Ice Blue rgba(232,240,254,1.0), rgba(212,230,241,1.0)
  */
 
-/* 全局字体与基础设置 */
 QWidget {
     font-family: "Microsoft YaHei", "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
     font-size: 12px;
@@ -14,26 +13,15 @@ QWidget {
     background-color: transparent;
 }
 
-/* 字体大小：通过属性 font_size 控制 S/M/L */
-QWidget[font_size="S"] {
-    font-size: 9px;
-}
-QWidget[font_size="M"] {
-    font-size: 12px;
-}
-QWidget[font_size="L"] {
-    font-size: 18px;
-}
+QWidget[font_size="S"] { font-size: 9px; }
+QWidget[font_size="M"] { font-size: 12px; }
+QWidget[font_size="L"] { font-size: 18px; }
 
-/* 最外层主容器 —— 全窗口背景 */
 #all {
     background-color: rgba(232, 240, 254, 0.92);
     border-radius: 0;
 }
 
-/* ============================================
-   全局滚动条样式 (半透一致)
-   ============================================ */
 QScrollBar:vertical {
     background: rgba(212,230,241,1.0);
     width: 10px;
@@ -48,9 +36,7 @@ QScrollBar::handle:vertical {
 QScrollBar::handle:vertical:hover {
     background: rgba(141,165,187,1.0);
 }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0px;
-}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
 QScrollBar:horizontal {
     background: rgba(212,230,241,1.0);
     height: 10px;
@@ -65,31 +51,19 @@ QScrollBar::handle:horizontal {
 QScrollBar::handle:horizontal:hover {
     background: rgba(141,165,187,1.0);
 }
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    width: 0px;
-}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; }
 
-/* ============================================
-   半透玻璃磨砂背景通用面板 (type="glass_panel")
-   圆角 18px，半透背景，轻微阴影模拟磨砂
-   ============================================ */
 QWidget[type="glass_panel"] {
     background-color: rgba(216, 230, 241, 0.85);
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
-
-/* 内层子卡片圆角 9px */
 QWidget[type="glass_panel_inner"] {
     background-color: rgba(255, 255, 255, 0.5);
     border-radius: 9px;
     border: none;
 }
 
-/* ============================================
-   中心页面区域 (center_pages 下的各个页面)
-   圆角 36px
-   ============================================ */
 QWidget#main_page,
 QWidget#config_page,
 QWidget#rule_page,
@@ -99,15 +73,11 @@ QWidget#about_page {
     border-radius: 36px;
 }
 
-/* ============================================
-   指定控件应用玻璃面板样式 (通过 objectName)
-   ============================================ */
 #navigation_bar,
 #A_info, #B_info,
 #A_module_card, #B_module_card,
 #A_rule_card, #B_rule_card,
 #A_wave_card, #B_wave_card,
-#A_contral_bar, #B_contral_bar,
 #port_bar,
 #debug_log_card,
 #theme_card,
@@ -116,8 +86,6 @@ QWidget#about_page {
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.3);
 }
-
-/* 内层波形卡片与内层主题卡片 */
 #A_strength_card,
 #B_strength_card,
 #config_A_wave_card,
@@ -129,13 +97,6 @@ QWidget#about_page {
     border: none;
 }
 
-/* ============================================
-   按钮通用样式与动画
-   分类：常规按钮 (type="nav_btn" 或默认)
-         特殊功能按钮 (button_type="special") 金色系
-         强调按钮 (button_type="emphasis") 红色系
-   ============================================ */
-/* 所有按钮的基础样式（冰蓝色） */
 QPushButton {
     background: rgba(232,240,254,1.0);
     border: 1px solid rgba(176,196,222,1.0);
@@ -151,21 +112,18 @@ QPushButton:pressed {
     background: rgba(176,196,222,1.0);
 }
 
-/* 特殊功能按钮（金色） */
 QPushButton[button_type="special"] {
-    background: rgba(247,212,74,1.0);
+    background: rgba(255,235,0,0.6);
     border-color: rgba(230,180,34,1.0);
     font-weight: bold;
 }
 QPushButton[button_type="special"]:hover {
-    background: rgba(255,225,106,1.0);
+    background: rgba(255,255,0,0.6);
     border-color: rgba(212,160,23,1.0);
 }
 QPushButton[button_type="special"]:pressed {
-    background: rgba(230,180,34,1.0);
+    background: rgba(218,165,32,0.6);
 }
-
-/* 强调按钮（红色） */
 QPushButton[button_type="emphasis"] {
     background: rgba(231,76,60,1.0);
     border-color: rgba(192,57,43,1.0);
@@ -180,27 +138,10 @@ QPushButton[button_type="emphasis"]:pressed {
     background: rgba(192,57,43,1.0);
 }
 
-/* ============================================
-   文本标签样式
-   ============================================ */
-QLabel {
-    color: rgba(44,62,80,1.0);
-    background: transparent;
-}
-QLabel[type="title"] {
-    font-size: 18px;
-    font-weight: bold;
-    color: rgba(26,43,60,1.0);
-}
-QLabel[type="subtitle"] {
-    font-size: 14px;
-    font-weight: normal;
-    color: rgba(58,90,112,1.0);
-}
+QLabel { color: rgba(44,62,80,1.0); background: transparent; }
+QLabel[type="title"] { font-size: 18px; font-weight: bold; color: rgba(26,43,60,1.0); }
+QLabel[type="subtitle"] { font-size: 14px; font-weight: normal; color: rgba(58,90,112,1.0); }
 
-/* ============================================
-   可编辑标签 (EditableLabel)
-   ============================================ */
 EditableLabel {
     background-color: rgba(255, 255, 255, 0.7);
     border: 1px solid rgba(176,196,222,1.0);
@@ -217,9 +158,6 @@ EditableLabel:focus {
     background-color: rgba(255,255,255,1.0);
 }
 
-/* ============================================
-   输入框 (QLineEdit)
-   ============================================ */
 QLineEdit {
     background-color: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(176,196,222,1.0);
@@ -232,10 +170,6 @@ QLineEdit:focus {
     background-color: rgba(255,255,255,1.0);
 }
 
-/* ============================================
-   下拉框 (QComboBox)
-   ============================================ */
-/* 下拉框主体 */
 QComboBox {
     background-color: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(141,165,187,1.0);
@@ -245,19 +179,8 @@ QComboBox {
     min-height: 22px;
 }
 
-/* 隐藏所有下拉框的箭头和下拉按钮区域 */
-QComboBox::drop-down {
-    width: 0px;
-    border: none;
-}
-
-QComboBox::down-arrow {
-    width: 0px;
-    height: 0px;
-    image: none;
-}
-
-/* 下拉弹出菜单 */
+QComboBox::drop-down { width: 0px; border: none; }
+QComboBox::down-arrow { width: 0px; height: 0px; image: none; }
 QComboBox QAbstractItemView {
     background-color: rgba(255, 255, 255, 0.98);
     border: 1px solid rgba(141,165,187,1.0);
@@ -267,10 +190,6 @@ QComboBox QAbstractItemView {
     outline: 0;
 }
 
-/* ============================================
-   表格 (QTableWidget)
-   ============================================ */
-/* 表格整体 */
 QTableWidget {
     background-color: rgba(255, 255, 255, 0.7);
     border: 1px solid rgba(141,165,187,1.0);
@@ -280,14 +199,7 @@ QTableWidget {
     selection-color: rgba(26,43,60,1.0);
     alternate-background-color: rgba(240,248,255,0.5);
 }
-
-/* 表格单元格 */
-QTableWidget::item {
-    padding: 4px;
-    border-bottom: 1px solid rgba(212,230,241,1.0);
-}
-
-/* 表头 */
+QTableWidget::item { padding: 4px; border-bottom: 1px solid rgba(212,230,241,1.0); }
 QHeaderView::section {
     background-color: rgba(212,230,241,1.0);
     padding: 6px;
@@ -297,21 +209,12 @@ QHeaderView::section {
     font-weight: bold;
     color: rgba(44,62,80,1.0);
 }
-
-/* 表头悬浮效果 */
-QHeaderView::section:hover {
-    background-color: rgba(200,220,235,1.0);
-}
-
-/* 表格左上角空白按钮 */
+QHeaderView::section:hover { background-color: rgba(200,220,235,1.0); }
 QTableCornerButton::section {
     background-color: rgba(212,230,241,1.0);
     border: 1px solid rgba(141,165,187,1.0);
 }
 
-/* ============================================
-   调试日志文本框
-   ============================================ */
 QTextEdit#debug_log {
     background-color: rgba(255, 255, 255, 0.8);
     border: 1px solid rgba(176,196,222,1.0);
@@ -320,16 +223,9 @@ QTextEdit#debug_log {
     font-size: 11px;
     color: rgba(30,42,54,1.0);
 }
-QTextEdit#debug_log:focus {
-    border: 1px solid rgba(93,156,236,1.0);
-}
+QTextEdit#debug_log:focus { border: 1px solid rgba(93,156,236,1.0); }
 
-/* 堆叠窗口透明 */
-QStackedWidget {
-    background: transparent;
-}
-
-/* 分组框 */
+QStackedWidget { background: transparent; }
 QGroupBox {
     border: 1px solid rgba(176,196,222,1.0);
     border-radius: 9px;
@@ -344,7 +240,6 @@ QGroupBox::title {
     color: rgba(44,62,80,1.0);
 }
 
-/* 选项卡 */
 QTabWidget::pane {
     background-color: rgba(255, 255, 255, 0.4);
     border-radius: 9px;
@@ -360,11 +255,8 @@ QTabBar::tab:selected {
     background-color: rgba(255,255,255,1.0);
     border-bottom: 2px solid rgba(93,156,236,1.0);
 }
-QTabBar::tab:hover:!selected {
-    background-color: rgba(212,230,241,1.0);
-}
+QTabBar::tab:hover:!selected { background-color: rgba(212,230,241,1.0); }
 
-/* 工具提示 */
 QToolTip {
     background-color: rgba(232, 240, 254, 0.95);
     color: rgba(26,43,60,1.0);
@@ -372,34 +264,14 @@ QToolTip {
     border-radius: 6px;
     padding: 4px;
 }
+QScrollArea { background: transparent; border: none; }
 
-/* 滚动区域透明 */
-QScrollArea {
-    background: transparent;
-    border: none;
-}
-
-/* ============================================
-   弹窗通用样式
-   ============================================ */
-/* 弹窗通用样式 */
 QDialog, QMessageBox, QInputDialog, QFileDialog {
     background-color: rgba(232, 240, 254, 0.95);
     border-radius: 18px;
 }
-
-/* 弹窗内的标签 */
-QDialog QLabel, QMessageBox QLabel, QInputDialog QLabel {
-    color: rgba(44,62,80,1.0);
-}
-
-/* 弹窗内的按钮（沿用全局按钮样式，但可微调） */
-QDialog QPushButton, QMessageBox QPushButton, QInputDialog QPushButton {
-    min-width: 80px;
-    min-height: 28px;
-}
-
-/* 输入对话框的输入框 */
+QDialog QLabel, QMessageBox QLabel, QInputDialog QLabel { color: rgba(44,62,80,1.0); }
+QDialog QPushButton, QMessageBox QPushButton, QInputDialog QPushButton { min-width: 80px; min-height: 28px; }
 QInputDialog QLineEdit {
     background-color: rgba(255,255,255,0.9);
     border: 1px solid rgba(141,165,187,1.0);
@@ -407,17 +279,8 @@ QInputDialog QLineEdit {
     padding: 4px 8px;
 }
 
-/* ============================================
-   IP 选择器对话框样式
-   ============================================ */
+IpSelectionDialog { background-color: rgba(232, 240, 254, 0.95); border-radius: 18px; }
 
-/* 对话框主容器 */
-IpSelectionDialog {
-    background-color: rgba(232, 240, 254, 0.95);
-    border-radius: 18px;
-}
-
-/* 内部的 QListWidget（黑白名单列表 & IP 列表） */
 IpSelectionDialog QListWidget {
     background-color: rgba(255, 255, 255, 0.7);
     border: 1px solid rgba(141, 165, 187, 1.0);
@@ -425,19 +288,8 @@ IpSelectionDialog QListWidget {
     padding: 4px;
     outline: 0;
 }
-
-/* 列表项 */
-IpSelectionDialog QListWidget::item {
-    padding: 4px 8px;
-    border-bottom: 1px solid rgba(212, 230, 241, 1.0);
-}
-
-IpSelectionDialog QListWidget::item:selected {
-    background-color: rgba(212, 230, 241, 0.8);
-    color: rgba(44, 62, 80, 1.0);
-}
-
-/* 输入框 */
+IpSelectionDialog QListWidget::item { padding: 4px 8px; border-bottom: 1px solid rgba(212, 230, 241, 1.0); }
+IpSelectionDialog QListWidget::item:selected { background-color: rgba(212, 230, 241, 0.8); color: rgba(44, 62, 80, 1.0); }
 IpSelectionDialog QLineEdit {
     background-color: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(141, 165, 187, 1.0);
@@ -445,75 +297,42 @@ IpSelectionDialog QLineEdit {
     padding: 4px 8px;
     min-height: 22px;
 }
-
-/* 标签 */
-IpSelectionDialog QLabel {
-    color: rgba(44, 62, 80, 1.0);
-    background: transparent;
-    font-weight: normal;
-}
-
-/* 按钮 */
-IpSelectionDialog QPushButton {
-    min-width: 80px;
-    min-height: 28px;
-}
-
-/* 针对「自动匹配并选择」按钮额外强调 */
+IpSelectionDialog QLabel { color: rgba(44, 62, 80, 1.0); background: transparent; font-weight: normal; }
+IpSelectionDialog QPushButton { min-width: 80px; min-height: 28px; }
 IpSelectionDialog QPushButton#auto_select_btn_ {
     background: rgba(247, 212, 74, 1.0);
     border-color: rgba(230, 180, 34, 1.0);
     font-weight: bold;
 }
-IpSelectionDialog QPushButton#auto_select_btn_:hover {
-    background: rgba(255, 225, 106, 1.0);
-}
+IpSelectionDialog QPushButton#auto_select_btn_:hover { background: rgba(255, 225, 106, 1.0); }
 
-/* ============================================
-   规则文件选择下拉框
-   ============================================ */
-/* 模拟下拉框的按钮样式 */
 #rule_file_btn {
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid rgba(141, 165, 187, 1.0);
     border-radius: 9px;
-    padding: 4px 24px 4px 8px;  /* 右侧留出空间给箭头 */
+    padding: 4px 24px 4px 8px;
     min-height: 28px;
     text-align: left;
 }
+#rule_file_btn::menu-indicator { image: none; }
 
-/* 隐藏默认的菜单指示器（小三角），因为我们要自定义 */
-#rule_file_btn::menu-indicator {
-    image: none;
-}
-
-/* 或者指定一个自定义的下拉箭头图片（如果有资源的话） */
-#rule_file_btn::menu-indicator {
-    image: url(:/style/images/down_arrow.png);
-    width: 12px;
-    height: 12px;
-    subcontrol-position: right center;
-}
-
-/* 菜单整体样式 */
 QMenu {
     background-color: rgba(255, 255, 255, 0.98);
     border: 1px solid rgba(141, 165, 187, 1.0);
     border-radius: 6px;
     padding: 4px;
 }
+QMenu::item { padding: 4px 20px; border-radius: 4px; color: rgba(44, 62, 80, 1.0); }
+QMenu::item:selected { background-color: rgba(212, 230, 241, 1.0); }
+QMenu::item:pressed { background-color: rgba(200, 220, 235, 1.0); }
 
-/* 菜单项 */
-QMenu::item {
-    padding: 4px 20px;
-    border-radius: 4px;
-    color: rgba(44, 62, 80, 1.0);
+ThemeSelectorDialog ClickableCard {
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(141, 165, 187, 1.0);
+    border-radius: 12px;
 }
-
-QMenu::item:selected {
-    background-color: rgba(212, 230, 241, 1.0);
+ThemeSelectorDialog ClickableCard:hover {
+    background-color: rgba(255, 255, 255, 0.85);
+    border-color: rgba(93, 156, 236, 1.0);
 }
-
-QMenu::item:pressed {
-    background-color: rgba(200, 220, 235, 1.0);
-}
+ThemeSelectorDialog QLabel { color: rgba(44, 62, 80, 1.0); background: transparent; }
