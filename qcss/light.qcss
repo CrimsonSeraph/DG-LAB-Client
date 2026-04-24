@@ -406,3 +406,114 @@ QInputDialog QLineEdit {
     border-radius: 9px;
     padding: 4px 8px;
 }
+
+/* ============================================
+   IP 选择器对话框样式
+   ============================================ */
+
+/* 对话框主容器 */
+IpSelectionDialog {
+    background-color: rgba(232, 240, 254, 0.95);
+    border-radius: 18px;
+}
+
+/* 内部的 QListWidget（黑白名单列表 & IP 列表） */
+IpSelectionDialog QListWidget {
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(141, 165, 187, 1.0);
+    border-radius: 9px;
+    padding: 4px;
+    outline: 0;
+}
+
+/* 列表项 */
+IpSelectionDialog QListWidget::item {
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(212, 230, 241, 1.0);
+}
+
+IpSelectionDialog QListWidget::item:selected {
+    background-color: rgba(212, 230, 241, 0.8);
+    color: rgba(44, 62, 80, 1.0);
+}
+
+/* 输入框 */
+IpSelectionDialog QLineEdit {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(141, 165, 187, 1.0);
+    border-radius: 9px;
+    padding: 4px 8px;
+    min-height: 22px;
+}
+
+/* 标签 */
+IpSelectionDialog QLabel {
+    color: rgba(44, 62, 80, 1.0);
+    background: transparent;
+    font-weight: normal;
+}
+
+/* 按钮 */
+IpSelectionDialog QPushButton {
+    min-width: 80px;
+    min-height: 28px;
+}
+
+/* 针对「自动匹配并选择」按钮额外强调 */
+IpSelectionDialog QPushButton#auto_select_btn_ {
+    background: rgba(247, 212, 74, 1.0);
+    border-color: rgba(230, 180, 34, 1.0);
+    font-weight: bold;
+}
+IpSelectionDialog QPushButton#auto_select_btn_:hover {
+    background: rgba(255, 225, 106, 1.0);
+}
+
+/* ============================================
+   规则文件选择下拉框
+   ============================================ */
+/* 模拟下拉框的按钮样式 */
+#rule_file_btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(141, 165, 187, 1.0);
+    border-radius: 9px;
+    padding: 4px 24px 4px 8px;  /* 右侧留出空间给箭头 */
+    min-height: 28px;
+    text-align: left;
+}
+
+/* 隐藏默认的菜单指示器（小三角），因为我们要自定义 */
+#rule_file_btn::menu-indicator {
+    image: none;
+}
+
+/* 或者指定一个自定义的下拉箭头图片（如果有资源的话） */
+#rule_file_btn::menu-indicator {
+    image: url(:/style/images/down_arrow.png);
+    width: 12px;
+    height: 12px;
+    subcontrol-position: right center;
+}
+
+/* 菜单整体样式 */
+QMenu {
+    background-color: rgba(255, 255, 255, 0.98);
+    border: 1px solid rgba(141, 165, 187, 1.0);
+    border-radius: 6px;
+    padding: 4px;
+}
+
+/* 菜单项 */
+QMenu::item {
+    padding: 4px 20px;
+    border-radius: 4px;
+    color: rgba(44, 62, 80, 1.0);
+}
+
+QMenu::item:selected {
+    background-color: rgba(212, 230, 241, 1.0);
+}
+
+QMenu::item:pressed {
+    background-color: rgba(200, 220, 235, 1.0);
+}

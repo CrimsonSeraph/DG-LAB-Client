@@ -261,7 +261,7 @@ namespace {
         QListWidgetItem* item = ip_list_widget_->currentItem();
         if (item && item->text() != "（无可用 IP）") {
             selected_ip_ = item->text();
-            LOG_MODULE("IpSelector", "on_ip_selection_changed", LOG_INFO, "用户手动选中IP: " + selected_ip_.toStdString());
+            LOG_MODULE("IpSelector", "on_ip_selection_changed", LOG_DEBUG, "用户手动选中IP: " + selected_ip_.toStdString());
         }
         else {
             selected_ip_.clear();

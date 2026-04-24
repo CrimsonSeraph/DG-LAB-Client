@@ -6,7 +6,6 @@
 #pragma once
 
 #include "DebugLog.h"
-#include "FileComboBox.h"
 #include "PythonSubprocessManager.h"
 #include "ThemeSelectorDialog.h"
 #include "ui_DGLABClient.h"
@@ -20,6 +19,7 @@
 #include <QSystemTrayIcon>
 #include <QTableWidget>
 #include <QTextEdit>
+#include <QToolButton>
 #include <QWidget>
 
 #include <string>
@@ -117,7 +117,8 @@ private:
     LogSink qt_sink_;   ///< Qt UI 日志输出通道
 
     // 规则 UI 控件
-    FileComboBox* rule_file_combo_;
+    QToolButton* rule_file_btn_;    ///< 显示当前选中文件的按钮
+    QMenu* rule_file_menu_; ///< 弹出菜单
     QTableWidget* rule_table_;
     QPushButton* create_file_btn_;
     QPushButton* delete_file_btn_;
@@ -195,7 +196,7 @@ private slots:
     void change_theme(Theme theme);
 
     // 规则文件管理槽函数
-    void on_rule_file_changed(int index);
+    void on_rule_file_selected(QAction* action);
     void on_create_rule_file();
     void on_delete_rule_file();
     void on_save_rule_file();

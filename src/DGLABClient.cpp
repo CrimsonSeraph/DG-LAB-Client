@@ -10,7 +10,6 @@
 #include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
 #include "EditableLabel.h"
-#include "FileComboBox.h"
 #include "FormulaBuilderDialog.h"
 #include "IpSelector.h"
 #include "PythonSubprocessManager.h"
@@ -53,6 +52,7 @@
 #include <QTableWidgetItem>
 #include <QTextCharFormat>
 #include <QTextCursor>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -70,11 +70,11 @@ DGLABClient::DGLABClient(QWidget* parent)
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_DEBUG, "开始初始化窗口");
     ui_.setupUi(this);
 
+    init_style();
     normal_init();
     init_log();
     init_label();
     init_connect();
-    init_style();
 
     connect(ui_.minimize_btn, &QPushButton::clicked, this, &QWidget::showMinimized);
     connect(ui_.close_btn, &QPushButton::clicked, qApp, &QApplication::quit);
@@ -503,7 +503,6 @@ void DGLABClient::create_tray_icon() {
 
 void DGLABClient::load_stylesheet() {
     LOG_MODULE("DGLABClient", "load_stylesheet", LOG_DEBUG, "开始加载样式表");
-    //ui_.current_theme->setText("加载中...");
     auto& config = AppConfig::instance();
     theme_ = mode_string_to_theme(config.get_value<std::string>("app.ui.theme", "light"));
     setup_widget_properties("theme", theme_to_mode_string(theme_).toStdString());
@@ -517,10 +516,8 @@ void DGLABClient::load_stylesheet() {
     QFile file(qss_path);
     if (file.open(QFile::ReadOnly)) {
         QString style = QString::fromUtf8(file.readAll());
-        this->setProperty("theme", theme_to_mode_string(theme_));
-        this->setStyleSheet(style);
+        qApp->setStyleSheet(style);
         file.close();
-        //ui_.current_theme->setText(theme_to_mode_string_cn(theme_));
     }
     else {
         LOG_MODULE("DGLABClient", "load_stylesheet", LOG_WARN,
@@ -733,9 +730,16 @@ void DGLABClient::setup_rules_ui() {
     // 文件选择区域
     QHBoxLayout* fileLayout = new QHBoxLayout();
     fileLayout->addWidget(new QLabel("规则文件:"));
-    rule_file_combo_ = new FileComboBox(ui_.rules_list);
-    connect(rule_file_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &DGLABClient::on_rule_file_changed);
-    fileLayout->addWidget(rule_file_combo_);
+    rule_file_btn_ = new QToolButton(ui_.rules_list);
+    rule_file_btn_->setObjectName("rule_file_btn");
+    rule_file_btn_->setPopupMode(QToolButton::InstantPopup);
+    rule_file_btn_->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    rule_file_btn_->setAutoRaise(false);
+    rule_file_btn_->setFocusPolicy(Qt::NoFocus);
+    rule_file_menu_ = new QMenu(rule_file_btn_);
+    rule_file_btn_->setMenu(rule_file_menu_);
+    connect(rule_file_menu_, &QMenu::triggered, this, &DGLABClient::on_rule_file_selected);
+    fileLayout->addWidget(rule_file_btn_);
     create_file_btn_ = new QPushButton("新建");
     delete_file_btn_ = new QPushButton("删除");
     save_file_btn_ = new QPushButton("保存");
@@ -795,14 +799,15 @@ void DGLABClient::setup_rules_ui() {
 void DGLABClient::refresh_rule_file_list() {
     auto& rm = RuleManager::instance();
     auto files = rm.get_available_rule_files();
-    rule_file_combo_->clear();
-    rule_file_combo_->addItem("rules.json");
+    rule_file_menu_->clear();
+    QAction* defaultAction = rule_file_menu_->addAction("rules.json");
+    defaultAction->setData("rules.json");
     for (const auto& file : files) {
-        rule_file_combo_->addItem(QString::fromStdString(file));
+        QAction* action = rule_file_menu_->addAction(QString::fromStdString(file));
+        action->setData(QString::fromStdString(file));
     }
     QString current = QString::fromStdString(rm.get_current_rule_file());
-    int idx = rule_file_combo_->findText(current);
-    if (idx >= 0) rule_file_combo_->setCurrentIndex(idx);
+    rule_file_btn_->setText(current);
 }
 
 void DGLABClient::update_rule_table() {
@@ -1225,13 +1230,15 @@ void DGLABClient::show_theme_selector() {
 }
 
 void DGLABClient::change_theme(Theme theme) {
-    // 复用已有的字符串版本
     change_theme(theme_to_mode_string(theme).toStdString());
 }
 
-void DGLABClient::on_rule_file_changed(int index) {
-    if (index < 0) return;
-    QString filename = rule_file_combo_->itemText(index);
+void DGLABClient::on_rule_file_selected(QAction* action) {
+    if (!action) return;
+    QString filename = action->data().toString();
+    if (filename.isEmpty())
+        filename = action->text();
+    rule_file_btn_->setText(filename);
     try {
         RuleManager::instance().load_rule_file(filename.toStdString());
         update_rule_table();
@@ -1267,8 +1274,11 @@ void DGLABClient::on_create_rule_file() {
     nlohmann::json emptyRules;
     if (rm.create_rule_file(name.toStdString(), emptyRules)) {
         refresh_rule_file_list();
-        int idx = rule_file_combo_->findText(name);
-        if (idx >= 0) rule_file_combo_->setCurrentIndex(idx);
+        refresh_rule_file_list();
+        QString currentFile = name;
+        rule_file_btn_->setText(currentFile);
+        RuleManager::instance().load_rule_file(currentFile.toStdString());
+        update_rule_table();
         QMessageBox::information(this, "提示", "文件创建成功: " + name);
     }
     else {
@@ -1277,7 +1287,7 @@ void DGLABClient::on_create_rule_file() {
 }
 
 void DGLABClient::on_delete_rule_file() {
-    QString filename = rule_file_combo_->currentText();
+    QString filename = rule_file_btn_->text();
     if (filename == "rules.json") {
         QMessageBox::warning(this, "错误", "不能删除默认规则文件");
         return;
@@ -1287,6 +1297,11 @@ void DGLABClient::on_delete_rule_file() {
         auto& rm = RuleManager::instance();
         if (rm.delete_rule_file(filename.toStdString())) {
             refresh_rule_file_list();
+
+            if (rm.get_current_rule_file() != filename.toStdString()) {
+                rm.load_rule_file("rules.json");
+                rule_file_btn_->setText("rules.json");
+            }
             update_rule_table();
         }
         else {
