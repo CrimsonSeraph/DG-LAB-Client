@@ -76,6 +76,8 @@ DGLABClient::DGLABClient(QWidget* parent)
     init_connect();
     init_style();
 
+    connect(ui_.minimize_btn, &QPushButton::clicked, this, &QWidget::showMinimized);
+    connect(ui_.close_btn, &QPushButton::clicked, qApp, &QApplication::quit);
     setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
     setWindowFlag(Qt::WindowCloseButtonHint, false);
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
