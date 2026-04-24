@@ -71,6 +71,8 @@ set(PROJECT_SOURCES
     src/EditableLabel.cpp
     include/IpSelector.h
     src/IpSelector.cpp
+    include/FileComboBox.h
+    src/FileComboBox.cpp
 
     # 资源文件
     DGLABClient.qrc

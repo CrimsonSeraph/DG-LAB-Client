@@ -297,7 +297,7 @@
          </size>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>1</number>
         </property>
         <widget class="QWidget" name="main_page">
          <layout class="QVBoxLayout" name="main_page_layout">
@@ -428,13 +428,13 @@
                              <number>0</number>
                             </property>
                             <property name="topMargin">
-                             <number>0</number>
+                             <number>10</number>
                             </property>
                             <property name="rightMargin">
                              <number>0</number>
                             </property>
                             <property name="bottomMargin">
-                             <number>0</number>
+                             <number>10</number>
                             </property>
                             <item>
                              <widget class="QLabel" name="A_strength_label">
@@ -609,16 +609,16 @@
                     <number>20</number>
                    </property>
                    <property name="leftMargin">
-                    <number>0</number>
+                    <number>10</number>
                    </property>
                    <property name="topMargin">
-                    <number>0</number>
+                    <number>10</number>
                    </property>
                    <property name="rightMargin">
-                    <number>0</number>
+                    <number>10</number>
                    </property>
                    <property name="bottomMargin">
-                    <number>0</number>
+                    <number>10</number>
                    </property>
                    <item>
                     <widget class="QPushButton" name="A_start_btn">
@@ -755,13 +755,13 @@
                              <number>0</number>
                             </property>
                             <property name="topMargin">
-                             <number>0</number>
+                             <number>10</number>
                             </property>
                             <property name="rightMargin">
                              <number>0</number>
                             </property>
                             <property name="bottomMargin">
-                             <number>0</number>
+                             <number>10</number>
                             </property>
                             <item>
                              <widget class="QLabel" name="B_strength_label">
@@ -885,16 +885,16 @@
                     <number>20</number>
                    </property>
                    <property name="leftMargin">
-                    <number>0</number>
+                    <number>10</number>
                    </property>
                    <property name="topMargin">
-                    <number>0</number>
+                    <number>10</number>
                    </property>
                    <property name="rightMargin">
-                    <number>0</number>
+                    <number>10</number>
                    </property>
                    <property name="bottomMargin">
-                    <number>0</number>
+                    <number>10</number>
                    </property>
                    <item>
                     <widget class="QPushButton" name="B_start_btn">
@@ -975,19 +975,19 @@
             </property>
             <layout class="QHBoxLayout" name="port_bar_layout">
              <property name="spacing">
-              <number>0</number>
+              <number>20</number>
              </property>
              <property name="leftMargin">
-              <number>0</number>
+              <number>20</number>
              </property>
              <property name="topMargin">
-              <number>0</number>
+              <number>20</number>
              </property>
              <property name="rightMargin">
-              <number>0</number>
+              <number>20</number>
              </property>
              <property name="bottomMargin">
-              <number>0</number>
+              <number>20</number>
              </property>
              <item>
               <widget class="EditableLabel" name="IP_label">

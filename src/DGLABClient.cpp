@@ -10,6 +10,7 @@
 #include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
 #include "EditableLabel.h"
+#include "FileComboBox.h"
 #include "FormulaBuilderDialog.h"
 #include "IpSelector.h"
 #include "PythonSubprocessManager.h"
@@ -75,6 +76,8 @@ DGLABClient::DGLABClient(QWidget* parent)
     init_connect();
     init_style();
 
+    setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint);
+    setWindowFlag(Qt::WindowCloseButtonHint, false);
     LOG_MODULE("DGLABClient", "DGLABClient", LOG_INFO, "窗口初始化完成");
 }
 
@@ -119,6 +122,7 @@ void DGLABClient::init_style() {
     setup_log_widget_style();
     apply_widget_properties();
     load_stylesheet();
+    setup_inline_style();
     refresh_style();
 }
 
@@ -565,6 +569,9 @@ void DGLABClient::setup_log_widget_style() {
     ui_.debug_log->setPalette(pal);
 }
 
+void DGLABClient::setup_inline_style() {
+}
+
 void DGLABClient::refresh_style() {
     QList<QWidget*> widgets = this->findChildren<QWidget*>();
     for (QWidget* w : widgets) {
@@ -724,7 +731,7 @@ void DGLABClient::setup_rules_ui() {
     // 文件选择区域
     QHBoxLayout* fileLayout = new QHBoxLayout();
     fileLayout->addWidget(new QLabel("规则文件:"));
-    rule_file_combo_ = new QComboBox();
+    rule_file_combo_ = new FileComboBox(ui_.rules_list);
     connect(rule_file_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &DGLABClient::on_rule_file_changed);
     fileLayout->addWidget(rule_file_combo_);
     create_file_btn_ = new QPushButton("新建");
@@ -777,6 +784,9 @@ void DGLABClient::setup_rules_ui() {
     edit_rule_btn_->setProperty("button_type", "special");
     delete_rule_btn_->setProperty("button_type", "emphasis");
     rule_table_->horizontalHeader()->setProperty("type", "table_header");
+    rule_table_->setAttribute(Qt::WA_StyledBackground, true);
+    rule_table_->horizontalHeader()->setAttribute(Qt::WA_StyledBackground, true);
+    rule_table_->verticalHeader()->setAttribute(Qt::WA_StyledBackground, true);
     LOG_MODULE("DGLABClient", "setup_rules_ui", LOG_INFO, "规则UI初始化完成");
 }
 
@@ -865,10 +875,10 @@ void DGLABClient::apply_widget_properties() {
     ui_.debug_log_card->setProperty("type", "glass_panel");
     ui_.theme_card->setProperty("type", "glass_panel");
     ui_.wave_card->setProperty("type", "glass_panel");
-    ui_.config_A_wave_card->setProperty("type", "glass_panel");
-    ui_.config_B_wave_card->setProperty("type", "glass_panel");
-    ui_.theme_one_card->setProperty("type", "glass_panel");
-    ui_.theme_two_card->setProperty("type", "glass_panel");
+    ui_.config_A_wave_card->setProperty("type", "glass_panel_inner");
+    ui_.config_B_wave_card->setProperty("type", "glass_panel_inner");
+    ui_.theme_one_card->setProperty("type", "glass_panel_inner");
+    ui_.theme_two_card->setProperty("type", "glass_panel_inner");
 
     // 内层子卡片
     ui_.A_strength_card->setProperty("type", "glass_panel_inner");

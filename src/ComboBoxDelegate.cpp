@@ -6,6 +6,7 @@
 #include "ComboBoxDelegate.h"
 #include "DebugLog.h"
 
+#include <QApplication>
 #include <QTimer>
 
 // ============================================
@@ -33,6 +34,10 @@ QWidget* ComboBoxDelegate::createEditor(QWidget* parent,
     combo->setEditable(false);
     combo->setAutoFillBackground(true);
     combo->setGeometry(option.rect);
+    combo->setStyleSheet("");
+    combo->setAttribute(Qt::WA_StyledBackground, true);
+    combo->setStyle(qApp->style());
+    combo->ensurePolished();
     combo->showPopup();
     return combo;
 }

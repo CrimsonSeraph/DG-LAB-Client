@@ -6,6 +6,7 @@
 #pragma once
 
 #include "DebugLog.h"
+#include "FileComboBox.h"
 #include "PythonSubprocessManager.h"
 #include "ThemeSelectorDialog.h"
 #include "ui_DGLABClient.h"
@@ -116,7 +117,7 @@ private:
     LogSink qt_sink_;   ///< Qt UI 日志输出通道
 
     // 规则 UI 控件
-    QComboBox* rule_file_combo_;
+    FileComboBox* rule_file_combo_;
     QTableWidget* rule_table_;
     QPushButton* create_file_btn_;
     QPushButton* delete_file_btn_;
@@ -135,6 +136,7 @@ private:
     void change_theme(const std::string& theme_str);
     void change_theme(const QString& theme_str);
     void setup_log_widget_style();
+    void setup_inline_style();
     void refresh_style();
 
     void setup_default_page();
