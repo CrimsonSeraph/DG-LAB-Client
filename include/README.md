@@ -12,16 +12,20 @@
 | `AppConfig.h` | 应用配置主类 `AppConfig`（单例）的声明。提供配置系统的全局入口，负责初始化、销毁、配置项的读写（支持点分隔路径）、监听器管理、批量操作、导入导出等功能。内部集成 `MultiConfigManager` 实现多级配置优先级合并。 |
 | `AppConfig_impl.hpp` | `AppConfig` 的模板方法实现，包括设置配置值、批量更新多个配置、获取配置值等 |
 | `AppConfig_utils.hpp` | `AppConfig` 的工具包装器实现，辅助模板类 `ConfigValue<T>`、`ConfigObject<T>` 的定义。`ConfigValue` 用于简单类型的配置项包装（带缓存和变更回调），`ConfigObject` 用于复杂结构体的配置包装，支持 JSON 序列化与验证。 |
-| `ComboBoxDelegate.h` | **表格下拉框委托** （`ComboBoxDelegate`），用于规则表格的“通道”和“模式”列，提供 QComboBox 编辑器 |
+| `ComboBoxDelegate.h` | **表格下拉框委托**（`ComboBoxDelegate`），用于规则表格的“通道”和“模式”列，提供 QComboBox 编辑器 |
 | `ConfigManager.h` | 单个配置管理器 `ConfigManager` 的声明。封装了 JSON 配置文件的加载、保存、键值访问（支持默认值）、批量更新（`merge_patch`）、删除及变更通知（观察者模式）。内部使用递归互斥锁保证线程安全。 |
+| `ConfigManager_impl.hpp` | `ConfigManager` 的模板方法实现，包括 `get<T>`、`set<T>` 等模板函数的定义，提供类型安全的配置读写。 |
 | `ConfigStructs.h` | 配置结构体的定义，包括通用的 `ConfigTemplate` 模板以及具体的 `MainConfig`、`SystemConfig`、`UserConfig` 结构体。每个结构体提供 `to_json`/`from_json` 静态方法用于 JSON 转换，以及 `validate()` 方法进行字段有效性验证。 |
 | `Console.h` | Windows 控制台辅助类 `Console`（单例）的声明。用于在 GUI 程序启动时创建或附加调试控制台，设置 UTF‑8 代码页和字体，并重定向标准流。非 Windows 平台仅提供空实现。 |
 | `DebugLog.h` | 日志系统核心类 `DebugLog`（单例）的声明。支持模块级日志等级过滤、多个输出接收器（sink）、线程安全写入。提供宏 `LOG_MODULE` 用于统一格式的日志输出。 |
 | `DebugLog_utils.hpp` | 日志系统辅助工具，包含 `DebugLogUtil` 命名空间下的函数，如将 `QJsonValue` 转换为字符串、去除字符串中的换行符等，便于日志格式化。 |
 | `DefaultConfigs.h` | 默认配置提供类 `DefaultConfigs` 的声明，仅包含静态方法 `get_default_config`，根据配置名称（如 "main"、"system"、"user"）返回对应的默认 JSON 配置。 |
 | `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。样式系统方法 `apply_widget_properties()`、`apply_inline_styles()`，以及主题切换的增强。 |
+| `DGLABClient_impl.hpp` | `DGLABClient` 的模板方法实现，主要提供 `async_call` 模板函数，用于在后台线程池中异步调用 Python 子进程命令，并将结果通过回调返回主线程。 |
 | `DGLABClient_utils.hpp` | `DGLABClient` 的工具函数，目前包含 `contains_any_keyword` 辅助函数，用于在网卡名称中匹配黑/白名单关键字。 |
-| `FormulaBuilderDialog.h` | **值模式编辑对话框** （`FormulaBuilderDialog`），带按钮快速插入符号、实时括号匹配检查和合法性验证  |
+| `EditableLabel.h` | **可编辑标签控件**（`EditableLabel`），继承自 `QLabel`。支持双击进入编辑模式，内嵌 `QLineEdit`，可设置输入验证器，编辑完成后发出 `text_edited` 信号。用于需要直接修改文本的场景（如规则名称、设备名称等）。 |
+| `FormulaBuilderDialog.h` | **值模式编辑对话框**（`FormulaBuilderDialog`），带按钮快速插入符号、实时括号匹配检查和合法性验证。 |
+| `IpSelector.h` | **IP 选择器单例类**（`IpSelector`）。提供自动匹配 IP 地址的功能（基于黑白名单关键词过滤网卡名称），支持弹出对话框让用户手动编辑黑白名单并选择 IP。用于连接设备前的 IP 自动检测与选择。 |
 | `MultiConfigManager.h` | 多配置管理器 `MultiConfigManager`（单例）的声明。维护多个 `ConfigManager` 实例的注册表，支持按优先级（`__priority` 字段）排序配置，提供合并读取、优先级冲突检测、文件热重载等功能。 |
 | `MultiConfigManager_impl.hpp` | `MultiConfigManager` 的模板方法实现，包括按优先级或名称获取/设置配置值的模板函数，以及内部排序缓存的管理。 |
 | `PythonSubprocessManager.h` | Python 子进程管理器 `PythonSubprocessManager` 的声明。基于 `QProcess` 启动外部 Python 脚本，通过解析脚本输出的端口号建立 TCP 连接（`QTcpSocket`），实现 C++ 与 Python 的 JSON 通信。提供异步调用接口 `call`，支持超时和回调。 |
@@ -30,7 +34,7 @@
 | `RuleManager_impl.hpp` | `RuleManager` 的模板方法实现，主要提供 `evaluate_command` 变参模板函数，将参数转换为 `std::vector<int>` 后调用对应规则的生成方法。 |
 | `SampledWaveformWidget.h` | 实时波形采样控件的声明。继承 `QWidget`，提供 `input_data(name, value)` 接口为指定监听器输入归一化数据，内部为每个监听器维护独立的环形缓冲区，并通过定时器驱动采样和重绘。支持动态添加/移除监听器、修改监听器颜色、设置采样间隔、最大振幅比例及监听器数量上限。默认包含一个名为 `default` 的绿色监听器，兼容旧接口 `input_data(double)`。 |
 | `ThemeSelectorDialog.h` | 主题选择对话框的声明。继承自 `QDialog`，包含 `theme_selected` 信号和私有映射（中文名、模式名、主色）。通过 `setup_ui()` 构建网格布局的主题卡片，`create_theme_card()` 创建可点击的卡片控件，用于直观的主题选择。 |
-| `ValueModeDelegate.h` | **值模式列自定义委托** （`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式  |
+| `ValueModeDelegate.h` | **值模式列自定义委托**（`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式。 |
 
 > **注**: `DGLABClient.ui` 为 Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件。该文件虽不属头文件，但属于界面设计的一部分，应与头文件配套使用。
 
@@ -38,7 +42,7 @@
 
 ## 依赖关系
 
-- **Qt 5/6**: `DGLABClient.h`、`PythonSubprocessManager.h`、`SampledWaveformWidget.h` 依赖 Qt Core、Widgets、Network 模块；`DebugLog_utils.hpp` 依赖 QtCore 的 JSON 类。
+- **Qt 5/6**: `DGLABClient.h`、`PythonSubprocessManager.h`、`SampledWaveformWidget.h`、`EditableLabel.h` 依赖 Qt Core、Widgets、Network 模块；`DebugLog_utils.hpp` 依赖 QtCore 的 JSON 类；`IpSelector.h` 依赖 Qt Network 模块（`QNetworkInterface`）。
 - **nlohmann/json**: 所有配置相关头文件（`AppConfig.h`、`ConfigManager.h`、`ConfigStructs.h` 等）以及规则相关头文件（`RuleManager.h`）依赖 JSON 解析库。
 - **C++20**: 项目使用 C++20 标准，部分模板、概念（如 `ConfigSerializable`）要求编译器支持 C++20。
 
@@ -48,7 +52,7 @@
 
 ### 1. 配置系统
 - **多级配置**: 通过 `MultiConfigManager` 管理多个 `ConfigManager` 实例（main/user/system），每个实例有独立优先级，读取时高优先级覆盖低优先级。
-- **类型安全**: `ConfigValue<T>` 和 `ConfigObject<T>` 包装配置项，提供类型安全的读写、缓存和变更回调，避免直接操作 JSON。
+- **类型安全**: `ConfigValue<T>` 和 `ConfigObject<T>` 包装配置项，提供类型安全的读写、缓存和变更回调，避免直接操作 JSON；`ConfigManager` 的模板方法 `get<T>` 和 `set<T>` 同样提供类型安全访问。
 - **热重载**: `MultiConfigManager` 支持文件监控，当配置文件变化时自动重新加载并通知监听器。
 
 ### 2. 日志系统
@@ -75,10 +79,12 @@
 - **支持范围输入**: 提供 `set_input_range()` 方法，允许为每个监听器设置输入值的最小值和最大值，控件内部将输入值归一化到 0~1 后进行绘制，适应不同量级的数据输入。
 
 ### 6. GUI 响应性
-- **后台任务**: `DGLABClient` 将耗时操作（如 Python 调用）通过 `PythonSubprocessManager::call` 放入线程池，完成后通过信号槽将结果传回主线程更新界面。
+- **后台任务**: `DGLABClient` 将耗时操作（如 Python 调用）通过 `async_call` 模板方法（基于 `PythonSubprocessManager::call` 和线程池）放入后台执行，完成后通过信号槽将结果传回主线程更新界面。
 - **日志显示**: 日志接收器 `qtSink` 将日志消息通过 `QMetaObject::invokeMethod` 安全地追加到 UI 控件，并支持按等级着色。
 - **规则管理**: 规则文件的加载、保存及规则的增删改查均在 UI 线程同步执行（操作轻量），不影响流畅度。
 - **样式系统**: 通过 `apply_widget_properties()` 为所有控件设置 `type` 属性，配合 QSS 中的 `[type="..."]` 选择器，实现统一的主题切换和视觉风格。
+- **IP 选择辅助**: `IpSelector` 单例提供自动 IP 匹配（基于黑白名单关键词），并允许用户通过对话框手动选择，简化连接配置流程。
+- **可编辑标签**: `EditableLabel` 控件允许用户双击直接修改文本，常用于规则名称、设备别名等场景，提升交互效率。
 
 ---
 
@@ -90,6 +96,8 @@
 #include "AppConfig.h"
 #include "DebugLog.h"
 #include "RuleManager.h"
+#include "IpSelector.h"
+#include "EditableLabel.h"
 ```
 
 ### 配置系统初始化
@@ -116,6 +124,12 @@ pyMgr->call(cmd, [](const QJsonObject& resp){
     // 处理响应
 }, 5000);
 ```
+在 `DGLABClient` 中推荐使用 `async_call` 模板方法：
+```cpp
+async_call({{"cmd", "connect"}}, 5000, [](bool success, QString msg){
+    if (success) { /* ... */ }
+});
+```
 
 ### 规则引擎使用
 ```cpp
@@ -128,9 +142,20 @@ QJsonObject cmd = RuleManager::instance().evaluate_command("strength_up", 2);
 // cmd 包含: {"cmd":"send_strength", "channel":1, "mode":1, "value":2}
 ```
 
+### IP 自动选择与手动选择
+```cpp
+// 自动获取匹配黑白名单的 IP
+QString ip = IpSelector::instance()->auto_select_ip();
+// 弹出对话框让用户编辑黑白名单并选择 IP
+QString selected = IpSelector::instance()->show_selection_dialog(this);
+if (!selected.isEmpty()) { /* 使用 selected */ }
+```
+
 ### 注意事项
 - 所有 `*_impl.hpp` 文件通常被对应的 `.h` 文件在末尾包含，无需手动引入。
 - 多线程环境下，确保对 `AppConfig` 的访问通过其提供的线程安全方法进行（内部已加锁）。
 - Python 子进程的 `Bridge.py` 必须实现 JSON 行协议（每条响应以换行符结尾），并正确处理 `req_id`。
 - 规则文件中的 value_pattern 可以包含 `{}` 占位符，调用 `evaluate_command` 时传入的参数数量必须与占位符数量匹配。
 - 规则支持通道（A/B）和模式（0-4）配置，模式含义: 0=递减, 1=递增, 2=设为, 3=连减, 4=连增。
+- `EditableLabel` 在编辑模式下会隐藏原有文本显示，编辑完成后才更新标签内容，需确保布局不受影响。
+- `IpSelector` 的黑白名单关键词匹配对网卡名称进行大小写不敏感的子串匹配，白名单优先于黑名单。

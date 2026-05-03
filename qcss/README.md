@@ -6,18 +6,18 @@
 
 ## 文件说明
 
-本目录包含 **14 个**样式文件，分别对应浅色模式、暗夜模式及 **12 个扩展主题**。
+本目录包含 **14 个**样式文件，分别对应浅色模式、深色模式及 **12 个扩展主题**。
 
 ### 基础主题
 
-| 文件名 | Theme | Mode 属性 | 颜色方案 |
+| 文件名 | Theme | Mode 属性 | 颜色方案（主色 / 副色） |
 | - | - | - | - |
 | `light.qcss` | Light (浅色模式) | `light` | Ice Blue #E8F0FE, Misty Blue #D4E6F1 |
 | `night.qcss` | Night (深色模式) | `night` | Deep Slate #2C3E50, Dark Navy #1A252F |
 
 ### 扩展主题（12 种）
 
-| 文件名 | Theme | Mode 属性 | 颜色方案 |
+| 文件名 | Theme | Mode 属性 | 颜色方案（主色 / 副色） |
 | - | - | - | - |
 | `style_charcoal_pink.qcss` | Charcoal Pink (炭黑甜粉) | `charcoal_pink` | Charcoal #1A1A1D, Sweet Pink #E6397C |
 | `style_deepsea_cream.qcss` | Deepsea Cream (深海奶白) | `deepsea_cream` | Deepsea Blue #122E8A, Soft Milk White #F5EFEA |
@@ -32,59 +32,65 @@
 | `style_vandyke_brown_khaki.qcss` | Vandyke Brown Khaki (凡戴克棕卡其) | `vandyke_brown_khaki` | Vandyke Brown #492D22, Light Khaki #D8C7B5 |
 | `style_prussian_blue_fog.qcss` | Prussian Blue Fog (普鲁士雾灰) | `prussian_blue_fog` | Prussian Blue #003153, Fog Gray #E5DDD7 |
 
-> **注意**: 样式文件中使用了统一的 `type` 属性选择器（如 `[type="nav_btn"]`）和 `theme` 属性选择器（如 `[theme="charcoal_pink"]`），不同主题仅通过 `theme` 值区分配色。
+> **注意**：所有样式文件统一使用 `rgba` 颜色值，并遵循 60% 主色 + 30% 副色 + 10% 点缀色的比例原则。扩展主题的 `mode` 属性值（如 `charcoal_pink`）与文件名中的标识一致。
 
 ---
 
-## 控件类型（type 属性）
+## 控件属性选择器
 
-无论使用哪个主题，以下 `type` 属性值均被支持，用于匹配对应的控件样式: 
+样式表中使用以下自定义属性来匹配不同控件，不依赖具体类名或 ID，便于主题扩展。
+
+### `type` 属性（控件类型）
 
 | 属性值 | 控件类型 | 说明 |
 | - | - | - |
-| `main_page` | 主窗口背景 | 线性渐变背景（颜色随主题变化） |
-| `glassmorphism` | 玻璃拟态容器 | 半透明背景，边框，圆角 |
-| `nav_btn` | 导航按钮 | 渐变背景，白色文字，圆角 |
-| `action_btn` | 操作按钮 | 次级按钮风格，带边框（添加 `size` 属性 `small` 可使用小号版本） |
-| `title` | 标题文字 | 大号加粗，居中 |
-| `label` | 普通标签 | 常规字体，左对齐 |
-| `image` | 图片标签 | 半透背景，圆角，文字居中 |
-| `input` | 输入框 | 实色背景，边框，焦点高亮 |
-| `debug_log` | 日志文本框 | 深色背景，等宽字体 |
-| `scrollarea` | 滚动区域 | 透明背景，无边框 |
-| `stacked` | 堆叠窗口 | 透明背景 |
-| `channel_panel` | 通道面板 | 半透背景，圆角 |
-| `port_panel` | 端口面板 | 半透背景，圆角 |
-| `button_bar` | 按钮栏 | 极浅半透背景 |
-| `sub_panel` | 子面板 | 完全透明，用于布局 |
-| `waveform` | 波形控件（自定义） | 深色背景，圆角 |
+| `glass_panel` | 玻璃拟态容器 | 半透明背景，圆角，轻微边框 |
+| `glass_panel_inner` | 内层玻璃面板 | 更高透明度，无边框，用于嵌套 |
+| `main_page` / `config_page` 等 | 页面背景 | 页面级半透背景，大圆角 |
+| `title` | 标题文字 | 大号加粗，颜色略深 |
+| `subtitle` | 副标题文字 | 中号常规，颜色稍浅 |
+| `strength_card` | 强度卡片 | 高透明度白色背景，小圆角 |
+| `wave_card` | 波形卡片 | 半透背景，边框 |
+| `info_card` | 信息卡片 | 与玻璃面板相同风格 |
+| `debug_log` | 日志文本框 | 等宽字体，半透背景 |
+| `channel_panel` | 通道控制面板 | 同玻璃面板 |
+| `port_bar` | 端口栏 | 同玻璃面板 |
+| `theme_card` | 主题卡片 | 同玻璃面板 |
 
-示例样式片段（浅色模式导航按钮）: 
+### `button_type` 属性（按钮风格）
+
+| 属性值 | 按钮类型 | 说明 |
+| - | - | - |
+| `special` | 特殊按钮 | 高亮背景（如黄色/橙色），用于重要操作 |
+| `emphasis` | 强调按钮 | 红色系，用于危险或确认操作 |
+| *(无该属性)* | 普通按钮 | 默认灰白背景，悬停加深 |
+
+### `font_size` 属性（字体大小）
+
+| 属性值 | 字号 |
+| - | - |
+| `S` | 9px |
+| `M` | 12px（默认） |
+| `L` | 18px |
+
+示例样式片段（浅色模式下的特殊按钮）：
 
 ```css
-QPushButton[type="nav_btn"][theme="light"] {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                stop:0 rgba(108,142,191,1),
-                                stop:1 rgba(74,106,142,1));
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
+QPushButton[button_type="special"][theme="light"] {
+    background: rgba(255,235,0,0.6);
+    border-color: rgba(230,180,34,1.0);
     font-weight: bold;
-    color: white;
-    padding: 8px 12px;
 }
-QPushButton[type="nav_btn"][theme="light"]:hover {
-    background: qlineargradient(...);
+QPushButton[button_type="special"][theme="light"]:hover {
+    background: rgba(255,255,0,0.6);
 }
 ```
 
-暗夜模式示例（相同的 `type`，不同的 `theme`）: 
+深色模式下的相同按钮（`theme="night"`）：
 ```css
-QPushButton[type="nav_btn"][theme="night"] {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                stop:0 rgba(58,90,126,1),
-                                stop:1 rgba(42,74,110,1));
-    color: #e0e0e0;
+QPushButton[button_type="special"][theme="night"] {
+    background: rgba(255,200,50,0.25);
+    border-color: rgba(255,180,30,0.8);
 }
 ```
 
@@ -92,33 +98,33 @@ QPushButton[type="nav_btn"][theme="night"] {
 
 ## 使用说明
 
-应用程序通过 `AppConfig` 读取当前选中的主题（存储为 `Theme` 枚举值，如 `LIGHT`, `NIGHT`, `CHARCOAL_PINK` 等）。在 `DGLABClient` 初始化时，根据配置加载对应的样式文件，并调用 `apply_widget_properties()` 为所有需要样式的控件设置 `type` 和 `theme` 属性。
+应用程序通过 `AppConfig` 读取当前选中的主题（`Theme` 枚举值）。在 `DGLABClient` 初始化时，根据配置加载对应的样式文件，并调用 `apply_widget_properties()` 为所有需要样式的控件设置 `type`、`button_type` 和 `theme` 属性。
 
-**切换主题**: 
-- 点击界面上的“切换主题”按钮，弹出主题选择菜单或循环切换。
-- 内部修改配置中的 `theme` 值，重新加载样式表并刷新所有控件的 `theme` 属性。
+**切换主题**：
+- 点击界面上的“切换主题”按钮，弹出 `ThemeSelectorDialog` 选择主题。
+- 内部修改配置中的 `theme` 值，调用 `change_theme()` 重新加载样式表并刷新所有控件的 `theme` 属性。
 
-**动态设置示例**: 
-
+**动态设置示例**：
 ```cpp
 QString themeStr = theme_to_mode_string(current_theme);
-qApp->setProperty("theme", theme_str);
+qApp->setProperty("theme", themeStr);
 // 对每个需要应用样式的顶层控件也设置 theme
-mainWindow->setProperty("theme", theme_str);
+mainWindow->setProperty("theme", themeStr);
 // 重新加载样式文件
-load_stylesheet(theme_str);
+load_stylesheet(themeStr);
 ```
 
-**注意事项**: 
-- 所有自定义控件（如 `SampledWaveformWidget`）也通过 `[type="waveform"]` 选择器设置背景和圆角。
-- 样式文件中的 `theme` 属性由代码动态设置，与 `type` 属性共同作用。
-- 如需添加新的控件类型，请在 `apply_widget_properties()` 中为对应控件设置唯一的 `type` 字符串，并在所有样式文件中定义相应规则。
-- 扩展主题的样式文件命名规则为 `style_<theme>.qcss`，其中 `<theme>` 与 `theme` 属性值保持一致（如 `charcoal_pink`）。
+**注意事项**：
+- 所有自定义控件（如 `SampledWaveformWidget`）通过 `type` 或 `id` 选择器设置背景和圆角。
+- 样式文件中的 `theme` 属性由代码动态设置，与 `type` / `button_type` 属性共同作用。
+- 如需添加新的控件类型，请在 `apply_widget_properties()` 中为对应控件设置唯一属性值，并在所有样式文件中定义相应规则。
+- 扩展主题的样式文件命名规则为 `style_<mode>.qcss`，其中 `<mode>` 与 `theme` 属性值保持一致（如 `charcoal_pink`）。
 
 ---
 
 ## 维护与扩展
 
 - 新增主题时，请参照现有主题的格式创建一个新的 QSS 文件，并在此 README 中更新主题列表。
-- 所有主题必须支持相同的 `type` 属性集合，以保证界面布局不因主题切换而错位。
-- 建议使用 rgba 颜色值以便统一透明度控制，渐变背景使用 `qlineargradient`。
+- 所有主题必须支持相同的 `type` / `button_type` 属性集合，以保证界面布局不因主题切换而错位。
+- 建议使用 `rgba` 颜色值以便统一透明度控制，渐变背景可使用 `qlineargradient`，但当前主题以纯色半透明为主。
+- 主题颜色映射定义在 `ThemeSelectorDialog` 的 `primary_colors_` 和 `secondary_colors_` 中，新增主题时需同步更新这两个映射。
