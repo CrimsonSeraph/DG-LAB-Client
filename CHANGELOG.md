@@ -7,7 +7,7 @@
 
 ---
 
-## [Unreleased] (暂无版本)
+## [Unreleased]
 
 ### Added
 - 无
@@ -23,6 +23,31 @@
 
 ### Fixed
 - 无
+
+### Security
+- 无
+
+---
+
+## [v0.6.0] - 2026-05-03
+
+### Added
+- **IP 选择器** (`IpSelector`): 单例类，支持基于黑白名单关键词自动匹配可用 IPv4 地址（自动过滤虚拟网卡），并提供图形化对话框让用户编辑黑白名单并手动选择 IP。
+- **可编辑标签控件** (`EditableLabel`): 继承自 `QLabel`，支持双击进入编辑模式，内嵌 `QLineEdit` 并支持任意 `QValidator` 验证器，编辑完成发出 `text_edited` 信号。
+- **主题更新**: 更新全新 UI 布局与主题，所有主题样式表统一使用 `rgba` 颜色格式，遵循 6:3:1 主副点缀色比例原则。
+- 为 `ThemeSelectorDialog` 添加网格卡片式主题预览（显示中文名、英文模式名及主色块），提升用户选择体验。
+
+### Changed
+- **样式系统全面翻新**: 所有 QSS 文件转换为纯 `rgba` 颜色值，并按照主色 60%、副色 30%、点缀色 10% 的比例重新调配，使界面色彩更加和谐统一。
+
+### Deprecated
+- 计划移除使用 Python 模块 `WebSocketCore.py` 实现 WebSocket 相关功能，转向使用 Qt 提供的 Qt WebSocket 库（该计划尚未完成，仍处于过渡阶段）。
+
+### Removed
+- 无
+
+### Fixed
+- 修复 `IpSelector` 无法自定义选择 IP 问题。
 
 ### Security
 - 无
@@ -175,7 +200,7 @@
 - 日志模块添加支持多个输出接收器（控制台、Qt UI）。
 - 添加 Python 模块日志输出支持，日志等级与主程序同步。
 - 控制台显示格式优化。
-- 从 `build.yml` 移除上传 构建产物到 GitHub Releases 的步骤，改为单独的 `release.yml` 处理发布流程。
+- 从 `build.yml` 移除上传构建产物到 GitHub Releases 的步骤，改为单独的 `release.yml` 处理发布流程。
 
 ### Deprecated
 - 无
@@ -222,7 +247,8 @@
 
 ## 其他
 
-**变动**: [v0.5.1]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.0...v0.5.1
+**变动链接**:  
+- [v0.6.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0  
 
 **变更分类**: 
   - `Added` – 新增功能
