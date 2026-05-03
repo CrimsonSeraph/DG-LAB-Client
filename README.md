@@ -599,7 +599,24 @@ DG-LAB-Client/
 
 ## 九、截图
 
-（暂时留空）
+<details>
+<summary>点击展开查看界面截图（共 6 张）</summary>
+
+### 主界面
+
+| 首页 | 配置页 | 规则文件管理页 |
+| :---: | :---: | :---: |
+| ![main_page](screenshot/pages/main_page.png) | ![config_page](screenshot/pages/config_page.png) | ![rule_page](screenshot/pages/rule_page.png) |
+
+### 功能对话框
+
+| IP 选择器 | 主题选择器 | 公式构建器 | 调试控制台 (Windows) |
+| :---: | :---: | :---: | :---: |
+| ![IpSelector](screenshot/others/IpSelector.png) | ![ThemeSelectorDialog](screenshot/others/ThemeSelectorDialog.png) | ![ValueModeDelegate](screenshot/others/ValueModeDelegate.png) | ![Console](screenshot/others/Console.png) |
+
+> 更多主题截图请查看 [`screenshot/themes/`](screenshot/themes/) 目录，共 14 种配色方案。
+
+</details>
 
 ---
 
