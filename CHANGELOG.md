@@ -247,8 +247,7 @@
 
 ## 其他
 
-**变动链接**:  
-- [v0.6.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0  
+**变动**:[v0.6.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0
 
 **变更分类**: 
   - `Added` – 新增功能
