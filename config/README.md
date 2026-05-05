@@ -8,11 +8,11 @@
 
 客户端支持多配置文件管理，按优先级从低到高依次为: 
 
-| 文件名       | 优先级 (`__priority`) | 作用说明                         |
-|--------------|-----------------------|----------------------------------|
-| `main.json`  | 0                     | 核心应用配置                     |
-| `system.json`| 1                     | 系统级配置（如 WebSocket 通信）   |
-| `user.json`  | 2                     | 用户自定义配置（界面外观等）      |
+| 文件名 | 优先级 (`__priority`) | 作用说明 |
+| - | - | - |
+| `main.json`  | 0 | 核心应用配置 |
+| `system.json`| 1 | 系统级配置（如 WebSocket 通信） |
+| `user.json`  | 2 | 用户自定义配置（界面外观等） |
 
 **覆盖规则**: 当多个文件中存在相同路径的配置项时，优先级高的文件中的值会覆盖优先级低的文件中的值。
 
@@ -36,7 +36,7 @@
 | `app.version` | string | 应用版本号 |
 | `app.debug` | bool | 是否开启调试模式（Windows 下会创建调试控制台） |
 | `app.log.console_level` | int | 控制台日志输出等级: 0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE |
-| `app.log.only_type_info` | bool | 是否仅输出类型为 INFO 的日志（用于精简输出） |
+| `app.log.only_type_info` | bool | 是否仅输出单个类型日志（用于精简输出） |
 | `app.log.ui_log_level` | int | UI 界面日志输出等级（同 console_level 枚举） |
 | `python.path` | string | Python 解释器路径或可执行文件名 |
 | `python.packages_path` | string | Python 第三方包安装目录的相对路径（相对于可执行文件所在目录） |
@@ -61,7 +61,7 @@
 
 ### 3. `user.json` —— 用户自定义配置（界面外观等）
 
-该文件用于存储用户的个性化设置，例如界面主题、字体大小、窗口位置等。目前文件内容为空，用户可自行添加任意 JSON 结构，例如: 
+该文件用于存储用户的个性化设置，例如界面主题、字体大小、窗口位置等。例如: 
 
 ```json
 {
