@@ -61,9 +61,9 @@
 #include <string>
 #include <utility>
 
- // ============================================
- // 构造/析构（public）
- // ============================================
+// ============================================
+// 构造/析构（public）
+// ============================================
 
 DGLABClient::DGLABClient(QWidget* parent)
     : QWidget(parent) {
@@ -366,7 +366,7 @@ void DGLABClient::connect_about_theme() const {
 // ============================================
 
 void DGLABClient::closeEvent(QCloseEvent* event) {
-    if (tray_icon_->isVisible()) {
+    if (tray_icon_ && tray_icon_->isVisible()) {
         tray_icon_->showMessage("提示", "程序已最小化到系统托盘",
             QSystemTrayIcon::Information, 2000);
         this->hide();
@@ -1269,7 +1269,6 @@ void DGLABClient::on_create_rule_file() {
     }
     nlohmann::json emptyRules;
     if (rm.create_rule_file(name.toStdString(), emptyRules)) {
-        refresh_rule_file_list();
         refresh_rule_file_list();
         QString currentFile = name;
         rule_file_btn_->setText(currentFile);

@@ -417,7 +417,6 @@ bool AppConfig::import_config(const std::string& name, const std::string& file_p
 
 void AppConfig::initialize_configs() {
     LOG_MODULE("AppConfig", "initialize_configs", LOG_DEBUG, "调用 initialize_configs");
-    std::unique_lock<std::mutex> lock(mutex_, std::defer_lock);
     initialize_configs_unsafe();
 }
 

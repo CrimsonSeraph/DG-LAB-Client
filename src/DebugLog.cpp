@@ -147,16 +147,14 @@ void DebugLog::unregister_log_sink(const std::string& name) {
 
 bool DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
     std::lock_guard<std::mutex> lock(sinks_mutex_);
-    if (log_sinks_.find(name) == log_sinks_.end()) {
+    auto it = log_sinks_.find(name);
+    if (it == log_sinks_.end()) {
         return false;
     }
     if (level < LOG_DEBUG || level > LOG_NONE) {
         return false;
     }
-    auto it = log_sinks_.find(name);
-    if (it != log_sinks_.end()) {
-        it->second.min_level = level;
-    }
+    it->second.min_level = level;
     return true;
 }
 

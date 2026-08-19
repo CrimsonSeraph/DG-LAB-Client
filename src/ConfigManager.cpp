@@ -127,7 +127,8 @@ bool ConfigManager::update(const nlohmann::json& patch) {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
 
     try {
-        config_.merge_patch(patch);   // merge_patch 无返回值，直接应用
+        // merge_patch 无返回值，直接应用
+        config_.merge_patch(patch);
         LOG_MODULE("ConfigManager", "update", LOG_DEBUG, "批量更新配置成功");
         notify_listeners();
         return true;
@@ -190,7 +191,7 @@ bool ConfigManager::validate() const {
         }
     }
 
-    auto port = get<int>("app.server_port");
+    auto port = get<int>("app.websocket.port");
     if (port.has_value() && (port.value() < 1 || port.value() > 65535)) {
         LOG_MODULE("ConfigManager", "validate", LOG_WARN, "端口号无效: " << port.value());
         return false;

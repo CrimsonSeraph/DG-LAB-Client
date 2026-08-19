@@ -58,5 +58,5 @@ bool ValueModeDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
             }
         }
     }
-    return QStyledItemDelegate::editorEvent(event, model, QStyleOptionViewItem(), index);
+    return QStyledItemDelegate::editorEvent(event, model, option, index);
 }

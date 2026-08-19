@@ -360,7 +360,6 @@ QString IpSelector::auto_select_ip() {
         }
 
         if (is_interface_filtered(iface)) {
-            QString iface_human = iface.humanReadableName();
             continue;
         }
 
