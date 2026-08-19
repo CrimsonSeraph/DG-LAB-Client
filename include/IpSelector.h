@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
 #pragma once
 
 #include <QNetworkInterface>
@@ -49,6 +54,8 @@ private:
     QStringList whitelist_; ///< 白名单关键词（匹配则优先返回）
     QString ip_cache_;  ///< 上次获取的 IP 缓存
 
+    /// @brief 构造函数（单例私有，禁止外部构造）
+    /// @param parent 父对象指针
     explicit IpSelector(QObject* parent = nullptr);
     ~IpSelector() = default;
 

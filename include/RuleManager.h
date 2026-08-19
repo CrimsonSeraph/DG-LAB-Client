@@ -61,11 +61,32 @@ public:
     void reload_rules();
 
     // -------------------- 规则查询 --------------------
+    /// @brief 获取所有规则名称
+    /// @return 规则名称列表
     std::vector<std::string> get_rule_names() const;
+
+    /// @brief 获取规则的显示字符串（含通道、模式与格式化后的值表达式）
+    /// @param rule_name 规则名称
+    /// @return 显示字符串，规则不存在时返回空字符串
     std::string get_rule_display_string(const std::string& rule_name) const;
+
+    /// @brief 获取所有规则的显示字符串
+    /// @return 显示字符串列表
     std::vector<std::string> get_all_rule_display_strings() const;
+
+    /// @brief 获取规则通道（"A"/"B"/空）
+    /// @param rule_name 规则名称
+    /// @return 通道字符串，规则不存在时返回空字符串
     std::string get_rule_channel(const std::string& rule_name) const;
+
+    /// @brief 获取规则模式（0-4）
+    /// @param rule_name 规则名称
+    /// @return 模式值，规则不存在时返回 -1
     int get_rule_mode(const std::string& rule_name) const;
+
+    /// @brief 获取规则的值计算表达式
+    /// @param rule_name 规则名称
+    /// @return 表达式字符串，规则不存在时返回空字符串
     std::string get_rule_value_pattern(const std::string& rule_name) const;
 
     // -------------------- 模板方法（命令生成）--------------------

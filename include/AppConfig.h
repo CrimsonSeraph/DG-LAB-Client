@@ -200,14 +200,25 @@ private:
     std::atomic<bool> initialized_{ false };    ///< 初始化标志
 
     // -------------------- 私有辅助函数 --------------------
-    void initialize_configs();  ///< 初始化配置项（加锁）
-    void initialize_configs_unsafe();   ///< 初始化配置项（不加锁）
-    void create_default_configs();  ///< 创建默认配置文件
-    void setup_listeners(); ///< 设置配置变更监听
-    void invalidate_caches();   ///< 清空所有配置缓存
-    void notify_config_changed(const std::string& config_name); ///< 通知配置变更
-    bool validate_configs() const;  ///< 验证所有配置（内部调用）
-    bool is_called_from_main_thread() const;    ///< 检查是否在主线程
+    /// @brief 初始化配置项（加锁版本）
+    void initialize_configs();
+    /// @brief 初始化配置项（不加锁，需外部同步）
+    void initialize_configs_unsafe();
+    /// @brief 创建默认配置文件（配置缺失时调用）
+    void create_default_configs();
+    /// @brief 设置配置变更监听
+    void setup_listeners();
+    /// @brief 清空所有配置缓存
+    void invalidate_caches();
+    /// @brief 通知指定配置的监听器配置已变更
+    /// @param config_name 配置名称（"main"/"system"/"user"/"all"）
+    void notify_config_changed(const std::string& config_name);
+    /// @brief 验证所有配置（内部调用）
+    /// @return 全部有效返回 true
+    bool validate_configs() const;
+    /// @brief 检查当前调用是否发生在主线程
+    /// @return 主线程返回 true
+    bool is_called_from_main_thread() const;
 };
 
 #include "AppConfig_impl.hpp"

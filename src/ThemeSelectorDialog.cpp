@@ -15,9 +15,9 @@
 #include <QFrame>
 #include <QMouseEvent>
 
- // ============================================
- // ClickableCard - 可点击的卡片容器（局部辅助类）
- // ============================================
+// ============================================
+// ClickableCard - 可点击的卡片容器（局部辅助类）
+// ============================================
 class ClickableCard : public QFrame {
     Q_OBJECT
 public:
@@ -228,10 +228,12 @@ void ThemeSelectorDialog::create_theme_card(Theme theme,
         .arg(secondary_color.name()));
     color_layout->addWidget(secondary_block);
 
-    
-    color_layout->addStretch(); // 右侧弹簧
+
+    // 右侧弹簧
+    color_layout->addStretch();
     card_layout->addLayout(color_layout);
-    card_layout->addStretch();  // 底部弹簧
+    // 底部弹簧
+    card_layout->addStretch();
 
     connect(card, &ClickableCard::clicked, this, [this, theme, mode_name]() {
         LOG_MODULE("ThemeSelectorDialog", "create_theme_card", LOG_DEBUG,

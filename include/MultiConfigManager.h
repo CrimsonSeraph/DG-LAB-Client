@@ -138,6 +138,7 @@ public:
     /// @brief 获取注册表互斥锁（用于高级同步）
     inline std::mutex& get_registry_mutex() { return registry_mutex_; }
 
+    /// @brief 析构函数（保存所有配置并停止监控线程）
     ~MultiConfigManager();
 
 private:
