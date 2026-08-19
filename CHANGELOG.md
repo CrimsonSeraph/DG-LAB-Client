@@ -13,7 +13,7 @@
 - 无
 
 ### Changed
-- 无
+- 统一全项目注释规范: 头文件函数补齐 Doxygen 注释（中文 @brief/@param/@return），源文件行尾注释全部改为独立行注释。
 
 ### Deprecated
 - 无
@@ -22,7 +22,11 @@
 - 无
 
 ### Fixed
-- 无
+- 修复关闭窗口时托盘图标为空导致的野指针崩溃隐患（tray_icon_ 判空）。
+- 修复 ValueModeDelegate 事件转发传递默认构造 option 导致未处理事件状态丢失的问题。
+- 修复创建规则文件时规则文件列表被重复刷新的问题。
+- 修复 ConfigManager::validate 端口校验键名错误（app.server_port -> app.websocket.port）。
+- 清理 MultiConfigManager 重复 include 分支、IpSelector 未使用变量、AppConfig 未使用锁变量及 DebugLog 重复查找等冗余代码。
 
 ### Security
 - 无
