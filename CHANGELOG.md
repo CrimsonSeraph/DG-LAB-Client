@@ -22,6 +22,8 @@
 - 无
 
 ### Fixed
+- 修复新版 macOS SDK 移除 AGL.framework 导致的链接失败（ld: framework 'AGL' not found）：从 Qt 导入目标中剥离 AGL 引用，并显式链接 OpenGL.framework。
+- 构建系统: nlohmann/json.hpp 下载失败留下的 0 字节空文件现在会被识别并重新下载，避免误判为已存在而跳过下载。
 - 修复关闭窗口时托盘图标为空导致的野指针崩溃隐患（tray_icon_ 判空）。
 - 修复 ValueModeDelegate 事件转发传递默认构造 option 导致未处理事件状态丢失的问题。
 - 修复创建规则文件时规则文件列表被重复刷新的问题。

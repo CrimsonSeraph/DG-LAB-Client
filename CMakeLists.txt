@@ -22,7 +22,19 @@ include(FetchContent)
 set(NLOHMANN_JSON_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
 set(NLOHMANN_JSON_HEADER "${NLOHMANN_JSON_INCLUDE_DIR}/nlohmann/json.hpp")
 
-if(NOT EXISTS "${NLOHMANN_JSON_HEADER}")
+# 若文件不存在，或上次下载失败留下了 0 字节的空文件，则视为缺失并重新下载
+set(_NLOHMANN_JSON_NEED_DOWNLOAD TRUE)
+if(EXISTS "${NLOHMANN_JSON_HEADER}")
+    file(SIZE "${NLOHMANN_JSON_HEADER}" _NLOHMANN_JSON_SIZE)
+    if(_NLOHMANN_JSON_SIZE GREATER 0)
+        set(_NLOHMANN_JSON_NEED_DOWNLOAD FALSE)
+        message(STATUS "json.hpp already exists, skipping download")
+    else()
+        message(STATUS "json.hpp exists but is empty (previous download failed), re-downloading...")
+    endif()
+endif()
+
+if(_NLOHMANN_JSON_NEED_DOWNLOAD)
     message(STATUS "Downloading json.hpp from GitHub...")
     file(MAKE_DIRECTORY "${NLOHMANN_JSON_INCLUDE_DIR}/nlohmann")
     file(DOWNLOAD
@@ -38,8 +50,6 @@ if(NOT EXISTS "${NLOHMANN_JSON_HEADER}")
         list(GET DOWNLOAD_STATUS 1 ERROR_MSG)
         message(FATAL_ERROR "Failed to download json.hpp: ${ERROR_MSG}")
     endif()
-else()
-    message(STATUS "json.hpp already exists, skipping download")
 endif()
 
 add_library(nlohmann_json INTERFACE)
@@ -174,6 +184,127 @@ endif()
 
 # -------------------- 查找 Python --------------------
 find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
+
+# ----- macOS：移除 Qt 链接参数中对已废弃 AGL.framework 的引用 -----
+# Qt 6.5.x 及更早版本的官方 macOS 二进制在其 .prl 文件中带有 "-framework AGL"，
+# 而新版 macOS（15+/26+）SDK 已移除 AGL.framework，链接时会报：
+#   ld: framework 'AGL' not found
+# Qt 在安装时会把 .prl 中的框架依赖写入导入目标的多个属性，常见存放位置：
+#   - INTERFACE_LINK_LIBRARIES
+#   - INTERFACE_LINK_OPTIONS
+#   - IMPORTED_LINK_DEPENDENT_LIBRARIES / IMPORTED_LINK_DEPENDENT_LIBRARIES_<CONFIG>
+#   - IMPORTED_LINK_INTERFACE_LIBRARIES / IMPORTED_LINK_INTERFACE_LIBRARIES_<CONFIG>
+# 这里对项目用到的所有 Qt 导入目标的上述属性统一剥离 AGL 引用，兼容
+# "-framework AGL" 单条目、"-framework" 与 "AGL" 分列两个条目、"-lAGL"、
+# "-Wl,-framework,AGL"、AGL.framework / AGL.dylib 路径等多种写法。
+# 注意：必须使用带版本号的 Qt${QT_VERSION_MAJOR}::Xxx 目标；
+# 无版本号目标（Qt::Xxx）只是 ALIAS，不允许被 set_target_properties 修改。
+
+# 从列表变量中移除 AGL 相关条目（结果写回父作用域同名变量）
+function(dgl_strip_agl_list _var_name)
+    set(_entries ${${_var_name}})
+    set(_clean "")
+    set(_changed FALSE)
+    list(LENGTH _entries _len)
+    set(_i 0)
+    while(_i LESS _len)
+        list(GET _entries ${_i} _cur)
+        if(_cur STREQUAL "-framework AGL" OR _cur STREQUAL "AGL" OR _cur STREQUAL "-lAGL")
+            # 单条目形式，直接丢弃
+            set(_changed TRUE)
+            math(EXPR _i "${_i} + 1")
+            continue()
+        endif()
+        if(_cur STREQUAL "-framework")
+            # 检查下一项是否是要被移除的 AGL，若是则成对丢弃
+            math(EXPR _j "${_i} + 1")
+            set(_next "")
+            if(_j LESS _len)
+                list(GET _entries ${_j} _next)
+            endif()
+            if(_next STREQUAL "AGL")
+                set(_changed TRUE)
+                math(EXPR _i "${_i} + 2")
+                continue()
+            endif()
+        endif()
+        if(_cur MATCHES "AGL\.(framework|dylib)$" OR _cur MATCHES "-Wl,.*AGL" OR _cur MATCHES "-framework,AGL")
+            # 路径形式 / 链接器直传形式
+            set(_changed TRUE)
+        else()
+            list(APPEND _clean "${_cur}")
+        endif()
+        math(EXPR _i "${_i} + 1")
+    endwhile()
+    set(${_var_name} "${_clean}" PARENT_SCOPE)
+    if(_changed)
+        set(_DGL_AGL_STRIPPED TRUE PARENT_SCOPE)
+    endif()
+endfunction()
+
+# 剥离单个 Qt 导入目标上所有可能携带 AGL 引用的属性
+function(dgl_strip_agl_target _target)
+    if(NOT TARGET ${_target})
+        return()
+    endif()
+    set(_DGL_AGL_STRIPPED FALSE)
+
+    # 现代链接属性
+    foreach(_prop IN ITEMS INTERFACE_LINK_LIBRARIES INTERFACE_LINK_OPTIONS)
+        get_target_property(_val ${_target} ${_prop})
+        if(_val)
+            dgl_strip_agl_list(_val)
+            set_target_properties(${_target} PROPERTIES ${_prop} "${_val}")
+        endif()
+    endforeach()
+
+    # 旧式 IMPORTED_LINK_* 属性（含按配置区分的变体）
+    foreach(_prop IN ITEMS IMPORTED_LINK_DEPENDENT_LIBRARIES IMPORTED_LINK_INTERFACE_LIBRARIES)
+        get_target_property(_val ${_target} ${_prop})
+        if(NOT _val STREQUAL "_val-NOTFOUND")
+            dgl_strip_agl_list(_val)
+            set_target_properties(${_target} PROPERTIES ${_prop} "${_val}")
+        endif()
+        foreach(_cfg IN ITEMS DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
+            get_target_property(_val ${_target} ${_prop}_${_cfg})
+            if(NOT _val STREQUAL "_val-NOTFOUND")
+                dgl_strip_agl_list(_val)
+                set_target_properties(${_target} PROPERTIES ${_prop}_${_cfg} "${_val}")
+            endif()
+        endforeach()
+    endforeach()
+
+    if(_DGL_AGL_STRIPPED)
+        message(STATUS "Removed deprecated AGL framework reference from ${_target}")
+    endif()
+endfunction()
+
+if(APPLE)
+    # 对项目用到的所有 Qt 目标执行剥离
+    foreach(_qt_comp IN ITEMS Core Gui Widgets Network Qml)
+        dgl_strip_agl_target(Qt${QT_VERSION_MAJOR}::${_qt_comp})
+    endforeach()
+
+    # 诊断输出：确认剥离后不再出现 AGL（便于在 CI 日志中核对）
+    foreach(_qt_comp IN ITEMS Core Gui Widgets Network Qml)
+        set(_t Qt${QT_VERSION_MAJOR}::${_qt_comp})
+        if(TARGET ${_t})
+            get_target_property(_ill ${_t} INTERFACE_LINK_LIBRARIES)
+            get_target_property(_ild ${_t} IMPORTED_LINK_DEPENDENT_LIBRARIES_RELEASE)
+            message(STATUS "[AGL-DIAG] ${_t} INTERFACE_LINK_LIBRARIES        = ${_ill}")
+            message(STATUS "[AGL-DIAG] ${_t} IMPORTED_LINK_DEPENDENT_LIBRARIES_RELEASE = ${_ild}")
+        endif()
+    endforeach()
+
+    # Qt 6.5 及更早版本仍需要 OpenGL.framework（与 AGL 无关，正常链接即可）
+    find_library(OPENGL_FRAMEWORK OpenGL)
+    if(OPENGL_FRAMEWORK)
+        target_link_libraries(${PROJECT_NAME} PRIVATE "${OPENGL_FRAMEWORK}")
+        message(STATUS "Linking explicitly against OpenGL.framework: ${OPENGL_FRAMEWORK}")
+    else()
+        message(WARNING "OpenGL.framework not found; Qt may need it at link time")
+    endif()
+endif()
 
 # -------------------- 链接库 --------------------
 target_link_libraries(${PROJECT_NAME}
