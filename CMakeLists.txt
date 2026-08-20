@@ -122,6 +122,8 @@ set(PROJECT_SOURCES
     src/ModuleManager.cpp
     include/ModuleValuesDialog.h
     src/ModuleValuesDialog.cpp
+    include/ParentEditDialog.h
+    src/ParentEditDialog.cpp
 
     # 波形绘制
     include/SampledWaveformWidget.h

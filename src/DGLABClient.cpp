@@ -14,6 +14,7 @@
 #include "IpSelector.h"
 #include "ModuleManager.h"
 #include "ModuleValuesDialog.h"
+#include "ParentEditDialog.h"
 #include "PythonSubprocessManager.h"
 #include "RuleManager.h"
 #include "SampledWaveformWidget.h"
@@ -1032,18 +1033,20 @@ void DGLABClient::setup_rules_ui() {
     fileLayout->addWidget(save_file_btn_);
     layout->addLayout(fileLayout);
 
-    // 规则表格
+    // 规则表格（启用、规则名称、父级、模式、值模式）
     rule_table_ = new QTableWidget();
-    rule_table_->setColumnCount(4);
-    rule_table_->setHorizontalHeaderLabels({"规则名称", "父级", "模式", "值模式"});
+    rule_table_->setColumnCount(5);
+    rule_table_->setHorizontalHeaderLabels({"启用", "规则名称", "父级", "模式", "值模式"});
     rule_table_->horizontalHeader()->setStretchLastSection(true);
 
     QStringList channelOptions = {"A", "B", "无"};
     QStringList modeOptions = {"递减", "递增", "设为", "连减", "连增"};
 
-    rule_table_->setItemDelegateForColumn(1, new ComboBoxDelegate(channelOptions, rule_table_));
-    rule_table_->setItemDelegateForColumn(2, new ComboBoxDelegate(modeOptions, rule_table_));
-    rule_table_->setItemDelegateForColumn(3, new ValueModeDelegate(rule_table_));
+    rule_table_->setItemDelegateForColumn(2, new ComboBoxDelegate(channelOptions, rule_table_));
+    rule_table_->setItemDelegateForColumn(3, new ComboBoxDelegate(modeOptions, rule_table_));
+    rule_table_->setItemDelegateForColumn(4, new ValueModeDelegate(rule_table_));
+    // 启用列窄宽度
+    rule_table_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
     rule_table_->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::AnyKeyPressed);
     rule_table_->viewport()->update();
     // 父级列编辑后同步到规则管理器（含通道唯一性去重）
@@ -1056,9 +1059,11 @@ void DGLABClient::setup_rules_ui() {
     QHBoxLayout* btnLayout = new QHBoxLayout();
     add_rule_btn_ = new QPushButton("添加规则");
     edit_rule_btn_ = new QPushButton("编辑规则");
+    edit_parents_btn_ = new QPushButton("编辑父级");
     delete_rule_btn_ = new QPushButton("删除规则");
     btnLayout->addWidget(add_rule_btn_);
     btnLayout->addWidget(edit_rule_btn_);
+    btnLayout->addWidget(edit_parents_btn_);
     btnLayout->addWidget(delete_rule_btn_);
     layout->addLayout(btnLayout);
 
@@ -1068,6 +1073,7 @@ void DGLABClient::setup_rules_ui() {
     connect(save_file_btn_, &QPushButton::clicked, this, &DGLABClient::on_save_rule_file);
     connect(add_rule_btn_, &QPushButton::clicked, this, &DGLABClient::on_add_rule);
     connect(edit_rule_btn_, &QPushButton::clicked, this, &DGLABClient::on_edit_rule);
+    connect(edit_parents_btn_, &QPushButton::clicked, this, &DGLABClient::on_edit_parents);
     connect(delete_rule_btn_, &QPushButton::clicked, this, &DGLABClient::on_delete_rule);
 
     refresh_rule_file_list();
@@ -1075,6 +1081,7 @@ void DGLABClient::setup_rules_ui() {
 
     add_rule_btn_->setProperty("button_type", "special");
     edit_rule_btn_->setProperty("button_type", "special");
+    edit_parents_btn_->setProperty("button_type", "special");
     delete_rule_btn_->setProperty("button_type", "emphasis");
     rule_table_->horizontalHeader()->setProperty("type", "table_header");
     rule_table_->setAttribute(Qt::WA_StyledBackground, true);
@@ -1131,12 +1138,19 @@ void DGLABClient::update_rule_table() {
     QColor partial_color = light_text ? QColor(165, 165, 165) : QColor(110, 110, 110);
     for (size_t i = 0; i < names.size(); ++i) {
         const auto& name = names[i];
+        // 启用列（勾选框）
+        QTableWidgetItem* enabled_item = new QTableWidgetItem();
+        enabled_item->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        enabled_item->setCheckState(rm.get_rule_enabled(name) ? Qt::Checked : Qt::Unchecked);
+        enabled_item->setTextAlignment(Qt::AlignCenter);
+        rule_table_->setItem(i, 0, enabled_item);
+
         // 规则名称列
-        rule_table_->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(name)));
+        rule_table_->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(name)));
 
         // 父级列显示（通道在前，规则在后，无父级显示"无"）
         std::string parents_display = rm.get_rule_parents_display(name);
-        rule_table_->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(parents_display)));
+        rule_table_->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(parents_display)));
 
         // 模式列（父级不是通道时灰显）
         int mode = rm.get_rule_mode(name);
@@ -1161,35 +1175,45 @@ void DGLABClient::update_rule_table() {
             mode_item->setText(modeStr + "(部分不适用)");
             mode_item->setForeground(QBrush(partial_color));
         }
-        rule_table_->setItem(i, 2, mode_item);
+        rule_table_->setItem(i, 3, mode_item);
 
         // 值模式列（规则文件内容不变，仅改变应用中的显示）
         std::string pattern = rm.get_rule_value_pattern(name);
         QString displayPattern = QString::fromStdString(pattern);
         displayPattern.replace("{}", "{   }");
-        rule_table_->setItem(i, 3, new QTableWidgetItem(displayPattern));
+        rule_table_->setItem(i, 4, new QTableWidgetItem(displayPattern));
     }
     updating_rule_table_ = false;
 }
 
 void DGLABClient::on_rule_table_item_changed(QTableWidgetItem* item) {
-    // 仅处理父级列的编辑（通道唯一性：保留用户最后设置的）
-    if (updating_rule_table_ || !item || item->column() != 1) {
+    if (updating_rule_table_ || !item) {
         return;
     }
-    QTableWidgetItem* name_item = rule_table_->item(item->row(), 0);
+    QTableWidgetItem* name_item = rule_table_->item(item->row(), 1);
     if (!name_item || name_item->text().isEmpty()) {
         return;
     }
     QString name = name_item->text();
-    QString parent_text = item->text();
-    QString channel = (parent_text == "A" || parent_text == "B") ? parent_text : "";
-    RuleManager::instance().set_rule_channel(name.toStdString(), channel.toStdString());
-    LOG_MODULE("DGLABClient", "on_rule_table_item_changed", LOG_DEBUG,
-        "规则 " << name.toStdString() << " 父级设置为: "
-                << (channel.isEmpty() ? "无" : channel.toStdString()));
-    // 通道唯一性可能清除其他行的通道父级，刷新显示
-    update_rule_table();
+    if (item->column() == 0) {
+        // 启用列：勾选状态同步到规则管理器
+        RuleManager::instance().set_rule_enabled(name.toStdString(),
+            item->checkState() == Qt::Checked);
+        LOG_MODULE("DGLABClient", "on_rule_table_item_changed", LOG_DEBUG,
+            "规则 " << name.toStdString() << " 启用状态: "
+                    << (item->checkState() == Qt::Checked ? "启用" : "停用"));
+    }
+    else if (item->column() == 2) {
+        // 父级列编辑（通道唯一性：保留用户最后设置的）
+        QString parent_text = item->text();
+        QString channel = (parent_text == "A" || parent_text == "B") ? parent_text : "";
+        RuleManager::instance().set_rule_channel(name.toStdString(), channel.toStdString());
+        LOG_MODULE("DGLABClient", "on_rule_table_item_changed", LOG_DEBUG,
+            "规则 " << name.toStdString() << " 父级设置为: "
+                    << (channel.isEmpty() ? "无" : channel.toStdString()));
+        // 通道唯一性可能清除其他行的通道父级，刷新显示
+        update_rule_table();
+    }
 }
 
 // ----- 样式辅助 -----
@@ -1736,7 +1760,7 @@ void DGLABClient::on_edit_rule() {
         QMessageBox::warning(this, "提示", "请先选择要编辑的规则");
         return;
     }
-    QString name = rule_table_->item(row, 0)->text();
+    QString name = rule_table_->item(row, 1)->text();
     auto& rm = RuleManager::instance();
 
     QString oldChannel = QString::fromStdString(rm.get_rule_channel(name.toStdString()));
@@ -1788,10 +1812,58 @@ void DGLABClient::on_edit_rule() {
     }
 }
 
+void DGLABClient::on_edit_parents() {
+    int row = rule_table_->currentRow();
+    if (row < 0) {
+        QMessageBox::warning(this, "提示", "请先选择要编辑的规则");
+        return;
+    }
+    QString name = rule_table_->item(row, 1)->text();
+    auto& rm = RuleManager::instance();
+    if (rm.get_rule_index(name.toStdString()) <= 0) {
+        return;
+    }
+
+    ParentEditDialog dlg(name.toStdString(), this);
+    if (dlg.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    // 应用通道父级
+    rm.set_rule_channel(name.toStdString(), dlg.get_channel());
+    // 应用规则父级：对比当前引用与目标勾选，增删对应规则值模式中的 {rule:本规则}
+    int self_index = rm.get_rule_index(name.toStdString());
+    auto current_refs = rm.get_rule_parent_rules(name.toStdString());
+    std::vector<int> target = dlg.get_selected_rules();
+    for (int target_index : target) {
+        if (std::find(current_refs.begin(), current_refs.end(), target_index) == current_refs.end()) {
+            std::string target_name = rm.get_rule_name_by_index(target_index);
+            if (!target_name.empty()) {
+                rm.add_rule_reference(target_name, self_index);
+            }
+        }
+    }
+    for (int current_index : current_refs) {
+        if (std::find(target.begin(), target.end(), current_index) == target.end()) {
+            std::string current_name = rm.get_rule_name_by_index(current_index);
+            if (!current_name.empty()) {
+                rm.remove_rule_reference(current_name, self_index);
+            }
+        }
+    }
+
+    // 持久化到规则文件并刷新表格
+    if (rm.save_current_rule_file()) {
+        LOG_MODULE("DGLABClient", "on_edit_parents", LOG_INFO,
+            "规则 " << name.toStdString() << " 父级编辑完成并已保存");
+    }
+    update_rule_table();
+}
+
 void DGLABClient::on_delete_rule() {
     int row = rule_table_->currentRow();
     if (row < 0) return;
-    QString name = rule_table_->item(row, 0)->text();
+    QString name = rule_table_->item(row, 1)->text();
     int ret = QMessageBox::question(this, "确认", "确定要删除规则 " + name + " 吗？");
     if (ret == QMessageBox::Yes) {
         auto& rm = RuleManager::instance();

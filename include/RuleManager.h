@@ -150,6 +150,23 @@ public:
     /// @param channel 通道（"A"/"B"/空）
     void set_rule_channel(const std::string& rule_name, const std::string& channel);
 
+    /// @brief 获取引用指定规则的规则序号列表（规则父级，由值模式 {rule:xx} 推导）
+    /// @param rule_name 规则名称
+    /// @return 引用该规则的规则序号列表
+    std::vector<int> get_rule_parent_rules(const std::string& rule_name) const;
+
+    /// @brief 在指定规则的值模式中添加对另一规则的引用（{rule:xx}，追加到末尾）
+    /// @param rule_name 要修改值模式的规则名称
+    /// @param referenced_index 被引用的规则序号
+    /// @return 成功返回 true，引用已存在或规则不存在返回 false
+    bool add_rule_reference(const std::string& rule_name, int referenced_index);
+
+    /// @brief 从指定规则的值模式中移除对另一规则的引用（{rule:xx}，含前导运算符清理）
+    /// @param rule_name 要修改值模式的规则名称
+    /// @param referenced_index 被引用的规则序号
+    /// @return 成功返回 true，引用不存在或规则不存在返回 false
+    bool remove_rule_reference(const std::string& rule_name, int referenced_index);
+
     // -------------------- 通道启用状态 --------------------
     /// @brief 设置通道启用状态（通道启用时触发直连规则计算）
     /// @param channel 通道（"A"/"B"）

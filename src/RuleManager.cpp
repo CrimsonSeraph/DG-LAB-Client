@@ -11,6 +11,7 @@
 #include "ModuleManager.h"
 
 #include <QJsonObject>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <filesystem>
@@ -434,6 +435,85 @@ void RuleManager::set_rule_channel(const std::string& rule_name, const std::stri
         deduplicate_channel_parents_keep(rule_name, ch);
     }
     emit rules_changed();
+}
+
+std::vector<int> RuleManager::get_rule_parent_rules(const std::string& rule_name) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = rules_.find(rule_name);
+    if (it == rules_.end()) {
+        return {};
+    }
+    // 规则父级由值模式 {rule:xx} 推导（referrers 反向索引）
+    auto ref_it = referrers_.find(it->second.get_index());
+    return ref_it != referrers_.end() ? ref_it->second : std::vector<int>();
+}
+
+bool RuleManager::add_rule_reference(const std::string& rule_name, int referenced_index) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = rules_.find(rule_name);
+        if (it == rules_.end() || referenced_index <= 0) {
+            return false;
+        }
+        std::string pattern = it->second.get_value_pattern();
+        std::string token = "{rule:" + std::to_string(referenced_index) + "}";
+        if (pattern.find(token) != std::string::npos) {
+            return false;
+        }
+        // 追加规则引用（空模式直接放置，否则用 + 连接）
+        if (pattern.empty()) {
+            pattern = token;
+        }
+        else {
+            pattern += "+" + token;
+        }
+        // 重建规则对象（保留其他字段），并刷新索引
+        Rule new_rule(rule_name, it->second.get_channel(), it->second.get_mode(), pattern,
+            it->second.get_enabled(), it->second.get_parents(), it->second.get_index());
+        it->second = std::move(new_rule);
+        rebuild_indexes();
+    }
+    emit rules_changed();
+    return true;
+}
+
+bool RuleManager::remove_rule_reference(const std::string& rule_name, int referenced_index) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = rules_.find(rule_name);
+        if (it == rules_.end() || referenced_index <= 0) {
+            return false;
+        }
+        std::string pattern = it->second.get_value_pattern();
+        std::string token = "{rule:" + std::to_string(referenced_index) + "}";
+        if (pattern.find(token) == std::string::npos) {
+            return false;
+        }
+        // 移除带前导运算符的引用（如 +{rule:2}），再移除孤立引用
+        QString qpattern = QString::fromStdString(pattern);
+        QString idx = QString::number(referenced_index);
+        qpattern.remove(QRegularExpression("\\+\\{rule:" + idx + "\\}"));
+        qpattern.remove(QRegularExpression("\\{rule:" + idx + "\\}"));
+        // 清理因移除引用产生的孤立运算符（开头/结尾）
+        std::string cleaned = qpattern.toStdString();
+        while (!cleaned.empty()
+            && (cleaned.front() == '+' || cleaned.front() == '-'
+                || cleaned.front() == '*' || cleaned.front() == '/')) {
+            cleaned.erase(cleaned.begin());
+        }
+        while (!cleaned.empty()
+            && (cleaned.back() == '+' || cleaned.back() == '-'
+                || cleaned.back() == '*' || cleaned.back() == '/')) {
+            cleaned.pop_back();
+        }
+        // 重建规则对象（保留其他字段），并刷新索引
+        Rule new_rule(rule_name, it->second.get_channel(), it->second.get_mode(), cleaned,
+            it->second.get_enabled(), it->second.get_parents(), it->second.get_index());
+        it->second = std::move(new_rule);
+        rebuild_indexes();
+    }
+    emit rules_changed();
+    return true;
 }
 
 // ============================================

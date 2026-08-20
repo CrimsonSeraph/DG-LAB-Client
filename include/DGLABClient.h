@@ -163,6 +163,7 @@ private:
     QPushButton* save_file_btn_;
     QPushButton* add_rule_btn_;
     QPushButton* edit_rule_btn_;
+    QPushButton* edit_parents_btn_;
     QPushButton* delete_rule_btn_;
     bool updating_rule_table_ = false; ///< 表格刷新标志（防止 itemChanged 递归）
 
@@ -344,6 +345,8 @@ private slots:
     void on_add_rule();
     /// @brief 编辑当前选中的规则
     void on_edit_rule();
+    /// @brief 编辑当前选中规则的父级（通道单选 + 规则多选）
+    void on_edit_parents();
     /// @brief 删除当前选中的规则
     void on_delete_rule();
     /// @brief 规则表格单元格内容变化（父级列编辑同步到规则管理器）
