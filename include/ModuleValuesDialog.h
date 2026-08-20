@@ -33,6 +33,12 @@ public:
     explicit ModuleValuesDialog(const std::string& module_name, QWidget* parent = nullptr);
 
 private slots:
+    /// @brief 数值变化时更新对应数值标签
+    /// @param module_name 模块名称
+    /// @param value_id 数值 ID
+    /// @param new_value 最新数值
+    void on_value_changed(const QString& module_name, const QString& value_id, int new_value);
+
     /// @brief 周期下拉框选择变化时应用新的查询周期
     /// @param index 下拉框索引
     void on_period_combo_changed(int index);

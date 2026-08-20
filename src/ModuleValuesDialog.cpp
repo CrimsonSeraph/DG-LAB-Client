@@ -46,7 +46,9 @@ ModuleValuesDialog::ModuleValuesDialog(const std::string& module_name, QWidget* 
         value_boxes_[i].value_label->setText(QString::number(value));
     }
 
-    // 监听周期变化，实时刷新界面
+    // 监听数值变化与周期变化，实时刷新界面
+    connect(&manager, &ModuleManager::value_changed,
+        this, &ModuleValuesDialog::on_value_changed);
     connect(&manager, &ModuleManager::period_changed,
         this, &ModuleValuesDialog::on_period_changed);
 
@@ -57,6 +59,20 @@ ModuleValuesDialog::ModuleValuesDialog(const std::string& module_name, QWidget* 
 // ============================================
 // private slots 实现
 // ============================================
+
+void ModuleValuesDialog::on_value_changed(const QString& module_name, const QString& value_id,
+    int new_value) {
+    if (module_name != QString::fromStdString(module_name_)) {
+        return;
+    }
+    // 查找对应的数值框并更新数值标签
+    for (size_t i = 0; i < value_ids_.size(); ++i) {
+        if (value_ids_[i] == value_id.toStdString()) {
+            value_boxes_[i].value_label->setText(QString::number(new_value));
+            return;
+        }
+    }
+}
 
 void ModuleValuesDialog::on_period_combo_changed(int box_index) {
     if (syncing_combos_ || box_index < 0

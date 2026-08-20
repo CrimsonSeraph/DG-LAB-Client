@@ -8,6 +8,7 @@
 #include "DebugLog.h"
 
 #include <algorithm>
+#include <tuple>
 #include <utility>
 
 // ============================================
@@ -25,9 +26,17 @@ ModuleManager& ModuleManager::instance() {
 
 ModuleManager::ModuleManager()
     : QObject(nullptr) {
+    // 定时器由主线程驱动，调度查询基于最短周期
+    timer_ = new QTimer(this);
+    timer_->setTimerType(Qt::PreciseTimer);
+    connect(timer_, &QTimer::timeout, this, &ModuleManager::on_timer_tick);
 }
 
-ModuleManager::~ModuleManager() = default;
+ModuleManager::~ModuleManager() {
+    if (timer_) {
+        timer_->stop();
+    }
+}
 
 // ============================================
 // 初始化（public）
@@ -44,8 +53,10 @@ void ModuleManager::init() {
     if (!data_source_) {
         data_source_ = &ModuleManager::default_data_source;
     }
+    // 以最短查询周期为基准启动调度器
+    rebuild_scheduler();
     LOG_MODULE("ModuleManager", "init", LOG_INFO,
-        "数值模块初始化完成，最短周期: " << get_base_period_ms() << "ms");
+        "数值模块初始化完成，基准周期: " << base_period_ms_ << "ms");
 }
 
 // ============================================
@@ -125,6 +136,7 @@ void ModuleManager::set_value_period(const std::string& module_name, const std::
                 "未找到数值: " << module_name << "/" << value_id);
             return;
         }
+        rebuild_scheduler();
     }
     emit period_changed();
 }
@@ -145,6 +157,7 @@ void ModuleManager::set_module_period(const std::string& module_name, QueryPerio
                 "未找到模块: " << module_name);
             return;
         }
+        rebuild_scheduler();
     }
     emit period_changed();
 }
@@ -155,6 +168,7 @@ void ModuleManager::set_all_period(QueryPeriod period) {
         for (auto& module : modules_) {
             module.set_all_values_period(period);
         }
+        rebuild_scheduler();
     }
     emit period_changed();
     LOG_MODULE("ModuleManager", "set_all_period", LOG_INFO,
@@ -175,34 +189,97 @@ void ModuleManager::set_data_source(DataSource source) {
 // ============================================
 
 int ModuleManager::query_value(const std::string& module_name, const std::string& value_id) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    for (auto& module : modules_) {
-        if (module.get_name() != module_name) {
-            continue;
-        }
-        for (auto& value : module.get_values()) {
-            if (value.get_id() == value_id) {
-                int new_value = data_source_(value_id);
-                value.set_last_value(new_value);
-                return new_value;
+    int new_value = 0;
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto& module : modules_) {
+            if (module.get_name() != module_name) {
+                continue;
             }
+            for (auto& value : module.get_values()) {
+                if (value.get_id() == value_id) {
+                    new_value = data_source_(value_id);
+                    // 数值变化检测：已有历史值且与最新值不同才推送
+                    changed = value.get_has_value() && value.get_last_value() != new_value;
+                    value.set_last_value(new_value);
+                    break;
+                }
+            }
+            break;
         }
     }
-    return 0;
+    if (changed) {
+        emit value_changed(QString::fromStdString(module_name),
+            QString::fromStdString(value_id), new_value);
+    }
+    return new_value;
 }
 
 int ModuleManager::get_base_period_ms() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    int base_period = query_period_to_ms(QueryPeriod::SECOND);
-    for (const auto& module : modules_) {
-        base_period = std::min(base_period, module.get_min_period_ms());
+    return base_period_ms_;
+}
+
+// ============================================
+// private slots 实现
+// ============================================
+
+void ModuleManager::on_timer_tick() {
+    ++tick_count_;
+    // 收集本周期内发生变化的数值（先查后发，避免持锁发信号）
+    std::vector<std::tuple<std::string, std::string, int>> changes;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto& module : modules_) {
+            for (auto& value : module.get_values()) {
+                int period_ms = query_period_to_ms(value.get_query_period());
+                int interval = period_ms / base_period_ms_;
+                if (interval < 1) {
+                    interval = 1;
+                }
+                // 按基准周期取模：周期越短的数值被查询的次数越多
+                if (tick_count_ % interval != 0) {
+                    continue;
+                }
+                if (query_value_locked(module, value)) {
+                    changes.emplace_back(module.get_name(), value.get_id(),
+                        value.get_last_value());
+                }
+            }
+        }
     }
-    return base_period;
+    // 数值变化时推送（触发规则计算与界面刷新）
+    for (const auto& [module_name, value_id, new_value] : changes) {
+        emit value_changed(QString::fromStdString(module_name),
+            QString::fromStdString(value_id), new_value);
+    }
 }
 
 // ============================================
 // 私有辅助函数实现（private）
 // ============================================
+
+void ModuleManager::rebuild_scheduler() {
+    base_period_ms_ = query_period_to_ms(QueryPeriod::SECOND);
+    for (const auto& module : modules_) {
+        base_period_ms_ = std::min(base_period_ms_, module.get_min_period_ms());
+    }
+    tick_count_ = 0;
+    if (timer_) {
+        timer_->start(base_period_ms_);
+    }
+    LOG_MODULE("ModuleManager", "rebuild_scheduler", LOG_DEBUG,
+        "调度器已重建，基准周期: " << base_period_ms_ << "ms");
+}
+
+bool ModuleManager::query_value_locked(Module& module, ModuleValue& value) {
+    int new_value = data_source_(value.get_id());
+    // 数值变化检测：已有历史值且与最新值不同才返回 true（触发推送）
+    bool changed = value.get_has_value() && value.get_last_value() != new_value;
+    value.set_last_value(new_value);
+    return changed;
+}
 
 void ModuleManager::register_default_modules() {
     Module cs2_module("CS2 GSI 模块");
