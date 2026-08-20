@@ -203,6 +203,8 @@ private:
     void reset_py_log_level();
     /// @brief 初始化数值模块管理器并构建模块页面（统一周期设置 + 模块卡片）
     void setup_module_ui();
+    /// @brief 连接规则引擎信号（规则命令发送到 Python 端）
+    void connect_rule_engine();
     /// @brief 点击模块卡片，弹出模块数值展示窗口
     /// @param module_name 模块名称
     void show_module_values(const QString& module_name);

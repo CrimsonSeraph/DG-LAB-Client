@@ -34,9 +34,9 @@ RuleManager& RuleManager::instance() {
 
 RuleManager::RuleManager()
     : QObject(nullptr) {
-    // 监听模块数值变化，触发引用该数值的规则计算（级联触发在后续版本启用）
-    // connect(&ModuleManager::instance(), &ModuleManager::value_changed,
-    //     this, &RuleManager::on_module_value_changed);
+    // 监听模块数值变化，触发值模式中引用该数值的规则计算（级联触发）
+    connect(&ModuleManager::instance(), &ModuleManager::value_changed,
+        this, &RuleManager::on_module_value_changed);
 }
 
 RuleManager::~RuleManager() = default;
@@ -422,7 +422,21 @@ void RuleManager::set_channel_enabled(const std::string& channel, bool enabled) 
         channel_enabled_[ch] = enabled;
         LOG_MODULE("RuleManager", "set_channel_enabled", LOG_INFO,
             "通道 " << ch << " 启用状态: " << (enabled ? "启用" : "关闭"));
-        // 通道启用时触发直连规则的级联计算（后续版本启用）
+        if (enabled) {
+            // 通道启用时触发直连该通道的规则计算（整条调用链开始运转）
+            std::vector<std::string> names;
+            for (const auto& [name, rule] : rules_) {
+                if (rule.has_parent_channel(ch)) {
+                    names.push_back(name);
+                }
+            }
+            for (const auto& name : names) {
+                compute_rule_locked(name, pending_commands);
+            }
+        }
+    }
+    for (const auto& cmd : pending_commands) {
+        emit rule_command_ready(cmd);
     }
 }
 
@@ -504,10 +518,32 @@ nlohmann::json RuleManager::load_json_file(const std::string& filename) const {
 
 void RuleManager::on_module_value_changed(const QString& module_name, const QString& value_id,
     int new_value) {
-    // 模块数值变化触发规则计算的级联机制在后续版本启用
-    Q_UNUSED(module_name);
-    Q_UNUSED(value_id);
-    Q_UNUSED(new_value);
+    // 模块数值变化 → 触发值模式中引用该数值的规则计算
+    std::vector<QJsonObject> pending_commands;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = id_users_.find(value_id.toStdString());
+        if (it == id_users_.end()) {
+            return;
+        }
+        std::vector<std::string> names;
+        for (int idx : it->second) {
+            auto nit = index_to_name_.find(idx);
+            if (nit != index_to_name_.end()) {
+                names.push_back(nit->second);
+            }
+        }
+        for (const auto& name : names) {
+            std::vector<std::string> visiting;
+            // 仅启用且父级可用的规则参与计算
+            if (is_rule_effectively_enabled_locked(name, visiting)) {
+                compute_rule_locked(name, pending_commands);
+            }
+        }
+    }
+    for (const auto& cmd : pending_commands) {
+        emit rule_command_ready(cmd);
+    }
 }
 
 // ============================================
@@ -793,8 +829,34 @@ std::optional<int> RuleManager::compute_rule_locked(const std::string& rule_name
     LOG_MODULE("RuleManager", "compute_rule_locked", LOG_DEBUG,
         "规则 " << rule_name << " 计算结果: " << result.value());
 
-    // 级联推送与通道发送在后续版本启用
-    Q_UNUSED(pending_commands);
+    // 级联推送：结果推送给所有引用本规则的规则（其父级包含本规则）
+    auto ref_it = referrers_.find(rule.get_index());
+    if (ref_it != referrers_.end()) {
+        for (int ref_index : ref_it->second) {
+            auto nit = index_to_name_.find(ref_index);
+            if (nit == index_to_name_.end()) {
+                continue;
+            }
+            std::vector<std::string> v2;
+            // 接收推送的父级若启用且为规则则同样触发计算
+            if (is_rule_effectively_enabled_locked(nit->second, v2)) {
+                compute_rule_locked(nit->second, pending_commands);
+            }
+        }
+    }
+
+    // 通道父级：通过调用函数将结果发送给 Python 端
+    for (const auto& parent : rule.get_parents()) {
+        if (parent.type != ParentType::CHANNEL) {
+            continue;
+        }
+        QJsonObject cmd;
+        cmd["cmd"] = "send_strength";
+        cmd["channel"] = QString::fromStdString(parent.channel);
+        cmd["mode"] = rule.get_mode();
+        cmd["value"] = result.value();
+        pending_commands.push_back(cmd);
+    }
     return result.value();
 }
 
@@ -812,11 +874,18 @@ std::optional<int> RuleManager::resolve_placeholder_locked(const Placeholder& pl
         return module_manager.query_value(module_name, placeholder.id);
     }
     if (placeholder.type == PlaceholderType::RULE_REF) {
-        // 规则间引用 {rule:xx} 的级联解析在后续版本启用，当前按空值处理（忽略该项）
-        LOG_MODULE("RuleManager", "resolve_placeholder_locked", LOG_DEBUG,
-            "规则引用 {rule:" << placeholder.rule_index << "} 暂未启用级联解析，按空值处理");
-        Q_UNUSED(pending_commands);
-        return std::nullopt;
+        auto nit = index_to_name_.find(placeholder.rule_index);
+        if (nit == index_to_name_.end()) {
+            LOG_MODULE("RuleManager", "resolve_placeholder_locked", LOG_WARN,
+                "规则序号不存在: " << placeholder.rule_index);
+            return std::nullopt;
+        }
+        // 优先使用缓存结果，未计算过则递归计算（级联触发）
+        auto lit = last_results_.find(placeholder.rule_index);
+        if (lit != last_results_.end() && lit->second.has_value()) {
+            return lit->second.value();
+        }
+        return compute_rule_locked(nit->second, pending_commands);
     }
     // EXTERNAL 占位符（{}）：无外部参数来源，视为空值（忽略该项）
     return std::nullopt;

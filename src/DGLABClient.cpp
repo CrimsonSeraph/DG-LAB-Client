@@ -162,6 +162,7 @@ void DGLABClient::normal_init() {
     set_port_label_mode();
     setup_rules_ui();
     setup_module_ui();
+    connect_rule_engine();
     init_python_manager();
 }
 
@@ -288,6 +289,8 @@ void DGLABClient::enable_A() {
         });
     }
     is_A_start = !is_A_start;
+    // 通道启用状态同步到规则引擎（启用时触发直连规则计算链）
+    RuleManager::instance().set_channel_enabled("A", is_A_start);
 }
 
 void DGLABClient::enable_B() {
@@ -300,6 +303,8 @@ void DGLABClient::enable_B() {
         ui_.B_start_btn->setText("关闭");
     }
     is_B_start = !is_B_start;
+    // 通道启用状态同步到规则引擎（启用时触发直连规则计算链）
+    RuleManager::instance().set_channel_enabled("B", is_B_start);
 }
 
 void DGLABClient::setup_channel_value_editor_input_validation() {
@@ -986,6 +991,29 @@ void DGLABClient::setup_rules_ui() {
     rule_table_->horizontalHeader()->setAttribute(Qt::WA_StyledBackground, true);
     rule_table_->verticalHeader()->setAttribute(Qt::WA_StyledBackground, true);
     LOG_MODULE("DGLABClient", "setup_rules_ui", LOG_INFO, "规则UI初始化完成");
+}
+
+void DGLABClient::connect_rule_engine() {
+    // 规则计算完成且父级为通道时，将命令发送给 Python 端
+    connect(&RuleManager::instance(), &RuleManager::rule_command_ready,
+        this, [this](const QJsonObject& cmd) {
+            if (!is_connected_) {
+                LOG_MODULE("DGLABClient", "connect_rule_engine", LOG_WARN,
+                    "未连接 Python 服务，规则命令未发送");
+                return;
+            }
+            async_call(cmd, 5000, [this](bool ok, QString msg) {
+                if (!ok) {
+                    LOG_MODULE("DGLABClient", "connect_rule_engine", LOG_ERROR,
+                        "规则命令发送失败: " << msg.toStdString());
+                }
+                else {
+                    LOG_MODULE("DGLABClient", "connect_rule_engine", LOG_DEBUG,
+                        "规则命令已发送: " << msg.toStdString());
+                }
+            });
+        });
+    LOG_MODULE("DGLABClient", "connect_rule_engine", LOG_INFO, "规则引擎信号连接完成");
 }
 
 void DGLABClient::refresh_rule_file_list() {
