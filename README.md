@@ -549,7 +549,9 @@ DG-LAB-Client/
 │       └── release.yml              # 发布工作流
 ├── assets/                          # 静态资源（图片等）
 │   └── normal_image/
-│       └── main_image.png           # 主界面图片
+│       ├── main_image.png           # 主界面图片
+│       ├── check_white.svg          # 勾选框白色勾号（深色强调色主题）
+│       └── check_dark.svg           # 勾选框深色勾号（浅色强调色主题）
 ├── config/                          # 默认配置文件目录
 │   ├── main.json                    # 主配置
 │   ├── system.json                  # 系统配置

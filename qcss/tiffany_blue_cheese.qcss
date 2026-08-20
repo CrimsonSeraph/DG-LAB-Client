@@ -399,3 +399,30 @@ QWidget[type="channel_card_row"] {
     background-color: transparent;
     border: none;
 }
+
+/* ============ 表格勾选框样式 ============ */
+QTableWidget::indicator {
+    width: 14px;
+    height: 14px;
+    border: 1px solid rgba(80,190,180,1.0);
+    border-radius: 4px;
+    background-color: rgba(252,250,245,0.85);
+}
+QTableWidget::indicator:hover {
+    border-color: rgba(80,190,180,1.0);
+    background-color: rgba(252, 250, 245, 1.00);
+}
+QTableWidget::indicator:checked {
+    background-color: rgba(80,190,180,1.0);
+    border-color: rgba(80,190,180,1.0);
+    image: url(:/image/assets/normal_image/check_dark.svg);
+}
+QTableWidget::indicator:checked:hover {
+    background-color: rgba(80,190,180,1.0);
+    border-color: rgba(80,190,180,1.0);
+    image: url(:/image/assets/normal_image/check_dark.svg);
+}
+QTableWidget::indicator:disabled {
+    border-color: rgba(80, 190, 180, 0.40);
+    background-color: rgba(252, 250, 245, 0.40);
+}

@@ -1,6 +1,8 @@
 <RCC>
     <qresource prefix="/image">
         <file>assets/normal_image/main_image.png</file>
+        <file>assets/normal_image/check_white.svg</file>
+        <file>assets/normal_image/check_dark.svg</file>
     </qresource>
     <qresource prefix="/style">
         <file>qcss/charcoal_pink.qcss</file>
