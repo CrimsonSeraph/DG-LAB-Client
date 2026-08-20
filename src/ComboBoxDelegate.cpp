@@ -14,7 +14,8 @@
 // ============================================
 
 ComboBoxDelegate::ComboBoxDelegate(const QStringList& items, QObject* parent)
-    : QStyledItemDelegate(parent), items_(items) {
+    : QStyledItemDelegate(parent)
+    , items_(items) {
     LOG_MODULE("ComboBoxDelegate", "ComboBoxDelegate", LOG_DEBUG,
         QString("构造下拉框委托，选项数量: %1").arg(items.size()).toUtf8().constData());
 }
@@ -65,7 +66,9 @@ void ComboBoxDelegate::setModelData(QWidget* editor, QAbstractItemModel* model,
     QString newValue = combo->currentText();
     LOG_MODULE("ComboBoxDelegate", "setModelData", LOG_DEBUG,
         QString("将编辑器值写入模型: %1 -> %2")
-        .arg(index.data(Qt::DisplayRole).toString(), newValue).toUtf8().constData());
+            .arg(index.data(Qt::DisplayRole).toString(), newValue)
+            .toUtf8()
+            .constData());
 
     model->setData(index, newValue, Qt::EditRole);
 }
@@ -82,7 +85,12 @@ void ComboBoxDelegate::updateEditorGeometry(QWidget* editor,
 
     LOG_MODULE("ComboBoxDelegate", "updateEditorGeometry", LOG_DEBUG,
         QString("更新编辑器几何位置: (%1,%2,%3,%4)")
-        .arg(rect.x()).arg(rect.y()).arg(rect.width()).arg(rect.height()).toUtf8().constData());
+            .arg(rect.x())
+            .arg(rect.y())
+            .arg(rect.width())
+            .arg(rect.height())
+            .toUtf8()
+            .constData());
 
     editor->setGeometry(rect);
     editor->updateGeometry();

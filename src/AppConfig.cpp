@@ -62,7 +62,7 @@ bool AppConfig::initialize(const std::string& config_dir) {
             return true;
         }
 
-        static std::atomic<bool> is_shutting_down{ false };
+        static std::atomic<bool> is_shutting_down{false};
         if (is_shutting_down) {
             LOG_MODULE("AppConfig", "initialize", LOG_WARN, "系统正在关闭，跳过初始化");
             return false;
@@ -74,8 +74,7 @@ bool AppConfig::initialize(const std::string& config_dir) {
             if (!fs::exists(actual_config_dir, ec)) {
                 LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置目录不存在，尝试创建: " << actual_config_dir);
                 if (!fs::create_directories(actual_config_dir, ec)) {
-                    LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "无法创建配置目录: " << actual_config_dir
-                        << " 错误: " << ec.message());
+                    LOG_MODULE("AppConfig", "initialize", LOG_ERROR, "无法创建配置目录: " << actual_config_dir << " 错误: " << ec.message());
                     auto temp_dir = fs::temp_directory_path() / "DG-LAB-Client";
                     fs::create_directories(temp_dir, ec);
                     actual_config_dir = temp_dir.string();
@@ -89,8 +88,7 @@ bool AppConfig::initialize(const std::string& config_dir) {
             std::vector<std::tuple<std::string, std::string, int>> configs = {
                 {"main", actual_config_dir + "/main.json", 0},
                 {"system", actual_config_dir + "/system.json", 1},
-                {"user", actual_config_dir + "/user.json", 2}
-            };
+                {"user", actual_config_dir + "/user.json", 2}};
 
             for (auto& [name, path, priority] : configs) {
                 try {
@@ -306,8 +304,7 @@ void AppConfig::remove_config_listener(const std::string& config_name, std::func
                 [&listener](const auto& func) {
                     return func.target_type() == listener.target_type();
                 }),
-            listeners.end()
-        );
+            listeners.end());
         size_t removed = before - listeners.size();
         LOG_MODULE("AppConfig", "remove_config_listener", LOG_DEBUG,
             "移除了 " << removed << " 个监听器，剩余 " << listeners.size());
@@ -488,7 +485,7 @@ void AppConfig::setup_listeners() {
         LOG_MODULE("AppConfig", "setup_listeners", LOG_DEBUG, "主配置变更，失效缓存并通知");
         invalidate_caches();
         notify_config_changed("main");
-        });
+    });
     LOG_MODULE("AppConfig", "setup_listeners", LOG_DEBUG, "主配置监听器已添加");
 
     if (user_config_) {
@@ -496,7 +493,7 @@ void AppConfig::setup_listeners() {
             LOG_MODULE("AppConfig", "setup_listeners", LOG_DEBUG, "用户配置变更，失效缓存并通知");
             invalidate_caches();
             notify_config_changed("user");
-            });
+        });
         LOG_MODULE("AppConfig", "setup_listeners", LOG_DEBUG, "用户配置监听器已添加");
     }
 
@@ -505,7 +502,7 @@ void AppConfig::setup_listeners() {
             LOG_MODULE("AppConfig", "setup_listeners", LOG_DEBUG, "系统配置变更，失效缓存并通知");
             invalidate_caches();
             notify_config_changed("system");
-            });
+        });
         LOG_MODULE("AppConfig", "setup_listeners", LOG_DEBUG, "系统配置监听器已添加");
     }
 }

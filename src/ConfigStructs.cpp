@@ -57,8 +57,7 @@ bool MainConfig::validate() const {
 
 void SystemConfig::to_json(nlohmann::json& j, const SystemConfig& config) {
     j = nlohmann::json{
-        {"app.websocket.port", config.websocket_port_}
-    };
+        {"app.websocket.port", config.websocket_port_}};
 }
 
 void SystemConfig::from_json(const nlohmann::json& j, SystemConfig& config) {
@@ -76,8 +75,7 @@ bool SystemConfig::validate() const {
 void UserConfig::to_json(nlohmann::json& j, const UserConfig& config) {
     j = nlohmann::json{
         {"app.ui.theme", config.theme_},
-        {"app.ui.font_size", config.ui_font_size_}
-    };
+        {"app.ui.font_size", config.ui_font_size_}};
 }
 
 void UserConfig::from_json(const nlohmann::json& j, UserConfig& config) {

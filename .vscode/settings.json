@@ -1,0 +1,38 @@
+{
+    "cmake.useCMakePresets": "never",
+    "cmake.generator": "Ninja",
+    "cmake.buildDirectory": "${workspaceFolder}/out/build/debug",
+    "cmake.configureArgs": ["-DCMAKE_PREFIX_PATH=D:/Qt/6.9.3/msvc2022_64"],
+    "cmake.exportCompileCommands": true,
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.clang_format_style": "file",
+    "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: LLVM, IndentWidth: 4, UseTab: Never, PointerAlignment: Left }",
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "prettier.requireConfig": true,
+    "prettier.configPath": ".prettierrc.json",
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+    "[h]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+    "[hpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+    "[json]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    },
+    "[markdown]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    },
+    "[yaml]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true
+    }
+}

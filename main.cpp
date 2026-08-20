@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "DGLABClient.h"
 #include "AppConfig.h"
 #include "Console.h"
+#include "DGLABClient.h"
 #include "DebugLog.h"
 
 #include <QStyleFactory>

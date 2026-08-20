@@ -182,7 +182,7 @@ void ConfigManager::add_listener(std::function<void(const nlohmann::json&)> list
 
 bool ConfigManager::validate() const {
     LOG_MODULE("ConfigManager", "validate", LOG_DEBUG, "开始验证配置");
-    const std::vector<std::string> required = { "version", "DGLABClient" };
+    const std::vector<std::string> required = {"version", "DGLABClient"};
 
     for (const auto& field : required) {
         if (!get<std::string>(field).has_value()) {

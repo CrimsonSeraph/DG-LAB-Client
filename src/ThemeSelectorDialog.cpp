@@ -6,14 +6,14 @@
 #include "ThemeSelectorDialog.h"
 #include "DebugLog.h"
 
+#include <QFrame>
 #include <QGridLayout>
-#include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QScrollArea>
-#include <QFrame>
-#include <QMouseEvent>
+#include <QVBoxLayout>
 
 // ============================================
 // ClickableCard - 可点击的卡片容器（局部辅助类）
@@ -21,7 +21,8 @@
 class ClickableCard : public QFrame {
     Q_OBJECT
 public:
-    inline explicit ClickableCard(QWidget* parent = nullptr) : QFrame(parent) {
+    inline explicit ClickableCard(QWidget* parent = nullptr)
+        : QFrame(parent) {
         setFrameShape(QFrame::Box);
         setFrameShadow(QFrame::Raised);
         setLineWidth(1);
@@ -64,8 +65,7 @@ ThemeSelectorDialog::ThemeSelectorDialog(QWidget* parent)
         {TIFFANY_BLUE_CHEESE, "蒂芙尼奶酪"},
         {CHINA_RED_YELLOW, "中国红黄"},
         {VANDYKE_BROWN_KHAKI, "凡戴克棕卡其"},
-        {PRUSSIAN_BLUE_FOG, "普鲁士雾灰"}
-    };
+        {PRUSSIAN_BLUE_FOG, "普鲁士雾灰"}};
 
     // 初始化主题英文模式名映射
     mode_names_ = {
@@ -82,43 +82,42 @@ ThemeSelectorDialog::ThemeSelectorDialog(QWidget* parent)
         {TIFFANY_BLUE_CHEESE, "tiffany_blue_cheese"},
         {CHINA_RED_YELLOW, "china_red_yellow"},
         {VANDYKE_BROWN_KHAKI, "vandyke_brown_khaki"},
-        {PRUSSIAN_BLUE_FOG, "prussian_blue_fog"}
-    };
+        {PRUSSIAN_BLUE_FOG, "prussian_blue_fog"}};
 
     // 初始化主题主色映射
     primary_colors_ = {
-        {LIGHT, QColor(0xE8, 0xF0, 0xFE)},  // Ice Blue
-        {NIGHT, QColor(0x2C, 0x3E, 0x50)},  // Deep Slate
-        {CHARCOAL_PINK, QColor(0x1A, 0x1A, 0x1D)},  // Charcoal
-        {DEEPSEA_CREAM, QColor(0x12, 0x2E, 0x8A)},  // Deepsea Blue
-        {VINE_PURPLE_TEA_GREEN, QColor(0x91, 0xC5, 0x3A)},  // Vine Purple
-        {OFFWHITE_CAMELLIA, QColor(0xF1, 0xDD, 0xDF)},  // Offwhite
-        {DARK_BLUE_CLEAR_BLUE, QColor(0x11, 0x30, 0x56)},   // Dark Blue
-        {KLEIN_YELLOW, QColor(0x00, 0x2E, 0xA6)},   // Klein Blue
-        {MARS_GREEN_ROSE, QColor(0x01, 0x84, 0x7F)},    // Mars Green
-        {HERMES_ORANGE_NAVY, QColor(0xFF, 0x77, 0x0F)}, // Hermes Orange
-        {TIFFANY_BLUE_CHEESE, QColor(0x81, 0xD8, 0xCF)},    // Tiffany Blue
-        {CHINA_RED_YELLOW, QColor(0xFF, 0x00, 0x00)},   // China Red
-        {VANDYKE_BROWN_KHAKI, QColor(0x49, 0x2D, 0x22)},    // Vandyke Brown
-        {PRUSSIAN_BLUE_FOG, QColor(0x00, 0x31, 0x53)}   // Prussian Blue
+        {LIGHT, QColor(0xE8, 0xF0, 0xFE)},                 // Ice Blue
+        {NIGHT, QColor(0x2C, 0x3E, 0x50)},                 // Deep Slate
+        {CHARCOAL_PINK, QColor(0x1A, 0x1A, 0x1D)},         // Charcoal
+        {DEEPSEA_CREAM, QColor(0x12, 0x2E, 0x8A)},         // Deepsea Blue
+        {VINE_PURPLE_TEA_GREEN, QColor(0x91, 0xC5, 0x3A)}, // Vine Purple
+        {OFFWHITE_CAMELLIA, QColor(0xF1, 0xDD, 0xDF)},     // Offwhite
+        {DARK_BLUE_CLEAR_BLUE, QColor(0x11, 0x30, 0x56)},  // Dark Blue
+        {KLEIN_YELLOW, QColor(0x00, 0x2E, 0xA6)},          // Klein Blue
+        {MARS_GREEN_ROSE, QColor(0x01, 0x84, 0x7F)},       // Mars Green
+        {HERMES_ORANGE_NAVY, QColor(0xFF, 0x77, 0x0F)},    // Hermes Orange
+        {TIFFANY_BLUE_CHEESE, QColor(0x81, 0xD8, 0xCF)},   // Tiffany Blue
+        {CHINA_RED_YELLOW, QColor(0xFF, 0x00, 0x00)},      // China Red
+        {VANDYKE_BROWN_KHAKI, QColor(0x49, 0x2D, 0x22)},   // Vandyke Brown
+        {PRUSSIAN_BLUE_FOG, QColor(0x00, 0x31, 0x53)}      // Prussian Blue
     };
 
     // 初始化主题副色映射
     secondary_colors_ = {
-        {LIGHT, QColor(0xD4, 0xE6, 0xF1)},  // Misty Blue
-        {NIGHT, QColor(0x1A, 0x25, 0x2F)},  // Dark Navy
-        {CHARCOAL_PINK, QColor(0xE6, 0x39, 0x7C)},  // Sweet Pink
-        {DEEPSEA_CREAM, QColor(0xF5, 0xEF, 0xEA)},  // Soft Milk White
-        {VINE_PURPLE_TEA_GREEN, QColor(0x5E, 0x55, 0xA2)},  // Titanium Green
-        {OFFWHITE_CAMELLIA, QColor(0xE7, 0x2D, 0x48)},  // Camellia Red
-        {DARK_BLUE_CLEAR_BLUE, QColor(0x91, 0xD5, 0xD3)},   // Clear Blue
-        {KLEIN_YELLOW, QColor(0xFF, 0xE7, 0x6F)},   // Pine Flower Yellow
-        {MARS_GREEN_ROSE, QColor(0xF9, 0xD2, 0xE4)},    // Rose Pink
-        {HERMES_ORANGE_NAVY, QColor(0x00, 0x00, 0x26)}, // Navy Blue
-        {TIFFANY_BLUE_CHEESE, QColor(0xF8, 0xF5, 0xD6)},    // Cheese Yellow
-        {CHINA_RED_YELLOW, QColor(0xFA, 0xEA, 0xD3)},   // Light Yellow
-        {VANDYKE_BROWN_KHAKI, QColor(0xD8, 0xC7, 0xB5)},  // Light Khaki
-        {PRUSSIAN_BLUE_FOG, QColor(0xE5, 0xDD, 0xD7)}     // Fog Gray
+        {LIGHT, QColor(0xD4, 0xE6, 0xF1)},                 // Misty Blue
+        {NIGHT, QColor(0x1A, 0x25, 0x2F)},                 // Dark Navy
+        {CHARCOAL_PINK, QColor(0xE6, 0x39, 0x7C)},         // Sweet Pink
+        {DEEPSEA_CREAM, QColor(0xF5, 0xEF, 0xEA)},         // Soft Milk White
+        {VINE_PURPLE_TEA_GREEN, QColor(0x5E, 0x55, 0xA2)}, // Titanium Green
+        {OFFWHITE_CAMELLIA, QColor(0xE7, 0x2D, 0x48)},     // Camellia Red
+        {DARK_BLUE_CLEAR_BLUE, QColor(0x91, 0xD5, 0xD3)},  // Clear Blue
+        {KLEIN_YELLOW, QColor(0xFF, 0xE7, 0x6F)},          // Pine Flower Yellow
+        {MARS_GREEN_ROSE, QColor(0xF9, 0xD2, 0xE4)},       // Rose Pink
+        {HERMES_ORANGE_NAVY, QColor(0x00, 0x00, 0x26)},    // Navy Blue
+        {TIFFANY_BLUE_CHEESE, QColor(0xF8, 0xF5, 0xD6)},   // Cheese Yellow
+        {CHINA_RED_YELLOW, QColor(0xFA, 0xEA, 0xD3)},      // Light Yellow
+        {VANDYKE_BROWN_KHAKI, QColor(0xD8, 0xC7, 0xB5)},   // Light Khaki
+        {PRUSSIAN_BLUE_FOG, QColor(0xE5, 0xDD, 0xD7)}      // Fog Gray
     };
 
     setup_ui();
@@ -218,14 +217,14 @@ void ThemeSelectorDialog::create_theme_card(Theme theme,
     QLabel* primary_block = new QLabel(card);
     primary_block->setFixedSize(40, 20);
     primary_block->setStyleSheet(QString("background-color: %1; border: 1px solid gray;")
-        .arg(primary_color.name()));
+            .arg(primary_color.name()));
     color_layout->addWidget(primary_block);
 
     // 副色块
     QLabel* secondary_block = new QLabel(card);
     secondary_block->setFixedSize(40, 20);
     secondary_block->setStyleSheet(QString("background-color: %1; border: 1px solid gray;")
-        .arg(secondary_color.name()));
+            .arg(secondary_color.name()));
     color_layout->addWidget(secondary_block);
 
 
@@ -240,7 +239,7 @@ void ThemeSelectorDialog::create_theme_card(Theme theme,
             "用户选择主题: " + mode_name.toStdString());
         emit theme_selected(theme);
         accept();
-        });
+    });
 
     layout->addWidget(card, row, col);
 

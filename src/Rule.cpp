@@ -19,7 +19,10 @@
 // ============================================
 
 Rule::Rule(const std::string& name, const std::string& channel, int mode, const std::string& value_pattern)
-    : name_(name), channel_(normalize_channel(channel)), mode_(mode), value_pattern_(value_pattern) {
+    : name_(name)
+    , channel_(normalize_channel(channel))
+    , mode_(mode)
+    , value_pattern_(value_pattern) {
     parse_pattern();
 }
 

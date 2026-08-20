@@ -125,34 +125,34 @@ protected:
 
 private:
     // -------------------- 成员变量 --------------------
-    Ui::DGLABClientClass ui_;   ///< UI 界面
+    Ui::DGLABClientClass ui_;                       ///< UI 界面
     QSyntaxHighlighter* log_highlighter_ = nullptr; ///< 日志高亮器
-    QSystemTrayIcon* tray_icon_ = nullptr;    ///< 系统托盘图标
-    QMenu* tray_menu_;  ///< 托盘菜单
-    QString current_qr_path_;   ///< 当前二维码文件路径
+    QSystemTrayIcon* tray_icon_ = nullptr;          ///< 系统托盘图标
+    QMenu* tray_menu_;                              ///< 托盘菜单
+    QString current_qr_path_;                       ///< 当前二维码文件路径
 
     QString ip_cache_ = "127.0.0.1";   ///< 连接 IP 地址
-    int port_cache_ = 9999; ///< 连接端口
-    bool connect_btn_loading_ = false;  ///< 连接按钮加载状态
-    bool is_connected_ = false; ///< 连接状态
-    Theme theme_ = LIGHT; ///< 主题
+    int port_cache_ = 9999;            ///< 连接端口
+    bool connect_btn_loading_ = false; ///< 连接按钮加载状态
+    bool is_connected_ = false;        ///< 连接状态
+    Theme theme_ = LIGHT;              ///< 主题
 
-    bool is_A_start = false;    ///< A通道启动状态
-    bool is_B_start = false;    ///< B通道启动状态
-    int A_strength_ = 0;    ///< 强度 A（0-200）
-    int B_strength_ = 0;    ///< 强度 B（0-200）
-    int A_limit_ = 200; ///< A通道上限（默认200）
-    int B_limit_ = 200; ///< B通道上限（默认200）
+    bool is_A_start = false; ///< A通道启动状态
+    bool is_B_start = false; ///< B通道启动状态
+    int A_strength_ = 0;     ///< 强度 A（0-200）
+    int B_strength_ = 0;     ///< 强度 B（0-200）
+    int A_limit_ = 200;      ///< A通道上限（默认200）
+    int B_limit_ = 200;      ///< B通道上限（默认200）
 
-    PythonSubprocessManager* py_manager_;   ///< Python 子进程管理器
+    PythonSubprocessManager* py_manager_; ///< Python 子进程管理器
 
     LogLevel ui_log_level_ = LOG_DEBUG; ///< UI 日志级别
     bool use_fixed_width_log_ = false;  ///< 是否使用固定宽度日志格式
-    LogSink qt_sink_;   ///< Qt UI 日志输出通道
+    LogSink qt_sink_;                   ///< Qt UI 日志输出通道
 
     // 规则 UI 控件
-    QToolButton* rule_file_btn_;    ///< 显示当前选中文件的按钮
-    QMenu* rule_file_menu_; ///< 弹出菜单
+    QToolButton* rule_file_btn_; ///< 显示当前选中文件的按钮
+    QMenu* rule_file_menu_;      ///< 弹出菜单
     QTableWidget* rule_table_;
     QPushButton* create_file_btn_;
     QPushButton* delete_file_btn_;
@@ -304,7 +304,6 @@ private slots:
     /// @brief 处理 Python 端推送的主动消息（强度/断开/错误/绑定等）
     /// @param message 主动消息 JSON 对象
     void on_active_message_received(const QJsonObject& message);
-
 };
 
 #include "DGLABClient_impl.hpp"

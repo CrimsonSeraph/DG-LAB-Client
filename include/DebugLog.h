@@ -30,8 +30,8 @@ using LogSinkCallback = std::function<void(const std::string& module,
     const std::string& message)>;
 
 struct LogSink {
-    LogSinkCallback callback;   ///< 回调函数
-    LogLevel min_level; ///< 最小输出等级
+    LogSinkCallback callback; ///< 回调函数
+    LogLevel min_level;       ///< 最小输出等级
 };
 
 // ============================================
@@ -96,25 +96,25 @@ private:
     ~DebugLog() = default;
 
     // -------------------- 成员变量 --------------------
-    mutable std::mutex mutex_;  ///< 保护 module_log_levels_ 等
+    mutable std::mutex mutex_;                          ///< 保护 module_log_levels_ 等
     std::map<std::string, LogLevel> module_log_levels_; ///< 各模块日志等级
-    LogLevel default_log_level_ = LOG_DEBUG;    ///< 默认日志等级
-    bool is_only_type_info_ = false;    ///< 仅输出类型信息模式
+    LogLevel default_log_level_ = LOG_DEBUG;            ///< 默认日志等级
+    bool is_only_type_info_ = false;                    ///< 仅输出类型信息模式
 
-    std::map<std::string, LogSink> log_sinks_;  ///< 注册的 Sink
-    mutable std::mutex sinks_mutex_;    ///< 保护 log_sinks_
+    std::map<std::string, LogSink> log_sinks_; ///< 注册的 Sink
+    mutable std::mutex sinks_mutex_;           ///< 保护 log_sinks_
 };
 
 // ============================================
 // 日志宏（便捷调用）
 // ============================================
-#define LOG_MODULE(module, method, level, ...) \
-    do { \
-        LogLevel moduleLevel = DebugLog::instance().get_log_level(module); \
+#define LOG_MODULE(module, method, level, ...)                                                                       \
+    do {                                                                                                             \
+        LogLevel moduleLevel = DebugLog::instance().get_log_level(module);                                           \
         bool shouldLog = DebugLog::instance().is_only_type_info() ? (level == moduleLevel) : (level >= moduleLevel); \
-        if (shouldLog) { \
-            std::ostringstream oss; \
-            oss << __VA_ARGS__; \
-            DebugLog::instance().log(module, method, level, oss.str()); \
-        } \
+        if (shouldLog) {                                                                                             \
+            std::ostringstream oss;                                                                                  \
+            oss << __VA_ARGS__;                                                                                      \
+            DebugLog::instance().log(module, method, level, oss.str());                                              \
+        }                                                                                                            \
     } while (0)

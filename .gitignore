@@ -373,7 +373,10 @@ DG-LAB-Client.vcxproj.user
 json.hpp
 build/
 venv/
-.vscode/
+.vscode/*
 CLAUDE.md
 .claude/
 doc/
+
+# 共享 VS Code 工作区设置（允许随仓库提交）
+!.vscode/settings.json

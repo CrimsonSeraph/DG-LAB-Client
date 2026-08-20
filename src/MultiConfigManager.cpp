@@ -78,7 +78,7 @@ bool MultiConfigManager::has_priority_conflict_unsafe(std::string& error_msg) co
             if (priorities.find(priority) != priorities.end()) {
                 std::stringstream ss;
                 ss << "优先级冲突: 配置 '" << name << "' 和 '" << priority_to_name[priority]
-                    << "' 有相同的优先级 " << priority;
+                   << "' 有相同的优先级 " << priority;
                 error_msg = ss.str();
                 LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_WARN, error_msg);
                 return true;
@@ -233,7 +233,7 @@ void MultiConfigManager::start_file_watcher() {
     file_watcher_thread_ = std::thread([this]() {
         LOG_MODULE("MultiConfigManager", "start_file_watcher", LOG_INFO, "文件监控线程已启动");
         file_watcher_loop();
-        });
+    });
 }
 
 void MultiConfigManager::stop_file_watcher() {

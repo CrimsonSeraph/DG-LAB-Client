@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include "DebugLog.h"
 #include "DGLABClient.h"
+#include "DebugLog.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -28,8 +28,7 @@ inline void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callbac
             py_manager_->call(cmd, [callback = std::move(callback)](const QJsonObject& resp) mutable {
                 bool ok = resp["status"].toString() == "ok";
                 QString msg = resp["message"].toString();
-                callback(ok, msg);
-                }, timeout);
+                callback(ok, msg); }, timeout);
         }
         catch (const std::runtime_error& e) {
             emit close_finished(false, QString("运行时错误: ") + e.what());
@@ -40,5 +39,5 @@ inline void DGLABClient::async_call(const QJsonObject& cmd, int timeout, Callbac
         catch (...) {
             emit close_finished(false, "未知异常");
         }
-        });
+    });
 }

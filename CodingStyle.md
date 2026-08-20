@@ -57,7 +57,7 @@ if (condition) {
   2. 第三方库  
   3. 标准库  
 
-- **内部排序**: 每组内按字母顺序排列
+- **内部排序**: 每组内按字母顺序排列（**大小写敏感**）；C++ `#include` 由 clang-format 自动维护（见第 11 节），Python `import` 需手动遵循本规则
 
 #### C++ 示例（`#include`）
 
@@ -224,6 +224,39 @@ bool is_ready = false;  // 是否准备就绪
 - 未在本规范中明确提及的内容（如 switch 语句格式、异常处理方式等），可保持个人习惯，后续逐步补充。
 - 模板函数定义已分离到 `_impl.h`。
 - 静态工具函数移出类声明，放入独立 `_util`。
+
+### 11. 自动格式化（VS Code / Prettier / clang-format）
+
+格式化规则由仓库根目录下的配置文件统一管理，VS Code 打开本项目时通过 `.vscode/settings.json` 自动生效，保存时自动格式化（`editor.formatOnSave`）: 
+
+| 文件类型 | 工具 | 配置文件 |
+| - | - | - |
+| C/C++（.cpp / .h / .hpp） | ms-vscode.cpptools（clang-format 后端） | `.clang-format` |
+| JSON / Markdown / YAML | Prettier | `.prettierrc.json` / `.prettierignore` |
+
+也可在命令行手动格式化 C++ 文件: `clang-format -i -style=file <文件>`
+
+#### 11.1 clang-format 关键规则（.clang-format）
+
+- 缩进: 4 空格，不使用 Tab
+- 括号: 左括号与语句同行（K&R），但 `else` / `catch` 单独成行
+- 访问修饰符: `public:` / `private:` 顶格
+- 指针/引用: 靠类型（`QWidget* parent`、`const std::string& s`）
+- 模板: `template<typename T>`（关键字后无空格）
+- 控制语句: `if (x)`（关键字与左括号之间有空格）
+- 构造函数初始化列表: 冒号独立行，初始化项逗号前导换行
+- 行最大长度: 不限（保留现有长行，如 LOG_MODULE 调用）
+- 短语句: `case 0: stmt; break;` 与 `if (x) return y;` 保持单行
+- 头文件排序: 分组（引号内 / Qt / 标准库）保留，组内按字母序（**大小写敏感**）
+- `case` 标签与 `switch` 同级；`#ifdef` 顶格；namespace 内容整体缩进 4
+- 手排数据块（如 `src/DefaultConfigs.cpp` 中的嵌套 JSON 字面量）使用 `// clang-format off` / `// clang-format on` 注释保护，禁止重排
+
+#### 11.2 Prettier 关键规则（.prettierrc.json）
+
+- 缩进: 4 空格；`endOfLine: auto`（按文件现状保持 CRLF / LF）
+- `printWidth: 100`；Markdown 使用 `proseWrap: never`（不重排长行段落）
+- YAML 单独覆盖为 2 空格缩进（与现有 workflow 文件一致）
+- 不参与格式化的目录: `doc/html/`、`build/`、`out/`、`venv/` 及 `CMakeUserPresets.json`（见 `.prettierignore`）
 
 ## 开发环境
 

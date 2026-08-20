@@ -100,7 +100,7 @@ void PythonSubprocessManager::start_process(const QString& python_executable, co
 void PythonSubprocessManager::call(const QJsonObject& cmd, std::function<void(const QJsonObject&)> callback, int timeout) {
     if (stopping_) {
         LOG_MODULE("PythonSubprocessManager", "call", LOG_WARN, "对象正在销毁，忽略新调用");
-        if (callback) callback({ {"status", "error"}, {"message", "对象正在销毁"} });
+        if (callback) callback({{"status", "error"}, {"message", "对象正在销毁"}});
         return;
     }
 
@@ -131,9 +131,8 @@ void PythonSubprocessManager::call(const QJsonObject& cmd, std::function<void(co
                     pending_callbacks_.erase(it);
                 }
             }
-            if (cb) cb(response);
-            }, Qt::QueuedConnection);
-        });
+            if (cb) cb(response); }, Qt::QueuedConnection);
+    });
 }
 
 // ============================================
@@ -153,10 +152,14 @@ void PythonSubprocessManager::process_output(const QByteArray& data, bool is_err
         QRegularExpressionMatch match = re_level.match(line_str);
         if (match.hasMatch()) {
             QString level_str = match.captured(1);
-            if (level_str == "DEBUG") log_level = LOG_DEBUG;
-            else if (level_str == "INFO") log_level = LOG_INFO;
-            else if (level_str == "WARNING") log_level = LOG_WARN;
-            else if (level_str == "ERROR") log_level = LOG_ERROR;
+            if (level_str == "DEBUG")
+                log_level = LOG_DEBUG;
+            else if (level_str == "INFO")
+                log_level = LOG_INFO;
+            else if (level_str == "WARNING")
+                log_level = LOG_WARN;
+            else if (level_str == "ERROR")
+                log_level = LOG_ERROR;
             message = line_str;
         }
         else {
@@ -206,26 +209,25 @@ QJsonObject PythonSubprocessManager::send_command(const QJsonObject& cmd, int ti
     bool sent = false;
     QMetaObject::invokeMethod(this, [this, cmd, &sent]() {
         send_json(cmd);
-        sent = true;
-        }, Qt::BlockingQueuedConnection);
+        sent = true; }, Qt::BlockingQueuedConnection);
     if (!sent) {
-        return { {"status", "error"}, {"message", "发送命令失败"} };
+        return {{"status", "error"}, {"message", "发送命令失败"}};
     }
 
     while (!response_received_ && !stopping_) {
         if (!wait_cond_.wait(&mutex_, timeout)) {
             if (stopping_) {
                 LOG_MODULE("PythonSubprocessManager", "send_command", LOG_DEBUG, "对象正在销毁，停止等待");
-                return { {"status", "error"}, {"message", "对象正在销毁"} };
+                return {{"status", "error"}, {"message", "对象正在销毁"}};
             }
             LOG_MODULE("PythonSubprocessManager", "send_command", LOG_WARN,
                 "等待响应超时 (" << timeout << "ms)");
-            return { {"status", "error"}, {"message", "响应超时"} };
+            return {{"status", "error"}, {"message", "响应超时"}};
         }
     }
 
     if (stopping_) {
-        return { {"status", "error"}, {"message", "对象正在销毁"} };
+        return {{"status", "error"}, {"message", "对象正在销毁"}};
     }
 
     std::string respond_str = DebugLogUtil::remove_newline(QJsonDocument(last_response_).toJson().toStdString());

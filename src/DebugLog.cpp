@@ -28,44 +28,41 @@ DebugLog& DebugLog::instance() {
     std::call_once(flag, [&]() {
         LogSink consoleSink;
         consoleSink.callback = [](const std::string& module,
-            const std::string& method,
-            LogLevel level,
-            const std::string& message) {
-                std::string tag1 = "[" + module + "]";
-                std::string tag2 = "<" + method + ">";
-                std::string tag3 = "(" + std::string(DebugLog::instance().level_to_string(level)) + ")";
+                                   const std::string& method,
+                                   LogLevel level,
+                                   const std::string& message) {
+            std::string tag1 = "[" + module + "]";
+            std::string tag2 = "<" + method + ">";
+            std::string tag3 = "(" + std::string(DebugLog::instance().level_to_string(level)) + ")";
 
-                const int TAG1_WIDTH = 30;
-                const int TAG2_WIDTH = 35;
-                const int TAG3_WIDTH = 10;
+            const int TAG1_WIDTH = 30;
+            const int TAG2_WIDTH = 35;
+            const int TAG3_WIDTH = 10;
 
-                auto padRight = [](const std::string& s, int width) {
-                    if (s.length() >= width) return s.substr(0, width);
-                    return s + std::string(width - s.length(), ' ');
-                    };
+            auto padRight = [](const std::string& s, int width) {
+                if (s.length() >= width) return s.substr(0, width);
+                return s + std::string(width - s.length(), ' ');
+            };
 
-                std::string formatted = padRight(tag1, TAG1_WIDTH) + " "
-                    + padRight(tag2, TAG2_WIDTH) + " "
-                    + padRight(tag3, TAG3_WIDTH) + ": "
-                    + message;
+            std::string formatted = padRight(tag1, TAG1_WIDTH) + " " + padRight(tag2, TAG2_WIDTH) + " " + padRight(tag3, TAG3_WIDTH) + ": " + message;
 
 #ifdef _WIN32
-                HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-                if (hConsole != INVALID_HANDLE_VALUE) {
-                    DWORD written;
-                    WriteConsoleA(hConsole, formatted.c_str(), formatted.size(), &written, nullptr);
-                    WriteConsoleA(hConsole, "\n", 1, &written, nullptr);
-                }
-                else {
-                    std::cerr << formatted << std::endl;
-                }
+            HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+            if (hConsole != INVALID_HANDLE_VALUE) {
+                DWORD written;
+                WriteConsoleA(hConsole, formatted.c_str(), formatted.size(), &written, nullptr);
+                WriteConsoleA(hConsole, "\n", 1, &written, nullptr);
+            }
+            else {
+                std::cerr << formatted << std::endl;
+            }
 #else
                 std::cerr << formatted << std::endl;
 #endif
-            };
+        };
         consoleSink.min_level = LOG_DEBUG;
         instance.register_log_sink("console", consoleSink);
-        });
+    });
     return instance;
 }
 
@@ -84,10 +81,10 @@ void DebugLog::set_all_log_level(LogLevel level) {
 void DebugLog::set_all_log_level(int level) {
     switch (level) {
     case 0: set_all_log_level(LOG_DEBUG); break;
-    case 1: set_all_log_level(LOG_INFO);  break;
-    case 2: set_all_log_level(LOG_WARN);  break;
+    case 1: set_all_log_level(LOG_INFO); break;
+    case 2: set_all_log_level(LOG_WARN); break;
     case 3: set_all_log_level(LOG_ERROR); break;
-    case 4: set_all_log_level(LOG_NONE);  break;
+    case 4: set_all_log_level(LOG_NONE); break;
     default: set_all_log_level(LOG_DEBUG); break;
     }
 }
@@ -165,10 +162,10 @@ bool DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
 const char* DebugLog::level_to_string(LogLevel level) {
     switch (level) {
     case LOG_DEBUG: return "DEBUG";
-    case LOG_INFO:  return "INFO";
-    case LOG_WARN:  return "WARN";
+    case LOG_INFO: return "INFO";
+    case LOG_WARN: return "WARN";
     case LOG_ERROR: return "ERROR";
-    default:        return "UNKNOWN";
+    default: return "UNKNOWN";
     }
 }
 

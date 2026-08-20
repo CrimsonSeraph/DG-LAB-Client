@@ -12,8 +12,7 @@
 #include <QString>
 #include <QValidator>
 
-class EditableLabel : public QLabel
-{
+class EditableLabel : public QLabel {
     Q_OBJECT
 
 public:
@@ -52,9 +51,9 @@ private slots:
     void on_editing_finished();
 
 private:
-    bool editable_; ///< 是否允许编辑
-    QLineEdit* line_edit_;  ///< 内嵌的文本编辑器
-    bool editing_;  ///< 是否正处于编辑模式
+    bool editable_;        ///< 是否允许编辑
+    QLineEdit* line_edit_; ///< 内嵌的文本编辑器
+    bool editing_;         ///< 是否正处于编辑模式
 
     /// @brief 进入编辑模式: 显示 QLineEdit 并隐藏标签自身内容
     void enter_edit_mode();

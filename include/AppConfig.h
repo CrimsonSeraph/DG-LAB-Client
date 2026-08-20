@@ -186,18 +186,18 @@ private:
     ~AppConfig();
 
     // -------------------- 成员变量 --------------------
-    MultiConfigManager* multi_config_;  ///< 多配置管理器指针
-    std::shared_ptr<ConfigManager> main_config_;    ///< 主配置管理器
-    std::shared_ptr<ConfigManager> user_config_;    ///< 用户配置管理器
-    std::shared_ptr<ConfigManager> system_config_;  ///< 系统配置管理器
+    MultiConfigManager* multi_config_;             ///< 多配置管理器指针
+    std::shared_ptr<ConfigManager> main_config_;   ///< 主配置管理器
+    std::shared_ptr<ConfigManager> user_config_;   ///< 用户配置管理器
+    std::shared_ptr<ConfigManager> system_config_; ///< 系统配置管理器
 
-    ConfigObject<MainConfig> main_config_obj_;  ///< 主配置对象
-    ConfigObject<SystemConfig> system_config_obj_;  ///< 系统配置对象
-    ConfigObject<UserConfig> user_config_obj_;  ///< 用户配置对象
+    ConfigObject<MainConfig> main_config_obj_;     ///< 主配置对象
+    ConfigObject<SystemConfig> system_config_obj_; ///< 系统配置对象
+    ConfigObject<UserConfig> user_config_obj_;     ///< 用户配置对象
 
-    std::map<std::string, std::vector<std::function<void()>>> config_listeners_;    ///< 配置监听器映射
-    mutable std::mutex mutex_;  ///< 互斥锁
-    std::atomic<bool> initialized_{ false };    ///< 初始化标志
+    std::map<std::string, std::vector<std::function<void()>>> config_listeners_; ///< 配置监听器映射
+    mutable std::mutex mutex_;                                                   ///< 互斥锁
+    std::atomic<bool> initialized_{false};                                       ///< 初始化标志
 
     // -------------------- 私有辅助函数 --------------------
     /// @brief 初始化配置项（加锁版本）

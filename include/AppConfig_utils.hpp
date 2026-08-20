@@ -125,7 +125,10 @@ public:
     void invalidate_cache() const { cached_value_.reset(); }
 
     operator T() const { return get(); }
-    ConfigValue& operator=(const T& value) { set(value); return *this; }
+    ConfigValue& operator=(const T& value) {
+        set(value);
+        return *this;
+    }
 
     bool is_initialized() const { return config_ != nullptr; }
     std::shared_ptr<ConfigManager> get_config_manager() const { return config_; }
@@ -143,7 +146,7 @@ private:
 // ConfigObject - 复杂类型配置包装器
 // ============================================
 template<typename T>
-concept ConfigSerializable = requires(T t, nlohmann::json & j) {
+concept ConfigSerializable = requires(T t, nlohmann::json& j) {
     { T::to_json(j, t) } -> std::same_as<void>;
     { T::from_json(j, t) } -> std::same_as<void>;
     { t.validate() } -> std::same_as<bool>;
@@ -264,7 +267,10 @@ public:
 
     const T& operator*() const { return get(); }
     const T* operator->() const { return &get(); }
-    ConfigObject& operator=(const T& value) { set(value); return *this; }
+    ConfigObject& operator=(const T& value) {
+        set(value);
+        return *this;
+    }
 
     bool is_initialized() const { return config_ != nullptr; }
     std::shared_ptr<ConfigManager> get_config_manager() const { return config_; }
@@ -287,20 +293,22 @@ struct FieldMap {
 };
 
 #define BEGIN_FIELD_MAP(Class) \
-    template<> struct FieldMap<Class> { \
-        using T = Class; \
+    template<>                 \
+    struct FieldMap<Class> {   \
+        using T = Class;       \
         static void set(T& obj, const std::string& name, const nlohmann::json& val) {
 
-#define FIELD(Class, Type, Name) \
-            if (name == #Name) { \
-                obj.Name = val.get<Type>(); \
-                return; \
-            }
+#define FIELD(Class, Type, Name)    \
+    if (name == #Name) {            \
+        obj.Name = val.get<Type>(); \
+        return;                     \
+    }
 
-#define END_FIELD_MAP() \
-            throw std::runtime_error("Unknown field: " + name); \
-        } \
-    };
+#define END_FIELD_MAP()                                 \
+    throw std::runtime_error("Unknown field: " + name); \
+    }                                                   \
+    }                                                   \
+    ;
 
 // ============================================
 // 配置构建器

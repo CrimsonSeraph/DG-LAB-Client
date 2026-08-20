@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include "MultiConfigManager.h"
 #include "DebugLog.h"
+#include "MultiConfigManager.h"
 
 #include <optional>
 #include <sstream>
@@ -40,7 +40,7 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
             catch (const nlohmann::json::type_error& e) {
                 LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_WARN,
                     "配置 [" << key_path << "] 类型不匹配（优先级 "
-                    << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
+                             << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
             }
             catch (const nlohmann::json::out_of_range&) {
                 // 键不存在 - 正常情况，不记录日志
@@ -48,9 +48,9 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
             catch (const std::exception& e) {
                 LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_ERROR,
                     "配置 [" << key_path << "] 读取失败（优先级 "
-                    << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
+                             << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
             }
-            };
+        };
 
         for (const auto& config : sorted_configs) {
             try_get_from_config(config);

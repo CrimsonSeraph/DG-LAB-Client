@@ -47,8 +47,7 @@ struct ConfigTemplate {
             {"items", config.items},
             {"settings", config.settings},
             {"timeout", config.timeout.count()},
-            {"interval", config.interval.count()}
-        };
+            {"interval", config.interval.count()}};
 
         if (config.description.has_value()) {
             j["description"] = config.description.value();
@@ -134,6 +133,6 @@ struct UserConfig {
 };
 
 // 字段映射宏（预留，未使用）
-//BEGIN_FIELD_MAP(Struct)
+// BEGIN_FIELD_MAP(Struct)
 //    FIELD(Struct, <T>, name)
-//END_FIELD_MAP()
+// END_FIELD_MAP()

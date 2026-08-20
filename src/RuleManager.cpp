@@ -102,7 +102,8 @@ bool RuleManager::modify_rule_file(const std::string& filename, const nlohmann::
     try {
         j = load_json_file(filename);
     }
-    catch (...) {}
+    catch (...) {
+    }
     j["rules"] = rules_content;
     if (save_json_file(filename, j)) {
         if (current_file_ == filename) {
@@ -125,7 +126,8 @@ bool RuleManager::delete_rule_file(const std::string& filename) {
             try {
                 load_rule_file("rules.json");
             }
-            catch (...) {}
+            catch (...) {
+            }
         }
         scan_directory();
         return true;
@@ -143,8 +145,7 @@ bool RuleManager::save_current_rule_file() {
         rules_json[name] = {
             {"channel", rule.get_channel()},
             {"mode", rule.get_mode()},
-            {"valuePattern", rule.get_value_pattern()}
-        };
+            {"valuePattern", rule.get_value_pattern()}};
     }
     return modify_rule_file(current_file_, rules_json);
 }
@@ -302,7 +303,7 @@ void RuleManager::parse_config(const nlohmann::json& config) {
             rules_.emplace(key, Rule(key, channel, mode, value_pattern));
             LOG_MODULE("RuleManager", "parse_config", LOG_DEBUG,
                 "加载规则: " << key << " [ch=" << channel << ", mode=" << mode
-                << ", pattern=" << value_pattern << "]");
+                             << ", pattern=" << value_pattern << "]");
         }
         catch (const std::exception& e) {
             LOG_MODULE("RuleManager", "parse_config", LOG_ERROR,

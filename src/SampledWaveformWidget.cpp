@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "DebugLog.h"
 #include "SampledWaveformWidget.h"
+#include "DebugLog.h"
 
 #include <QMutex>
 #include <QPainter>
@@ -13,9 +13,9 @@
 #include <QWidget>
 
 #include <algorithm>
-#include <vector>
 #include <map>
 #include <string>
+#include <vector>
 
 // ============================================
 // 构造/析构（public）
@@ -39,7 +39,7 @@ SampledWaveformWidget::SampledWaveformWidget(QWidget* parent)
 
     LOG_MODULE("SampledWaveformWidget", "SampledWaveformWidget", LOG_DEBUG,
         "初始化完成，采样间隔=" << sample_interval_ms_ << "ms，最大振幅比例=" << max_amplitude_
-        << "，最大监听器数量=" << max_listeners_);
+                                << "，最大监听器数量=" << max_listeners_);
 }
 
 // ============================================
@@ -67,7 +67,7 @@ bool SampledWaveformWidget::add_listener(const std::string& name, const QColor& 
     listeners_.emplace(name, ListenerData(color, min, max));
     LOG_MODULE("SampledWaveformWidget", "add_listener", LOG_INFO,
         "添加监听器成功: " << name << ", 颜色: " << color.name().toStdString()
-        << ", 范围: [" << min << ", " << max << "], 当前数量: " << listeners_.size());
+                           << ", 范围: [" << min << ", " << max << "], 当前数量: " << listeners_.size());
     update();
     return true;
 }
@@ -188,7 +188,7 @@ void SampledWaveformWidget::input_data(const std::string& listener_name, double 
 
     LOG_MODULE("SampledWaveformWidget", "input_data", LOG_DEBUG,
         "监听器 " << listener_name << " 原始值=" << value
-        << " -> 归一化=" << normalized);
+                  << " -> 归一化=" << normalized);
 }
 
 void SampledWaveformWidget::set_input_range(const std::string& name, double min, double max) {

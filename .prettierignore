@@ -1,0 +1,6 @@
+# 生成/构建产物，不参与 Prettier 格式化
+doc/html/
+build/
+out/
+venv/
+CMakeUserPresets.json

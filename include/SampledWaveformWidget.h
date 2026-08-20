@@ -8,8 +8,8 @@
 #include <QColor>
 #include <QMutex>
 #include <QTimer>
-#include <QWidget>
 #include <QVector>
+#include <QWidget>
 
 #include <map>
 #include <string>
@@ -17,9 +17,9 @@
 
 class SampledWaveformWidget : public QWidget {
     Q_OBJECT
-        Q_PROPERTY(int sample_interval_ms READ sample_interval_ms WRITE set_sample_interval_ms)
-        Q_PROPERTY(double max_amplitude READ max_amplitude WRITE set_max_amplitude)
-        Q_PROPERTY(int max_listeners READ max_listeners WRITE set_max_listeners)
+    Q_PROPERTY(int sample_interval_ms READ sample_interval_ms WRITE set_sample_interval_ms)
+    Q_PROPERTY(double max_amplitude READ max_amplitude WRITE set_max_amplitude)
+    Q_PROPERTY(int max_listeners READ max_listeners WRITE set_max_listeners)
 
 public:
     // -------------------- 构造/析构 --------------------
@@ -36,7 +36,7 @@ public:
     /// @param max 输入值的原始最大值（包含）
     /// @return true 添加成功，false 失败（名称已存在或已达上限）
     bool add_listener(const std::string& name, const QColor& color, double min, double max);
-    bool add_listener(const std::string& name, const QColor& color);    ///< 不设置输入范围的重载版本（默认 0.0~1.0）
+    bool add_listener(const std::string& name, const QColor& color); ///< 不设置输入范围的重载版本（默认 0.0~1.0）
 
     /// @brief 移除监听器
     /// @param name 监听器名称
@@ -122,42 +122,50 @@ private:
     // -------------------- 常量 --------------------
     static constexpr int kDefaultSampleIntervalMs = 20; ///< 默认采样间隔 20ms
     static constexpr double kDefaultMaxAmplitude = 0.8; ///< 默认最大振幅比例
-    static constexpr int kMaxSamplePoints = 200;    ///< 每个监听器最多保留200个采样点
-    static constexpr int kDefaultMaxListeners = 16; ///< 默认最大监听器数量
+    static constexpr int kMaxSamplePoints = 200;        ///< 每个监听器最多保留200个采样点
+    static constexpr int kDefaultMaxListeners = 16;     ///< 默认最大监听器数量
 
     // -------------------- 内部数据结构 --------------------
     /// @brief 单个监听器的内部数据结构
     struct ListenerData {
-        QVector<double> samples;    ///< 采样值环形缓冲区（0~1）
-        qint64 sample_index;    ///< 当前要写入的索引
-        double latest_value;    ///< 最新的输入值（待采样）
-        bool has_new_input; ///< 是否有新输入未采样
-        QColor color;   ///< 波形颜色
-        double input_min;   ///< 原始输入最小值（线性映射到0）
-        double input_max;   ///< 原始输入最大值（线性映射到1）
+        QVector<double> samples; ///< 采样值环形缓冲区（0~1）
+        qint64 sample_index;     ///< 当前要写入的索引
+        double latest_value;     ///< 最新的输入值（待采样）
+        bool has_new_input;      ///< 是否有新输入未采样
+        QColor color;            ///< 波形颜色
+        double input_min;        ///< 原始输入最小值（线性映射到0）
+        double input_max;        ///< 原始输入最大值（线性映射到1）
 
         // 默认构造函数（范围 [0,1]）
         inline ListenerData(const QColor& col = Qt::green)
-            : sample_index(0), latest_value(0.0), has_new_input(false), color(col),
-            input_min(0.0), input_max(1.0) {
+            : sample_index(0)
+            , latest_value(0.0)
+            , has_new_input(false)
+            , color(col)
+            , input_min(0.0)
+            , input_max(1.0) {
             samples.fill(0.0, kMaxSamplePoints);
         }
 
         // 带范围的构造函数
         inline ListenerData(const QColor& col, double min, double max)
-            : sample_index(0), latest_value(0.0), has_new_input(false), color(col),
-            input_min(min), input_max(max) {
+            : sample_index(0)
+            , latest_value(0.0)
+            , has_new_input(false)
+            , color(col)
+            , input_min(min)
+            , input_max(max) {
             samples.fill(0.0, kMaxSamplePoints);
         }
     };
 
     // -------------------- 成员变量 --------------------
-    QTimer sample_timer_;   ///< 采样定时器
+    QTimer sample_timer_;                           ///< 采样定时器
     std::map<std::string, ListenerData> listeners_; ///< 监听器映射（名称 -> 数据）
-    mutable QMutex mutex_;  ///< 并发访问保护
-    int sample_interval_ms_;    ///< 采样间隔（毫秒）
-    double max_amplitude_;  ///< 最大振幅比例（全局）
-    int max_listeners_; ///< 最大监听器数量上限
+    mutable QMutex mutex_;                          ///< 并发访问保护
+    int sample_interval_ms_;                        ///< 采样间隔（毫秒）
+    double max_amplitude_;                          ///< 最大振幅比例（全局）
+    int max_listeners_;                             ///< 最大监听器数量上限
 
     // -------------------- 私有辅助函数 --------------------
     /// @brief 为指定监听器添加一个采样点

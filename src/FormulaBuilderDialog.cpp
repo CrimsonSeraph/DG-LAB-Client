@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
-#include "DebugLog.h"
 #include "FormulaBuilderDialog.h"
+#include "DebugLog.h"
 
 #include <QFont>
 #include <QGridLayout>
@@ -40,7 +40,7 @@ FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidge
 
     QGridLayout* grid = new QGridLayout();
     grid->setSpacing(6);
-    QStringList tokens = { "{}", "+", "-", "*", "/", "(", ")" };
+    QStringList tokens = {"{}", "+", "-", "*", "/", "(", ")"};
     int r = 0, c = 0;
     for (const QString& t : tokens) {
         QPushButton* btn = new QPushButton(t, this);
@@ -48,7 +48,10 @@ FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidge
         btn->setFont(QFont("Consolas", 16, QFont::Bold));
         connect(btn, &QPushButton::clicked, this, [this, t]() { append_token(t); });
         grid->addWidget(btn, r, c++);
-        if (c > 3) { c = 0; ++r; }
+        if (c > 3) {
+            c = 0;
+            ++r;
+        }
     }
     mainLayout->addLayout(grid);
 
@@ -93,7 +96,7 @@ bool FormulaBuilderDialog::expression_validity(const QString& expr, QString* err
             LOG_MODULE("FormulaBuilderDialog", "expression_validity", LOG_ERROR, err.toUtf8().constData());
         }
         return false;
-        };
+    };
 
     if (expr.isEmpty()) {
         return set_error("表达式不能为空");

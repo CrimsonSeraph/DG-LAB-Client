@@ -2,9 +2,9 @@
 
 #include <QLabel>
 #include <QLineEdit>
-#include <QString>
 #include <QMouseEvent>
 #include <QResizeEvent>
+#include <QString>
 #include <QValidator>
 
 EditableLabel::EditableLabel(QWidget* parent)

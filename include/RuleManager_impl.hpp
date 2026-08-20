@@ -21,6 +21,6 @@ inline QJsonObject RuleManager::evaluate_command(const std::string& rule_name, A
     if (it == rules_.end()) {
         throw std::runtime_error("规则不存在: " + rule_name);
     }
-    std::vector<int> values = { args... };
+    std::vector<int> values = {args...};
     return it->second.generate_command(values);
 }

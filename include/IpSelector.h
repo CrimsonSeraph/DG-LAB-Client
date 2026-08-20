@@ -9,8 +9,7 @@
 #include <QObject>
 #include <QStringList>
 
-class IpSelector : public QObject
-{
+class IpSelector : public QObject {
     Q_OBJECT
 
 public:
@@ -49,10 +48,10 @@ public:
     static bool contains_any_keyword(const QString& str, const QStringList& keywords);
 
 private:
-    static IpSelector* instance_;   ///< 单例实例指针
-    QStringList blacklist_; ///< 黑名单关键词（网卡名称包含则忽略）
-    QStringList whitelist_; ///< 白名单关键词（匹配则优先返回）
-    QString ip_cache_;  ///< 上次获取的 IP 缓存
+    static IpSelector* instance_; ///< 单例实例指针
+    QStringList blacklist_;       ///< 黑名单关键词（网卡名称包含则忽略）
+    QStringList whitelist_;       ///< 白名单关键词（匹配则优先返回）
+    QString ip_cache_;            ///< 上次获取的 IP 缓存
 
     /// @brief 构造函数（单例私有，禁止外部构造）
     /// @param parent 父对象指针

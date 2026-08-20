@@ -1,17 +1,17 @@
-#include "DebugLog.h"
 #include "IpSelector.h"
+#include "DebugLog.h"
 
-#include <QNetworkInterface>
-#include <QNetworkAddressEntry>
+#include <QDebug>
 #include <QDialog>
-#include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QListWidget>
-#include <QPushButton>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
-#include <QDebug>
+#include <QNetworkAddressEntry>
+#include <QNetworkInterface>
+#include <QPushButton>
+#include <QVBoxLayout>
 
 IpSelector* IpSelector::instance_ = nullptr;
 
@@ -338,7 +338,7 @@ namespace {
             QMessageBox::warning(this, "提示", "请先选择一个 IP 地址");
         }
     }
-}
+} // namespace
 
 IpSelector* IpSelector::instance() {
     if (!instance_) {
@@ -475,7 +475,7 @@ bool IpSelector::is_interface_filtered(const QNetworkInterface& iface) const {
     QString iface_name = iface.name();
     QString iface_human = iface.humanReadableName();
     bool filtered = contains_any_keyword(iface_name, blacklist_) ||
-        contains_any_keyword(iface_human, blacklist_);
+                    contains_any_keyword(iface_human, blacklist_);
     if (filtered) {
         QString msg = QString("接口被过滤: %1 (%2)").arg(iface_human, iface_name);
         LOG_MODULE("IpSelector", "is_interface_filtered", LOG_DEBUG, msg.toStdString());

@@ -14,6 +14,8 @@
 // 默认配置工厂实现
 // ============================================
 
+// 手排的嵌套 JSON 字面量，保持现状，禁止 clang-format 重排
+// clang-format off
 nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name) {
     if (config_name == "main") {
         return {
@@ -76,3 +78,4 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
         };
     }
 }
+// clang-format on

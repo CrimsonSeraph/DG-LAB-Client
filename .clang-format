@@ -1,0 +1,71 @@
+---
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+# ---- 缩进：4 空格（对应 .editorconfig）----
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+# 续行使用固定缩进而非对齐到开括号（现有代码风格）
+AlignAfterOpenBracket: DontAlign
+
+# ---- 大括号：附着式（K&R），但 else / catch 单独成行 ----
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+# ---- 访问修饰符顶格（public:/private: 在列 0），成员缩进 4 ----
+AccessModifierOffset: -4
+# namespace 内容整体缩进 4（namespace DefaultConfigs { ... } 风格）
+NamespaceIndentation: All
+
+# ---- 指针/引用靠类型（QWidget* parent、const std::string& s）----
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# ---- 模板关键字后不加空格（template<typename T>）----
+SpaceAfterTemplateKeyword: false
+
+# ---- 控制语句前空格（if (x)），函数调用不加空格（foo(x)）----
+SpaceBeforeParens: ControlStatements
+
+# ---- 构造函数初始化列表：冒号独立行、逗号前导换行、缩进 4 ----
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerIndentWidth: 4
+
+# ---- 列宽不限：现有代码存在较多长行（LOG_MODULE 等），保留现状 ----
+ColumnLimit: 0
+
+# ---- 短语句放行：case 0: stmt; break; 与 if (x) return y; 保持单行 ----
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: WithoutElse
+
+# ---- 头文件排序：保留引号内/Qt/标准库分组，组内按字母序（大小写敏感）----
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+# ---- case 标签与 switch 同级；预处理指令顶格 ----
+IndentCaseLabels: false
+IndentPPDirectives: None
+
+# ---- 空行最多保留 2 个 ----
+MaxEmptyLinesToKeep: 2

@@ -27,8 +27,8 @@
 #include <QDialog>
 #include <QFile>
 #include <QFont>
-#include <QHash>
 #include <QHBoxLayout>
+#include <QHash>
 #include <QHeaderView>
 #include <QHostAddress>
 #include <QIcon>
@@ -218,7 +218,7 @@ void DGLABClient::enable_A() {
             else {
                 LOG_MODULE("DGLABClient", "enable_A", LOG_ERROR, "测试命令发送失败: " << msg.toStdString());
             }
-            });
+        });
     }
     is_A_start = !is_A_start;
 }
@@ -399,36 +399,32 @@ void DGLABClient::register_log_sink() {
     auto pad_right = [](const QString& s, int width) -> QString {
         if (s.length() >= width) return s.left(width);
         return s + QString(width - s.length(), ' ');
-        };
+    };
 
     qt_sink_.callback = [qptr = QPointer<DGLABClient>(this), this,
-        TAG1_WIDTH, TAG2_WIDTH, TAG3_WIDTH, pad_right](
-            const std::string& module,
-            const std::string& method,
-            LogLevel level,
-            const std::string& message) {
-                if (!qptr) return;
-                QString tag1 = "[" + QString::fromStdString(module) + "]";
-                QString tag2 = "<" + QString::fromStdString(method) + ">";
-                QString tag3 = "(" + QString::fromStdString(DebugLog::instance().level_to_string(level)) + ")";
-                QString msg = QString::fromStdString(message);
+                            TAG1_WIDTH, TAG2_WIDTH, TAG3_WIDTH, pad_right](
+                            const std::string& module,
+                            const std::string& method,
+                            LogLevel level,
+                            const std::string& message) {
+        if (!qptr) return;
+        QString tag1 = "[" + QString::fromStdString(module) + "]";
+        QString tag2 = "<" + QString::fromStdString(method) + ">";
+        QString tag3 = "(" + QString::fromStdString(DebugLog::instance().level_to_string(level)) + ")";
+        QString msg = QString::fromStdString(message);
 
-                QString display;
-                if (use_fixed_width_log_) {
-                    display = pad_right(tag1, TAG1_WIDTH) + " "
-                        + pad_right(tag2, TAG2_WIDTH) + " "
-                        + pad_right(tag3, TAG3_WIDTH) + ": "
-                        + msg;
-                }
-                else {
-                    display = tag1 + " " + tag2 + " " + tag3 + ": " + msg;
-                }
+        QString display;
+        if (use_fixed_width_log_) {
+            display = pad_right(tag1, TAG1_WIDTH) + " " + pad_right(tag2, TAG2_WIDTH) + " " + pad_right(tag3, TAG3_WIDTH) + ": " + msg;
+        }
+        else {
+            display = tag1 + " " + tag2 + " " + tag3 + ": " + msg;
+        }
 
-                QMetaObject::invokeMethod(qptr.data(), [qptr, display, level]() {
+        QMetaObject::invokeMethod(qptr.data(), [qptr, display, level]() {
                     if (!qptr) return;
-                    qptr->append_log_message(display, level);
-                    }, Qt::AutoConnection);
-        };
+                    qptr->append_log_message(display, level); }, Qt::AutoConnection);
+    };
     qt_sink_.min_level = ui_log_level_;
     DebugLog::instance().unregister_log_sink("qt_ui");
     DebugLog::instance().register_log_sink("qt_ui", qt_sink_);
@@ -439,7 +435,9 @@ void DGLABClient::create_log_highlighter() {
     LOG_MODULE("DGLABClient", "create_log_highlighter", LOG_DEBUG, "创建简单的高亮器");
     class LogHighlighter : public QSyntaxHighlighter {
     public:
-        LogHighlighter(QTextDocument* doc) : QSyntaxHighlighter(doc) {}
+        LogHighlighter(QTextDocument* doc)
+            : QSyntaxHighlighter(doc) {}
+
     protected:
         void highlightBlock(const QString& text) override {
             QTextCharFormat f;
@@ -482,7 +480,7 @@ void DGLABClient::create_tray_icon() {
         connect(show_action, &QAction::triggered, this, [this]() {
             this->showNormal();
             this->activateWindow();
-            });
+        });
         connect(quit_action, &QAction::triggered, qApp, &QApplication::quit);
         tray_menu_->addAction(show_action);
         tray_menu_->addSeparator();
@@ -493,7 +491,7 @@ void DGLABClient::create_tray_icon() {
                 this->showNormal();
                 this->activateWindow();
             }
-            });
+        });
         tray_icon_->show();
         LOG_MODULE("DGLABClient", "create_tray_icon", LOG_DEBUG, "托盘图标加载完成");
     }
@@ -605,8 +603,7 @@ void DGLABClient::init_python_manager() {
     auto& config = AppConfig::instance();
     QString pythonPath = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
     std::string bridge_module = config.get_value<std::string>("python.bridge_path", "./python/Bridge.py");
-    LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径: "
-        << pythonPath.toStdString() << "（注: 若解释器路径直接为<Python>则使用系统默认 Python 路径）");
+    LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 解释器]路径: " << pythonPath.toStdString() << "（注: 若解释器路径直接为<Python>则使用系统默认 Python 路径）");
     LOG_MODULE("DGLABClient", "init_python_manager", LOG_INFO, "启动 Python 进程 -> [Python 服务模块]路径: " << bridge_module);
     if (bridge_module.starts_with(".")) bridge_module = bridge_module.substr(1);
     QString script_path = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
@@ -626,7 +623,7 @@ void DGLABClient::reset_py_log_level() {
         else {
             LOG_MODULE("DGLABClient", "reset_py_log_level", LOG_ERROR, "设置 Python 端日志级别失败: " << msg.toStdString());
         }
-        });
+    });
 }
 
 // ----- 二维码相关 -----
@@ -649,7 +646,7 @@ void DGLABClient::fetch_qr_path() {
             QMessageBox::warning(this, "获取二维码失败",
                 "无法生成二维码，请检查连接状态。");
         }
-        });
+    });
 }
 
 void DGLABClient::show_qr_dialog() {
@@ -750,11 +747,11 @@ void DGLABClient::setup_rules_ui() {
     // 规则表格
     rule_table_ = new QTableWidget();
     rule_table_->setColumnCount(4);
-    rule_table_->setHorizontalHeaderLabels({ "规则名称", "通道", "模式", "值模式" });
+    rule_table_->setHorizontalHeaderLabels({"规则名称", "通道", "模式", "值模式"});
     rule_table_->horizontalHeader()->setStretchLastSection(true);
 
-    QStringList channelOptions = { "A", "B", "无" };
-    QStringList modeOptions = { "递减", "递增", "设为", "连减", "连增" };
+    QStringList channelOptions = {"A", "B", "无"};
+    QStringList modeOptions = {"递减", "递增", "设为", "连减", "连增"};
 
     rule_table_->setItemDelegateForColumn(1, new ComboBoxDelegate(channelOptions, rule_table_));
     rule_table_->setItemDelegateForColumn(2, new ComboBoxDelegate(modeOptions, rule_table_));
@@ -936,8 +933,7 @@ void DGLABClient::apply_inline_styles() {
         {TIFFANY_BLUE_CHEESE, "rgba(0, 0, 0, 255)"},
         {CHINA_RED_YELLOW, "rgba(255, 255, 255, 255)"},
         {VANDYKE_BROWN_KHAKI, "rgba(255, 255, 255, 255)"},
-        {PRUSSIAN_BLUE_FOG, "rgba(255, 255, 255, 255)"}
-    };
+        {PRUSSIAN_BLUE_FOG, "rgba(255, 255, 255, 255)"}};
 
     font_color = theme_font_colors.value(theme_, "");
     if (font_color.isEmpty()) {
@@ -969,8 +965,7 @@ QString DGLABClient::theme_to_mode_string(Theme theme) {
         {TIFFANY_BLUE_CHEESE, QStringLiteral("tiffany_blue_cheese")},
         {CHINA_RED_YELLOW, QStringLiteral("china_red_yellow")},
         {VANDYKE_BROWN_KHAKI, QStringLiteral("vandyke_brown_khaki")},
-        {PRUSSIAN_BLUE_FOG, QStringLiteral("prussian_blue_fog")}
-    };
+        {PRUSSIAN_BLUE_FOG, QStringLiteral("prussian_blue_fog")}};
     return map.value(theme, QStringLiteral("light"));
 }
 
@@ -989,8 +984,7 @@ Theme DGLABClient::mode_string_to_theme(const std::string& theme_str) {
         {QLatin1String("tiffany_blue_cheese"), TIFFANY_BLUE_CHEESE},
         {QLatin1String("china_red_yellow"), CHINA_RED_YELLOW},
         {QLatin1String("vandyke_brown_khaki"), VANDYKE_BROWN_KHAKI},
-        {QLatin1String("prussian_blue_fog"), PRUSSIAN_BLUE_FOG}
-    };
+        {QLatin1String("prussian_blue_fog"), PRUSSIAN_BLUE_FOG}};
     return map.value(QLatin1String(theme_str.c_str()), LIGHT);
 }
 
@@ -1013,8 +1007,7 @@ QString DGLABClient::theme_to_mode_string_cn(Theme theme) {
         {TIFFANY_BLUE_CHEESE, QStringLiteral("蒂芙尼奶酪")},
         {CHINA_RED_YELLOW, QStringLiteral("中国红黄")},
         {VANDYKE_BROWN_KHAKI, QStringLiteral("凡戴克棕卡其")},
-        {PRUSSIAN_BLUE_FOG, QStringLiteral("普鲁士雾灰")}
-    };
+        {PRUSSIAN_BLUE_FOG, QStringLiteral("普鲁士雾灰")}};
     return map.value(theme, QStringLiteral("浅色模式"));
 }
 
@@ -1033,8 +1026,7 @@ Theme DGLABClient::mode_string_to_theme_cn(const std::string& theme_str) {
         {QStringLiteral("蒂芙尼奶酪"), TIFFANY_BLUE_CHEESE},
         {QStringLiteral("中国红黄"), CHINA_RED_YELLOW},
         {QStringLiteral("凡戴克棕卡其"), VANDYKE_BROWN_KHAKI},
-        {QStringLiteral("普鲁士雾灰"), PRUSSIAN_BLUE_FOG}
-    };
+        {QStringLiteral("普鲁士雾灰"), PRUSSIAN_BLUE_FOG}};
     return map.value(QString::fromStdString(theme_str), LIGHT);
 }
 
@@ -1096,7 +1088,7 @@ void DGLABClient::apply_A_strength(const QString& new_strength) {
                     "A通道强度设置失败: " << msg.toStdString());
                 QMessageBox::warning(this, "错误", "设置A通道强度失败: " + msg);
             }
-            });
+        });
     }
     else {
         LOG_MODULE("DGLABClient", "apply_A_strength", LOG_WARN, "未连接，无法设置A通道强度");
@@ -1134,7 +1126,7 @@ void DGLABClient::apply_B_strength(const QString& new_strength) {
                     "B通道强度设置失败: " << msg.toStdString());
                 QMessageBox::warning(this, "错误", "设置B通道强度失败: " + msg);
             }
-            });
+        });
     }
     else {
         LOG_MODULE("DGLABClient", "apply_B_strength", LOG_WARN, "未连接，无法设置B通道强度");
@@ -1199,12 +1191,12 @@ void DGLABClient::start_async_connect() {
                 if (ok) {
                     fetch_qr_path();
                 }
-                });
+            });
         }
         else {
             emit connect_finished(false, "端口更新失败: " + msg);
         }
-        });
+    });
 }
 
 void DGLABClient::close_async_connect() {
@@ -1213,7 +1205,7 @@ void DGLABClient::close_async_connect() {
     close_cmd["cmd"] = "close";
     async_call(close_cmd, 5000, [this](bool ok, QString msg) {
         emit close_finished(ok, msg);
-        });
+    });
 }
 
 void DGLABClient::show_theme_selector() {
@@ -1320,12 +1312,12 @@ void DGLABClient::on_add_rule() {
     QString name = QInputDialog::getText(this, "添加规则", "规则名称:", QLineEdit::Normal, "", &ok);
     if (!ok || name.isEmpty()) return;
 
-    QStringList channels = { "无", "A", "B" };
+    QStringList channels = {"无", "A", "B"};
     QString channel = QInputDialog::getItem(this, "选择通道", "通道:", channels, 0, false, &ok);
     if (!ok) return;
     QString channelStr = (channel == "无") ? "" : channel;
 
-    QStringList modes = { "递减", "递增", "设为", "连减", "连增" };
+    QStringList modes = {"递减", "递增", "设为", "连减", "连增"};
     QString modeStr = QInputDialog::getItem(this, "选择模式", "模式:", modes, 0, false, &ok);
     if (!ok) return;
     int mode = modes.indexOf(modeStr);
@@ -1343,8 +1335,7 @@ void DGLABClient::on_add_rule() {
         j["rules"][name.toStdString()] = {
             {"channel", channelStr.toStdString()},
             {"mode", mode},
-            {"valuePattern", valuePattern.toStdString()}
-        };
+            {"valuePattern", valuePattern.toStdString()}};
         if (rm.modify_rule_file(currentFile, j["rules"])) {
             rm.load_rule_file(currentFile);
             update_rule_table();
@@ -1374,13 +1365,13 @@ void DGLABClient::on_edit_rule() {
     QString oldPattern = QString::fromStdString(rm.get_rule_value_pattern(name.toStdString()));
 
     bool ok;
-    QStringList channels = { "无", "A", "B" };
+    QStringList channels = {"无", "A", "B"};
     QString channel = QInputDialog::getItem(this, "编辑规则", "通道:", channels,
         channels.indexOf(oldChannel), false, &ok);
     if (!ok) return;
     QString channelStr = (channel == "无") ? "" : channel;
 
-    QStringList modes = { "递减", "递增", "设为", "连减", "连增" };
+    QStringList modes = {"递减", "递增", "设为", "连减", "连增"};
     QString modeStr = QInputDialog::getItem(this, "编辑规则", "模式:", modes, oldMode, false, &ok);
     if (!ok) return;
     int mode = modes.indexOf(modeStr);
@@ -1397,8 +1388,7 @@ void DGLABClient::on_edit_rule() {
         j["rules"][name.toStdString()] = {
             {"channel", channelStr.toStdString()},
             {"mode", mode},
-            {"valuePattern", newPattern.toStdString()}
-        };
+            {"valuePattern", newPattern.toStdString()}};
         if (rm.modify_rule_file(currentFile, j["rules"])) {
             rm.load_rule_file(currentFile);
             update_rule_table();

@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "ValueModeDelegate.h"
 #include "DebugLog.h"
 #include "FormulaBuilderDialog.h"
-#include "ValueModeDelegate.h"
 
 #include <QEvent>
 #include <QMouseEvent>

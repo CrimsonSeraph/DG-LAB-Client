@@ -18,7 +18,8 @@
 // 构造/析构（private）
 // ============================================
 
-Console::Console() : is_created_(false) {
+Console::Console()
+    : is_created_(false) {
     // 构造函数不自动创建控制台
 }
 
@@ -115,7 +116,7 @@ bool Console::create_debug_console() {
     std::cin.clear();
 
     // 设置控制台字体
-    CONSOLE_FONT_INFOEX cf = { 0 };
+    CONSOLE_FONT_INFOEX cf = {0};
     cf.cbSize = sizeof(cf);
     cf.dwFontSize.Y = 14;
 
@@ -123,8 +124,7 @@ bool Console::create_debug_console() {
         L"Consolas",
         L"Lucida Console",
         L"DejaVu Sans Mono",
-        L"MS Gothic"
-    };
+        L"MS Gothic"};
 
     for (const wchar_t* fontName : fontNames) {
         wcscpy_s(cf.FaceName, fontName);
