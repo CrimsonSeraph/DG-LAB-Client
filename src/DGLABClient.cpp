@@ -12,6 +12,8 @@
 #include "EditableLabel.h"
 #include "FormulaBuilderDialog.h"
 #include "IpSelector.h"
+#include "ModuleManager.h"
+#include "ModuleValuesDialog.h"
 #include "PythonSubprocessManager.h"
 #include "RuleManager.h"
 #include "SampledWaveformWidget.h"
@@ -27,6 +29,8 @@
 #include <QDialog>
 #include <QFile>
 #include <QFont>
+#include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QHash>
 #include <QHeaderView>
@@ -41,12 +45,14 @@
 #include <QList>
 #include <QLocale>
 #include <QMessageBox>
+#include <QMouseEvent>
 #include <QNetworkInterface>
 #include <QPalette>
 #include <QPixmap>
 #include <QPointer>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QScrollArea>
 #include <QSyntaxHighlighter>
 #include <QTableWidget>
 #include <QTableWidgetItem>
@@ -60,6 +66,66 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+
+// ============================================
+// ModuleCard - 模块页可点击卡片（局部辅助类）
+// 显示模块名称与模块内数值的最小查询周期，点击弹出数值展示窗口
+// ============================================
+class ModuleCard : public QFrame {
+    Q_OBJECT
+
+public:
+    /// @brief 构造函数
+    /// @param module_name 模块名称
+    /// @param parent 父窗口指针
+    explicit ModuleCard(const QString& module_name, QWidget* parent = nullptr)
+        : QFrame(parent)
+        , module_name_(module_name) {
+        setProperty("type", "module_card");
+        setFrameShape(QFrame::NoFrame);
+        setCursor(Qt::PointingHandCursor);
+        setMinimumHeight(64);
+
+        QVBoxLayout* card_layout = new QVBoxLayout(this);
+        card_layout->setContentsMargins(14, 10, 14, 10);
+        card_layout->setSpacing(6);
+
+        name_label_ = new QLabel(module_name, this);
+        name_label_->setProperty("type", "module_card_name");
+        period_label_ = new QLabel(this);
+        period_label_->setProperty("type", "module_card_period");
+        card_layout->addWidget(name_label_);
+        card_layout->addWidget(period_label_);
+    }
+
+    /// @brief 获取卡片对应的模块名称
+    /// @return 模块名称
+    inline const QString& get_module_name() const { return module_name_; }
+
+    /// @brief 设置最小查询周期显示文本
+    /// @param text 周期显示文本
+    inline void set_period_text(const QString& text) { period_label_->setText(text); }
+
+signals:
+    /// @brief 卡片被点击时发出
+    void clicked();
+
+protected:
+    /// @brief 重写鼠标释放事件: 左键点击发出 clicked 信号
+    /// @param event 鼠标事件
+    void mouseReleaseEvent(QMouseEvent* event) override {
+        if (event->button() == Qt::LeftButton && rect().contains(event->pos())) {
+            emit clicked();
+        }
+        QFrame::mouseReleaseEvent(event);
+    }
+
+private:
+    // -------------------- 成员变量 --------------------
+    QString module_name_;  ///< 模块名称
+    QLabel* name_label_ = nullptr;    ///< 模块名称标签
+    QLabel* period_label_ = nullptr;  ///< 周期显示标签
+};
 
 // ============================================
 // 构造/析构（public）
@@ -95,6 +161,7 @@ void DGLABClient::normal_init() {
     create_tray_icon();
     set_port_label_mode();
     setup_rules_ui();
+    setup_module_ui();
     init_python_manager();
 }
 
@@ -624,6 +691,135 @@ void DGLABClient::reset_py_log_level() {
             LOG_MODULE("DGLABClient", "reset_py_log_level", LOG_ERROR, "设置 Python 端日志级别失败: " << msg.toStdString());
         }
     });
+}
+
+// ----- 模块页相关 -----
+void DGLABClient::setup_module_ui() {
+    // 初始化数值模块管理器（幂等，注册默认 CS2 GSI 模块并启动调度器）
+    ModuleManager::instance().init();
+
+    QVBoxLayout* page_layout = ui_.module_page_layout;
+    page_layout->setContentsMargins(20, 20, 20, 20);
+    page_layout->setSpacing(16);
+
+    // 页面标题
+    QLabel* title_label = new QLabel("数值模块", ui_.module_page);
+    title_label->setProperty("type", "title");
+    page_layout->addWidget(title_label);
+
+    // 统一设置查询周期入口
+    QHBoxLayout* period_row = new QHBoxLayout();
+    period_row->setSpacing(10);
+    QLabel* period_hint = new QLabel("统一设置查询周期:", ui_.module_page);
+    module_period_combo_ = new QComboBox(ui_.module_page);
+    module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::SECOND)));
+    module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::TWO_SECONDS)));
+    module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::FOUR_SECONDS)));
+    module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::HALF_SECOND)));
+    module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::QUARTER_SECOND)));
+    // 默认选中当前基准周期
+    int base_index = module_period_combo_->findText(QString::fromUtf8(
+        query_period_to_text(query_period_from_ms(ModuleManager::instance().get_base_period_ms()))));
+    if (base_index >= 0) {
+        module_period_combo_->setCurrentIndex(base_index);
+    }
+    module_period_apply_btn_ = new QPushButton("应用", ui_.module_page);
+    module_period_apply_btn_->setProperty("button_type", "special");
+    period_row->addWidget(period_hint);
+    period_row->addWidget(module_period_combo_);
+    period_row->addWidget(module_period_apply_btn_);
+    period_row->addStretch();
+    page_layout->addLayout(period_row);
+
+    // 模块卡片滚动区域（自适应布局，不设固定尺寸）
+    QScrollArea* scroll_area = new QScrollArea(ui_.module_page);
+    scroll_area->setWidgetResizable(true);
+    scroll_area->setFrameShape(QFrame::NoFrame);
+    module_cards_widget_ = new QWidget(scroll_area);
+    QGridLayout* cards_grid = new QGridLayout(module_cards_widget_);
+    cards_grid->setSpacing(15);
+    cards_grid->setContentsMargins(6, 6, 6, 6);
+
+    auto module_names = ModuleManager::instance().get_module_names();
+    int card_row = 0;
+    int card_col = 0;
+    for (const auto& module_name : module_names) {
+        create_module_card(QString::fromStdString(module_name), cards_grid, card_row, card_col);
+        ++card_col;
+        if (card_col >= 2) {
+            card_col = 0;
+            ++card_row;
+        }
+    }
+    // 底部弹簧，卡片靠上排列
+    cards_grid->setRowStretch(card_row + 1, 1);
+    cards_grid->setColumnStretch(0, 1);
+    cards_grid->setColumnStretch(1, 1);
+    module_cards_widget_->setLayout(cards_grid);
+    scroll_area->setWidget(module_cards_widget_);
+    page_layout->addWidget(scroll_area, 1);
+
+    // 连接统一周期应用按钮与周期变化刷新
+    connect(module_period_apply_btn_, &QPushButton::clicked,
+        this, &DGLABClient::apply_module_period_setting);
+    connect(&ModuleManager::instance(), &ModuleManager::period_changed,
+        this, &DGLABClient::refresh_module_cards);
+
+    refresh_module_cards();
+    LOG_MODULE("DGLABClient", "setup_module_ui", LOG_INFO, "模块页面初始化完成");
+}
+
+void DGLABClient::show_module_values(const QString& module_name) {
+    // 已打开的弹窗直接置顶，避免重复创建
+    if (module_values_dialog_) {
+        module_values_dialog_->raise();
+        module_values_dialog_->activateWindow();
+        return;
+    }
+    module_values_dialog_ = new ModuleValuesDialog(module_name.toStdString(), this);
+    module_values_dialog_->setAttribute(Qt::WA_DeleteOnClose);
+    connect(module_values_dialog_, &QDialog::destroyed, this, [this]() {
+        module_values_dialog_ = nullptr;
+    });
+    module_values_dialog_->show();
+    LOG_MODULE("DGLABClient", "show_module_values", LOG_DEBUG,
+        "弹出模块数值窗口: " << module_name.toStdString());
+}
+
+void DGLABClient::apply_module_period_setting() {
+    if (!module_period_combo_) {
+        return;
+    }
+    QueryPeriod period = query_period_from_text(
+        module_period_combo_->currentText().toStdString());
+    ModuleManager::instance().set_all_period(period);
+    LOG_MODULE("DGLABClient", "apply_module_period_setting", LOG_INFO,
+        "统一设置查询周期: " << query_period_to_text(period));
+}
+
+void DGLABClient::refresh_module_cards() {
+    if (!module_cards_widget_) {
+        return;
+    }
+    auto& manager = ModuleManager::instance();
+    const QList<ModuleCard*> cards = module_cards_widget_->findChildren<ModuleCard*>();
+    for (ModuleCard* card : cards) {
+        int min_period_ms = manager.get_module_min_period_ms(
+            card->get_module_name().toStdString());
+        QueryPeriod min_period = query_period_from_ms(min_period_ms);
+        card->set_period_text(QString("最小查询周期: %1")
+                .arg(QString::fromUtf8(query_period_to_text(min_period))));
+    }
+}
+
+void DGLABClient::create_module_card(const QString& module_name, QGridLayout* layout,
+    int row, int col) {
+    ModuleCard* card = new ModuleCard(module_name, module_cards_widget_);
+    // 点击卡片弹出该模块的数值展示窗口
+    connect(card, &ModuleCard::clicked, this, [this, module_name]() {
+        show_module_values(module_name);
+    });
+    layout->addWidget(card, row, col);
 }
 
 // ----- 二维码相关 -----
@@ -1504,3 +1700,5 @@ void DGLABClient::on_active_message_received(const QJsonObject& message) {
     else if (msgType == "bind") {
     }
 }
+
+#include "DGLABClient.moc"

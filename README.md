@@ -51,6 +51,9 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 - **规则引擎**
   提供 `Rule` 类（支持 `{}` 占位符）和单例 `RuleManager`。可从指定目录下扫描 JSON 规则文件（含关键字 `rule`），加载规则集，并支持创建/删除/切换规则文件。规则可用于动态生成发送给 Python 子进程的命令（如强度操作、波形参数），极大提升了操作的灵活性。
 
+- **数值模块（Module）**
+  提供 `ModuleManager` 单例与 `ModuleValue`/`Module` 数据模型，管理可查询数值（参照 CS2 官方 GSI 规范，如 `health`、`armor`、`team_num`、`money` 等）。每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口；调度器以所有数值中最短的查询周期为基准进行轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费。模块页点击模块卡片可弹出数值展示窗口（每行两个数值框，显示名称、当前值及底层字段名）。
+
 - **波形采样控件（多通道）**
   提供 `SampledWaveformWidget`，可同时接收多个独立数据源（监听器）的归一化值（0~1），每个监听器以不同颜色的滚动波形图实时显示。支持动态添加/删除监听器、自定义波形颜色、调整采样间隔和最大振幅比例。适用于同时监控 A/B 通道强度、外部传感器数值等场景。
 
@@ -266,9 +269,20 @@ cpack
   ```
 
 > **注意**: 规则文件可能包含任意命令，不要加载不可信的 JSON 文件！
+
+### 4. 数值模块
+
+数值模块负责从本地数据源获取数值（如 CS2 GSI 的 `health`、`armor` 等），并传递给规则引擎计算。使用步骤如下:
+
+- **模块页面**: 点击左侧导航栏的“模块”按钮进入模块页，页面顶部可统一设置所有数值的查询周期，下方为模块卡片（显示模块名称与模块内数值的最小查询周期）。
+- **查看数值**: 点击模块卡片弹出数值展示窗口，每行显示两个数值框（名称 + 当前值 + 底层字段名），每个数值框底部下拉框可单独设置该数值的查询周期。
+- **周期选项**: 每秒、每两秒、每四秒、每半秒、四分之一秒。调度器以所有数值中最短的查询周期为基准轮询，例如一号为四分之一秒、二号为半秒、三号为两秒时，每四分之一秒查询一号，每两次查询二号，每八次查询三号。
+- **数值变化推送**: 模块保留上次查询结果，数值未变化时不推送；数值变化时通过 `ModuleManager::value_changed` 信号推送，供规则引擎等消费。
+- **数据源**: 当前默认使用内置模拟数据源（真实 GSI 接入前占位），可通过 `ModuleManager::instance().set_data_source(callback)` 替换为真实数据获取逻辑。
+
 > 👉 规则引擎相关问题请查看 [常见问题 - 规则引擎问题](#规则引擎问题)
 
-### 4. 日志
+### 5. 日志
 
 日志等级通过配置文件 `app.log.console_level`、`app.log.ui_log_level` 控制（数值含义见下表）。您也可以在代码中使用 `LOG_MODULE` 宏输出日志:
 
@@ -287,13 +301,13 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 > 👉 日志不显示或等级不生效？请查看 [常见问题 - 通用问题](#通用问题)
 
-### 5. 调试控制台
+### 6. 调试控制台
 
 在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示详细的日志输出。
 **注意: ** 该控制台使用 `#include <windows.h>` 仅在 Windows 平台上可用，并且需要在配置文件中启用调试模式。
 当然，应用中首页也会输出日志到 Qt 界面，您可以根据需要选择查看。
 
-### 6. IP 自动选择与手动选择
+### 7. IP 自动选择与手动选择
 
 `IpSelector` 单例提供了便捷的 IP 地址获取方式：
 
@@ -312,7 +326,7 @@ if (!selected.isEmpty()) {
 
 黑白名单默认包含常见虚拟网卡关键词（vmware, virtual, docker, vbox）和物理网卡关键词（以太网, wlan, en0, eth），可在对话框中随时修改。
 
-### 7. 可编辑标签控件 (EditableLabel)
+### 8. 可编辑标签控件 (EditableLabel)
 
 在 UI 中提升一个 QLabel 为 `EditableLabel`，即可获得双击编辑能力：
 
@@ -326,7 +340,7 @@ connect(label, &EditableLabel::text_edited, [](const QString& newText){
 });
 ```
 
-### 8. 波形采样控件（多监听器支持）
+### 9. 波形采样控件（多监听器支持）
 
 `SampledWaveformWidget` 是一个支持多通道实时滚动波形的控件，使用方法如下:
 
@@ -362,7 +376,7 @@ wave->input_data("strength_A", 250);
 
 > **注意**: 默认监听器 `"default"` 始终存在（绿色），若只需显示单条曲线可直接使用旧接口 `input_data(value)`。
 
-### 9. 主题切换
+### 10. 主题切换
 
 程序内置了 **14 种**预设主题，涵盖亮色、暗色及多种彩色风格（如炭黑甜粉、深海奶白、克莱因黄、中国红黄等）。用户可通过以下方式切换主题:
 
@@ -530,6 +544,10 @@ DG-LAB-Client/
 │   ├── EditableLabel.h                 # 可编辑标签控件
 │   ├── FormulaBuilderDialog.h          # 公式构建对话框
 │   ├── IpSelector.h                    # IP 选择器单例
+│   ├── Module.h                        # 数据模块（一组数值）
+│   ├── ModuleManager.h                 # 数值模块管理器（周期调度）
+│   ├── ModuleValue.h                   # 数值模型与查询周期枚举
+│   ├── ModuleValuesDialog.h            # 模块数值展示对话框
 │   ├── MultiConfigManager.h            # 多配置管理器
 │   ├── MultiConfigManager_impl.hpp     # 多配置管理实现模板
 │   ├── PythonSubprocessManager.h       # Python 子进程管理
@@ -577,6 +595,10 @@ DG-LAB-Client/
 │   ├── EditableLabel.cpp               # 可编辑标签实现
 │   ├── FormulaBuilderDialog.cpp        # 公式构建对话框实现
 │   ├── IpSelector.cpp                  # IP 选择器实现
+│   ├── Module.cpp                      # 数据模块实现
+│   ├── ModuleManager.cpp               # 数值模块管理器实现
+│   ├── ModuleValue.cpp                 # 数值模型实现
+│   ├── ModuleValuesDialog.cpp          # 模块数值展示对话框实现
 │   ├── MultiConfigManager.cpp          # 多配置管理器实现
 │   ├── PythonSubprocessManager.cpp     # Python 子进程管理实现
 │   ├── Rule.cpp                        # 规则实体实现

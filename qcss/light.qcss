@@ -336,3 +336,45 @@ ThemeSelectorDialog ClickableCard:hover {
     border-color: rgba(230, 130, 85, 1.0);
 }
 ThemeSelectorDialog QLabel { color: rgba(44, 62, 80, 1.0); background: transparent; }
+
+/* ============ 数值模块样式 ============ */
+QWidget[type="module_tip"] {
+    color: rgba(180, 190, 200, 1.0);
+    font-size: 10px;
+}
+QWidget[type="module_card"] {
+    background-color: rgba(255, 252, 248, 0.6);
+    border: 1px solid rgba(230, 140, 100, 0.3);
+    border-radius: 12px;
+}
+QWidget[type="module_card"]:hover {
+    background-color: rgba(255, 252, 248, 0.92);
+    border-color: rgba(230, 140, 100, 0.3);
+}
+QWidget[type="module_card_name"] {
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(44,62,80,1.0);
+}
+QWidget[type="module_card_period"] {
+    font-size: 10px;
+    color: rgba(180, 190, 200, 1.0);
+}
+QWidget[type="module_value_box"] {
+    background-color: rgba(255, 252, 248, 0.6);
+    border: 1px solid rgba(230, 140, 100, 0.3);
+    border-radius: 10px;
+}
+QWidget[type="module_value_name"] {
+    font-weight: bold;
+    color: rgba(44,62,80,1.0);
+}
+QWidget[type="module_value_current"] {
+    font-size: 14px;
+    font-weight: bold;
+    color: rgba(44,62,80,1.0);
+}
+QWidget[type="module_value_field"] {
+    font-size: 9px;
+    color: rgba(180, 190, 200, 1.0);
+}

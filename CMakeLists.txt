@@ -113,6 +113,16 @@ set(PROJECT_SOURCES
     src/RuleManager.cpp
     include/RuleManager_impl.hpp
 
+    # 数值模块
+    include/ModuleValue.h
+    src/ModuleValue.cpp
+    include/Module.h
+    src/Module.cpp
+    include/ModuleManager.h
+    src/ModuleManager.cpp
+    include/ModuleValuesDialog.h
+    src/ModuleValuesDialog.cpp
+
     # 波形绘制
     include/SampledWaveformWidget.h
     src/SampledWaveformWidget.cpp

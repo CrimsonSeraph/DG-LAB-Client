@@ -28,6 +28,9 @@
 // ============================================
 // DGLABClient - 主窗口类
 // ============================================
+// 前置声明
+class ModuleValuesDialog;
+
 class DGLABClient : public QWidget {
     Q_OBJECT
 
@@ -161,6 +164,12 @@ private:
     QPushButton* edit_rule_btn_;
     QPushButton* delete_rule_btn_;
 
+    // 模块页 UI 控件
+    QComboBox* module_period_combo_ = nullptr;        ///< 统一查询周期下拉框
+    QPushButton* module_period_apply_btn_ = nullptr;  ///< 统一周期应用按钮
+    QWidget* module_cards_widget_ = nullptr;          ///< 模块卡片容器
+    ModuleValuesDialog* module_values_dialog_ = nullptr; ///< 模块数值弹窗（防重复打开）
+
     // -------------------- 私有辅助函数（初始化） --------------------
     /// @brief 配置日志控件为只读并设置默认字体
     void setup_debug_log();
@@ -192,6 +201,21 @@ private:
     void init_python_manager();
     /// @brief 向 Python 端下发日志级别设置命令
     void reset_py_log_level();
+    /// @brief 初始化数值模块管理器并构建模块页面（统一周期设置 + 模块卡片）
+    void setup_module_ui();
+    /// @brief 点击模块卡片，弹出模块数值展示窗口
+    /// @param module_name 模块名称
+    void show_module_values(const QString& module_name);
+    /// @brief 应用统一查询周期设置到所有数值
+    void apply_module_period_setting();
+    /// @brief 刷新所有模块卡片的周期显示
+    void refresh_module_cards();
+    /// @brief 创建单个模块卡片并放入网格布局
+    /// @param module_name 模块名称
+    /// @param layout 目标网格布局
+    /// @param row 行号
+    /// @param col 列号
+    void create_module_card(const QString& module_name, QGridLayout* layout, int row, int col);
 
     // -------------------- 私有辅助函数（二维码） --------------------
     /// @brief 异步请求 Python 端生成二维码并获取路径
