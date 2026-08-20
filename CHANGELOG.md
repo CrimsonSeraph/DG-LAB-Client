@@ -10,11 +10,23 @@
 ## [Unreleased]
 
 ### Added
-- 无
+- **数值模块（Module）**: 新增 `ModuleValue`/`Module`/`ModuleManager` 数据模型（`include/Module.h`、`include/ModuleValue.h`、`include/ModuleManager.h` 及对应源文件），默认注册 CS2 GSI 模块，内置 `health`（m_iHealth）、`armor`（m_ArmorValue）、`team_num`、`money`、`has_helmet`、`has_defuser` 等数值（参照 CS2 官方 GSI 规范）。
+- **模块页面**: 点击模块卡片弹出数值展示窗口（`ModuleValuesDialog`，每行两个数值框：名称 + 当前值 + 底层字段名小字），每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口。
+- **周期调度机制**: 以所有数值中最短查询周期为基准的调度算法（最短 250ms 精确计时），周期为基准整数倍的数值按对应倍率间隔查询；周期设置变化时自动重建调度器；数值变化时通过 `value_changed` 信号推送，未变化不推送。
+- **规则数据结构扩展**: 规则新增 `enabled` 启用状态、多父级（通道 A/B 与规则序号，可混合）、唯一规则序号（按加载顺序编号）；启用逻辑为父级非空且任一父级可用（通道启用/父级规则启用），不影响其他分支。
+- **值模式扩展**: 支持 `{id:xxx(名称)}` 模块数值引用与 `{rule:xx}` 规则结果引用占位符；空值语义——任一引用为空时本次计算被忽略（不推送、不发送）。
+- **计算表达式编辑器**: 新增“显示可用数值”按钮，弹出菜单列出模块数值（名称 + ID）与除自身外的所有规则（含父级为通道的规则，按规则序号插入 `{rule:xx}`）；`{id:xxx(名称)}` 括号注释部分以灰色显示（`PlaceholderHighlighter` 高亮）。
+- **规则间引用与级联触发**: `{rule:xx}` 引用其他规则计算结果（优先缓存，未计算则递归计算，深度保护防循环）；规则计算完成后结果推送给所有父级（规则父级同样触发计算，通道父级通过 `rule_command_ready` 信号发送给 Python 端）；模块数值变化时自动触发引用该数值的规则；A/B 通道启用状态联动规则引擎。
+- **规则页面**: 表格新增“启用”列（勾选框，点击切换启用状态）；新增“编辑父级”按钮与 `ParentEditDialog`（通道父级单选 + 规则父级多选，通过增删目标规则值模式中的 `{rule:xx}` 实现）；“通道”列更名为“父级”列，显示通道/规则引用组合（如 `A;rule:1,2`），模式列按父级类型灰显（`(不适用)`/`(部分不适用)`，黑白主题颜色互反）；通道父级唯一性去重（加载时保留序号最小，手动设置保留最后设置）。
+- **首页通道面板**: 改造 `x_normal_cards`——模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期，规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）；`x_wave_card` 保留现状。
+- **勾选框样式**: 规则表格启用列勾选框增加 `QTableWidget::indicator` 样式（未选中空心、选中强调色填充 + 勾号），新增 `check_white.svg`/`check_dark.svg` 资源，14 个主题统一应用。
 
 ### Changed
 - Windows 构建: Python 标准库 zip 打包优化——排除 site-packages（约 5GB 第三方包）、__pycache__/*.pyc 与 test，改用系统内置 bsdtar 打包，configure 耗时由数十分钟降至数秒，zip 体积约 1GB 降至约 5MB，且 zipimport 可直接导入。
 - 统一全项目注释规范: 头文件函数补齐 Doxygen 注释（中文 @brief/@param/@return），源文件行尾注释全部改为独立行注释。
+- **规则文件格式**: 新增 `enabled`（bool）与 `parents`（数组，`"A"`/`"B"` 字符串或规则序号整数）字段，`valuePattern` 支持 `{id:xxx(名称)}`/`{rule:xx}` 占位符；兼容旧 `channel` 字段（未提供 `parents` 时作为唯一父级）。
+- **规则保存**: 按规则序号排序输出，保证序号稳定；`FormulaBuilderDialog` 改用 `QTextEdit` 编辑并支持灰色注释显示。
+- **首页布局**: 放宽 `x_normal_cards` 高度限制，通道卡片自适应布局。
 
 ### Deprecated
 - 无
@@ -30,6 +42,8 @@
 - 修复创建规则文件时规则文件列表被重复刷新的问题。
 - 修复 ConfigManager::validate 端口校验键名错误（app.server_port -> app.websocket.port）。
 - 清理 MultiConfigManager 重复 include 分支、IpSelector 未使用变量、AppConfig 未使用锁变量及 DebugLog 重复查找等冗余代码。
+- 修复计算表达式“显示可用数值”规则列表误过滤父级为通道的规则，现包含除自身外的所有规则（引用通道规则不要求对应通道已启用）。
+- 修复规则表格启用列勾选框因样式覆盖难以分辨选中状态的问题。
 
 ### Security
 - 无
