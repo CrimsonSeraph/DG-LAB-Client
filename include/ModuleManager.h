@@ -59,6 +59,11 @@ public:
     /// @return 模块名称，未找到返回空字符串
     std::string find_module_by_value_id(const std::string& value_id) const;
 
+    /// @brief 获取挂载到指定通道的模块名称列表
+    /// @param channel 通道（"A"/"B"）
+    /// @return 模块名称列表
+    std::vector<std::string> get_modules_for_channel(const std::string& channel) const;
+
     // -------------------- 周期设置 --------------------
     /// @brief 设置单个数值的查询周期（设置后自动重建调度器）
     /// @param module_name 模块名称

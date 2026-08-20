@@ -486,7 +486,7 @@
                         <property name="maximumSize">
                          <size>
                           <width>730</width>
-                          <height>150</height>
+                          <height>16777215</height>
                          </size>
                         </property>
                         <layout class="QHBoxLayout" name="A_normal_cards_layout">
@@ -813,7 +813,7 @@
                         <property name="maximumSize">
                          <size>
                           <width>730</width>
-                          <height>150</height>
+                          <height>16777215</height>
                          </size>
                         </property>
                         <layout class="QHBoxLayout" name="B_normal_cards_layout">

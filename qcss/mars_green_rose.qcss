@@ -378,3 +378,24 @@ QWidget[type="module_value_field"] {
     font-size: 9px;
     color: rgba(180, 190, 200, 1.0);
 }
+
+/* ============ 通道卡片样式 ============ */
+QWidget[type="channel_card_title"] {
+    font-size: 11px;
+    font-weight: bold;
+    color: rgba(180, 190, 200, 1.0);
+    padding-bottom: 2px;
+}
+QWidget[type="channel_card_item"] {
+    font-size: 11px;
+    color: rgba(65,50,55,1.0);
+}
+QWidget[type="channel_card_value"] {
+    font-size: 11px;
+    font-weight: bold;
+    color: rgba(65,50,55,1.0);
+}
+QWidget[type="channel_card_row"] {
+    background-color: transparent;
+    border: none;
+}

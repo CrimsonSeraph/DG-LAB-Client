@@ -163,6 +163,7 @@ void DGLABClient::normal_init() {
     setup_rules_ui();
     setup_module_ui();
     connect_rule_engine();
+    setup_channel_cards();
     init_python_manager();
 }
 
@@ -825,6 +826,92 @@ void DGLABClient::create_module_card(const QString& module_name, QGridLayout* la
         show_module_values(module_name);
     });
     layout->addWidget(card, row, col);
+}
+
+// ----- 首页通道卡片相关 -----
+void DGLABClient::setup_channel_cards() {
+    // 填充 A/B 通道的模块区域与规则区域
+    populate_channel_module_card(ui_.A_module_card_layout, "A");
+    populate_channel_rule_card(ui_.A_rule_card_layout, "A");
+    populate_channel_module_card(ui_.B_module_card_layout, "B");
+    populate_channel_rule_card(ui_.B_rule_card_layout, "B");
+    // 规则结果变化时刷新对应通道的规则卡片数值
+    connect(&RuleManager::instance(), &RuleManager::rule_result_changed,
+        this, &DGLABClient::refresh_channel_rule_cards);
+    LOG_MODULE("DGLABClient", "setup_channel_cards", LOG_INFO, "首页通道卡片初始化完成");
+}
+
+void DGLABClient::populate_channel_module_card(QVBoxLayout* layout, const std::string& channel) {
+    // 标题
+    QLabel* title = new QLabel("模块", ui_.A_module_card);
+    title->setProperty("type", "channel_card_title");
+    layout->addWidget(title);
+
+    // 挂载在该通道上的模块：名称 + 模块中数值的最小查询周期
+    auto& module_manager = ModuleManager::instance();
+    for (const auto& module_name : module_manager.get_modules_for_channel(channel)) {
+        int min_period_ms = module_manager.get_module_min_period_ms(module_name);
+        QLabel* item = new QLabel(QString("%1（最小周期 %2ms）")
+                .arg(QString::fromStdString(module_name))
+                .arg(min_period_ms), ui_.A_module_card);
+        item->setProperty("type", "channel_card_item");
+        item->setWordWrap(true);
+        layout->addWidget(item);
+    }
+    // 底部弹簧，内容靠上排列
+    layout->addStretch();
+}
+
+void DGLABClient::populate_channel_rule_card(QVBoxLayout* layout, const std::string& channel) {
+    // 标题
+    QLabel* title = new QLabel("规则", ui_.A_rule_card);
+    title->setProperty("type", "channel_card_title");
+    layout->addWidget(title);
+
+    // 父级为该通道的规则：名称 + 最近一次计算的数值
+    auto& rule_manager = RuleManager::instance();
+    for (const auto& rule_name : rule_manager.get_rule_names()) {
+        auto parents = rule_manager.get_rule_parents(rule_name);
+        bool has_channel = false;
+        for (const auto& parent : parents) {
+            if (parent.type == ParentType::CHANNEL && parent.channel == channel) {
+                has_channel = true;
+                break;
+            }
+        }
+        if (!has_channel) {
+            continue;
+        }
+        QWidget* row = new QWidget(ui_.A_rule_card);
+        row->setProperty("type", "channel_card_row");
+        QHBoxLayout* row_layout = new QHBoxLayout(row);
+        row_layout->setContentsMargins(0, 0, 0, 0);
+        row_layout->setSpacing(6);
+        QLabel* name_label = new QLabel(QString::fromStdString(rule_name), row);
+        name_label->setProperty("type", "channel_card_item");
+        name_label->setWordWrap(true);
+        auto last_result = rule_manager.get_rule_last_result(rule_name);
+        QLabel* value_label = new QLabel(
+            last_result.has_value() ? QString::number(last_result.value()) : QString("--"), row);
+        value_label->setProperty("type", "channel_card_value");
+        value_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        row_layout->addWidget(name_label, 1);
+        row_layout->addWidget(value_label);
+        layout->addWidget(row);
+        // 记录数值标签，供结果变化时刷新
+        rule_value_labels_[channel + ":" + rule_name] = value_label;
+    }
+    // 底部弹簧，内容靠上排列
+    layout->addStretch();
+}
+
+void DGLABClient::refresh_channel_rule_cards(const QString& rule_name, const QString& channel,
+    int value) {
+    // 更新对应通道规则卡片中的最近计算值
+    auto it = rule_value_labels_.find(channel.toStdString() + ":" + rule_name.toStdString());
+    if (it != rule_value_labels_.end()) {
+        it->second->setText(QString::number(value));
+    }
 }
 
 // ----- 二维码相关 -----

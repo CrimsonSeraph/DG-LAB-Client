@@ -442,6 +442,7 @@ void RuleManager::set_rule_channel(const std::string& rule_name, const std::stri
 
 void RuleManager::set_channel_enabled(const std::string& channel, bool enabled) {
     std::vector<QJsonObject> pending_commands;
+    std::vector<ResultEvent> pending_results;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         std::string ch = Rule::normalize_channel(channel);
@@ -460,12 +461,16 @@ void RuleManager::set_channel_enabled(const std::string& channel, bool enabled) 
                 }
             }
             for (const auto& name : names) {
-                compute_rule_locked(name, pending_commands);
+                compute_rule_locked(name, pending_commands, pending_results);
             }
         }
     }
     for (const auto& cmd : pending_commands) {
         emit rule_command_ready(cmd);
+    }
+    for (const auto& [rule_name, ch, value] : pending_results) {
+        emit rule_result_changed(QString::fromStdString(rule_name),
+            QString::fromStdString(ch), value);
     }
 }
 
@@ -481,20 +486,26 @@ bool RuleManager::get_channel_enabled(const std::string& channel) const {
 
 std::optional<int> RuleManager::compute_rule(const std::string& rule_name) {
     std::vector<QJsonObject> pending_commands;
+    std::vector<ResultEvent> pending_results;
     std::optional<int> result;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        result = compute_rule_locked(rule_name, pending_commands);
+        result = compute_rule_locked(rule_name, pending_commands, pending_results);
     }
-    // 解锁后统一发送通道命令，避免持锁调用外部槽
+    // 解锁后统一发送通道命令与结果事件，避免持锁调用外部槽
     for (const auto& cmd : pending_commands) {
         emit rule_command_ready(cmd);
+    }
+    for (const auto& [rule_name2, ch, value] : pending_results) {
+        emit rule_result_changed(QString::fromStdString(rule_name2),
+            QString::fromStdString(ch), value);
     }
     return result;
 }
 
 std::optional<int> RuleManager::trigger_rule(const std::string& rule_name) {
     std::vector<QJsonObject> pending_commands;
+    std::vector<ResultEvent> pending_results;
     std::optional<int> result;
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -512,7 +523,7 @@ std::optional<int> RuleManager::trigger_rule(const std::string& rule_name) {
         std::vector<std::optional<int>> values;
         values.reserve(it->second.get_placeholders().size());
         for (const auto& ph : it->second.get_placeholders()) {
-            values.push_back(resolve_placeholder_locked(ph, pending_commands));
+            values.push_back(resolve_placeholder_locked(ph, pending_commands, pending_results));
         }
         result = it->second.compute_value(values);
         --compute_depth_;
@@ -522,6 +533,10 @@ std::optional<int> RuleManager::trigger_rule(const std::string& rule_name) {
     }
     for (const auto& cmd : pending_commands) {
         emit rule_command_ready(cmd);
+    }
+    for (const auto& [rule_name2, ch, value] : pending_results) {
+        emit rule_result_changed(QString::fromStdString(rule_name2),
+            QString::fromStdString(ch), value);
     }
     return result;
 }
@@ -549,6 +564,7 @@ void RuleManager::on_module_value_changed(const QString& module_name, const QStr
     int new_value) {
     // 模块数值变化 → 触发值模式中引用该数值的规则计算
     std::vector<QJsonObject> pending_commands;
+    std::vector<ResultEvent> pending_results;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = id_users_.find(value_id.toStdString());
@@ -566,12 +582,16 @@ void RuleManager::on_module_value_changed(const QString& module_name, const QStr
             std::vector<std::string> visiting;
             // 仅启用且父级可用的规则参与计算
             if (is_rule_effectively_enabled_locked(name, visiting)) {
-                compute_rule_locked(name, pending_commands);
+                compute_rule_locked(name, pending_commands, pending_results);
             }
         }
     }
     for (const auto& cmd : pending_commands) {
         emit rule_command_ready(cmd);
+    }
+    for (const auto& [rule_name2, ch, value] : pending_results) {
+        emit rule_result_changed(QString::fromStdString(rule_name2),
+            QString::fromStdString(ch), value);
     }
 }
 
@@ -816,7 +836,7 @@ bool RuleManager::is_rule_effectively_enabled_locked(const std::string& rule_nam
 }
 
 std::optional<int> RuleManager::compute_rule_locked(const std::string& rule_name,
-    std::vector<QJsonObject>& pending_commands) {
+    std::vector<QJsonObject>& pending_commands, std::vector<ResultEvent>& pending_results) {
     auto it = rules_.find(rule_name);
     if (it == rules_.end()) {
         return std::nullopt;
@@ -841,7 +861,7 @@ std::optional<int> RuleManager::compute_rule_locked(const std::string& rule_name
     std::vector<std::optional<int>> values;
     values.reserve(rule.get_placeholders().size());
     for (const auto& ph : rule.get_placeholders()) {
-        values.push_back(resolve_placeholder_locked(ph, pending_commands));
+        values.push_back(resolve_placeholder_locked(ph, pending_commands, pending_results));
     }
     std::optional<int> result = rule.compute_value(values);
     --compute_depth_;
@@ -869,7 +889,7 @@ std::optional<int> RuleManager::compute_rule_locked(const std::string& rule_name
             std::vector<std::string> v2;
             // 接收推送的父级若启用且为规则则同样触发计算
             if (is_rule_effectively_enabled_locked(nit->second, v2)) {
-                compute_rule_locked(nit->second, pending_commands);
+                compute_rule_locked(nit->second, pending_commands, pending_results);
             }
         }
     }
@@ -885,12 +905,14 @@ std::optional<int> RuleManager::compute_rule_locked(const std::string& rule_name
         cmd["mode"] = rule.get_mode();
         cmd["value"] = result.value();
         pending_commands.push_back(cmd);
+        // 记录结果事件（首页通道规则卡片刷新用）
+        pending_results.emplace_back(rule_name, parent.channel, result.value());
     }
     return result.value();
 }
 
 std::optional<int> RuleManager::resolve_placeholder_locked(const Placeholder& placeholder,
-    std::vector<QJsonObject>& pending_commands) {
+    std::vector<QJsonObject>& pending_commands, std::vector<ResultEvent>& pending_results) {
     if (placeholder.type == PlaceholderType::ID_REF) {
         // 通过模块管理器查询数值（计算时通过查询模块获取对应数值）
         auto& module_manager = ModuleManager::instance();
@@ -914,7 +936,7 @@ std::optional<int> RuleManager::resolve_placeholder_locked(const Placeholder& pl
         if (lit != last_results_.end() && lit->second.has_value()) {
             return lit->second.value();
         }
-        return compute_rule_locked(nit->second, pending_commands);
+        return compute_rule_locked(nit->second, pending_commands, pending_results);
     }
     // EXTERNAL 占位符（{}）：无外部参数来源，视为空值（忽略该项）
     return std::nullopt;

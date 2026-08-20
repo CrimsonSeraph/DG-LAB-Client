@@ -193,6 +193,12 @@ signals:
     /// @brief 规则集发生变化时发出（用于刷新界面）
     void rules_changed();
 
+    /// @brief 规则计算完成且父级为通道时发出（用于首页通道规则卡片刷新）
+    /// @param rule_name 规则名称
+    /// @param channel 通道（"A"/"B"）
+    /// @param value 计算结果
+    void rule_result_changed(const QString& rule_name, const QString& channel, int value);
+
 private:
     // -------------------- 构造/析构（单例私有）--------------------
     RuleManager();
@@ -207,6 +213,9 @@ private:
     std::string keyword_;                              ///< 规则文件关键字
     std::string current_file_;                         ///< 当前加载的文件名
     std::vector<std::string> available_files_;         ///< 可用规则文件列表
+
+    /// @brief 规则结果事件（规则名、通道、计算结果）
+    using ResultEvent = std::tuple<std::string, std::string, int>;
 
     std::map<int, std::vector<int>> referrers_;        ///< 规则序号 → 引用它的规则序号列表（{rule:xx}）
     std::map<std::string, std::vector<int>> id_users_; ///< 数值 ID → 引用它的规则序号列表（{id:xxx}）
@@ -227,9 +236,11 @@ private:
     bool is_rule_effectively_enabled_locked(const std::string& rule_name,
         std::vector<std::string>& visiting) const;                                         ///< 有效启用判定（需已持有锁）
     std::optional<int> compute_rule_locked(const std::string& rule_name,
-        std::vector<QJsonObject>& pending_commands);                                       ///< 计算规则（需已持有锁，收集待发送命令）
+        std::vector<QJsonObject>& pending_commands,
+        std::vector<ResultEvent>& pending_results);                                        ///< 计算规则（需已持有锁，收集待发送命令与结果事件）
     std::optional<int> resolve_placeholder_locked(const Placeholder& placeholder,
-        std::vector<QJsonObject>& pending_commands);                                       ///< 解析单个占位符（需已持有锁）
+        std::vector<QJsonObject>& pending_commands,
+        std::vector<ResultEvent>& pending_results);                                        ///< 解析单个占位符（需已持有锁）
 
 private slots:
     /// @brief 模块数值变化时触发值模式中引用该数值的规则计算

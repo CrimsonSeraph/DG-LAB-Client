@@ -22,6 +22,7 @@
 #include <QToolButton>
 #include <QWidget>
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -170,6 +171,7 @@ private:
     QPushButton* module_period_apply_btn_ = nullptr;  ///< 统一周期应用按钮
     QWidget* module_cards_widget_ = nullptr;          ///< 模块卡片容器
     ModuleValuesDialog* module_values_dialog_ = nullptr; ///< 模块数值弹窗（防重复打开）
+    std::map<std::string, QLabel*> rule_value_labels_;    ///< "通道:规则名" → 数值标签（首页规则卡片）
 
     // -------------------- 私有辅助函数（初始化） --------------------
     /// @brief 配置日志控件为只读并设置默认字体
@@ -206,6 +208,21 @@ private:
     void setup_module_ui();
     /// @brief 连接规则引擎信号（规则命令发送到 Python 端）
     void connect_rule_engine();
+    /// @brief 填充首页 A/B 通道卡片（模块区域 + 规则区域）
+    void setup_channel_cards();
+    /// @brief 填充单个通道的模块卡片（模块名称 + 最小查询周期）
+    /// @param layout 目标布局
+    /// @param channel 通道（"A"/"B"）
+    void populate_channel_module_card(QVBoxLayout* layout, const std::string& channel);
+    /// @brief 填充单个通道的规则卡片（父级为该通道的规则名称 + 最近计算值）
+    /// @param layout 目标布局
+    /// @param channel 通道（"A"/"B"）
+    void populate_channel_rule_card(QVBoxLayout* layout, const std::string& channel);
+    /// @brief 规则结果变化时刷新对应通道规则卡片的数值
+    /// @param rule_name 规则名称
+    /// @param channel 通道（"A"/"B"）
+    /// @param value 计算结果
+    void refresh_channel_rule_cards(const QString& rule_name, const QString& channel, int value);
     /// @brief 点击模块卡片，弹出模块数值展示窗口
     /// @param module_name 模块名称
     void show_module_values(const QString& module_name);

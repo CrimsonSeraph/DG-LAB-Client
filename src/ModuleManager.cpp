@@ -109,6 +109,17 @@ int ModuleManager::get_module_min_period_ms(const std::string& module_name) cons
     return query_period_to_ms(QueryPeriod::SECOND);
 }
 
+std::vector<std::string> ModuleManager::get_modules_for_channel(const std::string& channel) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::string> names;
+    for (const auto& module : modules_) {
+        if (module.is_mounted_on_channel(channel)) {
+            names.push_back(module.get_name());
+        }
+    }
+    return names;
+}
+
 std::string ModuleManager::find_module_by_value_id(const std::string& value_id) const {
     std::lock_guard<std::mutex> lock(mutex_);
     for (const auto& module : modules_) {
@@ -294,7 +305,8 @@ bool ModuleManager::query_value_locked(Module& module, ModuleValue& value) {
 }
 
 void ModuleManager::register_default_modules() {
-    Module cs2_module("CS2 GSI 模块");
+    // 默认模块同时挂载到 A、B 两个通道
+    Module cs2_module("CS2 GSI 模块", {"A", "B"});
     // 参照 CS2 官方 GSI 规范注册常用数值（id 用于规则引用，field 为底层字段名）
     cs2_module.add_value(ModuleValue("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth"));
     cs2_module.add_value(ModuleValue("armor", "当前护甲", QueryPeriod::HALF_SECOND, "m_ArmorValue"));
