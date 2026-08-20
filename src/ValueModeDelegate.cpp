@@ -6,6 +6,7 @@
 #include "ValueModeDelegate.h"
 #include "DebugLog.h"
 #include "FormulaBuilderDialog.h"
+#include "RuleManager.h"
 
 #include <QEvent>
 #include <QMouseEvent>
@@ -42,7 +43,10 @@ bool ValueModeDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
             LOG_MODULE("ValueModeDelegate", "editorEvent", LOG_DEBUG,
                 QString("双击单元格，当前显示文本: %1").arg(display).toUtf8().constData());
 
-            FormulaBuilderDialog dlg(display, qobject_cast<QWidget*>(parent()));
+            // 传入当前行的规则序号，使引用列表排除自身
+            QString rule_name = model->index(index.row(), 0).data(Qt::DisplayRole).toString();
+            int rule_index = RuleManager::instance().get_rule_index(rule_name.toStdString());
+            FormulaBuilderDialog dlg(display, qobject_cast<QWidget*>(parent()), rule_index);
 
             if (dlg.exec() == QDialog::Accepted) {
                 QString newRaw = dlg.get_formula();

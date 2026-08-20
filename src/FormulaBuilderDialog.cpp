@@ -65,10 +65,16 @@ protected:
 // 构造/析构（public）
 // ============================================
 
-FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidget* parent)
-    : QDialog(parent) {
+FormulaBuilderDialog::FormulaBuilderDialog(const QString& initialFormula, QWidget* parent,
+    int currentRuleIndex)
+    : QDialog(parent)
+    , current_rule_index_(currentRuleIndex) {
     LOG_MODULE("FormulaBuilderDialog", "FormulaBuilderDialog", LOG_DEBUG,
-        QString("构造对话框，初始表达式: %1").arg(initialFormula).toUtf8().constData());
+        QString("构造对话框，初始表达式: %1，当前规则序号: %2")
+            .arg(initialFormula)
+            .arg(currentRuleIndex)
+            .toUtf8()
+            .constData());
 
     setWindowTitle("编辑值模式 - 计算表达式");
     resize(640, 460);
@@ -284,21 +290,15 @@ void FormulaBuilderDialog::show_available_values() {
         }
     }
 
-    // 列出父级非通道的规则（名称 + 序号）
+    // 列出除自身外的所有规则（名称 + 序号），包含父级为通道的规则
+    // 规则可以有通道与其他规则的混合父级，通道是否启用由独立的通道启用变量决定
     auto& rule_manager = RuleManager::instance();
     for (const auto& rule_name : rule_manager.get_rule_names()) {
-        const auto parents = rule_manager.get_rule_parents(rule_name);
-        bool has_channel = false;
-        for (const auto& parent : parents) {
-            if (parent.type == ParentType::CHANNEL) {
-                has_channel = true;
-                break;
-            }
-        }
-        if (has_channel) {
+        int index = rule_manager.get_rule_index(rule_name);
+        // 排除自身，避免自引用
+        if (index == current_rule_index_) {
             continue;
         }
-        int index = rule_manager.get_rule_index(rule_name);
         QString label = QString("%1 [#%2]")
                 .arg(QString::fromStdString(rule_name))
                 .arg(index);

@@ -22,7 +22,9 @@ public:
     /// @brief 构造函数
     /// @param initialFormula 初始表达式内容
     /// @param parent 父窗口指针
-    explicit FormulaBuilderDialog(const QString& initialFormula = "", QWidget* parent = nullptr);
+    /// @param currentRuleIndex 当前编辑的规则序号（用于引用列表排除自身，-1 表示新增规则）
+    explicit FormulaBuilderDialog(const QString& initialFormula = "", QWidget* parent = nullptr,
+        int currentRuleIndex = -1);
 
     // -------------------- 公共接口 --------------------
     /// @brief 获取当前编辑的表达式
@@ -33,6 +35,7 @@ private:
     // -------------------- 成员变量 --------------------
     QTextEdit* expression_edit_ = nullptr; ///< 表达式输入框（支持富文本）
     QLabel* status_label_ = nullptr;       ///< 状态提示标签
+    int current_rule_index_ = -1;          ///< 当前编辑的规则序号（引用列表排除自身）
 
     // -------------------- 私有辅助函数 --------------------
     /// @brief 验证表达式合法性

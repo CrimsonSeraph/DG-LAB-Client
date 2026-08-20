@@ -1756,7 +1756,7 @@ void DGLABClient::on_edit_rule() {
     if (!ok) return;
     int mode = modes.indexOf(modeStr);
 
-    FormulaBuilderDialog dlg(oldPattern, this);
+    FormulaBuilderDialog dlg(oldPattern, this, rm.get_rule_index(name.toStdString()));
     if (dlg.exec() != QDialog::Accepted) return;
     QString newPattern = dlg.get_formula();
     if (newPattern.isEmpty()) return;
