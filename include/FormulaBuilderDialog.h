@@ -7,11 +7,12 @@
 
 #include <QDialog>
 #include <QLabel>
-#include <QLineEdit>
 #include <QPushButton>
+#include <QTextEdit>
 
 // ============================================
 // FormulaBuilderDialog - 表达式构建对话框（用于规则值模式编辑）
+// 支持 {id:xxx(名称)} 模块数值引用与 {rule:xx} 规则结果引用
 // ============================================
 class FormulaBuilderDialog : public QDialog {
     Q_OBJECT
@@ -30,7 +31,7 @@ public:
 
 private:
     // -------------------- 成员变量 --------------------
-    QLineEdit* expression_edit_ = nullptr; ///< 表达式输入框
+    QTextEdit* expression_edit_ = nullptr; ///< 表达式输入框（支持富文本）
     QLabel* status_label_ = nullptr;       ///< 状态提示标签
 
     // -------------------- 私有辅助函数 --------------------
@@ -46,10 +47,12 @@ signals:
     void expression_error(const QString& e) const;
 
 private slots:
-    /// @brief 向表达式末尾追加一个 token（按钮点击）
+    /// @brief 向表达式光标处追加一个 token（按钮点击）
     void append_token(const QString& token);
     /// @brief 清空表达式
     void clear_formula();
+    /// @brief 弹出可用数值/规则选择菜单并插入引用
+    void show_available_values();
     /// @brief 验证表达式并接受对话框（如果合法）
     void validate_and_accept();
     /// @brief 实时更新状态提示（合法/非法）

@@ -1528,8 +1528,13 @@ void DGLABClient::on_add_rule() {
     try {
         nlohmann::json j = rm.load_json_file(currentFile);
         if (!j.contains("rules")) j["rules"] = nlohmann::json::object();
+        nlohmann::json parents_json = nlohmann::json::array();
+        if (!channelStr.isEmpty()) {
+            parents_json.push_back(channelStr.toStdString());
+        }
         j["rules"][name.toStdString()] = {
-            {"channel", channelStr.toStdString()},
+            {"enabled", true},
+            {"parents", parents_json},
             {"mode", mode},
             {"valuePattern", valuePattern.toStdString()}};
         if (rm.modify_rule_file(currentFile, j["rules"])) {
@@ -1581,8 +1586,13 @@ void DGLABClient::on_edit_rule() {
     try {
         nlohmann::json j = rm.load_json_file(currentFile);
         if (!j.contains("rules")) j["rules"] = nlohmann::json::object();
+        nlohmann::json parents_json = nlohmann::json::array();
+        if (!channelStr.isEmpty()) {
+            parents_json.push_back(channelStr.toStdString());
+        }
         j["rules"][name.toStdString()] = {
-            {"channel", channelStr.toStdString()},
+            {"enabled", rm.get_rule_enabled(name.toStdString())},
+            {"parents", parents_json},
             {"mode", mode},
             {"valuePattern", newPattern.toStdString()}};
         if (rm.modify_rule_file(currentFile, j["rules"])) {

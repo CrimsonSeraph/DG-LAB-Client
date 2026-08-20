@@ -109,6 +109,18 @@ int ModuleManager::get_module_min_period_ms(const std::string& module_name) cons
     return query_period_to_ms(QueryPeriod::SECOND);
 }
 
+std::string ModuleManager::find_module_by_value_id(const std::string& value_id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto& module : modules_) {
+        for (const auto& value : module.get_values()) {
+            if (value.get_id() == value_id) {
+                return module.get_name();
+            }
+        }
+    }
+    return "";
+}
+
 // ============================================
 // 周期设置（public）
 // ============================================

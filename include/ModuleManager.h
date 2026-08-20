@@ -54,6 +54,11 @@ public:
     /// @return 最小周期毫秒数，模块不存在返回 1000
     int get_module_min_period_ms(const std::string& module_name) const;
 
+    /// @brief 按数值 ID 全局查找所在模块（跨模块遍历）
+    /// @param value_id 数值 ID
+    /// @return 模块名称，未找到返回空字符串
+    std::string find_module_by_value_id(const std::string& value_id) const;
+
     // -------------------- 周期设置 --------------------
     /// @brief 设置单个数值的查询周期（设置后自动重建调度器）
     /// @param module_name 模块名称
