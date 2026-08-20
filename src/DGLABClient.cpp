@@ -948,7 +948,7 @@ void DGLABClient::setup_rules_ui() {
     // 规则表格
     rule_table_ = new QTableWidget();
     rule_table_->setColumnCount(4);
-    rule_table_->setHorizontalHeaderLabels({"规则名称", "通道", "模式", "值模式"});
+    rule_table_->setHorizontalHeaderLabels({"规则名称", "父级", "模式", "值模式"});
     rule_table_->horizontalHeader()->setStretchLastSection(true);
 
     QStringList channelOptions = {"A", "B", "无"};
@@ -959,6 +959,9 @@ void DGLABClient::setup_rules_ui() {
     rule_table_->setItemDelegateForColumn(3, new ValueModeDelegate(rule_table_));
     rule_table_->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::AnyKeyPressed);
     rule_table_->viewport()->update();
+    // 父级列编辑后同步到规则管理器（含通道唯一性去重）
+    connect(rule_table_, &QTableWidget::itemChanged,
+        this, &DGLABClient::on_rule_table_item_changed);
 
     layout->addWidget(rule_table_);
 
@@ -1031,16 +1034,24 @@ void DGLABClient::refresh_rule_file_list() {
 }
 
 void DGLABClient::update_rule_table() {
+    updating_rule_table_ = true;
     auto& rm = RuleManager::instance();
     auto names = rm.get_rule_names();
     rule_table_->setRowCount((int)names.size());
+    bool light_text = theme_text_is_light();
+    // 主题文本为黑时：不适用=浅灰、部分不适用=深灰；为白时反之
+    QColor not_applicable_color = light_text ? QColor(110, 110, 110) : QColor(165, 165, 165);
+    QColor partial_color = light_text ? QColor(165, 165, 165) : QColor(110, 110, 110);
     for (size_t i = 0; i < names.size(); ++i) {
         const auto& name = names[i];
+        // 规则名称列
         rule_table_->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(name)));
 
-        std::string channel = rm.get_rule_channel(name);
-        rule_table_->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(channel.empty() ? "无" : channel)));
+        // 父级列显示（通道在前，规则在后，无父级显示"无"）
+        std::string parents_display = rm.get_rule_parents_display(name);
+        rule_table_->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(parents_display)));
 
+        // 模式列（父级不是通道时灰显）
         int mode = rm.get_rule_mode(name);
         QString modeStr;
         switch (mode) {
@@ -1051,13 +1062,47 @@ void DGLABClient::update_rule_table() {
         case 4: modeStr = "连增"; break;
         default: modeStr = "未知";
         }
-        rule_table_->setItem(i, 2, new QTableWidgetItem(modeStr));
+        QTableWidgetItem* mode_item = new QTableWidgetItem(modeStr);
+        int applicability = rm.get_rule_mode_applicability(name);
+        if (applicability == 1) {
+            // 父级无通道：文本后加"(不适用)"，整个文本灰色
+            mode_item->setText(modeStr + "(不适用)");
+            mode_item->setForeground(QBrush(not_applicable_color));
+        }
+        else if (applicability == 2) {
+            // 父级混合：文本后加"(部分不适用)"，整个文本更接近主题文本色的灰色
+            mode_item->setText(modeStr + "(部分不适用)");
+            mode_item->setForeground(QBrush(partial_color));
+        }
+        rule_table_->setItem(i, 2, mode_item);
 
+        // 值模式列（规则文件内容不变，仅改变应用中的显示）
         std::string pattern = rm.get_rule_value_pattern(name);
         QString displayPattern = QString::fromStdString(pattern);
         displayPattern.replace("{}", "{   }");
         rule_table_->setItem(i, 3, new QTableWidgetItem(displayPattern));
     }
+    updating_rule_table_ = false;
+}
+
+void DGLABClient::on_rule_table_item_changed(QTableWidgetItem* item) {
+    // 仅处理父级列的编辑（通道唯一性：保留用户最后设置的）
+    if (updating_rule_table_ || !item || item->column() != 1) {
+        return;
+    }
+    QTableWidgetItem* name_item = rule_table_->item(item->row(), 0);
+    if (!name_item || name_item->text().isEmpty()) {
+        return;
+    }
+    QString name = name_item->text();
+    QString parent_text = item->text();
+    QString channel = (parent_text == "A" || parent_text == "B") ? parent_text : "";
+    RuleManager::instance().set_rule_channel(name.toStdString(), channel.toStdString());
+    LOG_MODULE("DGLABClient", "on_rule_table_item_changed", LOG_DEBUG,
+        "规则 " << name.toStdString() << " 父级设置为: "
+                << (channel.isEmpty() ? "无" : channel.toStdString()));
+    // 通道唯一性可能清除其他行的通道父级，刷新显示
+    update_rule_table();
 }
 
 // ----- 样式辅助 -----
@@ -1172,6 +1217,25 @@ void DGLABClient::apply_inline_styles() {
         }
     }
     LOG_MODULE("DGLABClient", "apply_inline_styles", LOG_DEBUG, "设置内联样式完成！");
+}
+
+bool DGLABClient::theme_text_is_light() const {
+    // 与 apply_inline_styles 中主题字体颜色映射保持一致
+    switch (theme_) {
+    case NIGHT:
+    case CHARCOAL_PINK:
+    case DEEPSEA_CREAM:
+    case DARK_BLUE_CLEAR_BLUE:
+    case KLEIN_YELLOW:
+    case MARS_GREEN_ROSE:
+    case HERMES_ORANGE_NAVY:
+    case CHINA_RED_YELLOW:
+    case VANDYKE_BROWN_KHAKI:
+    case PRUSSIAN_BLUE_FOG:
+        return true;
+    default:
+        return false;
+    }
 }
 
 QString DGLABClient::theme_to_mode_string(Theme theme) {

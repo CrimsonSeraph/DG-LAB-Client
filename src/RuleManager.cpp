@@ -353,6 +353,35 @@ std::string RuleManager::get_rule_parents_display(const std::string& rule_name) 
     return result;
 }
 
+int RuleManager::get_rule_mode_applicability(const std::string& rule_name) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = rules_.find(rule_name);
+    if (it == rules_.end()) {
+        return 1;
+    }
+    const Rule& rule = it->second;
+    // 统计通道父级数量
+    size_t channel_count = 0;
+    for (const auto& parent : rule.get_parents()) {
+        if (parent.type == ParentType::CHANNEL) {
+            ++channel_count;
+        }
+    }
+    // 统计规则父级数量（由值模式 {rule:xx} 推导）
+    size_t rule_count = 0;
+    auto ref_it = referrers_.find(rule.get_index());
+    if (ref_it != referrers_.end()) {
+        rule_count = ref_it->second.size();
+    }
+    if (channel_count > 0 && rule_count == 0) {
+        return 0;
+    }
+    if (channel_count > 0 && rule_count > 0) {
+        return 2;
+    }
+    return 1;
+}
+
 std::optional<int> RuleManager::get_rule_last_result(const std::string& rule_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = rules_.find(rule_name);

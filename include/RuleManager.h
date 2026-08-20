@@ -134,6 +134,11 @@ public:
     /// @return 最近结果（可选），未计算过返回空
     std::optional<int> get_rule_last_result(const std::string& rule_name) const;
 
+    /// @brief 获取规则模式适用性（用于模式列灰显）
+    /// @param rule_name 规则名称
+    /// @return 0=父级全部为通道（正常显示）；1=父级无通道（不适用）；2=父级混合（部分不适用）
+    int get_rule_mode_applicability(const std::string& rule_name) const;
+
     // -------------------- 规则修改 --------------------
     /// @brief 设置规则启用状态
     /// @param rule_name 规则名称

@@ -163,6 +163,7 @@ private:
     QPushButton* add_rule_btn_;
     QPushButton* edit_rule_btn_;
     QPushButton* delete_rule_btn_;
+    bool updating_rule_table_ = false; ///< 表格刷新标志（防止 itemChanged 递归）
 
     // 模块页 UI 控件
     QComboBox* module_period_combo_ = nullptr;        ///< 统一查询周期下拉框
@@ -244,6 +245,9 @@ private:
     void apply_widget_properties();
     /// @brief 应用所有内联样式表
     void apply_inline_styles();
+    /// @brief 判断当前主题文本色是否为浅色（白色系）
+    /// @return 文本为浅色返回 true
+    bool theme_text_is_light() const;
     /// @brief 将主题转化成文本（英文）
     static QString theme_to_mode_string(Theme theme);
     /// @brief 将文本转化成主题（英文）
@@ -325,6 +329,9 @@ private slots:
     void on_edit_rule();
     /// @brief 删除当前选中的规则
     void on_delete_rule();
+    /// @brief 规则表格单元格内容变化（父级列编辑同步到规则管理器）
+    /// @param item 变化的单元格
+    void on_rule_table_item_changed(QTableWidgetItem* item);
 
     // 消息处理槽函数
     /// @brief 处理 Python 端推送的主动消息（强度/断开/错误/绑定等）
