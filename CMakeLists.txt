@@ -398,18 +398,38 @@ endif()
         set(PYTHON_ZIP_NAME "python${Python_VERSION_MAJOR}${Python_VERSION_MINOR}.zip")
         set(PYTHON_ZIP_PATH "${CMAKE_CURRENT_BINARY_DIR}/${PYTHON_ZIP_NAME}")
 
+        # 若 zip 不存在，或是上次打包失败留下的 0 字节空文件，则重新打包
+        set(_PYTHON_ZIP_NEED_CREATE TRUE)
         if(EXISTS "${PYTHON_ZIP_PATH}")
-            message(STATUS "Python standard library zip already exists, skipping creation: ${PYTHON_ZIP_PATH}")
-        else()
+            file(SIZE "${PYTHON_ZIP_PATH}" _PYTHON_ZIP_SIZE)
+            if(_PYTHON_ZIP_SIZE GREATER 0)
+                set(_PYTHON_ZIP_NEED_CREATE FALSE)
+                message(STATUS "Python standard library zip already exists, skipping creation: ${PYTHON_ZIP_PATH}")
+            else()
+                message(STATUS "Python standard library zip exists but is empty, recreating...")
+            endif()
+        endif()
+
+        if(_PYTHON_ZIP_NEED_CREATE)
             # 在配置阶段创建 zip 文件
             message(STATUS "Creating Python standard library zip: ${PYTHON_ZIP_PATH}")
             file(TO_CMAKE_PATH "${Python_STDLIB}" PYTHON_STDLIB_CMAKE)
 
-            # 使用 CMake 的 file(WRITE) 和 execute_process 在配置时执行打包
             if(CMAKE_HOST_WIN32)
+                # 使用系统自带的 bsdtar（Windows 10+ 内置）打包，并排除以下内容：
+                #  - site-packages：第三方包体积巨大（本机约 5GB），且已有独立的
+                #    PYTHON_PACKAGES_DIR 安装通道，不应打进标准库 zip
+                #  - __pycache__ / *.pyc：字节码缓存，运行时自动重建
+                #  - test：测试用例，运行时不需要
+                # --strip-components=1 去掉 tar 的 "./" 前缀，否则 zipimport 无法导入
                 execute_process(
-                    COMMAND powershell -Command "Compress-Archive -Path '*' -DestinationPath '${PYTHON_ZIP_PATH}' -Force"
-                    WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
+                    COMMAND tar --format=zip -cf "${PYTHON_ZIP_PATH}"
+                            --strip-components=1
+                            --exclude=site-packages
+                            --exclude=__pycache__
+                            --exclude=test
+                            --exclude=*.pyc
+                            -C "${PYTHON_STDLIB_CMAKE}" .
                     RESULT_VARIABLE _zip_result
                     ERROR_VARIABLE _zip_error
                     OUTPUT_VARIABLE _zip_output
@@ -418,7 +438,7 @@ endif()
                     message(FATAL_ERROR "Failed to create Python standard library zip: ${_zip_error}")
                 endif()
             else()
-                # Linux/macOS 使用 tar
+                # Linux/macOS 交叉打包 Windows 目标时使用 tar
                 execute_process(
                     COMMAND ${CMAKE_COMMAND} -E tar cf "${PYTHON_ZIP_PATH}" --format=zip -- .
                     WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"

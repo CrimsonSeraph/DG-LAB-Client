@@ -13,6 +13,7 @@
 - 无
 
 ### Changed
+- Windows 构建: Python 标准库 zip 打包优化——排除 site-packages（约 5GB 第三方包）、__pycache__/*.pyc 与 test，改用系统内置 bsdtar 打包，configure 耗时由数十分钟降至数秒，zip 体积约 1GB 降至约 5MB，且 zipimport 可直接导入。
 - 统一全项目注释规范: 头文件函数补齐 Doxygen 注释（中文 @brief/@param/@return），源文件行尾注释全部改为独立行注释。
 
 ### Deprecated
