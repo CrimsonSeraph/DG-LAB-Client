@@ -6,6 +6,7 @@
 #pragma once
 
 #include "DebugLog.h"
+#include "LogExporter.h"
 #include "PythonSubprocessManager.h"
 #include "ThemeSelectorDialog.h"
 #include "ui_DGLABClient.h"
@@ -157,6 +158,7 @@ private:
     int B_limit_ = 200;      ///< B通道上限（默认200）
 
     PythonSubprocessManager* py_manager_; ///< Python 子进程管理器
+    LogExporter log_exporter_;             ///< 日志导出器（导出设置与导出/清理逻辑）
 
     LogLevel ui_log_level_ = LOG_DEBUG; ///< UI 日志级别
     bool use_fixed_width_log_ = false;  ///< 是否使用固定宽度日志格式
@@ -336,6 +338,12 @@ private slots:
     /// @brief 切换主题（Theme 枚举版本）
     /// @param theme 目标主题枚举
     void change_theme(Theme theme);
+
+    // 日志导出相关槽函数
+    /// @brief 导出当前界面日志到文件（按导出设置过滤与分片）
+    void on_export_log();
+    /// @brief 弹出日志导出设置对话框（更多设置）
+    void on_more_log_setting();
 
     // 规则文件管理槽函数
     /// @brief 规则文件菜单项被选中时的处理

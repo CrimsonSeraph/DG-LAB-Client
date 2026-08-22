@@ -72,6 +72,9 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 - **日志与调试**
   `DebugLog` 提供模块化日志等级控制，可输出到控制台、Qt 界面等不同的 `LogSink`；通过 `Console` 类可在 Windows 上创建调试控制台。
 
+- **日志导出**
+  配置页面“导出日志”按钮将界面日志按导出设置写入文件（默认程序目录下 `log/` 文件夹）。导出设置（`LogExporter`）包括导出日志级别、是否只导出指定级别、指定级别及以上/以下、导出位置、保留日志数量（默认 1，分片日志视为一份，程序退出时自动清理多余日志）、单个日志大小上限（超出时分片写入多个文件）。设置项持久化到 `user.json` 的 `app.log` 下，可在“更多设置”弹窗中修改。
+
 - **WebSocket 通信**
   Python 脚本 `Bridge.py` 内部使用 `WebSocketCore.py`（工具库）与 DG-Lab 服务进行 WebSocket 交互（连接、心跳、绑定、控制命令），并将结果通过 TCP 返回给 C++ 主程序。
 
@@ -332,6 +335,18 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 > 👉 日志不显示或等级不生效？请查看 [常见问题 - 通用问题](#通用问题)
 
+#### 日志导出
+
+- **导出日志**: 点击“配置”页面的“导出日志”按钮，将界面日志按导出设置写入文件（默认导出到程序目录下的 `log/` 文件夹）。
+- **导出设置**: 点击“更多设置”按钮弹出设置窗口，可配置:
+  - 导出日志级别（DEBUG/INFO/WARN/ERROR，默认 DEBUG）。
+  - 是否只导出指定级别（默认否）。
+  - 指定级别及以上/以下（默认以上）。
+  - 导出位置（目录不存在自动创建，不可用时回退默认目录并警告）。
+  - 保留日志数量（默认 1，分片日志视为一份；程序退出时自动清理多余日志，仅保留最新 N 份）。
+  - 单个日志大小上限（默认 5MB，超出上限分片写入多个文件，如 `log_xxx_1.txt`、`log_xxx_2.txt`）。
+- 设置项持久化到 `user.json` 的 `app.log` 下。
+
 ### 7. 调试控制台
 
 在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示详细的日志输出。
@@ -577,6 +592,8 @@ DG-LAB-Client/
 │   ├── EditableLabel.h                 # 可编辑标签控件
 │   ├── FormulaBuilderDialog.h          # 公式构建对话框
 │   ├── IpSelector.h                    # IP 选择器单例
+│   ├── LogExporter.h                   # 日志导出器（导出设置与清理）
+│   ├── LogExportSettingsDialog.h       # 日志导出设置对话框
 │   ├── Module.h                        # 数据模块（一组数值）
 │   ├── ModuleManager.h                 # 数值模块管理器（周期调度）
 │   ├── ModuleValue.h                   # 数值模型与查询周期枚举
@@ -628,6 +645,8 @@ DG-LAB-Client/
 │   ├── EditableLabel.cpp               # 可编辑标签实现
 │   ├── FormulaBuilderDialog.cpp        # 公式构建对话框实现
 │   ├── IpSelector.cpp                  # IP 选择器实现
+│   ├── LogExporter.cpp                 # 日志导出器实现
+│   ├── LogExportSettingsDialog.cpp     # 日志导出设置对话框实现
 │   ├── Module.cpp                      # 数据模块实现
 │   ├── ModuleManager.cpp               # 数值模块管理器实现
 │   ├── ModuleValue.cpp                 # 数值模型实现

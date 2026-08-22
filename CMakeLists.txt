@@ -139,6 +139,10 @@ set(PROJECT_SOURCES
     include/DebugLog.h
     src/DebugLog.cpp
     include/DebugLog_utils.hpp
+    include/LogExporter.h
+    src/LogExporter.cpp
+    include/LogExportSettingsDialog.h
+    src/LogExportSettingsDialog.cpp
 
     # 配置文件
     config/main.json

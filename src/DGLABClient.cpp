@@ -12,6 +12,7 @@
 #include "EditableLabel.h"
 #include "FormulaBuilderDialog.h"
 #include "IpSelector.h"
+#include "LogExportSettingsDialog.h"
 #include "ModuleManager.h"
 #include "ModuleValuesDialog.h"
 #include "ParentEditDialog.h"
@@ -153,6 +154,8 @@ DGLABClient::DGLABClient(QWidget* parent)
 DGLABClient::~DGLABClient() {
     delete_old_qr_file();
     DebugLog::instance().unregister_log_sink("qt_ui");
+    // 清理多余日志：仅保留最新 N 份（分片日志视为一份）
+    log_exporter_.cleanup_old_logs();
 }
 
 void DGLABClient::normal_init() {
@@ -166,6 +169,8 @@ void DGLABClient::normal_init() {
     connect_rule_engine();
     setup_channel_cards();
     init_python_manager();
+    // 加载日志导出设置（user.json 的 app.log）
+    log_exporter_.load_settings();
 }
 
 void DGLABClient::init_log() {
@@ -189,6 +194,9 @@ void DGLABClient::init_connect() const {
     connect_about_channel_contral();
     connect_about_connect();
     connect_about_theme();
+    // 日志导出按钮
+    connect(ui_.export_log_btn, &QPushButton::clicked, this, &DGLABClient::on_export_log);
+    connect(ui_.more_log_setting_btn, &QPushButton::clicked, this, &DGLABClient::on_more_log_setting);
 }
 
 void DGLABClient::init_style() {
@@ -1654,6 +1662,28 @@ void DGLABClient::show_theme_selector() {
 
 void DGLABClient::change_theme(Theme theme) {
     change_theme(theme_to_mode_string(theme).toStdString());
+}
+
+void DGLABClient::on_export_log() {
+    LOG_MODULE("DGLABClient", "on_export_log", LOG_INFO, "开始导出日志");
+    QString error;
+    if (log_exporter_.export_log(ui_.debug_log->toPlainText(), &error)) {
+        QMessageBox::information(this, "导出日志",
+            "日志已导出到: " + log_exporter_.export_dir_absolute());
+    }
+    else {
+        QMessageBox::warning(this, "导出日志失败", error.isEmpty() ? "未知错误" : error);
+    }
+}
+
+void DGLABClient::on_more_log_setting() {
+    LOG_MODULE("DGLABClient", "on_more_log_setting", LOG_DEBUG, "打开日志导出设置对话框");
+    LogExportSettingsDialog dlg(log_exporter_.settings(), this);
+    if (dlg.exec() == QDialog::Accepted) {
+        log_exporter_.set_settings(dlg.get_settings());
+        log_exporter_.save_settings();
+        QMessageBox::information(this, "设置完成", "日志导出设置已保存");
+    }
 }
 
 void DGLABClient::on_rule_file_selected(QAction* action) {
