@@ -5,10 +5,10 @@
 
 #include "ModuleValuesDialog.h"
 
-#include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
 #include "Module.h"
 #include "ModuleManager.h"
+#include "StyledComboBox.h"
 
 #include <QComboBox>
 #include <QFont>
@@ -189,7 +189,7 @@ void ModuleValuesDialog::create_value_box(const ModuleValue& value, QGridLayout*
     period_row->setSpacing(6);
     QLabel* period_label = new QLabel("周期:", box);
     period_label->setProperty("type", "module_value_field");
-    QComboBox* period_combo = new QComboBox(box);
+    QComboBox* period_combo = new StyledComboBox(box);
     period_combo->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::SECOND)));
     period_combo->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::TWO_SECONDS)));
     period_combo->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::FOUR_SECONDS)));
@@ -201,8 +201,6 @@ void ModuleValuesDialog::create_value_box(const ModuleValue& value, QGridLayout*
         period_combo->setCurrentIndex(current_index);
     }
     period_combo->setProperty("type", "module_period_combo");
-    // 应用下拉框弹出样式处理（规避弹出列表边缘黑色）
-    DGLABClientUtil::apply_combo_popup_style(period_combo);
     period_row->addWidget(period_label);
     period_row->addWidget(period_combo, 1);
     box_layout->addLayout(period_row);

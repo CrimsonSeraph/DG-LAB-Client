@@ -19,6 +19,7 @@
 #include "PythonSubprocessManager.h"
 #include "RuleManager.h"
 #include "SampledWaveformWidget.h"
+#include "StyledComboBox.h"
 #include "ValueModeDelegate.h"
 
 #include <QAbstractSocket>
@@ -729,14 +730,12 @@ void DGLABClient::setup_module_ui() {
     QHBoxLayout* period_row = new QHBoxLayout();
     period_row->setSpacing(10);
     QLabel* period_hint = new QLabel("统一设置查询周期:", ui_.module_page);
-    module_period_combo_ = new QComboBox(ui_.module_page);
+    module_period_combo_ = new StyledComboBox(ui_.module_page);
     module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::SECOND)));
     module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::TWO_SECONDS)));
     module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::FOUR_SECONDS)));
     module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::HALF_SECOND)));
     module_period_combo_->addItem(QString::fromUtf8(query_period_to_text(QueryPeriod::QUARTER_SECOND)));
-    // 应用下拉框弹出样式处理（规避弹出列表边缘黑色）
-    DGLABClientUtil::apply_combo_popup_style(module_period_combo_);
     // 默认选中当前基准周期
     int base_index = module_period_combo_->findText(QString::fromUtf8(
         query_period_to_text(query_period_from_ms(ModuleManager::instance().get_base_period_ms()))));

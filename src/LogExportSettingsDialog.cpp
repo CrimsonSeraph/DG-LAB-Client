@@ -5,7 +5,6 @@
 
 #include "LogExportSettingsDialog.h"
 
-#include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
 
 #include <algorithm>
@@ -22,6 +21,8 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QVBoxLayout>
+
+#include "StyledComboBox.h"
 
 // ============================================
 // 构造/析构（public）
@@ -130,14 +131,12 @@ void LogExportSettingsDialog::build_filter_group(QGroupBox* group, QComboBox*& l
     form->setSpacing(8);
 
     // 导出日志级别
-    level_combo = new QComboBox(group);
+    level_combo = new StyledComboBox(group);
     level_combo->addItem("DEBUG");
     level_combo->addItem("INFO");
     level_combo->addItem("WARN");
     level_combo->addItem("ERROR");
     level_combo->setCurrentIndex(std::clamp(level, 0, 3));
-    // 应用下拉框弹出样式处理（规避弹出列表边缘黑色）
-    DGLABClientUtil::apply_combo_popup_style(level_combo);
     form->addRow("导出日志级别:", level_combo);
 
     // 是否只导出指定级别
@@ -146,11 +145,10 @@ void LogExportSettingsDialog::build_filter_group(QGroupBox* group, QComboBox*& l
     form->addRow("过滤方式:", only_check);
 
     // 指定级别及以上/以下
-    above_combo = new QComboBox(group);
+    above_combo = new StyledComboBox(group);
     above_combo->addItem("指定级别及以上");
     above_combo->addItem("指定级别以下");
     above_combo->setCurrentIndex(above ? 0 : 1);
-    DGLABClientUtil::apply_combo_popup_style(above_combo);
     form->addRow("级别范围:", above_combo);
 
     // 导出位置

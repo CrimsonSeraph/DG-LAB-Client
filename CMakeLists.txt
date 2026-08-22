@@ -79,6 +79,8 @@ set(PROJECT_SOURCES
     src/ValueModeDelegate.cpp
     include/EditableLabel.h
     src/EditableLabel.cpp
+    include/StyledComboBox.h
+    src/StyledComboBox.cpp
     include/IpSelector.h
     src/IpSelector.cpp
 

@@ -602,6 +602,7 @@ DG-LAB-Client/
 │   ├── RuleManager.h                   # 规则管理器
 │   ├── RuleManager_impl.hpp            # 规则管理实现模板
 │   ├── SampledWaveformWidget.h         # 波形采样控件
+│   ├── StyledComboBox.h              # 统一下拉框控件（弹出样式与圆角）
 │   ├── ThemeSelectorDialog.h           # 主题选择对话框
 │   └── ValueModeDelegate.h             # 值模式委托
 ├── licenses/                           # 第三方许可证文件
@@ -653,6 +654,7 @@ DG-LAB-Client/
 │   ├── Rule.cpp                        # 规则实体实现
 │   ├── RuleManager.cpp                 # 规则管理器实现
 │   ├── SampledWaveformWidget.cpp       # 波形采样控件实现
+│   ├── StyledComboBox.cpp            # 统一下拉框控件实现
 │   ├── ThemeSelectorDialog.cpp         # 主题选择对话框实现
 │   └── ValueModeDelegate.cpp           # 值模式委托实现
 ├── .editorconfig                       # 编辑器代码风格配置

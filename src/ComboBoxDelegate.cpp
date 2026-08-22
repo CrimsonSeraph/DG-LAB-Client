@@ -4,7 +4,9 @@
  */
 
 #include "ComboBoxDelegate.h"
+
 #include "DebugLog.h"
+#include "StyledComboBox.h"
 
 #include <QApplication>
 #include <QTimer>
@@ -30,14 +32,12 @@ QWidget* ComboBoxDelegate::createEditor(QWidget* parent,
     LOG_MODULE("ComboBoxDelegate", "createEditor", LOG_DEBUG,
         QString("创建编辑器，索引: (%1,%2)").arg(index.row()).arg(index.column()).toUtf8().constData());
 
-    QComboBox* combo = new QComboBox(parent);
+    // 使用统一的下拉框控件（内置弹出样式处理）
+    StyledComboBox* combo = new StyledComboBox(parent);
     combo->addItems(items_);
     combo->setEditable(false);
     combo->setAutoFillBackground(true);
     combo->setGeometry(option.rect);
-    combo->setStyleSheet("");
-    combo->setAttribute(Qt::WA_StyledBackground, true);
-    combo->setStyle(qApp->style());
     combo->ensurePolished();
     combo->showPopup();
     return combo;

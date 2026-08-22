@@ -466,12 +466,6 @@ QComboBox QAbstractItemView {
     selection-color: rgba(70,55,60,1.0);
 }
 
-QComboBoxPrivateContainer {
-    background-color: rgba(250, 242, 242, 1.00);
-    border: 1px solid rgba(180,160,160,1.0);
-    border-radius: 6px;
-    color: rgba(70,55,60,1.0);
-}
 
 /* 表格内编辑框：减小内边距，避免内容因内边距被裁剪 */
 QTableWidget QLineEdit, QTableView QLineEdit {
