@@ -461,21 +461,14 @@ QComboBox QAbstractItemView {
     background-color: rgba(250, 242, 228, 1.00);
     border: 1px solid rgba(180,150,130,1.0);
     border-radius: 6px;
-    padding: 2px;
     outline: 0;
     selection-background-color: rgba(200,60,50,0.2);
     selection-color: rgba(60,45,40,1.0);
 }
-QComboBox QAbstractItemView::item {
-    padding: 4px 8px;
-    border-radius: 4px;
-    min-height: 20px;
-}
-QComboBox QAbstractItemView::item:hover {
-    background-color: rgba(200,60,50,0.2);
-    color: rgba(60,45,40,1.0);
-}
-QComboBox QAbstractItemView::item:selected {
-    background-color: rgba(200,60,50,0.2);
+
+QComboBoxPrivateContainer {
+    background-color: rgba(250, 242, 228, 1.00);
+    border: 1px solid rgba(180,150,130,1.0);
+    border-radius: 6px;
     color: rgba(60,45,40,1.0);
 }

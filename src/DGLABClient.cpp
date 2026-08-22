@@ -31,6 +31,7 @@
 #include <QDialog>
 #include <QFile>
 #include <QFont>
+#include <QFontMetrics>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -1091,8 +1092,16 @@ void DGLABClient::setup_rules_ui() {
     rule_table_->setItemDelegateForColumn(2, new ComboBoxDelegate(channelOptions, rule_table_));
     rule_table_->setItemDelegateForColumn(3, new ComboBoxDelegate(modeOptions, rule_table_));
     rule_table_->setItemDelegateForColumn(4, new ValueModeDelegate(rule_table_));
-    // 启用列窄宽度
-    rule_table_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    // 列宽策略：启用/父级/模式按内容（宽度可预测），规则名称按最长名称（有最大宽度），值模式占剩余
+    QHeaderView* rule_header = rule_table_->horizontalHeader();
+    rule_header->setStretchLastSection(false);
+    rule_header->setSectionResizeMode(0, QHeaderView::ResizeToContents); // 启用
+    rule_header->setSectionResizeMode(1, QHeaderView::Interactive);      // 规则名称
+    rule_header->setSectionResizeMode(2, QHeaderView::ResizeToContents); // 父级
+    rule_header->setSectionResizeMode(3, QHeaderView::ResizeToContents); // 模式
+    rule_header->setSectionResizeMode(4, QHeaderView::Stretch);          // 值模式（剩余宽度）
+    // 增大默认行高，避免编辑时输入框字体显示不全
+    rule_table_->verticalHeader()->setDefaultSectionSize(30);
     rule_table_->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::AnyKeyPressed);
     rule_table_->viewport()->update();
     // 父级列编辑后同步到规则管理器（含通道唯一性去重）
@@ -1182,6 +1191,16 @@ void DGLABClient::update_rule_table() {
     // 主题文本为黑时：不适用=浅灰、部分不适用=深灰；为白时反之
     QColor not_applicable_color = light_text ? QColor(110, 110, 110) : QColor(165, 165, 165);
     QColor partial_color = light_text ? QColor(165, 165, 165) : QColor(110, 110, 110);
+    // 规则名称列宽：依据最长规则名称设置（限制最大宽度防止过宽）
+    int max_name_width = 60;
+    QFontMetrics name_fm(rule_table_->font());
+    for (const auto& rule_name : names) {
+        int width = name_fm.horizontalAdvance(QString::fromStdString(rule_name)) + 24;
+        max_name_width = std::max(max_name_width, width);
+    }
+    max_name_width = std::min(max_name_width, 200);
+    rule_table_->setColumnWidth(1, max_name_width);
+
     for (size_t i = 0; i < names.size(); ++i) {
         const auto& name = names[i];
         // 启用列（勾选框）
