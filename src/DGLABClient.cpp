@@ -154,7 +154,8 @@ DGLABClient::DGLABClient(QWidget* parent)
 DGLABClient::~DGLABClient() {
     delete_old_qr_file();
     DebugLog::instance().unregister_log_sink("qt_ui");
-    // 清理多余日志：仅保留最新 N 份（分片日志视为一份）
+    // 停止自动日志并清理多余日志（自动目录仅保留最新 N 份，分片日志视为一份）
+    log_exporter_.stop_auto_log();
     log_exporter_.cleanup_old_logs();
 }
 
@@ -169,8 +170,9 @@ void DGLABClient::normal_init() {
     connect_rule_engine();
     setup_channel_cards();
     init_python_manager();
-    // 加载日志导出设置（user.json 的 app.log）
+    // 加载日志设置（user.json 的 app.log）并启动自动日志（配置系统加载完毕后记录）
     log_exporter_.load_settings();
+    log_exporter_.start_auto_log();
 }
 
 void DGLABClient::init_log() {
@@ -1671,7 +1673,7 @@ void DGLABClient::on_export_log() {
     QString error;
     if (log_exporter_.export_log(ui_.debug_log->toPlainText(), &error)) {
         QMessageBox::information(this, "导出日志",
-            "日志已导出到: " + log_exporter_.export_dir_absolute());
+            "日志已导出到: " + log_exporter_.manual_dir_absolute());
     }
     else {
         QMessageBox::warning(this, "导出日志失败", error.isEmpty() ? "未知错误" : error);
@@ -1680,10 +1682,14 @@ void DGLABClient::on_export_log() {
 
 void DGLABClient::on_more_log_setting() {
     LOG_MODULE("DGLABClient", "on_more_log_setting", LOG_DEBUG, "打开日志导出设置对话框");
-    LogExportSettingsDialog dlg(log_exporter_.settings(), this);
+    LogExportSettingsDialog dlg(log_exporter_.auto_settings(), log_exporter_.manual_settings(), this);
     if (dlg.exec() == QDialog::Accepted) {
-        log_exporter_.set_settings(dlg.get_settings());
+        log_exporter_.set_auto_settings(dlg.get_auto_settings());
+        log_exporter_.set_manual_settings(dlg.get_manual_settings());
         log_exporter_.save_settings();
+        // 自动日志设置变化后重启自动日志（使用新设置）
+        log_exporter_.stop_auto_log();
+        log_exporter_.start_auto_log();
         QMessageBox::information(this, "设置完成", "日志导出设置已保存");
     }
 }

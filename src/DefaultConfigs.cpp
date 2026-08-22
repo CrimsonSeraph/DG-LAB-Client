@@ -64,12 +64,20 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
                     {"font_size", 16}
                 }},
                 {"log", {
-                    {"export_level", 0},
-                    {"export_only_level", false},
-                    {"export_level_above", true},
-                    {"export_dir", "./log"},
-                    {"export_retain_count", 1},
-                    {"export_max_size", 5242880}
+                    {"auto", {
+                        {"export_level", 0},
+                        {"export_only_level", false},
+                        {"export_level_above", true},
+                        {"export_dir", "./log"},
+                        {"export_retain_count", 1},
+                        {"export_max_size", 5242880}
+                    }},
+                    {"manual", {
+                        {"export_level", 0},
+                        {"export_only_level", false},
+                        {"export_level_above", true},
+                        {"export_dir", "./log/handle"}
+                    }}
                 }}
             }},
             {"version", "1.0"},
