@@ -570,41 +570,48 @@ DG-LAB-Client/
 │   ├── user.json                    # 用户配置
 │   └── rules/                       # 规则文件目录
 │       └── rules.json               # 规则定义
-├── include/                         # 公共头文件（含 UI 文件）
-│   ├── AppConfig.h                  # 应用配置接口
-│   ├── AppConfig_impl.hpp           # 配置实现模板
-│   ├── AppConfig_utils.hpp          # 配置包装器工具类
-│   ├── ComboBoxDelegate.h           # 下拉框委托
-│   ├── ConfigManager.h              # 配置管理器
-│   ├── ConfigManager_impl.hpp       # 配置管理器模板实现
-│   ├── ConfigStructs.h              # 配置数据结构
-│   ├── Console.h                    # 控制台输出
-│   ├── DebugLog.h                   # 调试日志接口
-│   ├── DebugLog_utils.hpp           # 日志工具函数
-│   ├── DefaultConfigs.h             # 默认配置生成
-│   ├── DGLABClient.h                # 主窗口类定义
-│   ├── DGLABClient.ui                  # Qt Designer 界面文件
-│   ├── DGLABClient_impl.hpp            # 主窗口模板实现
-│   ├── DGLABClient_utils.hpp           # 主窗口工具函数
-│   ├── EditableLabel.h                 # 可编辑标签控件
-│   ├── FormulaBuilderDialog.h          # 公式构建对话框
-│   ├── IpSelector.h                    # IP 选择器单例
-│   ├── LogExporter.h                   # 日志导出器（导出设置与清理）
-│   ├── LogExportSettingsDialog.h       # 日志导出设置对话框
-│   ├── Module.h                        # 数据模块（一组数值）
-│   ├── ModuleManager.h                 # 数值模块管理器（周期调度）
-│   ├── ModuleValue.h                   # 数值模型与查询周期枚举
-│   ├── ModuleValuesDialog.h            # 模块数值展示对话框
-│   ├── MultiConfigManager.h            # 多配置管理器
-│   ├── MultiConfigManager_impl.hpp     # 多配置管理实现模板
-│   ├── PythonSubprocessManager.h       # Python 子进程管理
-│   ├── Rule.h                          # 规则实体
-│   ├── RuleManager.h                   # 规则管理器
-│   ├── RuleManager_impl.hpp            # 规则管理实现模板
-│   ├── SampledWaveformWidget.h         # 波形采样控件
-│   ├── StyledComboBox.h              # 统一下拉框控件（弹出样式与圆角）
-│   ├── ThemeSelectorDialog.h           # 主题选择对话框
-│   └── ValueModeDelegate.h             # 值模式委托
+├── include/                             # 公共头文件（按分类子目录存放，含 UI 文件）
+│   ├── core/                            # 核心基础设施：配置系统 + 日志系统
+│   │   ├── AppConfig.h                  # 应用配置接口
+│   │   ├── AppConfig_impl.hpp           # 配置实现模板
+│   │   ├── AppConfig_utils.hpp          # 配置包装器工具类
+│   │   ├── ConfigManager.h              # 配置管理器
+│   │   ├── ConfigManager_impl.hpp       # 配置管理器模板实现
+│   │   ├── MultiConfigManager.h         # 多配置管理器
+│   │   ├── MultiConfigManager_impl.hpp  # 多配置管理实现模板
+│   │   ├── ConfigStructs.h              # 配置数据结构
+│   │   ├── DefaultConfigs.h             # 默认配置生成
+│   │   ├── DebugLog.h                   # 调试日志接口
+│   │   ├── DebugLog_utils.hpp           # 日志工具函数
+│   │   ├── Console.h                    # 控制台输出
+│   │   ├── LogExporter.h                # 日志导出器（导出设置与清理）
+│   │   └── LogExportSettingsDialog.h    # 日志导出设置对话框
+│   ├── bridge/                          # Python 子进程通信
+│   │   └── PythonSubprocessManager.h    # Python 子进程管理
+│   ├── rule/                            # 规则引擎（含规则编辑 UI）
+│   │   ├── Rule.h                       # 规则实体
+│   │   ├── RuleManager.h                # 规则管理器
+│   │   ├── RuleManager_impl.hpp         # 规则管理实现模板
+│   │   ├── FormulaBuilderDialog.h       # 公式构建对话框
+│   │   ├── ParentEditDialog.h           # 规则父级编辑对话框
+│   │   ├── ComboBoxDelegate.h           # 下拉框委托
+│   │   └── ValueModeDelegate.h          # 值模式委托
+│   ├── module/                          # 数值模块
+│   │   ├── ModuleValue.h                # 数值模型与查询周期枚举
+│   │   ├── Module.h                     # 数据模块（一组数值）
+│   │   ├── ModuleManager.h              # 数值模块管理器（周期调度）
+│   │   └── ModuleValuesDialog.h         # 模块数值展示对话框
+│   ├── ui/                              # 界面层（主窗口 + 通用控件）
+│   │   ├── DGLABClient.h                # 主窗口类定义
+│   │   ├── DGLABClient.ui               # Qt Designer 界面文件
+│   │   ├── DGLABClient_impl.hpp         # 主窗口模板实现
+│   │   ├── DGLABClient_utils.hpp        # 主窗口工具函数
+│   │   ├── EditableLabel.h              # 可编辑标签控件
+│   │   ├── StyledComboBox.h             # 统一下拉框控件（弹出样式与圆角）
+│   │   ├── SampledWaveformWidget.h      # 波形采样控件
+│   │   ├── ThemeSelectorDialog.h        # 主题选择对话框
+│   │   └── IpSelector.h                 # IP 选择器单例
+│   └── README.md                        # 头文件分类说明
 ├── licenses/                           # 第三方许可证文件
 │   ├── LICENSE.GPLv2.txt               # QT 的 GPLv2 许可证
 │   ├── LICENSE.LGPLv3.txt              # QT 的 LGPLv3 许可证
@@ -631,32 +638,39 @@ DG-LAB-Client/
 │   ├── others/                         # 其他截屏
 │   ├── pages/                          # 页面截屏
 │   └── themes/                         # 主题截屏
-├── src/                                # C++ 源文件
-│   ├── AppConfig.cpp                   # 应用配置实现
-│   ├── ComboBoxDelegate.cpp            # 下拉框委托实现
-│   ├── ConfigManager.cpp               # 配置管理器实现
-│   ├── ConfigStructs.cpp               # 配置数据结构实现
-│   ├── Console.cpp                     # 控制台输出实现
-│   ├── DebugLog.cpp                    # 调试日志实现
-│   ├── DefaultConfigs.cpp              # 默认配置生成实现
-│   ├── DGLABClient.cpp                 # 主窗口实现
-│   ├── EditableLabel.cpp               # 可编辑标签实现
-│   ├── FormulaBuilderDialog.cpp        # 公式构建对话框实现
-│   ├── IpSelector.cpp                  # IP 选择器实现
-│   ├── LogExporter.cpp                 # 日志导出器实现
-│   ├── LogExportSettingsDialog.cpp     # 日志导出设置对话框实现
-│   ├── Module.cpp                      # 数据模块实现
-│   ├── ModuleManager.cpp               # 数值模块管理器实现
-│   ├── ModuleValue.cpp                 # 数值模型实现
-│   ├── ModuleValuesDialog.cpp          # 模块数值展示对话框实现
-│   ├── MultiConfigManager.cpp          # 多配置管理器实现
-│   ├── PythonSubprocessManager.cpp     # Python 子进程管理实现
-│   ├── Rule.cpp                        # 规则实体实现
-│   ├── RuleManager.cpp                 # 规则管理器实现
-│   ├── SampledWaveformWidget.cpp       # 波形采样控件实现
-│   ├── StyledComboBox.cpp            # 统一下拉框控件实现
-│   ├── ThemeSelectorDialog.cpp         # 主题选择对话框实现
-│   └── ValueModeDelegate.cpp           # 值模式委托实现
+├── src/                                 # C++ 源文件（按分类子目录存放）
+│   ├── core/                            # 核心基础设施：配置系统 + 日志系统
+│   │   ├── AppConfig.cpp                # 应用配置实现
+│   │   ├── ConfigManager.cpp            # 配置管理器实现
+│   │   ├── MultiConfigManager.cpp       # 多配置管理器实现
+│   │   ├── ConfigStructs.cpp            # 配置数据结构实现
+│   │   ├── DefaultConfigs.cpp           # 默认配置生成实现
+│   │   ├── DebugLog.cpp                 # 调试日志实现
+│   │   ├── Console.cpp                  # 控制台输出实现
+│   │   ├── LogExporter.cpp              # 日志导出器实现
+│   │   └── LogExportSettingsDialog.cpp  # 日志导出设置对话框实现
+│   ├── bridge/                          # Python 子进程通信
+│   │   └── PythonSubprocessManager.cpp  # Python 子进程管理实现
+│   ├── rule/                            # 规则引擎（含规则编辑 UI）
+│   │   ├── Rule.cpp                     # 规则实体实现
+│   │   ├── RuleManager.cpp              # 规则管理器实现
+│   │   ├── FormulaBuilderDialog.cpp     # 公式构建对话框实现
+│   │   ├── ParentEditDialog.cpp         # 规则父级编辑对话框实现
+│   │   ├── ComboBoxDelegate.cpp         # 下拉框委托实现
+│   │   └── ValueModeDelegate.cpp        # 值模式委托实现
+│   ├── module/                          # 数值模块
+│   │   ├── ModuleValue.cpp              # 数值模型实现
+│   │   ├── Module.cpp                   # 数据模块实现
+│   │   ├── ModuleManager.cpp            # 数值模块管理器实现
+│   │   └── ModuleValuesDialog.cpp       # 模块数值展示对话框实现
+│   ├── ui/                              # 界面层（主窗口 + 通用控件）
+│   │   ├── DGLABClient.cpp              # 主窗口实现
+│   │   ├── EditableLabel.cpp            # 可编辑标签实现
+│   │   ├── StyledComboBox.cpp           # 统一下拉框控件实现
+│   │   ├── SampledWaveformWidget.cpp    # 波形采样控件实现
+│   │   ├── ThemeSelectorDialog.cpp      # 主题选择对话框实现
+│   │   └── IpSelector.cpp               # IP 选择器实现
+│   └── README.md                        # 源码分类说明
 ├── .editorconfig                       # 编辑器代码风格配置
 ├── .gitattributes                      # Git 属性配置（换行符等）
 ├── .gitignore                          # Git 忽略文件规则

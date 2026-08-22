@@ -249,7 +249,7 @@ bool is_ready = false;  // 是否准备就绪
 - 短语句: `case 0: stmt; break;` 与 `if (x) return y;` 保持单行
 - 头文件排序: 分组（引号内 / Qt / 标准库）保留，组内按字母序（**大小写敏感**）
 - `case` 标签与 `switch` 同级；`#ifdef` 顶格；namespace 内容整体缩进 4
-- 手排数据块（如 `src/DefaultConfigs.cpp` 中的嵌套 JSON 字面量）使用 `// clang-format off` / `// clang-format on` 注释保护，禁止重排
+- 手排数据块（如 `src/core/DefaultConfigs.cpp` 中的嵌套 JSON 字面量）使用 `// clang-format off` / `// clang-format on` 注释保护，禁止重排
 
 #### 11.2 Prettier 关键规则（.prettierrc.json）
 

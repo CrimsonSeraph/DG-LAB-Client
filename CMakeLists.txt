@@ -65,86 +65,85 @@ endif()
 
 # -------------------- 项目源文件列表 --------------------
 set(PROJECT_SOURCES
-    # 应用外壳
+    # 程序入口
     main.cpp
-    include/DGLABClient.ui
-    include/DGLABClient.h
-    src/DGLABClient.cpp
-    include/DGLABClient_utils.hpp
-    include/ComboBoxDelegate.h
-    src/ComboBoxDelegate.cpp
-    include/FormulaBuilderDialog.h
-    src/FormulaBuilderDialog.cpp
-    include/ValueModeDelegate.h
-    src/ValueModeDelegate.cpp
-    include/EditableLabel.h
-    src/EditableLabel.cpp
-    include/StyledComboBox.h
-    src/StyledComboBox.cpp
-    include/IpSelector.h
-    src/IpSelector.cpp
+
+    # ---------- 核心基础设施（core）：配置系统 ----------
+    include/core/AppConfig.h
+    src/core/AppConfig.cpp
+    include/core/AppConfig_impl.hpp
+    include/core/AppConfig_utils.hpp
+    include/core/ConfigManager.h
+    src/core/ConfigManager.cpp
+    include/core/ConfigManager_impl.hpp
+    include/core/MultiConfigManager.h
+    src/core/MultiConfigManager.cpp
+    include/core/MultiConfigManager_impl.hpp
+    include/core/ConfigStructs.h
+    src/core/ConfigStructs.cpp
+    include/core/DefaultConfigs.h
+    src/core/DefaultConfigs.cpp
+
+    # ---------- 核心基础设施（core）：日志系统 ----------
+    include/core/DebugLog.h
+    src/core/DebugLog.cpp
+    include/core/DebugLog_utils.hpp
+    include/core/Console.h
+    src/core/Console.cpp
+    include/core/LogExporter.h
+    src/core/LogExporter.cpp
+    include/core/LogExportSettingsDialog.h
+    src/core/LogExportSettingsDialog.cpp
+
+    # ---------- Python 通信桥（bridge） ----------
+    include/bridge/PythonSubprocessManager.h
+    src/bridge/PythonSubprocessManager.cpp
+
+    # ---------- 规则引擎（rule） ----------
+    include/rule/Rule.h
+    src/rule/Rule.cpp
+    include/rule/RuleManager.h
+    src/rule/RuleManager.cpp
+    include/rule/RuleManager_impl.hpp
+    # 规则编辑 UI
+    include/rule/FormulaBuilderDialog.h
+    src/rule/FormulaBuilderDialog.cpp
+    include/rule/ParentEditDialog.h
+    src/rule/ParentEditDialog.cpp
+    include/rule/ComboBoxDelegate.h
+    src/rule/ComboBoxDelegate.cpp
+    include/rule/ValueModeDelegate.h
+    src/rule/ValueModeDelegate.cpp
+
+    # ---------- 数值模块（module） ----------
+    include/module/ModuleValue.h
+    src/module/ModuleValue.cpp
+    include/module/Module.h
+    src/module/Module.cpp
+    include/module/ModuleManager.h
+    src/module/ModuleManager.cpp
+    include/module/ModuleValuesDialog.h
+    src/module/ModuleValuesDialog.cpp
+
+    # ---------- 界面层（ui） ----------
+    include/ui/DGLABClient.h
+    src/ui/DGLABClient.cpp
+    include/ui/DGLABClient_impl.hpp
+    include/ui/DGLABClient_utils.hpp
+    include/ui/DGLABClient.ui
+    include/ui/EditableLabel.h
+    src/ui/EditableLabel.cpp
+    include/ui/StyledComboBox.h
+    src/ui/StyledComboBox.cpp
+    include/ui/SampledWaveformWidget.h
+    src/ui/SampledWaveformWidget.cpp
+    include/ui/ThemeSelectorDialog.h
+    src/ui/ThemeSelectorDialog.cpp
+    include/ui/IpSelector.h
+    src/ui/IpSelector.cpp
 
     # 资源文件
     DGLABClient.qrc
-
-    # Python 调用接口
-    include/PythonSubprocessManager.h
-    src/PythonSubprocessManager.cpp
-
-    # 配置管理器
-    include/ConfigManager.h
-    src/ConfigManager.cpp
-    # 配置管理工厂
-    include/MultiConfigManager.h
-    src/MultiConfigManager.cpp
-    include/MultiConfigManager_impl.hpp
-    # 配置接口管理
-    include/AppConfig.h
-    src/AppConfig.cpp
-    include/AppConfig_impl.hpp
-    # 配置样式
-    include/ConfigStructs.h
-    src/ConfigStructs.cpp
-    include/DefaultConfigs.h
-    src/DefaultConfigs.cpp
-
-    # 规则管理器
-    include/Rule.h
-    src/Rule.cpp
-    include/RuleManager.h
-    src/RuleManager.cpp
-    include/RuleManager_impl.hpp
-
-    # 数值模块
-    include/ModuleValue.h
-    src/ModuleValue.cpp
-    include/Module.h
-    src/Module.cpp
-    include/ModuleManager.h
-    src/ModuleManager.cpp
-    include/ModuleValuesDialog.h
-    src/ModuleValuesDialog.cpp
-    include/ParentEditDialog.h
-    src/ParentEditDialog.cpp
-
-    # 波形绘制
-    include/SampledWaveformWidget.h
-    src/SampledWaveformWidget.cpp
-
-    # 主题选择器
-    include/ThemeSelectorDialog.h
-    src/ThemeSelectorDialog.cpp
-
-    # Debug 日志
-    include/Console.h
-    src/Console.cpp
-    include/DebugLog.h
-    src/DebugLog.cpp
-    include/DebugLog_utils.hpp
-    include/LogExporter.h
-    src/LogExporter.cpp
-    include/LogExportSettingsDialog.h
-    src/LogExportSettingsDialog.cpp
 
     # 配置文件
     config/main.json
@@ -339,6 +338,12 @@ target_link_libraries(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        # 头文件按分类存放于 include/ 子目录，全部加入包含路径以便源码以文件名直接引用
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/core
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/bridge
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/module
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/ui
 )
 target_compile_definitions(${PROJECT_NAME} PRIVATE PYBIND11_ASSERT_GIL_HELD_INCREF_DECREF)
 
