@@ -49,9 +49,10 @@ void ModuleManager::init() {
         return;
     }
     register_default_modules();
-    // 未设置自定义数据源时使用默认模拟数据源
+    // 数据源由外部通过 set_data_source 提供（真实 GSI 接入前无数据，数值保持"未获取"状态）
     if (!data_source_) {
-        data_source_ = &ModuleManager::default_data_source;
+        LOG_MODULE("ModuleManager", "init", LOG_WARN,
+            "未设置数据源，数值模块保持无数据状态（可通过 set_data_source 接入真实数据）");
     }
     // 以最短查询周期为基准启动调度器
     rebuild_scheduler();
@@ -204,7 +205,7 @@ void ModuleManager::set_all_period(QueryPeriod period) {
 
 void ModuleManager::set_data_source(DataSource source) {
     std::lock_guard<std::mutex> lock(mutex_);
-    data_source_ = source ? std::move(source) : &ModuleManager::default_data_source;
+    data_source_ = std::move(source);
 }
 
 // ============================================
@@ -222,6 +223,10 @@ int ModuleManager::query_value(const std::string& module_name, const std::string
             }
             for (auto& value : module.get_values()) {
                 if (value.get_id() == value_id) {
+                    if (!data_source_) {
+                        // 无数据源：保持"未获取"状态，不更新数值
+                        break;
+                    }
                     new_value = data_source_(value_id);
                     // 数值变化检测：已有历史值且与最新值不同才推送
                     changed = value.get_has_value() && value.get_last_value() != new_value;
@@ -297,6 +302,10 @@ void ModuleManager::rebuild_scheduler() {
 }
 
 bool ModuleManager::query_value_locked(Module& module, ModuleValue& value) {
+    if (!data_source_) {
+        // 无数据源：保持"未获取"状态，不产生变化
+        return false;
+    }
     int new_value = data_source_(value.get_id());
     // 数值变化检测：已有历史值且与最新值不同才返回 true（触发推送）
     bool changed = value.get_has_value() && value.get_last_value() != new_value;
@@ -319,41 +328,3 @@ void ModuleManager::register_default_modules() {
         "已注册默认模块: " << cs2_module.get_name() << "，数值数量: " << cs2_module.get_values().size());
 }
 
-int ModuleManager::default_data_source(const std::string& value_id) {
-    // 模拟数据源：真实 GSI 接入后通过 set_data_source 替换
-    // 静态局部变量可直接在 lambda 内引用（无需捕获，规避 MSVC C3495）
-    static unsigned int seed = 20260214u;
-    auto random_range = [](int lo, int hi) {
-        seed = seed * 1103515245u + 12345u;
-        return lo + static_cast<int>((seed >> 16) % static_cast<unsigned int>(hi - lo + 1));
-    };
-    static int health = 100;
-    static int armor = 50;
-    static int money = 8000;
-    static int helmet = 1;
-    static int defuser = 0;
-    if (value_id == "health") {
-        health = std::clamp(health + random_range(-1, 1), 0, 100);
-        return health;
-    }
-    if (value_id == "armor") {
-        armor = std::clamp(armor + random_range(-2, 2), 0, 100);
-        return armor;
-    }
-    if (value_id == "team_num") {
-        return random_range(2, 3);
-    }
-    if (value_id == "money") {
-        money = std::clamp(money + random_range(-50, 50), 0, 16000);
-        return money;
-    }
-    if (value_id == "has_helmet") {
-        helmet = random_range(0, 1);
-        return helmet;
-    }
-    if (value_id == "has_defuser") {
-        defuser = random_range(0, 1);
-        return defuser;
-    }
-    return 0;
-}

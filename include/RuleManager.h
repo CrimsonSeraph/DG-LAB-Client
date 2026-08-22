@@ -150,6 +150,11 @@ public:
     /// @param channel 通道（"A"/"B"/空）
     void set_rule_channel(const std::string& rule_name, const std::string& channel);
 
+    /// @brief 设置规则的值模式表达式（重建规则对象并刷新引用索引）
+    /// @param rule_name 规则名称
+    /// @param pattern 新的值模式表达式
+    void set_rule_value_pattern(const std::string& rule_name, const std::string& pattern);
+
     /// @brief 获取引用指定规则的规则序号列表（规则父级，由值模式 {rule:xx} 推导）
     /// @param rule_name 规则名称
     /// @return 引用该规则的规则序号列表

@@ -129,10 +129,6 @@ private:
     /// @param value 数值引用
     /// @return 是否发生变化
     bool query_value_locked(Module& module, ModuleValue& value);
-    /// @brief 默认模拟数据源（真实 GSI 接入前的占位实现）
-    /// @param value_id 数值 ID
-    /// @return 模拟数值
-    static int default_data_source(const std::string& value_id);
 
     // -------------------- 成员变量 --------------------
     std::vector<Module> modules_;         ///< 模块列表

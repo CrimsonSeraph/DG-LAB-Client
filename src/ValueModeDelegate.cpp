@@ -44,17 +44,19 @@ bool ValueModeDelegate::editorEvent(QEvent* event, QAbstractItemModel* model,
                 QString("双击单元格，当前显示文本: %1").arg(display).toUtf8().constData());
 
             // 传入当前行的规则序号，使引用列表排除自身
-            QString rule_name = model->index(index.row(), 0).data(Qt::DisplayRole).toString();
+            QString rule_name = model->index(index.row(), 1).data(Qt::DisplayRole).toString();
             int rule_index = RuleManager::instance().get_rule_index(rule_name.toStdString());
-            FormulaBuilderDialog dlg(display, qobject_cast<QWidget*>(parent()), rule_index);
+            // 用原始值模式作为初始公式（显示文本中的 {   } 占位还原为 {}）
+            QString initial = display;
+            initial.replace("{   }", "{}");
+            FormulaBuilderDialog dlg(initial, qobject_cast<QWidget*>(parent()), rule_index);
 
             if (dlg.exec() == QDialog::Accepted) {
                 QString newRaw = dlg.get_formula();
-                QString newDisplay = newRaw;
-                newDisplay.replace("{}", "{   }");
                 LOG_MODULE("ValueModeDelegate", "editorEvent", LOG_INFO,
-                    QString("表达式修改: %1 -> %2").arg(display, newDisplay).toUtf8().constData());
-                model->setData(index, newDisplay, Qt::EditRole);
+                    QString("表达式修改: %1 -> %2").arg(display, newRaw).toUtf8().constData());
+                // 写回原始表达式（表格刷新时会重新格式化显示，itemChanged 同步到规则管理器）
+                model->setData(index, newRaw, Qt::EditRole);
                 return true;
             }
             else {

@@ -143,7 +143,10 @@ void PythonSubprocessManager::process_output(const QByteArray& data, bool is_err
     QList<QByteArray> lines = data.split('\n');
     for (const QByteArray& line : lines) {
         if (line.isEmpty()) continue;
-        QString line_str = QString::fromUtf8(line);
+        // 去除行尾回车（Windows 换行符 CR LF），避免日志出现多余换行/空行
+
+        QString line_str = QString::fromUtf8(line).trimmed();
+        if (line_str.isEmpty()) continue;
 
         LogLevel log_level = is_error ? LOG_ERROR : LOG_INFO;
         QString message = line_str;

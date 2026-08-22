@@ -1280,6 +1280,20 @@ void DGLABClient::on_rule_table_item_changed(QTableWidgetItem* item) {
         // 通道唯一性可能清除其他行的通道父级，刷新显示
         update_rule_table();
     }
+    else if (item->column() == 4) {
+        // 值模式列编辑：写回规则管理器（值模式为原始表达式），并刷新引用索引
+        RuleManager::instance().set_rule_value_pattern(name.toStdString(),
+            item->text().toStdString());
+        update_rule_table();
+    }
+    else {
+        return;
+    }
+    // 表格编辑即时持久化到规则文件
+    if (!RuleManager::instance().save_current_rule_file()) {
+        LOG_MODULE("DGLABClient", "on_rule_table_item_changed", LOG_WARN,
+            "规则修改保存失败: " << name.toStdString());
+    }
 }
 
 // ----- 样式辅助 -----

@@ -437,6 +437,25 @@ void RuleManager::set_rule_channel(const std::string& rule_name, const std::stri
     emit rules_changed();
 }
 
+void RuleManager::set_rule_value_pattern(const std::string& rule_name,
+    const std::string& pattern) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = rules_.find(rule_name);
+        if (it == rules_.end()) {
+            return;
+        }
+        // 重建规则对象（保留序号、启用、父级等字段），并刷新引用索引
+        Rule new_rule(rule_name, it->second.get_channel(), it->second.get_mode(), pattern,
+            it->second.get_enabled(), it->second.get_parents(), it->second.get_index());
+        it->second = std::move(new_rule);
+        rebuild_indexes();
+    }
+    emit rules_changed();
+    LOG_MODULE("RuleManager", "set_rule_value_pattern", LOG_DEBUG,
+        "规则 " << rule_name << " 值模式已更新: " << pattern);
+}
+
 std::vector<int> RuleManager::get_rule_parent_rules(const std::string& rule_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = rules_.find(rule_name);
@@ -1000,6 +1019,13 @@ std::optional<int> RuleManager::resolve_placeholder_locked(const Placeholder& pl
         if (module_name.empty()) {
             LOG_MODULE("RuleManager", "resolve_placeholder_locked", LOG_WARN,
                 "数值 ID 不存在: " << placeholder.id);
+            return std::nullopt;
+        }
+        // 数值尚未获取到（无数据源/未接入真实数据）时视为空值，忽略该项
+        const ModuleValue* value = module_manager.get_value(module_name, placeholder.id);
+        if (!value || !value->get_has_value()) {
+            LOG_MODULE("RuleManager", "resolve_placeholder_locked", LOG_DEBUG,
+                "数值 " << placeholder.id << " 无数据，按空值处理");
             return std::nullopt;
         }
         return module_manager.query_value(module_name, placeholder.id);
