@@ -128,6 +128,14 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
+    // -------------------- 常量（首页通道信息卡片动态生成的关键布局参数）--------------------
+    static constexpr int CHANNEL_CARD_CONTENT_MARGIN = 10; ///< 通道卡片内容边距（模块/规则卡）
+    static constexpr int CHANNEL_CARD_CONTENT_SPACING = 8; ///< 通道卡片内容间距
+    static constexpr int CHANNEL_INFO_CARD_MARGIN = 8;     ///< 信息子卡片内边距
+    static constexpr int CHANNEL_INFO_CARD_SPACING = 4;    ///< 信息子卡片内间距
+    static constexpr int CHANNEL_CARD_TITLE_SPACING = 6;   ///< 标题与信息列表间距
+    static constexpr int CHANNEL_CARD_WIDTH_STRETCH = 1;   ///< 模块/规则/波形卡片宽度比例（1:1:1）
+
     // -------------------- 成员变量 --------------------
     Ui::DGLABClientClass ui_;                       ///< UI 界面
     QSyntaxHighlighter* log_highlighter_ = nullptr; ///< 日志高亮器

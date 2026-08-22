@@ -311,7 +311,7 @@ cpack
 - **规则区域**: 显示父级为该通道的规则名称 + 最近一次计算的数值（未计算显示 "--"），规则计算完成时实时刷新。
 - **波形卡片（`x_wave_card`）**: 暂时保留现状。
 
-> 卡片控件不设固定尺寸，自适应布局；新控件样式（`channel_card_title`/`channel_card_item`/`channel_card_value`）已加入全部主题 QSS。
+> 模块/规则/波形卡片宽度 1:1:1 等分（布局参数与边距在 `DGLABClient.h` 中以常量声明）；模块信息与规则信息外层包含子卡片（`channel_info_card`）凸显内容，模块信息名称与最小周期分行居中显示；新控件样式（`channel_card_title`/`channel_card_item`/`channel_card_value`/`channel_card_period`/`channel_info_card`）已加入全部主题 QSS。
 
 ### 6. 日志
 

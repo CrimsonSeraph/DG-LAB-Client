@@ -426,3 +426,14 @@ QTableWidget::indicator:disabled {
     border-color: rgba(73, 45, 34, 0.40);
     background-color: rgba(235, 220, 200, 0.40);
 }
+
+/* ============ 通道信息子卡片样式 ============ */
+QWidget[type="channel_info_card"] {
+    background-color: rgba(230,215,195,0.6);
+    border-radius: 8px;
+    border: none;
+}
+QWidget[type="channel_card_period"] {
+    font-size: 10px;
+    color: rgba(180, 190, 200, 1.0);
+}

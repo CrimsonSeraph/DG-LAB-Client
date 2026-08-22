@@ -831,6 +831,14 @@ void DGLABClient::create_module_card(const QString& module_name, QGridLayout* la
 
 // ----- 首页通道卡片相关 -----
 void DGLABClient::setup_channel_cards() {
+    // 模块/规则/波形卡片宽度 1:1:1 等分（防止长内容压缩波形卡片）
+    const int stretch = CHANNEL_CARD_WIDTH_STRETCH;
+    ui_.A_normal_cards_layout->setStretch(0, stretch);
+    ui_.A_normal_cards_layout->setStretch(1, stretch);
+    ui_.A_normal_cards_layout->setStretch(2, stretch);
+    ui_.B_normal_cards_layout->setStretch(0, stretch);
+    ui_.B_normal_cards_layout->setStretch(1, stretch);
+    ui_.B_normal_cards_layout->setStretch(2, stretch);
     // 填充 A/B 通道的模块区域与规则区域
     populate_channel_module_card(ui_.A_module_card_layout, "A");
     populate_channel_rule_card(ui_.A_rule_card_layout, "A");
@@ -843,30 +851,54 @@ void DGLABClient::setup_channel_cards() {
 }
 
 void DGLABClient::populate_channel_module_card(QVBoxLayout* layout, const std::string& channel) {
+    // 卡片内容边距与间距（关键布局参数见头文件常量）
+    layout->setContentsMargins(CHANNEL_CARD_CONTENT_MARGIN, CHANNEL_CARD_CONTENT_MARGIN,
+        CHANNEL_CARD_CONTENT_MARGIN, CHANNEL_CARD_CONTENT_MARGIN);
+    layout->setSpacing(CHANNEL_CARD_CONTENT_SPACING);
+
     // 标题
     QLabel* title = new QLabel("模块", ui_.A_module_card);
     title->setProperty("type", "channel_card_title");
+    title->setAlignment(Qt::AlignCenter);
     layout->addWidget(title);
 
-    // 挂载在该通道上的模块：名称 + 模块中数值的最小查询周期
+    // 挂载在该通道上的模块：名称与最小查询周期分行居中显示
     auto& module_manager = ModuleManager::instance();
     for (const auto& module_name : module_manager.get_modules_for_channel(channel)) {
         int min_period_ms = module_manager.get_module_min_period_ms(module_name);
-        QLabel* item = new QLabel(QString("%1（最小周期 %2ms）")
-                .arg(QString::fromStdString(module_name))
-                .arg(min_period_ms), ui_.A_module_card);
-        item->setProperty("type", "channel_card_item");
-        item->setWordWrap(true);
-        layout->addWidget(item);
+        // 每条信息外层包含子卡片，凸显内容（类似 A_strength_card 在 A_info 中）
+        QWidget* info_card = new QWidget(ui_.A_module_card);
+        info_card->setProperty("type", "channel_info_card");
+        QVBoxLayout* info_layout = new QVBoxLayout(info_card);
+        info_layout->setContentsMargins(CHANNEL_INFO_CARD_MARGIN, CHANNEL_INFO_CARD_MARGIN,
+            CHANNEL_INFO_CARD_MARGIN, CHANNEL_INFO_CARD_MARGIN);
+        info_layout->setSpacing(CHANNEL_INFO_CARD_SPACING);
+
+        QLabel* name_label = new QLabel(QString::fromStdString(module_name), info_card);
+        name_label->setProperty("type", "channel_card_item");
+        name_label->setAlignment(Qt::AlignCenter);
+        name_label->setWordWrap(true);
+        QLabel* period_label = new QLabel(QString("最小周期 %1ms").arg(min_period_ms), info_card);
+        period_label->setProperty("type", "channel_card_period");
+        period_label->setAlignment(Qt::AlignCenter);
+        info_layout->addWidget(name_label);
+        info_layout->addWidget(period_label);
+        layout->addWidget(info_card);
     }
     // 底部弹簧，内容靠上排列
     layout->addStretch();
 }
 
 void DGLABClient::populate_channel_rule_card(QVBoxLayout* layout, const std::string& channel) {
+    // 卡片内容边距与间距（关键布局参数见头文件常量）
+    layout->setContentsMargins(CHANNEL_CARD_CONTENT_MARGIN, CHANNEL_CARD_CONTENT_MARGIN,
+        CHANNEL_CARD_CONTENT_MARGIN, CHANNEL_CARD_CONTENT_MARGIN);
+    layout->setSpacing(CHANNEL_CARD_CONTENT_SPACING);
+
     // 标题
     QLabel* title = new QLabel("规则", ui_.A_rule_card);
     title->setProperty("type", "channel_card_title");
+    title->setAlignment(Qt::AlignCenter);
     layout->addWidget(title);
 
     // 父级为该通道的规则：名称 + 最近一次计算的数值
@@ -883,22 +915,26 @@ void DGLABClient::populate_channel_rule_card(QVBoxLayout* layout, const std::str
         if (!has_channel) {
             continue;
         }
-        QWidget* row = new QWidget(ui_.A_rule_card);
-        row->setProperty("type", "channel_card_row");
-        QHBoxLayout* row_layout = new QHBoxLayout(row);
-        row_layout->setContentsMargins(0, 0, 0, 0);
-        row_layout->setSpacing(6);
-        QLabel* name_label = new QLabel(QString::fromStdString(rule_name), row);
+        // 每条规则信息外层包含子卡片，凸显内容
+        QWidget* info_card = new QWidget(ui_.A_rule_card);
+        info_card->setProperty("type", "channel_info_card");
+        QHBoxLayout* info_layout = new QHBoxLayout(info_card);
+        info_layout->setContentsMargins(CHANNEL_INFO_CARD_MARGIN, CHANNEL_INFO_CARD_MARGIN,
+            CHANNEL_INFO_CARD_MARGIN, CHANNEL_INFO_CARD_MARGIN);
+        info_layout->setSpacing(CHANNEL_INFO_CARD_SPACING);
+        QLabel* name_label = new QLabel(QString::fromStdString(rule_name), info_card);
         name_label->setProperty("type", "channel_card_item");
         name_label->setWordWrap(true);
+        // 忽略宽度提示，避免长名称撑宽卡片（由 1:1:1 布局分配宽度）
+        name_label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
         auto last_result = rule_manager.get_rule_last_result(rule_name);
         QLabel* value_label = new QLabel(
-            last_result.has_value() ? QString::number(last_result.value()) : QString("--"), row);
+            last_result.has_value() ? QString::number(last_result.value()) : QString("--"), info_card);
         value_label->setProperty("type", "channel_card_value");
         value_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-        row_layout->addWidget(name_label, 1);
-        row_layout->addWidget(value_label);
-        layout->addWidget(row);
+        info_layout->addWidget(name_label, 1);
+        info_layout->addWidget(value_label);
+        layout->addWidget(info_card);
         // 记录数值标签，供结果变化时刷新
         rule_value_labels_[channel + ":" + rule_name] = value_label;
     }
