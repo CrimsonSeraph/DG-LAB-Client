@@ -372,6 +372,7 @@ DG-LAB-Client.vcxproj.user
 *.slnx
 json.hpp
 build/
+build_log*.txt
 venv/
 .vscode/*
 CLAUDE.md
