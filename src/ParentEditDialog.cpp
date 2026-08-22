@@ -5,6 +5,7 @@
 
 #include "ParentEditDialog.h"
 
+#include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
 #include "RuleManager.h"
 
@@ -74,6 +75,8 @@ void ParentEditDialog::setup_ui() {
     channel_combo_->addItem("无");
     channel_combo_->addItem("A");
     channel_combo_->addItem("B");
+    // 应用下拉框弹出样式处理（规避弹出列表边缘黑色）
+    DGLABClientUtil::apply_combo_popup_style(channel_combo_);
     // 当前通道父级
     std::string current_channel = rule_manager.get_rule_channel(rule_name_);
     int channel_index = current_channel.empty() ? 0 : (current_channel == "A" ? 1 : 2);

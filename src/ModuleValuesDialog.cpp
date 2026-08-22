@@ -5,6 +5,7 @@
 
 #include "ModuleValuesDialog.h"
 
+#include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
 #include "Module.h"
 #include "ModuleManager.h"
@@ -200,6 +201,8 @@ void ModuleValuesDialog::create_value_box(const ModuleValue& value, QGridLayout*
         period_combo->setCurrentIndex(current_index);
     }
     period_combo->setProperty("type", "module_period_combo");
+    // 应用下拉框弹出样式处理（规避弹出列表边缘黑色）
+    DGLABClientUtil::apply_combo_popup_style(period_combo);
     period_row->addWidget(period_label);
     period_row->addWidget(period_combo, 1);
     box_layout->addLayout(period_row);

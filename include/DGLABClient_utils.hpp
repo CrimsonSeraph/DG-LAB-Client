@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <QApplication>
+#include <QComboBox>
 #include <QString>
 
 #include <string>
@@ -27,6 +29,17 @@ namespace DGLABClientUtil {
             }
         }
         return false;
+    }
+
+    /// @brief 应用下拉框弹出样式处理（参照规则表格下拉框委托的修复，规避弹出列表边缘黑色）
+    /// @param combo 目标下拉框
+    inline static void apply_combo_popup_style(QComboBox* combo) {
+        if (!combo) {
+            return;
+        }
+        combo->setStyleSheet("");
+        combo->setAttribute(Qt::WA_StyledBackground, true);
+        combo->setStyle(qApp->style());
     }
 
 } // namespace DGLABClientUtil
