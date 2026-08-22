@@ -1666,6 +1666,8 @@ void DGLABClient::change_theme(Theme theme) {
 
 void DGLABClient::on_export_log() {
     LOG_MODULE("DGLABClient", "on_export_log", LOG_INFO, "开始导出日志");
+    // 导出前重新加载设置，确保最新持久化配置即时生效
+    log_exporter_.load_settings();
     QString error;
     if (log_exporter_.export_log(ui_.debug_log->toPlainText(), &error)) {
         QMessageBox::information(this, "导出日志",

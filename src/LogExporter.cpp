@@ -124,6 +124,8 @@ bool LogExporter::export_log(const QString& content, QString* error) {
     }
     LOG_MODULE("LogExporter", "export_log", LOG_INFO,
         "日志导出成功，位置: " << dir.toStdString() << "，时间戳: " << timestamp.toStdString());
+    // 导出后立即清理多余日志（保留最新 N 份，分片视为一份），程序退出时也会兜底清理
+    cleanup_old_logs();
     return true;
 }
 
@@ -138,7 +140,7 @@ void LogExporter::cleanup_old_logs() {
     }
     // 按分组键分组（log_<时间戳>[_<分片号>].txt，分片视为一份）
     QMap<QString, QStringList> groups;
-    QRegularExpression group_re("^(log_.+?)(?:_\\d+)?\\.txt$");
+    QRegularExpression group_re("^(log_\\d{8}_\\d{6})(?:_\\d+)?\\.txt$");
     for (const QString& file : files) {
         QRegularExpressionMatch match = group_re.match(file);
         QString key = match.hasMatch() ? match.captured(1) : file;
