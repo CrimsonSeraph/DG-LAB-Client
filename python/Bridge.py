@@ -8,12 +8,27 @@ from WebSocketCore import DGLabClient
 import asyncio
 import json
 import logging
-import sys
 
-# 配置日志: INFO级别，包含时间、级别、消息
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("dglab_server")  # 独立的日志记录器
+LOG_LEVEL = logging.INFO
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
+def set_log_level(level: Union[int, str]):
+    """设置日志级别，支持 'DEBUG','INFO','WARNING','ERROR','NONE' 或 logging 常量"""
+    global LOG_LEVEL
+    if isinstance(level, str):
+        level = level.upper()
+        if level == "NONE":
+            level = logging.CRITICAL + 1  # 高于CRITICAL，几乎不输出
+        else:
+            level = getattr(logging, level, logging.INFO)
+    LOG_LEVEL = level
+    logger.setLevel(level)
+    logger.debug(f"[{__name__}] <set_log_level> (DEBUG): 日志级别已设置为 {level}")
 
 class DGLabServer:
     """

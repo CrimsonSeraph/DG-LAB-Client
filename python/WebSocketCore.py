@@ -13,10 +13,26 @@ import qrcode
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-# 配置日志模块，设置日志级别为INFO，并定义日志格式
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)    # 获取当前模块的日志记录器
+LOG_LEVEL = logging.INFO
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
+def set_log_level(level: Union[int, str]):
+    """设置日志级别，支持 'DEBUG','INFO','WARNING','ERROR','NONE' 或 logging 常量"""
+    global LOG_LEVEL
+    if isinstance(level, str):
+        level = level.upper()
+        if level == "NONE":
+            level = logging.CRITICAL + 1  # 高于CRITICAL，几乎不输出
+        else:
+            level = getattr(logging, level, logging.INFO)
+    LOG_LEVEL = level
+    logger.setLevel(level)
+    logger.debug(f"[{__name__}] <set_log_level> (DEBUG): 日志级别已设置为 {level}")
 
 class DGLabConfig:
     """DGLab客户端配置类，用于存储WebSocket连接的相关配置参数"""
