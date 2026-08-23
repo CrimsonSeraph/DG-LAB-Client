@@ -10,15 +10,15 @@
 
 ### 基础主题
 
-| 文件名 | Theme | Mode 属性 | 颜色方案（主色 / 副色） |
-| - | - | - | - |
-| `light.qcss` | Light (浅色模式) | `light` | Ice Blue #E8F0FE, Misty Blue #D4E6F1 |
-| `night.qcss` | Night (深色模式) | `night` | Deep Slate #2C3E50, Dark Navy #1A252F |
+| 文件名       | Theme            | Mode 属性 | 颜色方案（主色 / 副色）               |
+| ------------ | ---------------- | --------- | ------------------------------------- |
+| `light.qcss` | Light (浅色模式) | `light`   | Ice Blue #E8F0FE, Misty Blue #D4E6F1  |
+| `night.qcss` | Night (深色模式) | `night`   | Deep Slate #2C3E50, Dark Navy #1A252F |
 
 ### 扩展主题（12 种）
 
 | 文件名 | Theme | Mode 属性 | 颜色方案（主色 / 副色） |
-| - | - | - | - |
+| --- | --- | --- | --- |
 | `style_charcoal_pink.qcss` | Charcoal Pink (炭黑甜粉) | `charcoal_pink` | Charcoal #1A1A1D, Sweet Pink #E6397C |
 | `style_deepsea_cream.qcss` | Deepsea Cream (深海奶白) | `deepsea_cream` | Deepsea Blue #122E8A, Soft Milk White #F5EFEA |
 | `style_vine_purple_tea_green.qcss` | Vine Purple Tea Green (藤紫钛绿) | `vine_purple_tea_green` | Vine Purple #91C53A, Titanium Green #5E55A2 |
@@ -42,55 +42,56 @@
 
 ### `type` 属性（控件类型）
 
-| 属性值 | 控件类型 | 说明 |
-| - | - | - |
-| `glass_panel` | 玻璃拟态容器 | 半透明背景，圆角，轻微边框 |
-| `glass_panel_inner` | 内层玻璃面板 | 更高透明度，无边框，用于嵌套 |
-| `main_page` / `config_page` 等 | 页面背景 | 页面级半透背景，大圆角 |
-| `title` | 标题文字 | 大号加粗，颜色略深 |
-| `subtitle` | 副标题文字 | 中号常规，颜色稍浅 |
-| `strength_card` | 强度卡片 | 高透明度白色背景，小圆角 |
-| `wave_card` | 波形卡片 | 半透背景，边框 |
-| `info_card` | 信息卡片 | 与玻璃面板相同风格 |
-| `debug_log` | 日志文本框 | 等宽字体，半透背景 |
-| `channel_panel` | 通道控制面板 | 同玻璃面板 |
-| `port_bar` | 端口栏 | 同玻璃面板 |
-| `theme_card` | 主题卡片 | 同玻璃面板 |
+| 属性值                         | 控件类型     | 说明                         |
+| ------------------------------ | ------------ | ---------------------------- |
+| `glass_panel`                  | 玻璃拟态容器 | 半透明背景，圆角，轻微边框   |
+| `glass_panel_inner`            | 内层玻璃面板 | 更高透明度，无边框，用于嵌套 |
+| `main_page` / `config_page` 等 | 页面背景     | 页面级半透背景，大圆角       |
+| `title`                        | 标题文字     | 大号加粗，颜色略深           |
+| `subtitle`                     | 副标题文字   | 中号常规，颜色稍浅           |
+| `strength_card`                | 强度卡片     | 高透明度白色背景，小圆角     |
+| `wave_card`                    | 波形卡片     | 半透背景，边框               |
+| `info_card`                    | 信息卡片     | 与玻璃面板相同风格           |
+| `debug_log`                    | 日志文本框   | 等宽字体，半透背景           |
+| `channel_panel`                | 通道控制面板 | 同玻璃面板                   |
+| `port_bar`                     | 端口栏       | 同玻璃面板                   |
+| `theme_card`                   | 主题卡片     | 同玻璃面板                   |
 
 ### `button_type` 属性（按钮风格）
 
-| 属性值 | 按钮类型 | 说明 |
-| - | - | - |
-| `special` | 特殊按钮 | 高亮背景（如黄色/橙色），用于重要操作 |
-| `emphasis` | 强调按钮 | 红色系，用于危险或确认操作 |
-| *(无该属性)* | 普通按钮 | 默认灰白背景，悬停加深 |
+| 属性值       | 按钮类型 | 说明                                  |
+| ------------ | -------- | ------------------------------------- |
+| `special`    | 特殊按钮 | 高亮背景（如黄色/橙色），用于重要操作 |
+| `emphasis`   | 强调按钮 | 红色系，用于危险或确认操作            |
+| _(无该属性)_ | 普通按钮 | 默认灰白背景，悬停加深                |
 
 ### `font_size` 属性（字体大小）
 
-| 属性值 | 字号 |
-| - | - |
-| `S` | 9px |
-| `M` | 12px（默认） |
-| `L` | 18px |
+| 属性值 | 字号         |
+| ------ | ------------ |
+| `S`    | 9px          |
+| `M`    | 12px（默认） |
+| `L`    | 18px         |
 
 示例样式片段（浅色模式下的特殊按钮）：
 
 ```css
 QPushButton[button_type="special"][theme="light"] {
-    background: rgba(255,235,0,0.6);
-    border-color: rgba(230,180,34,1.0);
+    background: rgba(255, 235, 0, 0.6);
+    border-color: rgba(230, 180, 34, 1);
     font-weight: bold;
 }
 QPushButton[button_type="special"][theme="light"]:hover {
-    background: rgba(255,255,0,0.6);
+    background: rgba(255, 255, 0, 0.6);
 }
 ```
 
 深色模式下的相同按钮（`theme="night"`）：
+
 ```css
 QPushButton[button_type="special"][theme="night"] {
-    background: rgba(255,200,50,0.25);
-    border-color: rgba(255,180,30,0.8);
+    background: rgba(255, 200, 50, 0.25);
+    border-color: rgba(255, 180, 30, 0.8);
 }
 ```
 
@@ -101,10 +102,12 @@ QPushButton[button_type="special"][theme="night"] {
 应用程序通过 `AppConfig` 读取当前选中的主题（`Theme` 枚举值）。在 `DGLABClient` 初始化时，根据配置加载对应的样式文件，并调用 `apply_widget_properties()` 为所有需要样式的控件设置 `type`、`button_type` 和 `theme` 属性。
 
 **切换主题**：
+
 - 点击界面上的“切换主题”按钮，弹出 `ThemeSelectorDialog` 选择主题。
 - 内部修改配置中的 `theme` 值，调用 `change_theme()` 重新加载样式表并刷新所有控件的 `theme` 属性。
 
 **动态设置示例**：
+
 ```cpp
 QString themeStr = theme_to_mode_string(current_theme);
 qApp->setProperty("theme", themeStr);
@@ -115,6 +118,7 @@ load_stylesheet(themeStr);
 ```
 
 **注意事项**：
+
 - 所有自定义控件（如 `SampledWaveformWidget`）通过 `type` 或 `id` 选择器设置背景和圆角。
 - 样式文件中的 `theme` 属性由代码动态设置，与 `type` / `button_type` 属性共同作用。
 - 如需添加新的控件类型，请在 `apply_widget_properties()` 中为对应控件设置唯一属性值，并在所有样式文件中定义相应规则。

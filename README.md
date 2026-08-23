@@ -1,6 +1,7 @@
 # DG-LAB-Client
 
 > **目录**
+>
 > - [一、项目简介](#一项目简介)
 > - [二、功能特性](#二功能特性)
 > - [三、依赖项](#三依赖项)
@@ -16,10 +17,8 @@
 > - [十三、许可证](#十三许可证)
 > - [十四、联系方式](#十四联系方式)
 
-一个基于 Qt 的桌面客户端，用于与 DG-Lab 服务进行 WebSocket 通信。
-项目采用 C++20 编写，通过启动独立的 Python 子进程（`Bridge.py`）来管理与 DG-Lab 服务器的 WebSocket 连接。
-实现了多级配置管理、模块化日志、异步任务以及灵活的规则引擎等功能。
-当前版本号: `v0.6.0`
+一个基于 Qt 的桌面客户端，用于与 DG-Lab 服务进行 WebSocket 通信。项目采用 C++20 编写，通过启动独立的 Python 子进程（`Bridge.py`）来管理与 DG-Lab 服务器的 WebSocket 连接。实现了多级配置管理、模块化日志、异步任务以及灵活的规则引擎等功能。当前版本号: `v0.6.0`
+
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
 ---
@@ -41,69 +40,56 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 ## 二、功能特性
 
-- **Python 子进程通信**
-  通过 `PythonSubprocessManager` 启动外部 Python 脚本（`Bridge.py`），脚本启动后输出监听端口，主程序通过 `QTcpSocket` 连接，以 JSON 格式发送命令并接收响应。所有耗时调用均放入全局线程池执行，完成后通过信号槽返回主线程。
+- **Python 子进程通信** 通过 `PythonSubprocessManager` 启动外部 Python 脚本（`Bridge.py`），脚本启动后输出监听端口，主程序通过 `QTcpSocket` 连接，以 JSON 格式发送命令并接收响应。所有耗时调用均放入全局线程池执行，完成后通过信号槽返回主线程。
 
-- **配置系统**
-  采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。
-  规则表格高级编辑: 在“配置”页面的规则表格中，“通道”和“模式”列使用下拉框选择，“值模式”列使用可视化公式构建器。支持通过按钮快速插入 {}、+-*/()，并在保存时自动检查括号平衡合法性，极大提升了复杂计算式（如 {}+{}*2、({}*2)+{}）的编辑体验。
+- **配置系统** 采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。规则表格高级编辑: 在“配置”页面的规则表格中，“通道”和“模式”列使用下拉框选择，“值模式”列使用可视化公式构建器。支持通过按钮快速插入 {}、+-*/()，并在保存时自动检查括号平衡合法性，极大提升了复杂计算式（如 {}+{}*2、({}\*2)+{}）的编辑体验。
 
-- **规则引擎**
-  提供 `Rule` 类（支持 `{}`、`{id:xxx(名称)}`、`{rule:xx}` 占位符）和单例 `RuleManager`。可从指定目录下扫描 JSON 规则文件（含关键字 `rule`），加载规则集，并支持创建/删除/切换规则文件。规则支持启用状态（`enabled`）、多父级（通道 A/B 或规则引用）、唯一规则序号，值模式支持空值语义（任一引用为空时忽略该项计算），规则间可通过 `{rule:xx}` 引用结果并级联触发，父级为通道的规则结果自动发送给 Python 子进程。规则可用于动态生成发送给 Python 子进程的命令（如强度操作、波形参数），极大提升了操作的灵活性。
+- **规则引擎** 提供 `Rule` 类（支持 `{}`、`{id:xxx(名称)}`、`{rule:xx}` 占位符）和单例 `RuleManager`。可从指定目录下扫描 JSON 规则文件（含关键字 `rule`），加载规则集，并支持创建/删除/切换规则文件。规则支持启用状态（`enabled`）、多父级（通道 A/B 或规则引用）、唯一规则序号，值模式支持空值语义（任一引用为空时忽略该项计算），规则间可通过 `{rule:xx}` 引用结果并级联触发，父级为通道的规则结果自动发送给 Python 子进程。规则可用于动态生成发送给 Python 子进程的命令（如强度操作、波形参数），极大提升了操作的灵活性。
 
-- **首页通道面板**
-  首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式，`x_wave_card` 波形卡片保持现状。
+- **首页通道面板** 首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式，`x_wave_card` 波形卡片保持现状。
 
-- **数值模块（Module）**
-  提供 `ModuleManager` 单例与 `ModuleValue`/`Module` 数据模型，管理可查询数值（参照 CS2 官方 GSI 规范，如 `health`、`armor`、`team_num`、`money` 等）。每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口；调度器以所有数值中最短的查询周期为基准进行轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费。模块页点击模块卡片可弹出数值展示窗口（每行两个数值框，显示名称、当前值及底层字段名）。
+- **数值模块（Module）** 提供 `ModuleManager` 单例与 `ModuleValue`/`Module` 数据模型，管理可查询数值（参照 CS2 官方 GSI 规范，如 `health`、`armor`、`team_num`、`money` 等）。每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口；调度器以所有数值中最短的查询周期为基准进行轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费。模块页点击模块卡片可弹出数值展示窗口（每行两个数值框，显示名称、当前值及底层字段名）。
 
-- **波形采样控件（多通道）**
-  提供 `SampledWaveformWidget`，可同时接收多个独立数据源（监听器）的归一化值（0~1），每个监听器以不同颜色的滚动波形图实时显示。支持动态添加/删除监听器、自定义波形颜色、调整采样间隔和最大振幅比例。适用于同时监控 A/B 通道强度、外部传感器数值等场景。
+- **波形采样控件（多通道）** 提供 `SampledWaveformWidget`，可同时接收多个独立数据源（监听器）的归一化值（0~1），每个监听器以不同颜色的滚动波形图实时显示。支持动态添加/删除监听器、自定义波形颜色、调整采样间隔和最大振幅比例。适用于同时监控 A/B 通道强度、外部传感器数值等场景。
 
-- **可编辑标签控件 (EditableLabel)**
-  提供 `EditableLabel` 控件，继承自 `QLabel`，支持双击进入编辑模式，内嵌 `QLineEdit` 并支持输入验证器。编辑完成后发出 `text_edited` 信号，用于需要直接修改文本的场景（如规则名称、设备别名等），提升交互灵活性。
+- **可编辑标签控件 (EditableLabel)** 提供 `EditableLabel` 控件，继承自 `QLabel`，支持双击进入编辑模式，内嵌 `QLineEdit` 并支持输入验证器。编辑完成后发出 `text_edited` 信号，用于需要直接修改文本的场景（如规则名称、设备别名等），提升交互灵活性。
 
-- **IP 选择辅助 (IpSelector)**
-  提供 `IpSelector` 单例类，自动匹配可用 IP 地址（基于黑白名单关键词过滤网卡名称），支持弹出图形化对话框让用户编辑黑白名单并手动选择 IP。简化设备连接前的网络配置流程。
+- **IP 选择辅助 (IpSelector)** 提供 `IpSelector` 单例类，自动匹配可用 IP 地址（基于黑白名单关键词过滤网卡名称），支持弹出图形化对话框让用户编辑黑白名单并手动选择 IP。简化设备连接前的网络配置流程。
 
-- **样式系统增强**
-    重构 Qt 样式表，使用 `type` 和 `theme` 属性实现精细的控件分类（导航按钮、操作按钮、标题、输入框等）。支持 **14 种预设主题**（亮色、暗色及 12 种彩色主题，如炭黑甜粉、深海奶白、克莱因黄等），通过 `ThemeSelectorDialog` 以网格卡片形式可视化切换，代码中通过 `apply_widget_properties()` 统一设置控件属性，配合 QSS 实现现代化玻璃拟态界面。
+- **样式系统增强** 重构 Qt 样式表，使用 `type` 和 `theme` 属性实现精细的控件分类（导航按钮、操作按钮、标题、输入框等）。支持 **14 种预设主题**（亮色、暗色及 12 种彩色主题，如炭黑甜粉、深海奶白、克莱因黄等），通过 `ThemeSelectorDialog` 以网格卡片形式可视化切换，代码中通过 `apply_widget_properties()` 统一设置控件属性，配合 QSS 实现现代化玻璃拟态界面。
 
-- **日志与调试**
-  `DebugLog` 提供模块化日志等级控制，可输出到控制台、Qt 界面等不同的 `LogSink`；通过 `Console` 类可在 Windows 上创建调试控制台。
+- **日志与调试** `DebugLog` 提供模块化日志等级控制，可输出到控制台、Qt 界面等不同的 `LogSink`；通过 `Console` 类可在 Windows 上创建调试控制台。
 
-- **日志导出（自动 + 手动）**
-  `LogExporter` 提供两类日志记录：**自动日志**在程序启动、配置系统加载完毕后自动开始记录运行日志（默认写入程序目录 `log/`，受导出级别/数量/大小限制，超限分片、退出或导出后自动清理多余日志）；**手动日志**在点击“导出日志”时写入手动目录（默认 `log/handle/`），仅应用级别过滤，不受数量与大小限制。自动与手动各有独立的级别过滤设置（导出级别、仅指定级别、范围、位置），可在“更多设置”弹窗中分别配置，持久化到 `user.json` 的 `app.log.auto` / `app.log.manual` 下。
+- **日志导出（自动 + 手动）** `LogExporter` 提供两类日志记录：**自动日志**在程序启动、配置系统加载完毕后自动开始记录运行日志（默认写入程序目录 `log/`，受导出级别/数量/大小限制，超限分片、退出或导出后自动清理多余日志）；**手动日志**在点击“导出日志”时写入手动目录（默认 `log/handle/`），仅应用级别过滤，不受数量与大小限制。自动与手动各有独立的级别过滤设置（导出级别、仅指定级别、范围、位置），可在“更多设置”弹窗中分别配置，持久化到 `user.json` 的 `app.log.auto` / `app.log.manual` 下。
 
-- **WebSocket 通信**
-  Python 脚本 `Bridge.py` 内部使用 `WebSocketCore.py`（工具库）与 DG-Lab 服务进行 WebSocket 交互（连接、心跳、绑定、控制命令），并将结果通过 TCP 返回给 C++ 主程序。
+- **WebSocket 通信** Python 脚本 `Bridge.py` 内部使用 `WebSocketCore.py`（工具库）与 DG-Lab 服务进行 WebSocket 交互（连接、心跳、绑定、控制命令），并将结果通过 TCP 返回给 C++ 主程序。
 
-- **跨平台构建**
-  基于 CMake，支持 Windows、Linux、macOS 等平台，并通过 GitHub Actions 自动构建和打包。
+- **跨平台构建** 基于 CMake，支持 Windows、Linux、macOS 等平台，并通过 GitHub Actions 自动构建和打包。
 
 ---
 
 ## 三、依赖项
 
 ### 1. 系统依赖
+
 - **C++ 编译器**: 支持 C++20 标准（如 GCC 10+、Clang 12+、MSVC 2022）
 - **Qt**: 5.15 或 6.x（Core、Gui、Widgets、Network）
 - **Python**: 3.9 或更高版本
 
 **注意**: Python 需要安装在系统环境中，并且 `python` 命令可用。CMake 配置时会自动查找 Python 解释器路径。
 
-> 推荐使用 VS2022/2026（MSVC）进行 Windows 开发，Linux/macOS 可使用 GCC 或 Clang。
-> 👉 遇到依赖问题？请查看 [常见问题 - 编译与运行](#编译与运行)
+> 推荐使用 VS2022/2026（MSVC）进行 Windows 开发，Linux/macOS 可使用 GCC 或 Clang。👉 遇到依赖问题？请查看 [常见问题 - 编译与运行](#编译与运行)
 
 ### 2. 第三方库
-- **[nlohmann/json](https://github.com/nlohmann/json)** (版本 3.12.0)
-  用于 JSON 解析。CMake 会在配置时自动从 GitHub 下载单头文件到构建目录 `/include/nlohmann/`
+
+- **[nlohmann/json](https://github.com/nlohmann/json)** (版本 3.12.0) 用于 JSON 解析。CMake 会在配置时自动从 GitHub 下载单头文件到构建目录 `/include/nlohmann/`
 
 ### 3. Python 包依赖
+
 Python 子进程（`Bridge.py`）需要以下库，由 CI 自动安装或手动部署:
+
 - `websockets` (建议版本 10.0 或更高)
-- `qrcode[pil]` (用于生成二维码)
-  安装命令:
+- `qrcode[pil]` (用于生成二维码) 安装命令:
 
 ```bash
 pip install websockets qrcode[pil]
@@ -187,12 +173,9 @@ cpack
 - `system.json`: 系统配置，优先级 1
 - `user.json`: 用户配置，优先级 2
 
-高优先级的配置项会覆盖低优先级的同路径配置。
-**注意: ** 即使有覆盖逻辑，仍不建议在不同配置文件中定义相同属性
-配置文件中 `__priority` 字段用于定义优先级，不可删除。
+高优先级的配置项会覆盖低优先级的同路径配置。 **注意: ** 即使有覆盖逻辑，仍不建议在不同配置文件中定义相同属性配置文件中 `__priority` 字段用于定义优先级，不可删除。
 
-> 若配置文件丢失将从默认配置（`DefaultConfigs.cpp`）加载，并在程序运行时自动生成缺失的配置文件。
-> 👉 配置文件相关问题请查看 [常见问题 - 配置问题](#配置问题)
+> 若配置文件丢失将从默认配置（`DefaultConfigs.cpp`）加载，并在程序运行时自动生成缺失的配置文件。👉 配置文件相关问题请查看 [常见问题 - 配置问题](#配置问题)
 
 <details>
 <summary> 示例 `main.json` </summary>
@@ -243,7 +226,7 @@ cpack
 - **规则格式**: 每个规则文件应包含一个 `"rules"` 对象，键为规则名称，值为规则对象。规则对象字段如下:
 
 | 字段 | 类型 | 说明 |
-| - | - | - |
+| --- | --- | --- |
 | `enabled` | bool | 启用状态（默认 true），关闭后不参与计算 |
 | `parents` | array | 父级列表：`"A"`/`"B"` 为通道父级（结果发送给该通道），整数为规则序号（结果推送给对应规则） |
 | `mode` | int | 模式 0-4（递减/递增/设为/连减/连增） |
@@ -254,14 +237,14 @@ cpack
 <details>
 <summary> 示例 `rules.json` </summary>
 
-  ```json
-  {
+```json
+{
     "rules": {
-      "wave_short": "{\"cmd\":\"send_pulse\",\"channel\":1,\"pulses\":[\"01020304\"],\"duration\":{}}",
-      "strength_up": "{\"cmd\":\"send_strength\",\"channel\":{},\"mode\":1}"
+        "wave_short": "{\"cmd\":\"send_pulse\",\"channel\":1,\"pulses\":[\"01020304\"],\"duration\":{}}",
+        "strength_up": "{\"cmd\":\"send_strength\",\"channel\":{},\"mode\":1}"
     }
-  }
-  ```
+}
+```
 
 </details>
 
@@ -269,27 +252,27 @@ cpack
 
 - **级联触发**: 模块数值变化时自动触发引用该数值的规则计算；规则计算完成后结果推送给所有父级——父级为通道时通过调用函数将结果发送给 Python 端，父级为规则且启用时同样触发计算（带深度保护防循环引用）。通道启用时整条调用链开始运转，关闭时停止，不影响其他分支。
 - **UI 操作**: 在客户端的“配置”页面中，您可以:
-  - 从下拉列表切换规则文件。
-  - 新建/删除/保存规则文件。
-  - 添加/编辑规则: 规则名称使用普通文本输入，“父级”（原“通道”列）和“模式”使用下拉选择，“值模式”双击后弹出公式构建对话框（支持按钮快速插入符号 + 实时括号合法性检查 + “显示可用数值”按钮插入 `{id:xxx(名称)}`/`{rule:xx}` 引用）。
-  - 规则引用范围: “显示可用数值”中的规则列表包含除当前编辑规则外的所有规则（含父级为通道的规则），即一个规则可以有通道与其他规则的混合父级；父级含通道的规则是否启用由独立的通道启用变量决定，引用它不要求对应通道已启用。
-  - 启用状态: 规则表格首列“启用”为勾选框，点击即可启用/停用规则（停用的规则不参与计算）。
-  - 父级编辑: 点击“编辑父级”按钮弹出父级编辑对话框——通道父级单选（无/A/B，含通道唯一性去重），规则父级多选（勾选后对应规则的值模式将引用本规则 `{rule:xx}`，取消勾选则移除引用）；确认后自动保存规则文件。
-  - 父级列显示: 通道父级显示 “A”/“B”，规则父级显示 “rule:xx,xx”（超出显示 “...”），混合显示 “A;rule:xx,xx”，无父级显示 “无”。
-  - 模式列灰显: 父级全部为通道时正常显示模式；父级无通道时文本后加 “(不适用)” 并整列灰色；父级混合时加 “(部分不适用)” 并整列使用更接近主题文本色的灰色（仅影响界面显示，规则文件内容不变）。
-  - 通道唯一性: 同一通道（A 或 B）仅允许一个规则作为直连父级——从文件加载时保留序号最小的规则，其余置为“无”；手动设置时保留最后设置的规则。
+    - 从下拉列表切换规则文件。
+    - 新建/删除/保存规则文件。
+    - 添加/编辑规则: 规则名称使用普通文本输入，“父级”（原“通道”列）和“模式”使用下拉选择，“值模式”双击后弹出公式构建对话框（支持按钮快速插入符号 + 实时括号合法性检查 + “显示可用数值”按钮插入 `{id:xxx(名称)}`/`{rule:xx}` 引用）。
+    - 规则引用范围: “显示可用数值”中的规则列表包含除当前编辑规则外的所有规则（含父级为通道的规则），即一个规则可以有通道与其他规则的混合父级；父级含通道的规则是否启用由独立的通道启用变量决定，引用它不要求对应通道已启用。
+    - 启用状态: 规则表格首列“启用”为勾选框，点击即可启用/停用规则（停用的规则不参与计算）。
+    - 父级编辑: 点击“编辑父级”按钮弹出父级编辑对话框——通道父级单选（无/A/B，含通道唯一性去重），规则父级多选（勾选后对应规则的值模式将引用本规则 `{rule:xx}`，取消勾选则移除引用）；确认后自动保存规则文件。
+    - 父级列显示: 通道父级显示 “A”/“B”，规则父级显示 “rule:xx,xx”（超出显示 “...”），混合显示 “A;rule:xx,xx”，无父级显示 “无”。
+    - 模式列灰显: 父级全部为通道时正常显示模式；父级无通道时文本后加 “(不适用)” 并整列灰色；父级混合时加 “(部分不适用)” 并整列使用更接近主题文本色的灰色（仅影响界面显示，规则文件内容不变）。
+    - 通道唯一性: 同一通道（A 或 B）仅允许一个规则作为直连父级——从文件加载时保留序号最小的规则，其余置为“无”；手动设置时保留最后设置的规则。
 
 - **在代码中使用**:
-  ```cpp
-  #include "RuleManager.h"
-  // 初始化（AppConfig 初始化后调用）
-  RuleManager::instance().init();
-  // 加载规则文件（默认为 rules.json）
-  RuleManager::instance().load_rule_file("rules.json");
-  // 评估规则
-  std::string result = RuleManager::instance().evaluate("strength_up", 1);
-  // 将 result 作为命令发送给 Python 子进程
-  ```
+    ```cpp
+    #include "RuleManager.h"
+    // 初始化（AppConfig 初始化后调用）
+    RuleManager::instance().init();
+    // 加载规则文件（默认为 rules.json）
+    RuleManager::instance().load_rule_file("rules.json");
+    // 评估规则
+    std::string result = RuleManager::instance().evaluate("strength_up", 1);
+    // 将 result 作为命令发送给 Python 子进程
+    ```
 
 > **注意**: 规则文件可能包含任意命令，不要加载不可信的 JSON 文件！
 
@@ -325,6 +308,7 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 ```
 
 日志等级枚举:
+
 - 0: DEBUG
 - 1: INFO
 - 2: WARN
@@ -340,15 +324,13 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 - **自动日志**: 程序启动、配置系统加载完毕后自动开始记录运行日志（`LogExporter` 注册日志输出通道），默认写入程序目录下的 `log/` 文件夹；单个日志超过大小上限时分片写入多个文件（视为一份），并自动清理多余日志仅保留最新 N 份（每次导出后与程序退出时）。
 - **手动日志**: 点击“配置”页面的“导出日志”按钮，将界面日志按手动设置写入手动目录（默认 `log/handle/`），不受数量与大小限制，不参与清理。
 - **导出设置**: 点击“更多设置”按钮弹出设置窗口，自动与手动分组配置:
-  - **自动日志**: 导出日志级别、是否只导出指定级别、指定级别及以上/以下、导出位置、保留日志数量（默认 1）、单个日志大小上限（默认 5MB）。
-  - **手动日志**: 导出日志级别、是否只导出指定级别、指定级别及以上/以下、导出位置。
+    - **自动日志**: 导出日志级别、是否只导出指定级别、指定级别及以上/以下、导出位置、保留日志数量（默认 1）、单个日志大小上限（默认 5MB）。
+    - **手动日志**: 导出日志级别、是否只导出指定级别、指定级别及以上/以下、导出位置。
 - 设置项持久化到 `user.json` 的 `app.log.auto` / `app.log.manual` 下（兼容旧版平铺键）。
 
 ### 7. 调试控制台
 
-在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示详细的日志输出。
-**注意: ** 该控制台使用 `#include <windows.h>` 仅在 Windows 平台上可用，并且需要在配置文件中启用调试模式。
-当然，应用中首页也会输出日志到 Qt 界面，您可以根据需要选择查看。
+在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示详细的日志输出。 **注意: ** 该控制台使用 `#include <windows.h>` 仅在 Windows 平台上可用，并且需要在配置文件中启用调试模式。当然，应用中首页也会输出日志到 Qt 界面，您可以根据需要选择查看。
 
 ### 8. IP 自动选择与手动选择
 
@@ -425,9 +407,9 @@ wave->input_data("strength_A", 250);
 
 1. 在“设置”页面点击“主题选择”按钮，打开 `ThemeSelectorDialog` 对话框。
 2. 对话框以卡片形式列出所有主题，每张卡片显示:
-   - 主题中文名称（如“浅色模式”、“炭黑甜粉”）
-   - 英文模式名（如 `light`、`charcoal_pink`）
-   - 主色预览块及颜色代码（如 `#E8F0FE`）
+    - 主题中文名称（如“浅色模式”、“炭黑甜粉”）
+    - 英文模式名（如 `light`、`charcoal_pink`）
+    - 主色预览块及颜色代码（如 `#E8F0FE`）
 3. 单击任意卡片，程序将立即加载对应主题的样式表（`qcss/主题英文名.qcss`），并保存配置到 `app.ui.theme` 字段。
 4. 切换后主窗口的标题栏、按钮、日志区域等控件会自动应用新主题（通过 `load_stylesheet()` 和 `apply_inline_styles()` 实现）。
 
@@ -449,20 +431,20 @@ wave->input_data("strength_A", 250);
 <details>
 <summary> 官方仓库后端代码项目结构 </summary>
 
-  ```
-  socket/
-  └── v2/                          # ✅ 推荐使用
-      ├── backend/                 # WebSocket 后端 (Node.js)
-      │   ├── src/
-      │   │   ├── index.js         # 主入口，启动服务器 & 消息路由
-      │   │   ├── config.js        # 配置管理（支持 .env 环境变量）
-      │   │   ├── connection.js    # 连接管理（注册、配对、断开）
-      │   │   ├── message.js       # 消息处理（验证、转发、强度/波形）
-      │   │   ├── timer.js         # 定时器管理（波形消息队列发送）
-      │   │   └── logger.js        # 日志模块（winston）
-      │   └── package.json
-      └── frontend/                # 前端控制页面 (HTML+CSS+JS)
-  ```
+```
+socket/
+└── v2/                          # ✅ 推荐使用
+    ├── backend/                 # WebSocket 后端 (Node.js)
+    │   ├── src/
+    │   │   ├── index.js         # 主入口，启动服务器 & 消息路由
+    │   │   ├── config.js        # 配置管理（支持 .env 环境变量）
+    │   │   ├── connection.js    # 连接管理（注册、配对、断开）
+    │   │   ├── message.js       # 消息处理（验证、转发、强度/波形）
+    │   │   ├── timer.js         # 定时器管理（波形消息队列发送）
+    │   │   └── logger.js        # 日志模块（winston）
+    │   └── package.json
+    └── frontend/                # 前端控制页面 (HTML+CSS+JS)
+```
 
 </details>
 
@@ -481,13 +463,13 @@ npm install
 
 在 `socket/v2/backend` 目录下创建 `.env` 文件，可配置以下参数:
 
-| 变量 | 默认值 | 说明 |
-| - | - | - |
-| `PORT` | 9999 | WebSocket 服务端口 |
-| `HEARTBEAT_INTERVAL` | 60000 | 心跳间隔（毫秒） |
-| `DEFAULT_PUNISHMENT_TIME` | 1 | 波形发送频率（每秒次数） |
-| `DEFAULT_PUNISHMENT_DURATION` | 5 | 波形默认持续时间（秒） |
-| `LOG_LEVEL` | info | 日志级别 |
+| 变量                          | 默认值 | 说明                     |
+| ----------------------------- | ------ | ------------------------ |
+| `PORT`                        | 9999   | WebSocket 服务端口       |
+| `HEARTBEAT_INTERVAL`          | 60000  | 心跳间隔（毫秒）         |
+| `DEFAULT_PUNISHMENT_TIME`     | 1      | 波形发送频率（每秒次数） |
+| `DEFAULT_PUNISHMENT_DURATION` | 5      | 波形默认持续时间（秒）   |
+| `LOG_LEVEL`                   | info   | 日志级别                 |
 
 **步骤三: 启动服务**
 
@@ -507,9 +489,9 @@ npm run dev
 2. 启动您的客户端程序（如 DG-LAB-Client 或其他第三方终端）。
 3. 客户端连接 WebSocket 服务后，服务端会分配 `clientId` 并返回给客户端。
 4. 客户端根据 WebSocket 地址和 `clientId` 生成二维码，格式如下:
-   ```
-   https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://你的服务器地址:端口/clientId
-   ```
+    ```
+    https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://你的服务器地址:端口/clientId
+    ```
 
 ### 5. 手机 App 连接
 
@@ -527,8 +509,8 @@ npm run dev
 2. **消息格式要求**: 除初始连接时 `targetId` 可为空外，所有消息必须包含 `type`、`clientId`、`targetId`、`message` 四个字段且值不为空。
 
 3. **本地调试与正式使用**:
-   - 本地调试时可以使用 `ws://` 协议
-   - 若需公网访问，建议使用 `wss://` 协议以保证通信安全
+    - 本地调试时可以使用 `ws://` 协议
+    - 若需公网访问，建议使用 `wss://` 协议以保证通信安全
 
 4. **保持服务运行**: 启动服务的终端窗口不要关闭，关闭后服务会终止。
 
@@ -539,6 +521,7 @@ npm run dev
 7. **规则文件安全**: 不要删除默认的 `rules.json`，删除其他规则文件前请确保已保存重要规则。
 
 **相关资源**:
+
 - 官方仓库: [https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE)
 - 常见问题文档: `socket/QA/Websocket_open_source_QA_Chinese.txt`（位于仓库中）
 
@@ -700,13 +683,13 @@ DG-LAB-Client/
 ### 主界面
 
 | 首页 | 配置页 | 规则文件管理页 |
-| :---: | :---: | :---: |
+| :-: | :-: | :-: |
 | ![main_page](screenshot/pages/main_page.png) | ![config_page](screenshot/pages/config_page.png) | ![rule_page](screenshot/pages/rule_page.png) |
 
 ### 功能对话框
 
 | IP 选择器 | 主题选择器 | 公式构建器 | 调试控制台 (Windows) |
-| :---: | :---: | :---: | :---: |
+| :-: | :-: | :-: | :-: |
 | ![IpSelector](screenshot/others/IpSelector.png) | ![ThemeSelectorDialog](screenshot/others/ThemeSelectorDialog.png) | ![ValueModeDelegate](screenshot/others/ValueModeDelegate.png) | ![Console](screenshot/others/Console.png) |
 
 > 更多主题截图请查看 [`screenshot/themes/`](screenshot/themes/) 目录，共 14 种配色方案。
@@ -737,11 +720,13 @@ DG-LAB-Client/
 <summary><b>Q1: CMake 配置时找不到 Qt</b></summary>
 
 **现象**:
+
 ```
 Could not find a package configuration file provided by "Qt6" or "Qt5"
 ```
 
 **解决方案**:
+
 - 确保 Qt 已正确安装，并且 `CMAKE_PREFIX_PATH` 指向 Qt 的安装目录（例如 `C:/Qt/6.5.0/msvc2019_64`）。
 - 或者设置环境变量 `Qt6_DIR` / `Qt5_DIR`。
 - 在 Linux 上可以通过包管理器安装 Qt 开发包（如 `qt6-base-dev`），CMake 通常能自动找到。
@@ -751,10 +736,10 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 <details>
 <summary><b>Q2: Python 子进程启动失败，提示找不到模块</b></summary>
 
-**现象**:
-程序启动后日志显示 `Bridge.py` 报错 `ModuleNotFoundError: No module named 'websockets'` 或 `qrcode`。
+**现象**: 程序启动后日志显示 `Bridge.py` 报错 `ModuleNotFoundError: No module named 'websockets'` 或 `qrcode`。
 
 **解决方案**:
+
 - 确认已执行 `pip install websockets qrcode[pil]`。
 - 检查 Python 环境: 确保运行客户端时使用的 Python 解释器与安装依赖的是同一个。可以在命令行执行 `pip show websockets` 查看安装位置。
 - 若使用虚拟环境，需要在 CMake 配置时指定 `-DPython_ROOT_DIR` 指向虚拟环境的路径。
@@ -764,10 +749,10 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 <details>
 <summary><b>Q3: nlohmann/json 下载失败</b></summary>
 
-**现象**:
-CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
+**现象**: CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 
 **解决方案**:
+
 - 检查网络连接，确保能够访问 `raw.githubusercontent.com`。
 - 手动下载 [json.hpp](https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp) 并放入构建目录的 `/include/nlohmann/` 下（根据 CMake 输出路径调整）。
 - 或者修改 `CMakeLists.txt`，改用本地已下载的头文件路径。
@@ -777,10 +762,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q4: 编译时出现 C++20 相关语法错误</b></summary>
 
-**现象**:
-编译器报错如 `'std::span' is not a member of 'std'` 或要求 C++20 标准。
+**现象**: 编译器报错如 `'std::span' is not a member of 'std'` 或要求 C++20 标准。
 
 **解决方案**:
+
 - 确认编译器版本: GCC ≥10、Clang ≥12、MSVC ≥2022。
 - 在 CMake 配置时显式指定 C++ 标准: `-DCMAKE_CXX_STANDARD=20`。
 - 若使用旧版 IDE（如 VS2019），需要升级到 VS2022 或安装支持 C++20 的工具集。
@@ -792,10 +777,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q5: 配置文件修改后不生效</b></summary>
 
-**现象**:
-修改了 `user.json` 中的某个值，但程序运行时使用的还是旧值。
+**现象**: 修改了 `user.json` 中的某个值，但程序运行时使用的还是旧值。
 
 **解决方案**:
+
 - 确认修改的文件是正确的（注意优先级: `user.json` > `system.json` > `main.json`）。如果 `system.json` 或 `main.json` 中定义了相同路径的配置，它们会被覆盖，但不会删除。
 - 重新执行 CMake 构建项目或手动将修改后的配置文件复制到构建目录的 `/config/` 下。
 - 检查 JSON 格式是否正确（如多余的逗号），可以使用在线 JSON 校验工具。
@@ -805,10 +790,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q6: 配置文件丢失后如何恢复？</b></summary>
 
-**现象**:
-误删了 `config/` 目录下的某个 JSON 文件，程序启动报错或使用默认值。
+**现象**: 误删了 `config/` 目录下的某个 JSON 文件，程序启动报错或使用默认值。
 
 **解决方案**:
+
 - 程序内置了默认配置（定义在 `DefaultConfigs.cpp`），丢失的文件会在运行时自动重新生成（前提是目录存在）。只需确保 `config/` 目录可写。
 - 也可以从源码仓库中复制 `config/` 目录下的示例文件到运行目录。
 
@@ -822,8 +807,7 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 - 编译运行客户端后，打开 `配置` 页面，在端口中输入 **你需要更换的端口** 并点击右侧的 `确定`，若显示端口更改成功即完成更改。
 - 在默认的配置文件 `system.json` 中 `app.websocket.port` 即是所用端口
 
-> 若在项目根目录更改，请确保构建输出目录下的配置文件也应用更改！
-> 端口范围建议使用 1024~65535 之间的数字，避免使用系统保留端口（0~1023）。
+> 若在项目根目录更改，请确保构建输出目录下的配置文件也应用更改！端口范围建议使用 1024~65535 之间的数字，避免使用系统保留端口（0~1023）。
 
 **现象**
 
@@ -841,10 +825,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q8: 规则文件在 UI 中不显示</b></summary>
 
-**现象**:
-将自定义的 JSON 规则文件放入 `config/rules/` 目录，但在客户端的规则页面中看不到。
+**现象**: 将自定义的 JSON 规则文件放入 `config/rules/` 目录，但在客户端的规则页面中看不到。
 
 **解决方案**:
+
 - 检查文件名是否包含默认配置文件 `main.json` 中项 `rule.key` 指定的关键字（默认为 `rule`）。例如 `my_rules.json` 包含 `rule` 字样，可以被识别；`settings.json` 则不会。
 - 确认规则文件的 JSON 格式正确，且根对象包含 `"rules", "version", "DGLABClient"` 键。
 - 尝试重新执行 CMake 构建项目或手动自定义的 JSON 规则文件放入构建目录的 `config/rules/` 下。
@@ -854,13 +838,12 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q9: 规则评估生成的命令不符合预期</b></summary>
 
-**现象**:
-调用 `RuleManager::evaluate_command("rule_name", args...)` 返回的 `QJsonObject` 中 `value` 字段的值不正确（如始终为 0 或未按公式计算），或者通道/模式与设置不符。
+**现象**: 调用 `RuleManager::evaluate_command("rule_name", args...)` 返回的 `QJsonObject` 中 `value` 字段的值不正确（如始终为 0 或未按公式计算），或者通道/模式与设置不符。
 
 **可能原因及解决方案**:
 
 | 原因 | 解决方法 |
-| - | - |
+| --- | --- |
 | 传入的参数个数与规则中的 `{}` 占位符数量不匹配 | 检查规则模式中 `{}` 的个数，确保传入参数数量一致。若参数不足，表达式中的剩余 `{}` 不会被替换，导致求值失败（日志会输出“参数数量不匹配”错误）。 |
 | 值表达式求值失败（如语法错误、除零等） | 查看日志中的 `Rule::computeValue` 错误信息，表达式错误会输出 `表达式求值失败: ...`。修正 `value_pattern` 中的表达式（例如确保运算符正确、括号匹配）。 |
 | 计算结果被模式钳位规则修正 | 模式 2（“设为”）将值钳位到 [0, 200]；模式 3/4（“连减”/“连增”）钳位到 [1, 100]。如果期望的值超出范围，会被自动限制，这是正常行为。 |
@@ -868,6 +851,7 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 | 模式值超出 0~4 范围 | 模式仅支持 0~4，若配置了其他值，行为未定义。请在规则文件中使用正确的模式编号。 |
 
 **调试建议**:
+
 - 启用 DEBUG 日志级别（`app.log.console_level = 0`），查看 `RuleManager` 和 `Rule` 模块输出的详细日志，包括加载的规则参数、表达式求值过程和结果。
 - 使用 `RuleManager::get_rule_value_pattern("rule_name")` 获取原始表达式，手动验证计算逻辑。
 - 若使用 Qt 界面中的公式构建器，注意保存前检查括号平衡性。
@@ -877,13 +861,12 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q10: 公式构建器中的合法性检查报错</b></summary>
 
-**现象**:
-在“配置”页面的“值模式”列双击打开公式构建器，无法保存。
+**现象**: 在“配置”页面的“值模式”列双击打开公式构建器，无法保存。
 
 **可能原因及解决方案**:
 
 | 原因 | 解决方法 |
-| - | - |
+| --- | --- |
 | 表达式中包含空格（如 `a + b`） | 移除所有空格，或使用花括号包裹变量名（如 `{a}+{b}`） |
 | 变量名未用花括号包裹（如直接写 `a`、`price`） | 所有变量必须写成 `{变量名}` 形式，例如 `{a}+{b}` |
 | 使用了非法字符（如字母、小数点、等号等未在 `+ - * / ( ) { }` 中的符号） | 只允许运算符、括号和花括号；变量必须放入 `{}` 内 |
@@ -902,10 +885,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q11: 主程序无法连接到 Python 子进程（TCP 连接失败）</b></summary>
 
-**现象**:
-日志显示 `Failed to connect to Python bridge: Connection refused`。
+**现象**: 日志显示 `Failed to connect to Python bridge: Connection refused`。
 
 **解决方案**:
+
 - 确认 `Bridge.py` 是否正常启动。查看控制台输出（如果开启了调试控制台）。
 - 检查端口是否被占用。`Bridge.py` 默认使用第一个可用的端口（从 5000 开始递增），主程序会从子进程的 stdout 解析端口号。
 - 防火墙可能阻止了本地回环连接，尝试暂时关闭防火墙测试。
@@ -915,10 +898,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q12: Python 子进程启动后立即退出</b></summary>
 
-**现象**:
-主程序启动后日志显示 `Python process exited with code X`。
+**现象**: 主程序启动后日志显示 `Python process exited with code X`。
 
 **解决方案**:
+
 - 手动运行 `python Bridge.py` 查看错误输出。常见原因: 缺少依赖（`websockets`）、Python 版本过低（需要 3.9+）、文件路径错误。
 - 确保 `WebSocketCore.py` 与 `Bridge.py` 在同一目录下。
 - 检查配置文件中的 `python.bridge_path` 是否正确指向 `Bridge.py`。
@@ -936,7 +919,7 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 
 确认已正确调用 input_data() 传入有效数值（0~1）。
 
-检查采样定时器是否启动: 默认在构造函数中自动启动，若手动停止需重新调用 sample_timer_.start()。
+检查采样定时器是否启动: 默认在构造函数中自动启动，若手动停止需重新调用 sample*timer*.start()。
 
 确认控件大小不为 0，否则 paintEvent 可能无法正常绘制。
 
@@ -948,6 +931,7 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <summary><b>Q14: 如何同时显示多条波形曲线？</b></summary>
 
 **解决方案**: 使用多监听器功能。
+
 1. 调用 `add_listener(name, color)` 添加监听器，每个监听器对应一条曲线。
 2. 为每个监听器分别调用 `input_data(listener_name, value)` 输入数据。
 3. 控件会自动为每个监听器维护独立的采样缓冲区，并以各自颜色绘制波形。
@@ -967,10 +951,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q16: 端口被占用，无法启动服务</b></summary>
 
-**现象**:
-启动 Node.js 服务时报错 `Error: listen EADDRINUSE: address already in use :::9999`。
+**现象**: 启动 Node.js 服务时报错 `Error: listen EADDRINUSE: address already in use :::9999`。
 
 **解决方案**:
+
 - 检查是否有其他程序占用了 9999 端口，可以通过 `lsof -i :9999`（Linux/macOS）或 `netstat -ano | findstr :9999`（Windows）命令查看。
 - 更换其他端口，在 `.env` 文件中修改 `PORT` 配置。
 
@@ -984,7 +968,7 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 **可能原因及解决**:
 
 | 原因 | 解决方法 |
-| - | - |
+| --- | --- |
 | 手机与电脑不在同一局域网 | 确保手机连接与电脑相同的 Wi-Fi 网络 |
 | 防火墙拦截了端口 | 在防火墙中放行 WebSocket 服务使用的端口（默认 9999） |
 | 二维码中的地址错误 | 检查二维码中的 IP 地址是否为电脑的正确局域网 IP，不要使用 `127.0.0.1` 或 `localhost` |
@@ -1005,12 +989,12 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 
 **错误码说明**:
 
-| 错误码 | 说明 |
-| - | - |
-| 400 | 此 ID 已被其他客户端绑定 |
-| 401 | 要绑定的目标客户端不存在 |
-| 402 | 收信方和寄信方不是绑定关系 |
-| 404 | 未找到收信人（离线） |
+| 错误码 | 说明                       |
+| ------ | -------------------------- |
+| 400    | 此 ID 已被其他客户端绑定   |
+| 401    | 要绑定的目标客户端不存在   |
+| 402    | 收信方和寄信方不是绑定关系 |
+| 404    | 未找到收信人（离线）       |
 
 **解决方法**: 检查二维码是否正确生成了 `clientId`，确保客户端与服务端的连接未中断，并确认没有重复绑定。
 
@@ -1030,10 +1014,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q21: 日志在 Qt 界面不显示或显示等级不对</b></summary>
 
-**现象**:
-程序运行时，首页的日志窗口没有输出，或者只显示 ERROR 级别，而配置中设置了 INFO。
+**现象**: 程序运行时，首页的日志窗口没有输出，或者只显示 ERROR 级别，而配置中设置了 INFO。
 
 **解决方案**:
+
 - 检查配置文件中的 `app.log.ui_log_level` 值（0=DEBUG,1=INFO,2=WARN,3=ERROR,4=NONE）。例如需要显示 INFO 及以上，应设置为 1。
 - 确认没有在代码中动态修改 UI 日志的 sink 级别（`DebugLog::set_log_sink_level("qt_ui", level)`）。
 - 如果使用 `LOG_MODULE` 宏，确保模块名称和函数名称正确，且日志等级不低于全局设置。
@@ -1043,10 +1027,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q22: Windows 调试控制台不出现</b></summary>
 
-**现象**:
-在配置文件中设置了 `"debug": true`，但程序启动时没有弹出黑色控制台窗口。
+**现象**: 在配置文件中设置了 `"debug": true`，但程序启动时没有弹出黑色控制台窗口。
 
 **解决方案**:
+
 - 仅当编译为 Debug 配置且 `app.debug` 为 true 时才会创建控制台。Release 模式下可能被优化掉。
 - 检查是否在 Windows 平台（该功能依赖 `<windows.h>`，Linux/macOS 无效）。
 - 尝试以管理员身份运行程序。
@@ -1056,10 +1040,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q23: EditableLabel 编辑后文本未保存或验证不通过</b></summary>
 
-**现象**:
-双击可编辑标签，修改文本后按回车或失去焦点，文本恢复原值或显示验证失败。
+**现象**: 双击可编辑标签，修改文本后按回车或失去焦点，文本恢复原值或显示验证失败。
 
 **解决方案**:
+
 - 检查是否设置了验证器（`set_validator`），且输入内容不符合验证规则（例如 `QIntValidator` 限定了范围）。
 - 确保没有在 `text_edited` 信号的槽函数中拒绝修改（如恢复旧值）。
 - 可编辑标签默认允许所有输入，若需要限制输入格式，请正确配置验证器。
@@ -1069,10 +1053,10 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 <details>
 <summary><b>Q24: IP 自动选择得到 127.0.0.1，但明明有真实网卡</b></summary>
 
-**现象**:
-`IpSelector::auto_select_ip()` 返回 `127.0.0.1`，而电脑实际有有效的局域网 IP。
+**现象**: `IpSelector::auto_select_ip()` 返回 `127.0.0.1`，而电脑实际有有效的局域网 IP。
 
 **解决方案**:
+
 - 检查黑白名单是否误将真实网卡过滤。默认黑名单包含 `vmware`, `virtual`, `docker`, `vbox`，如果您的真实网卡名称包含这些关键词（例如虚拟机网卡），请通过 `show_selection_dialog()` 移除相关关键词或手动选择 IP。
 - 也可以通过代码动态修改黑白名单：`IpSelector::instance()->set_blacklist(您的列表)`。
 - 如果所有网卡都被过滤，或没有找到任何非回环 IP，函数会返回 `127.0.0.1` 作为保底。
@@ -1100,6 +1084,7 @@ CMake 配置过程中报错，无法从 GitHub 下载 `json.hpp`。
 本项目自身源代码采用 **GNU General Public License v3.0 only**（GPL-3.0-only）开源。详情请参阅项目根目录下的 [LICENSE](LICENSE.txt) 文件。
 
 本项目依赖的第三方组件适用不同的许可证:
+
 - **Qt 框架**（Core, Gui, Widgets, Network, Qml）: GNU Lesser General Public License v3.0（LGPLv3）
 - **nlohmann/json**: MIT 许可证
 

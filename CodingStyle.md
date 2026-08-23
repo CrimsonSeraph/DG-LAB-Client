@@ -1,7 +1,6 @@
 # DG-LAB-Client CodingStyle
 
-基于 Qt 的应用程序，通过 Python 模块扩展功能。  
-本项目遵循明确的编码风格规范，以保证代码的可读性与一致性。
+基于 Qt 的应用程序，通过 Python 模块扩展功能。本项目遵循明确的编码风格规范，以保证代码的可读性与一致性。
 
 ## 目录结构
 
@@ -26,7 +25,7 @@
 ### 2. 缩进与空白
 
 - **缩进方式**: 4 个空格（不使用 Tab）
-> 若使用 Tab，必须设置为等同于 4 个空格且最后文件保存时转换为 4 个空格
+    > 若使用 Tab，必须设置为等同于 4 个空格且最后文件保存时转换为 4 个空格
 - **行最大长度**: 暂不作严格限制，但建议不超过 120 字符
 - **括号风格**: 左括号与语句同行（K&R 风格）
 
@@ -39,23 +38,22 @@ if (condition) {
 
 ### 3. 命名规则
 
-| 元素 | 风格 | 示例 |
-| - | - | - |
-| 类名 | 双驼峰（PascalCase） | `MainWindow`, `DataBase` |
-| 变量名 | 小写 + 下划线（snake_case） | `user_name`, `max_count` |
-| 函数名 | 小写 + 下划线（snake_case） | `get_data()`, `save_file()` |
-| 常量/宏 | 全大写 + 下划线 | `MAX_BUFFER_SIZE` |
-| Python 模块 | 双驼峰（PascalCase） | `FileUtils.py` |
+| 元素        | 风格                        | 示例                        |
+| ----------- | --------------------------- | --------------------------- |
+| 类名        | 双驼峰（PascalCase）        | `MainWindow`, `DataBase`    |
+| 变量名      | 小写 + 下划线（snake_case） | `user_name`, `max_count`    |
+| 函数名      | 小写 + 下划线（snake_case） | `get_data()`, `save_file()` |
+| 常量/宏     | 全大写 + 下划线             | `MAX_BUFFER_SIZE`           |
+| Python 模块 | 双驼峰（PascalCase）        | `FileUtils.py`              |
 
-> **注意**: 在 Python 模块中，文件名使用 PascalCase 以区分于变量和函数，但模块内的函数和变量仍使用 snake_case。
-  **例外**: 重载 Qt 的虚函数（如 `paintEvent`、`mousePressEvent`）时，保持 Qt 原有的命名风格，不必强制改为 snake_case。
+> **注意**: 在 Python 模块中，文件名使用 PascalCase 以区分于变量和函数，但模块内的函数和变量仍使用 snake_case。 **例外**: 重载 Qt 的虚函数（如 `paintEvent`、`mousePressEvent`）时，保持 Qt 原有的命名风格，不必强制改为 snake_case。
 
 ### 4. 导入顺序（C++ 与 Python）
 
-- **顺序规则**:   
-  1. 自定义模块/头文件  
-  2. 第三方库  
-  3. 标准库  
+- **顺序规则**:
+    1. 自定义模块/头文件
+    2. 第三方库
+    3. 标准库
 
 - **内部排序**: 每组内按字母顺序排列（**大小写敏感**）；C++ `#include` 由 clang-format 自动维护（见第 11 节），Python `import` 需手动遵循本规则
 
@@ -93,7 +91,7 @@ import os
 
 ### 5. 头文件中的各项定义顺序
 
-类声明中各分区必须按以下顺序排列（若某分区为空，可省略）: 
+类声明中各分区必须按以下顺序排列（若某分区为空，可省略）:
 
 ```
 public: → protected: → private: → signals: → private slots:
@@ -101,50 +99,48 @@ public: → protected: → private: → signals: → private slots:
 
 #### 5.1 各分区内部成员排列顺序
 
-- **`public` 分区**  
-  1. 构造函数 / 析构函数  
-  2. 公共接口（普通成员函数）  
-  3. 公共成员变量（极少使用）
+- **`public` 分区**
+    1. 构造函数 / 析构函数
+    2. 公共接口（普通成员函数）
+    3. 公共成员变量（极少使用）
 
-- **`protected` 分区**  
-  1. 重写的虚函数（`override`）  
-  2. 其他受保护方法  
-  3. 受保护成员变量
+- **`protected` 分区**
+    1. 重写的虚函数（`override`）
+    2. 其他受保护方法
+    3. 受保护成员变量
 
-- **`private` 分区**  
-  1. 常量（`static constexpr` / `const`）  
-  2. 成员变量  
-  3. 私有辅助函数
+- **`private` 分区**
+    1. 常量（`static constexpr` / `const`）
+    2. 成员变量
+    3. 私有辅助函数
 
-- **`signals` 分区**  
-  Qt 信号声明（无实现）
+- **`signals` 分区** Qt 信号声明（无实现）
 
-- **`private slots` 分区**  
-  Qt 私有槽函数声明
+- **`private slots` 分区** Qt 私有槽函数声明
 
 #### 5.2 特殊成员的放置位置（按优先级）
 
-- **友元声明**: 紧接在 `private:` 标签之后的第一行  
-- **静态成员变量**: 放在 `private:` 区的最开头（常量之前）  
-- **静态成员函数**: 放在所属分区（`public` / `private`）的普通成员函数之前  
+- **友元声明**: 紧接在 `private:` 标签之后的第一行
+- **静态成员变量**: 放在 `private:` 区的最开头（常量之前）
+- **静态成员函数**: 放在所属分区（`public` / `private`）的普通成员函数之前
 - **`Q_INVOKABLE` 方法**: 放在 `public:` 区，并显式添加 `Q_INVOKABLE` 宏
 
 #### 5.3 模板函数与静态工具函数
 
-- **模板函数**: 仅声明在头文件中，定义放入同名的 `类名_impl.h` 文件（同一目录）。  
+- **模板函数**: 仅声明在头文件中，定义放入同名的 `类名_impl.h` 文件（同一目录）。
 - **静态工具函数**: 不要放在类声明内，应独立到 `_util.h` / `_util.cpp` 文件中。
 
 ### 6. 源文件组织规范
 
-- 函数定义的顺序**必须**与头文件中各分区的声明顺序严格一致。  
-- 每个分区内，函数定义的顺序也必须与头文件中声明的顺序相同。  
+- 函数定义的顺序**必须**与头文件中各分区的声明顺序严格一致。
+- 每个分区内，函数定义的顺序也必须与头文件中声明的顺序相同。
 - 若头文件有调整（如成员函数重排），源文件需同步调整定义顺序。
 
 ### 7. 函数注释规范
 
-为每个函数添加说明注释，推荐使用 Doxygen 风格: 
+为每个函数添加说明注释，推荐使用 Doxygen 风格:
 
-- 复杂函数使用以下格式: 
+- 复杂函数使用以下格式:
 
 ```cpp
 /// @brief 简短功能描述
@@ -155,7 +151,7 @@ public: → protected: → private: → signals: → private slots:
 int calculate(int param1, double param2);
 ```
 
-- 简单函数可在函数前一行使用 `//` 进行简短描述: 
+- 简单函数可在函数前一行使用 `//` 进行简短描述:
 
 ```cpp
 // 检查用户是否已登录
@@ -166,7 +162,7 @@ bool is_logged_in();
 
 ### 8. 日志规范（LOG_MODULE 宏）
 
-项目中使用 `LOG_MODULE` 宏输出调试信息。请遵循以下原则: 
+项目中使用 `LOG_MODULE` 宏输出调试信息。请遵循以下原则:
 
 #### 8.1 添加调试信息的位置
 
@@ -184,12 +180,12 @@ bool is_logged_in();
 
 #### 8.3 日志级别使用
 
-| 级别 | 用途 |
-|------|------|
-| `LOG_ERROR` | 严重错误，影响功能 |
-| `LOG_WARN`  | 可恢复的异常情况 |
+| 级别        | 用途                                        |
+| ----------- | ------------------------------------------- |
+| `LOG_ERROR` | 严重错误，影响功能                          |
+| `LOG_WARN`  | 可恢复的异常情况                            |
 | `LOG_INFO`  | 重要的状态变化、模块初始化/销毁、用户操作等 |
-| `LOG_DEBUG` | 详细调试信息，默认可能在 Release 版本禁用 |
+| `LOG_DEBUG` | 详细调试信息，默认可能在 Release 版本禁用   |
 
 > 根据实际情况选择合适的级别，不要滥用 `LOG_INFO` 和 `LOG_ERROR`。
 
@@ -199,8 +195,7 @@ bool is_logged_in();
 
 ### 9. 注释规范（基本）
 
-- **单行注释（独占一行）**: 放在代码块前面，与代码块开头保持相同缩进级别。  
-  `//` 后跟一个空格，再写注释内容。
+- **单行注释（独占一行）**: 放在代码块前面，与代码块开头保持相同缩进级别。 `//` 后跟一个空格，再写注释内容。
 
 ```cpp
 // 检查用户是否已登录
@@ -227,10 +222,10 @@ bool is_ready = false;  // 是否准备就绪
 
 ### 11. 自动格式化（VS Code / Prettier / clang-format）
 
-格式化规则由仓库根目录下的配置文件统一管理，VS Code 打开本项目时通过 `.vscode/settings.json` 自动生效，保存时自动格式化（`editor.formatOnSave`）: 
+格式化规则由仓库根目录下的配置文件统一管理，VS Code 打开本项目时通过 `.vscode/settings.json` 自动生效，保存时自动格式化（`editor.formatOnSave`）:
 
 | 文件类型 | 工具 | 配置文件 |
-| - | - | - |
+| --- | --- | --- |
 | C/C++（.cpp / .h / .hpp） | ms-vscode.cpptools（clang-format 后端） | `.clang-format` |
 | JSON / Markdown / YAML | Prettier | `.prettierrc.json` / `.prettierignore` |
 
