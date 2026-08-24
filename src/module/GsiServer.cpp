@@ -71,7 +71,7 @@ void GsiServer::incomingConnection(qintptr socketDescriptor) {
             QByteArray header = request.left(headerEnd);
             body = request.mid(headerEnd + 4);
             // 按 Content-Length 截取（避免粘包）
-            QRegularExpression length_re("Content-Length:\s*(\d+)",
+            QRegularExpression length_re(R"(Content-Length:\s*(\d+))",
                 QRegularExpression::CaseInsensitiveOption);
             QRegularExpressionMatch match = length_re.match(QString::fromLatin1(header));
             if (match.hasMatch()) {
@@ -91,13 +91,13 @@ void GsiServer::incomingConnection(qintptr socketDescriptor) {
             QJsonDocument doc = QJsonDocument::fromJson(body, &parse_error);
             if (parse_error.error == QJsonParseError::NoError && doc.isObject()) {
                 emit data_received(doc.object());
-                LOG_MODULE("GsiServer", "incomingConnection", LOG_DEBUG,
-                    "收到 GSI 数据，大小: " << body.size());
+                // LOG_MODULE("GsiServer", "incomingConnection", LOG_DEBUG,
+                //     "收到 GSI 数据，大小: " << body.size());
             }
             else {
                 LOG_MODULE("GsiServer", "incomingConnection", LOG_WARN,
                     "GSI 数据解析失败: " << parse_error.errorString().toStdString()
-                    << "，请求体: " << body.left(200).constData());
+                                         << "，请求体: " << body.left(200).constData());
             }
         }
         // 返回 HTTP 200 响应

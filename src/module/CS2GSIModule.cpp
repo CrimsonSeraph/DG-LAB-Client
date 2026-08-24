@@ -175,7 +175,7 @@ QString CS2GSIModule::generate_config() {
     save_config_path();
     LOG_MODULE("CS2GSIModule", "generate_config", LOG_INFO,
         "GSI 配置文件已生成: " << path.toStdString()
-        << "，端口: " << port_ << "，throttle: " << throttle.toStdString());
+                               << "，端口: " << port_ << "，throttle: " << throttle.toStdString());
     return path;
 }
 
@@ -249,9 +249,9 @@ void CS2GSIModule::on_gsi_data_received(const QJsonObject& data) {
     else if (team_value.isDouble()) {
         manager.set_value(module.toStdString(), "team_num", team_value.toInt());
     }
-    LOG_MODULE("CS2GSIModule", "on_gsi_data_received", LOG_DEBUG,
-        "GSI 数据写入模块: health=" << health << ", armor=" << armor
-        << ", money=" << money << ", helmet=" << helmet << ", defuser=" << defuser);
+    // LOG_MODULE("CS2GSIModule", "on_gsi_data_received", LOG_DEBUG,
+    //     "GSI 数据写入模块: health=" << health << ", armor=" << armor
+    //     << ", money=" << money << ", helmet=" << helmet << ", defuser=" << defuser);
 }
 
 // ============================================

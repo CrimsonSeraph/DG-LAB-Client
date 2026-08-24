@@ -7,11 +7,11 @@ import asyncio
 import json
 import logging
 import os
-from typing import Callable, Optional, Union
-
 import qrcode
 import websockets
+
 from websockets.exceptions import ConnectionClosed
+from typing import Callable, Optional, Union
 
 LOG_LEVEL = logging.INFO
 logging.basicConfig(

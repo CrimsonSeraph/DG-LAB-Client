@@ -3,11 +3,12 @@
     SPDX-License-Identifier: GPL-3.0-only
 """
 
-from WebSocketCore import DGLabClient
-
 import asyncio
 import json
 import logging
+
+from WebSocketCore import DGLabClient
+from typing import Union
 
 LOG_LEVEL = logging.INFO
 logging.basicConfig(

@@ -9,6 +9,7 @@ import platform
 import re
 import logging
 import argparse
+
 from typing import Optional, List, Union
 
 LOG_LEVEL = logging.INFO

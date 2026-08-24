@@ -43,7 +43,7 @@ protected:
     /// @param text 文本块内容
     void highlightBlock(const QString& text) override {
         // 匹配 {id:xxx(注释)} 中的 (注释) 部分
-        QRegularExpression pattern("\{id:[^\{\}]*\([^\(\)]*\)\}");
+        QRegularExpression pattern(R"(\{id:[^\{\}]*\([^\(\)]*\)\})");
         QRegularExpressionMatchIterator it = pattern.globalMatch(text);
         while (it.hasNext()) {
             QRegularExpressionMatch match = it.next();
