@@ -135,7 +135,8 @@ class PathFinder:
             if depth > 2:
                 continue
             for f in files:
-                if f in executable_names or any(f.lower() == name.lower() for name in executable_names):
+                # 大小写不敏感匹配可执行文件名称
+                if any(f.lower() == name.lower() for name in executable_names):
                     exe_path = os.path.join(root, f)
                     logger.info(f"[{__name__}] <{func_name}> (INFO): 找到可执行文件: {exe_path}")
                     return exe_path
@@ -505,7 +506,7 @@ def main():
     result = find_path(
         mode=args.mode,
         steam_game=args.steam_game,
-        manual_path=args.manual_path if args.manual_path is not None else None,
+        manual_path=args.manual_path,
         search_name=args.search_name,
         target_type=args.type,
         interactive=interactive,

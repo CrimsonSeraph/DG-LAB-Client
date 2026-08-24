@@ -46,6 +46,12 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 - **规则引擎** 提供 `Rule` 类（支持 `{}`、`{id:xxx(名称)}`、`{rule:xx}` 占位符）和单例 `RuleManager`。可从指定目录下扫描 JSON 规则文件（含关键字 `rule`），加载规则集，并支持创建/删除/切换规则文件。规则支持启用状态（`enabled`）、多父级（通道 A/B 或规则引用）、唯一规则序号，值模式支持空值语义（任一引用为空时忽略该项计算），规则间可通过 `{rule:xx}` 引用结果并级联触发，父级为通道的规则结果自动发送给 Python 子进程。规则可用于动态生成发送给 Python 子进程的命令（如强度操作、波形参数），极大提升了操作的灵活性。
 
+- **进程检查 (ProcessChecker)**
+  提供 `ProcessChecker` 静态工具类，跨平台查询指定名称的进程是否在运行（Windows 使用 `tasklist`，macOS/Linux 使用 `ps`），支持大小写敏感开关。用于 CS2 GSI 配置更新时判断游戏是否运行（配置仅游戏启动时加载，运行中更新需提示重启游戏）。
+
+- **CS2 GSI 模块 (CS2GSIModule)**
+  `CS2GSIModule` 单独封装 CS2 的 Game State Integration 逻辑：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取 GSI 监听端口，按模块最小查询周期计算 `buffer`/`throttle` 参数并生成 `gamestate_integration_dglab.cfg`（配置文件地址记录到 `user.json` 的 `app.gsi` 下）。当最小查询周期改变时自动更新配置；若检测到 `cs2.exe` 正在运行，弹出提示要求重启游戏使配置生效，未运行则无需提示。
+
 - **首页通道面板** 首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式，`x_wave_card` 波形卡片保持现状。
 
 - **数值模块（Module）** 提供 `ModuleManager` 单例与 `ModuleValue`/`Module` 数据模型，管理可查询数值（参照 CS2 官方 GSI 规范，如 `health`、`armor`、`team_num`、`money` 等）。每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口；调度器以所有数值中最短的查询周期为基准进行轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费。模块页点击模块卡片可弹出数值展示窗口（每行两个数值框，显示名称、当前值及底层字段名）。
@@ -568,7 +574,8 @@ DG-LAB-Client/
 │   │   ├── DebugLog_utils.hpp           # 日志工具函数
 │   │   ├── Console.h                    # 控制台输出
 │   │   ├── LogExporter.h                # 日志导出器（导出设置与清理）
-│   │   └── LogExportSettingsDialog.h    # 日志导出设置对话框
+│   │   ├── LogExportSettingsDialog.h    # 日志导出设置对话框
+│   │   └── ProcessChecker.h             # 进程运行状态检查
 │   ├── bridge/                          # Python 子进程通信
 │   │   └── PythonSubprocessManager.h    # Python 子进程管理
 │   ├── rule/                            # 规则引擎（含规则编辑 UI）
@@ -583,7 +590,8 @@ DG-LAB-Client/
 │   │   ├── ModuleValue.h                # 数值模型与查询周期枚举
 │   │   ├── Module.h                     # 数据模块（一组数值）
 │   │   ├── ModuleManager.h              # 数值模块管理器（周期调度）
-│   │   └── ModuleValuesDialog.h         # 模块数值展示对话框
+│   │   ├── ModuleValuesDialog.h         # 模块数值展示对话框
+│   │   └── CS2GSIModule.h               # CS2 GSI 模块（路径查找、配置生成）
 │   ├── ui/                              # 界面层（主窗口 + 通用控件）
 │   │   ├── DGLABClient.h                # 主窗口类定义
 │   │   ├── DGLABClient.ui               # Qt Designer 界面文件
@@ -601,7 +609,9 @@ DG-LAB-Client/
 │   └── LICENSE.MIT.txt                 # nlohmann/json 的 MIT 许可证
 ├── python/                             # Python 后端脚本
 │   ├── Bridge.py                       # 桥接模块（与 C++ 交互）
-│   └── WebSocketCore.py                # WebSocket 核心逻辑
+│   ├── WebSocketCore.py                # WebSocket 核心逻辑
+│   ├── PathFinder.py                   # 跨平台路径查找工具（Steam 游戏目录等）
+│   └── README.md                       # Python 脚本说明
 ├── qcss/                               # Qt 样式表（共 14 个主题文件）
 │   ├── light.qcss                      # 浅色模式
 │   ├── night.qcss                      # 深色模式
@@ -631,7 +641,8 @@ DG-LAB-Client/
 │   │   ├── DebugLog.cpp                 # 调试日志实现
 │   │   ├── Console.cpp                  # 控制台输出实现
 │   │   ├── LogExporter.cpp              # 日志导出器实现
-│   │   └── LogExportSettingsDialog.cpp  # 日志导出设置对话框实现
+│   │   ├── LogExportSettingsDialog.cpp  # 日志导出设置对话框实现
+│   │   └── ProcessChecker.cpp           # 进程运行状态检查实现
 │   ├── bridge/                          # Python 子进程通信
 │   │   └── PythonSubprocessManager.cpp  # Python 子进程管理实现
 │   ├── rule/                            # 规则引擎（含规则编辑 UI）
@@ -646,6 +657,7 @@ DG-LAB-Client/
 │   │   ├── Module.cpp                   # 数据模块实现
 │   │   ├── ModuleManager.cpp            # 数值模块管理器实现
 │   │   └── ModuleValuesDialog.cpp       # 模块数值展示对话框实现
+│   │   └── CS2GSIModule.cpp               # CS2 GSI 模块实现
 │   ├── ui/                              # 界面层（主窗口 + 通用控件）
 │   │   ├── DGLABClient.cpp              # 主窗口实现
 │   │   ├── EditableLabel.cpp            # 可编辑标签实现

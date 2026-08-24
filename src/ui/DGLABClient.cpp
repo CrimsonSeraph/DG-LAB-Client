@@ -13,6 +13,7 @@
 #include "FormulaBuilderDialog.h"
 #include "IpSelector.h"
 #include "LogExportSettingsDialog.h"
+#include "CS2GSIModule.h"
 #include "ModuleManager.h"
 #include "ModuleValuesDialog.h"
 #include "ParentEditDialog.h"
@@ -167,14 +168,23 @@ void DGLABClient::normal_init() {
     setup_default_page();
     create_tray_icon();
     set_port_label_mode();
+    // 配置系统已加载，优先启动日志设置与自动日志，使后续初始化日志完整记录
+    log_exporter_.load_settings();
+    log_exporter_.start_auto_log();
     setup_rules_ui();
     setup_module_ui();
     connect_rule_engine();
+    // 初始化 CS2 GSI 模块（查找目录、生成配置文件、监听周期变化）
+    CS2GSIModule::instance().init();
+    connect(&CS2GSIModule::instance(), &CS2GSIModule::game_restart_required,
+        this, [this](const QString& config_path) {
+            QMessageBox::warning(this, "需要重启游戏",
+                "已更新 GSI 配置文件（最小查询周期变化，throttle 已调整）:\n"
+                + config_path + "\n\n"
+                + "GSI 配置仅在游戏启动时加载，请重启 CS2 游戏使新配置生效。");
+        });
     setup_channel_cards();
     init_python_manager();
-    // 加载日志设置（user.json 的 app.log）并启动自动日志（配置系统加载完毕后记录）
-    log_exporter_.load_settings();
-    log_exporter_.start_auto_log();
 }
 
 void DGLABClient::init_log() {

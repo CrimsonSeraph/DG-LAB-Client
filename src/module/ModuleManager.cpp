@@ -5,6 +5,7 @@
 
 #include "ModuleManager.h"
 
+#include "CS2GSIModule.h"
 #include "DebugLog.h"
 
 #include <algorithm>
@@ -314,15 +315,11 @@ bool ModuleManager::query_value_locked(Module& module, ModuleValue& value) {
 }
 
 void ModuleManager::register_default_modules() {
-    // 默认模块同时挂载到 A、B 两个通道
-    Module cs2_module("CS2 GSI 模块", {"A", "B"});
-    // 参照 CS2 官方 GSI 规范注册常用数值（id 用于规则引用，field 为底层字段名）
-    cs2_module.add_value(ModuleValue("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth"));
-    cs2_module.add_value(ModuleValue("armor", "当前护甲", QueryPeriod::HALF_SECOND, "m_ArmorValue"));
-    cs2_module.add_value(ModuleValue("team_num", "队伍编号", QueryPeriod::SECOND, "m_iTeamNum"));
-    cs2_module.add_value(ModuleValue("money", "金钱", QueryPeriod::TWO_SECONDS, "m_iMoney"));
-    cs2_module.add_value(ModuleValue("has_helmet", "是否有头盔", QueryPeriod::FOUR_SECONDS, "m_bHasHelmet"));
-    cs2_module.add_value(ModuleValue("has_defuser", "是否有拆弹器", QueryPeriod::FOUR_SECONDS, "m_bHasDefuser"));
+    // 默认 CS2 GSI 模块（数值定义由 CS2GSIModule 单独维护），同时挂载到 A、B 两个通道
+    Module cs2_module(CS2GSIModule::module_name(), {"A", "B"});
+    for (const auto& value : CS2GSIModule::create_default_values()) {
+        cs2_module.add_value(value);
+    }
     modules_.push_back(cs2_module);
     LOG_MODULE("ModuleManager", "register_default_modules", LOG_DEBUG,
         "已注册默认模块: " << cs2_module.get_name() << "，数值数量: " << cs2_module.get_values().size());
