@@ -245,6 +245,32 @@ int ModuleManager::query_value(const std::string& module_name, const std::string
     return new_value;
 }
 
+void ModuleManager::set_value(const std::string& module_name, const std::string& value_id,
+    int value) {
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto& module : modules_) {
+            if (module.get_name() != module_name) {
+                continue;
+            }
+            for (auto& v : module.get_values()) {
+                if (v.get_id() == value_id) {
+                    // 变化检测：已有历史值且不同才推送
+                    changed = v.get_has_value() && v.get_last_value() != value;
+                    v.set_last_value(value);
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    if (changed) {
+        emit value_changed(QString::fromStdString(module_name),
+            QString::fromStdString(value_id), value);
+    }
+}
+
 int ModuleManager::get_base_period_ms() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return base_period_ms_;

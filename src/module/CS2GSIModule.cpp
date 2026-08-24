@@ -7,8 +7,11 @@
 
 #include "AppConfig.h"
 #include "DebugLog.h"
+#include "GsiServer.h"
 #include "ModuleManager.h"
 #include "ProcessChecker.h"
+
+#include <QJsonObject>
 
 #include <QCoreApplication>
 #include <QDir>
@@ -35,6 +38,10 @@ CS2GSIModule::CS2GSIModule()
     // 监听模块周期变化：最小查询周期改变时更新 GSI 配置并检查游戏进程
     connect(&ModuleManager::instance(), &ModuleManager::period_changed,
         this, &CS2GSIModule::on_period_changed);
+    // 创建 GSI 监听服务器，接收 CS2 游戏推送的数据
+    gsi_server_ = new GsiServer(this);
+    connect(gsi_server_, &GsiServer::data_received,
+        this, &CS2GSIModule::on_gsi_data_received);
 }
 
 CS2GSIModule::~CS2GSIModule() = default;
@@ -59,6 +66,8 @@ void CS2GSIModule::init() {
         }
     }
     last_min_period_ms_ = ModuleManager::instance().get_base_period_ms();
+    // 启动 GSI 端口监听（接收 CS2 游戏数据）
+    start_gsi_listener();
     LOG_MODULE("CS2GSIModule", "init", LOG_INFO,
         "CS2 GSI 模块初始化完成，配置文件: " << config_path_.toStdString());
 }
@@ -202,9 +211,108 @@ void CS2GSIModule::on_period_changed() {
     }
 }
 
+void CS2GSIModule::on_gsi_data_received(const QJsonObject& data) {
+    // 从 GSI 数据中解析玩家数值并写入数值模块（兼容 player.state 与 player_state 两种结构）
+    auto& manager = ModuleManager::instance();
+    const QString module = QString::fromUtf8(module_name());
+    // 血量 / 护甲 / 金钱 / 头盔 / 拆弹器（字段缺失（-1）时不写入）
+    int health = extract_gsi_field(data, "player", "state", "health", -1);
+    if (health >= 0) {
+        manager.set_value(module.toStdString(), "health", health);
+    }
+    int armor = extract_gsi_field(data, "player", "state", "armor", -1);
+    if (armor >= 0) {
+        manager.set_value(module.toStdString(), "armor", armor);
+    }
+    int money = extract_gsi_field(data, "player", "state", "money", -1);
+    if (money >= 0) {
+        manager.set_value(module.toStdString(), "money", money);
+    }
+    int helmet = extract_gsi_field(data, "player", "state", "helmet", -1);
+    if (helmet >= 0) {
+        manager.set_value(module.toStdString(), "has_helmet", helmet);
+    }
+    int defuser = extract_gsi_field(data, "player", "state", "defusekit", -1);
+    if (defuser >= 0) {
+        manager.set_value(module.toStdString(), "has_defuser", defuser);
+    }
+    // 队伍编号（team 为 "CT"/"T" 字符串，映射 3/2；为数字时直接使用）
+    QJsonValue team_value;
+    if (data.contains("player") && data["player"].isObject()) {
+        team_value = data["player"].toObject().value("team");
+    }
+    if (team_value.isString()) {
+        QString team = team_value.toString().toUpper();
+        manager.set_value(module.toStdString(), "team_num",
+            (team == "CT") ? 3 : 2);
+    }
+    else if (team_value.isDouble()) {
+        manager.set_value(module.toStdString(), "team_num", team_value.toInt());
+    }
+    LOG_MODULE("CS2GSIModule", "on_gsi_data_received", LOG_DEBUG,
+        "GSI 数据写入模块: health=" << health << ", armor=" << armor
+        << ", money=" << money << ", helmet=" << helmet << ", defuser=" << defuser);
+}
+
 // ============================================
 // 私有辅助函数实现（private）
 // ============================================
+
+void CS2GSIModule::start_gsi_listener() {
+    if (!gsi_server_ || port_ <= 0) {
+        LOG_MODULE("CS2GSIModule", "start_gsi_listener", LOG_WARN,
+            "端口无效，无法启动监听（端口: " << port_ << "）");
+        return;
+    }
+    // 端口被占用时重新随机端口并重新生成配置，最多重试 5 次
+    for (int attempt = 0; attempt < 5; ++attempt) {
+        if (gsi_server_->start_listening(port_)) {
+            LOG_MODULE("CS2GSIModule", "start_gsi_listener", LOG_INFO,
+                "GSI 端口监听已启动: " << port_);
+            return;
+        }
+        LOG_MODULE("CS2GSIModule", "start_gsi_listener", LOG_WARN,
+            "端口 " << port_ << " 监听失败，重新随机端口并更新配置");
+        port_ = random_port();
+        if (config_path_.isEmpty() || generate_config().isEmpty()) {
+            return;
+        }
+    }
+    LOG_MODULE("CS2GSIModule", "start_gsi_listener", LOG_ERROR,
+        "连续 5 次端口监听失败，GSI 数据接收不可用");
+}
+
+int CS2GSIModule::extract_gsi_field(const QJsonObject& data, const QString& player_key,
+    const QString& state_key, const QString& field, int fallback) {
+    QJsonValue result = fallback;
+    // 支持 player.state.xxx 与 player_state.xxx 两种 GSI 结构
+    const QStringList player_candidates = {player_key, "player_state"};
+    for (const QString& pk : player_candidates) {
+        if (!data.contains(pk) || !data[pk].isObject()) {
+            continue;
+        }
+        const QJsonObject player_obj = data[pk].toObject();
+        // state 字段：state_key 或直接 player 下
+        if (player_obj.contains(state_key) && player_obj[state_key].isObject()) {
+            const QJsonObject state_obj = player_obj[state_key].toObject();
+            if (state_obj.contains(field)) {
+                result = state_obj.value(field);
+                break;
+            }
+        }
+        else if (player_obj.contains(field)) {
+            result = player_obj.value(field);
+            break;
+        }
+    }
+    if (result.isBool()) {
+        return result.toBool() ? 1 : 0;
+    }
+    if (result.isDouble()) {
+        return result.toInt();
+    }
+    return fallback;
+}
 
 int CS2GSIModule::random_port() {
     // 随机端口区间避开常见服务端口

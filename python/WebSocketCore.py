@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 import qrcode
 import websockets

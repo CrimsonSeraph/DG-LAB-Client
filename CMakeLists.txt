@@ -141,6 +141,8 @@ set(PROJECT_SOURCES
 	src/module/ModuleValuesDialog.cpp
 	include/module/CS2GSIModule.h
 	src/module/CS2GSIModule.cpp
+	include/module/GsiServer.h
+	src/module/GsiServer.cpp
 
 	# ---------- 界面层（ui） ----------
 	include/ui/DGLABClient.h

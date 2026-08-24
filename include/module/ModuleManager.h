@@ -96,6 +96,12 @@ public:
     /// @return 查询到的数值，数值不存在返回 0
     int query_value(const std::string& module_name, const std::string& value_id);
 
+    /// @brief 外部写入数值（如 GSI 数据接收后），变化时触发推送
+    /// @param module_name 模块名称
+    /// @param value_id 数值 ID
+    /// @param value 最新数值
+    void set_value(const std::string& module_name, const std::string& value_id, int value);
+
     /// @brief 获取当前调度基准周期（所有数值中的最短查询周期）
     /// @return 基准周期毫秒数
     int get_base_period_ms() const;

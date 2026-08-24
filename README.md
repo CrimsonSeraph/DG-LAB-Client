@@ -50,7 +50,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
   提供 `ProcessChecker` 静态工具类，跨平台查询指定名称的进程是否在运行（Windows 使用 `tasklist`，macOS/Linux 使用 `ps`），支持大小写敏感开关。用于 CS2 GSI 配置更新时判断游戏是否运行（配置仅游戏启动时加载，运行中更新需提示重启游戏）。
 
 - **CS2 GSI 模块 (CS2GSIModule)**
-  `CS2GSIModule` 单独封装 CS2 的 Game State Integration 逻辑：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取 GSI 监听端口，按模块最小查询周期计算 `buffer`/`throttle` 参数并生成 `gamestate_integration_dglab.cfg`（配置文件地址记录到 `user.json` 的 `app.gsi` 下）。当最小查询周期改变时自动更新配置；若检测到 `cs2.exe` 正在运行，弹出提示要求重启游戏使配置生效，未运行则无需提示。
+  `CS2GSIModule` 单独封装 CS2 的 Game State Integration 逻辑：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取 GSI 监听端口，按模块最小查询周期计算 `buffer`/`throttle` 参数并生成 `gamestate_integration_dglab.cfg`（配置文件地址记录到 `user.json` 的 `app.gsi` 下）。配置生成后 `GsiServer` 即监听对应端口，接收 CS2 游戏按 `throttle` 频率推送的 GSI 数据（HTTP POST），解析血量/护甲/金钱/队伍/头盔/拆弹器并写入数值模块触发规则计算。当最小查询周期改变时自动更新配置；若检测到 `cs2.exe` 正在运行，弹出提示要求重启游戏使配置生效，未运行则无需提示。
 
 - **首页通道面板** 首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式，`x_wave_card` 波形卡片保持现状。
 
@@ -591,7 +591,8 @@ DG-LAB-Client/
 │   │   ├── Module.h                     # 数据模块（一组数值）
 │   │   ├── ModuleManager.h              # 数值模块管理器（周期调度）
 │   │   ├── ModuleValuesDialog.h         # 模块数值展示对话框
-│   │   └── CS2GSIModule.h               # CS2 GSI 模块（路径查找、配置生成）
+│   │   ├── CS2GSIModule.h               # CS2 GSI 模块（路径查找、配置生成）
+│   │   └── GsiServer.h                 # GSI 数据监听服务器
 │   ├── ui/                              # 界面层（主窗口 + 通用控件）
 │   │   ├── DGLABClient.h                # 主窗口类定义
 │   │   ├── DGLABClient.ui               # Qt Designer 界面文件
@@ -657,7 +658,8 @@ DG-LAB-Client/
 │   │   ├── Module.cpp                   # 数据模块实现
 │   │   ├── ModuleManager.cpp            # 数值模块管理器实现
 │   │   └── ModuleValuesDialog.cpp       # 模块数值展示对话框实现
-│   │   └── CS2GSIModule.cpp               # CS2 GSI 模块实现
+│   │   ├── CS2GSIModule.cpp               # CS2 GSI 模块实现
+│   │   └── GsiServer.cpp                 # GSI 数据监听服务器实现
 │   ├── ui/                              # 界面层（主窗口 + 通用控件）
 │   │   ├── DGLABClient.cpp              # 主窗口实现
 │   │   ├── EditableLabel.cpp            # 可编辑标签实现

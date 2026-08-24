@@ -14,6 +14,7 @@
 #include <vector>
 
 // 前置声明
+class GsiServer;
 class ModuleManager;
 
 // ============================================
@@ -71,6 +72,10 @@ private slots:
     /// @brief 模块最小查询周期变化时：更新配置文件（throttle 随周期变化）并检查游戏进程
     void on_period_changed();
 
+    /// @brief 收到 GSI 数据时：解析并写入数值模块
+    /// @param data GSI 完整数据
+    void on_gsi_data_received(const QJsonObject& data);
+
 private:
     // -------------------- 构造/析构（单例私有）--------------------
     CS2GSIModule();
@@ -102,9 +107,23 @@ private:
     /// @return 标准输出文本
     static QString run_path_finder(const QStringList& args);
 
+    /// @brief 启动 GSI 端口监听（端口被占用时重新随机端口并重新生成配置，最多重试 5 次）
+    void start_gsi_listener();
+
+    /// @brief 从 GSI JSON 中提取嵌套字段（支持 player.state 或 player_state）
+    /// @param data GSI 完整数据
+    /// @param player_key player 字段路径
+    /// @param state_key state 字段路径
+    /// @param field 目标字段名
+    /// @param fallback 默认值
+    /// @return 提取的数值
+    static int extract_gsi_field(const QJsonObject& data, const QString& player_key,
+        const QString& state_key, const QString& field, int fallback);
+
     // -------------------- 成员变量 --------------------
     QString cs_dir_;          ///< CS 游戏目录
     QString config_path_;     ///< GSI 配置文件路径
     int port_ = 0;            ///< GSI 监听端口
     int last_min_period_ms_ = 0; ///< 上次处理的最小查询周期
+    GsiServer* gsi_server_ = nullptr; ///< GSI 监听服务器
 };
