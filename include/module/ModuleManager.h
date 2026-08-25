@@ -21,6 +21,7 @@
 // 前置声明
 class QLibrary;
 class IPlugin;
+class DataListener;
 
 // ============================================
 // ModuleManager - 数值模块管理器（单例）
@@ -172,9 +173,47 @@ public:
     /// @param module_name 模块名称
     void unregister_module(const std::string& module_name) override;
 
-    /// @brief 获取宿主共享的数据接收器（懒创建）
-    /// @return 数据接收器指针
-    DataListener* data_listener() override;
+    /// @brief 在宿主共享监听器上开始监听端口（HTTP 协议）
+    /// @param port 监听端口
+    /// @return 成功返回 true
+    bool listen_data(int port) override;
+
+    /// @brief 停止宿主共享监听器
+    void stop_listening_data() override;
+
+    /// @brief 注册数据处理器（转发到共享 DataListener）
+    /// @param source 来源标识
+    /// @param type 信息类型
+    /// @param handler 数据处理回调
+    /// @return 成功返回 true
+    bool register_data_handler(const std::string& source, const std::string& type,
+        const std::function<void(const QJsonObject&)>& handler) override;
+
+    /// @brief 注销数据处理器
+    /// @param source 来源标识
+    /// @param type 信息类型
+    void unregister_data_handler(const std::string& source, const std::string& type) override;
+
+    /// @brief 读取宿主配置值（多配置合并后的最终值）
+    /// @param key 点分隔配置路径
+    /// @param default_value 默认值
+    /// @return 配置值
+    std::string get_config_value(const std::string& key,
+        const std::string& default_value) override;
+
+    /// @brief 写入宿主配置值（写入 user 配置）
+    /// @param key 点分隔配置路径
+    /// @param value 配置值
+    void set_config_value(const std::string& key, const std::string& value) override;
+
+    /// @brief 获取当前调度基准周期
+    /// @return 基准周期毫秒数
+    int base_period_ms() override;
+
+    /// @brief 向宿主发送用户可见通知（转发为 plugin_notification 信号）
+    /// @param title 标题
+    /// @param message 内容
+    void notify(const std::string& title, const std::string& message) override;
 
 signals:
     /// @brief 数值变化时发出（用于触发规则计算与界面刷新）
@@ -188,6 +227,11 @@ signals:
 
     /// @brief 插件加载/卸载/失败时发出（用于刷新模块页与插件状态显示）
     void plugin_state_changed();
+
+    /// @brief 插件请求用户可见通知时发出（如 GSI 配置更新需重启游戏）
+    /// @param title 标题
+    /// @param message 内容
+    void plugin_notification(const QString& title, const QString& message);
 
 private slots:
     /// @brief 调度定时器触发（按基准周期执行到期数值的查询）
@@ -211,10 +255,10 @@ private:
     ~ModuleManager() override;
 
     // -------------------- 私有辅助函数 --------------------
-    /// @brief 注册默认模块（CS2 GSI 数值，参照官方 GSI 规范）
-    void register_default_modules();
     /// @brief 重建调度器（以所有数值中最短查询周期为基准）
     void rebuild_scheduler();
+    /// @brief 周期变化通知：通知已加载插件（on_host_period_changed）并发出 period_changed 信号
+    void emit_period_changed();
     /// @brief 查询单个数值并检测变化（需已持有锁）
     /// @param module 模块引用
     /// @param value 数值引用
@@ -245,6 +289,7 @@ private:
     // -------------------- 成员变量 --------------------
     std::vector<Module> modules_; ///< 模块列表
     mutable std::mutex mutex_;    ///< 保护模块数据（plugins_ 仅主线程访问）
+    bool initialized_ = false;    ///< 初始化标志（幂等）
     QTimer* timer_ = nullptr;     ///< 调度定时器
     int tick_count_ = 0;          ///< 调度计数（以基准周期递增）
     int base_period_ms_ = 1000;   ///< 基准周期（毫秒）

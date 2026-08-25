@@ -6,7 +6,6 @@
 #include "DGLABClient.h"
 
 #include "AppConfig.h"
-#include "CS2GSIModule.h"
 #include "ComboBoxDelegate.h"
 #include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
@@ -225,12 +224,10 @@ void DGLABClient::normal_init() {
     setup_rules_ui();
     setup_module_ui();
     connect_rule_engine();
-    // 初始化 CS2 GSI 模块（查找目录、生成配置文件、监听周期变化）
-    CS2GSIModule::instance().init();
-    connect(&CS2GSIModule::instance(), &CS2GSIModule::game_restart_required,
-        this, [this](const QString& config_path) {
-            QMessageBox::warning(this, "需要重启游戏",
-                "已更新 GSI 配置文件（最小查询周期变化，throttle 已调整）:\n" + config_path + "\n\n" + "GSI 配置仅在游戏启动时加载，请重启 CS2 游戏使新配置生效。");
+    // 插件通知（如 GSI 配置更新需重启游戏）转为主窗口弹窗提示
+    connect(&ModuleManager::instance(), &ModuleManager::plugin_notification,
+        this, [this](const QString& title, const QString& message) {
+            QMessageBox::warning(this, title, message);
         });
     setup_channel_cards();
     init_python_manager();

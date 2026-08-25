@@ -14,6 +14,8 @@
 #include <QTcpSocket>
 #include <QUdpSocket>
 
+#include <memory>
+
 // ============================================
 // HttpJsonParser - HTTP POST JSON 解析器（public）
 // ============================================
@@ -193,20 +195,47 @@ void DataListener::incomingConnection(qintptr socketDescriptor) {
         delete socket;
         return;
     }
-    // 接收 HTTP POST 请求体（如 CS2 GSI 每次发送一个 JSON 数据块）
-    connect(socket, &QTcpSocket::readyRead, this, [this, socket]() {
-        QByteArray request = socket->readAll();
-        // 交给解析器与分发逻辑（HTTP 解析器提取请求体并解析 JSON）
-        handle_raw_data(request);
-        // 返回 HTTP 200 响应
-        const QByteArray response =
-            "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-        socket->write(response);
-        socket->flush();
-        socket->disconnectFromHost();
-        socket->deleteLater();
+    // 按连接累积请求体：HTTP 头完整后按 Content-Length 判断是否收齐（避免分包半包）
+    auto buffer = std::make_shared<QByteArray>();
+    connect(socket, &QTcpSocket::readyRead, this, [this, socket, buffer]() {
+        buffer->append(socket->readAll());
+        // 防御：数据异常过大时直接处理（按无头 JSON 尝试解析，避免无限缓冲）
+        if (buffer->size() > 65536) {
+            finish_http_request(socket, *buffer);
+            return;
+        }
+        // HTTP 头未完整：继续等待后续数据
+        int header_end = buffer->indexOf("\r\n\r\n");
+        if (header_end < 0) {
+            return;
+        }
+        // 有完整头：按 Content-Length 判断 body 是否收齐
+        const QByteArray header = buffer->left(header_end);
+        QRegularExpression length_re(R"(Content-Length:\s*(\d+))",
+            QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch match = length_re.match(QString::fromLatin1(header));
+        if (match.hasMatch()) {
+            int length = match.captured(1).toInt();
+            if (buffer->size() < header_end + 4 + length) {
+                // body 未收齐：继续等待
+                return;
+            }
+        }
+        finish_http_request(socket, *buffer);
     });
     connect(socket, &QTcpSocket::disconnected, socket, &QTcpSocket::deleteLater);
+}
+
+void DataListener::finish_http_request(QTcpSocket* socket, const QByteArray& request) {
+    // 交给解析器与分发逻辑（HTTP 解析器提取请求体并解析 JSON）
+    handle_raw_data(request);
+    // 返回 HTTP 200 响应
+    const QByteArray response =
+        "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    socket->write(response);
+    socket->flush();
+    socket->disconnectFromHost();
+    socket->deleteLater();
 }
 
 // ============================================

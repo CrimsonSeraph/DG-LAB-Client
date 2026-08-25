@@ -106,6 +106,14 @@ public:
     /// @param type 信息类型（如 "gsi"）
     void set_default_type(const QString& type);
 
+    /// @brief 获取默认来源标识
+    /// @return 默认来源（未设置返回空字符串）
+    inline const QString& default_source() const { return default_source_; }
+
+    /// @brief 获取默认信息类型
+    /// @return 默认类型（未设置返回空字符串）
+    inline const QString& default_type() const { return default_type_; }
+
     // -------------------- 处理器注册 --------------------
     /// @brief 注册数据处理处理器（同一来源+类型重复注册时覆盖）
     /// @param source 来源标识（模块名）
@@ -143,6 +151,11 @@ private:
     /// @brief 解析原始数据、识别来源并分发（HTTP 与 UDP 共用入口）
     /// @param raw 原始字节
     void handle_raw_data(const QByteArray& raw);
+
+    /// @brief 完成单个 HTTP 请求：解析分发并返回 200 响应（收齐请求体后调用）
+    /// @param socket 请求 socket
+    /// @param request 完整请求数据
+    void finish_http_request(QTcpSocket* socket, const QByteArray& request);
 
     /// @brief 按来源与类型分发数据给已注册的处理器
     /// @param source 来源标识

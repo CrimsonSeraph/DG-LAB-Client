@@ -141,6 +141,9 @@ public:
     /// @return 允许卸载返回 true
     virtual bool can_unload() const { return true; }
 
+    /// @brief 宿主查询周期变化通知（可选实现；插件可据此更新外部配置，如 GSI throttle）
+    virtual void on_host_period_changed() {}
+
     // -------------------- 宿主上下文 --------------------
     /// @brief 注入宿主上下文（宿主加载插件后调用；插件在 initialize 中通过 host_ 使用宿主能力）
     /// @param host 宿主上下文接口

@@ -6,7 +6,6 @@
 #include "ModuleManager.h"
 
 #include "AppConfig.h"
-#include "CS2GSIModule.h"
 #include "DataListener.h"
 #include "DebugLog.h"
 #include "IPlugin.h"
@@ -65,18 +64,18 @@ ModuleManager::~ModuleManager() {
 void ModuleManager::init() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        // 幂等处理：避免重复注册
-        if (!modules_.empty()) {
+        // 幂等处理：避免重复初始化
+        if (initialized_) {
             return;
         }
-        register_default_modules();
         // 数据源由外部通过 set_data_source 提供（真实 GSI 接入前无数据，数值保持"未获取"状态）
         if (!data_source_) {
             LOG_MODULE("ModuleManager", "init", LOG_WARN,
                 "未设置数据源，数值模块保持无数据状态（可通过 set_data_source 接入真实数据）");
         }
-        // 以最短查询周期为基准启动调度器
+        // 以最短查询周期为基准启动调度器（模块由插件加载后注册）
         rebuild_scheduler();
+        initialized_ = true;
     }
     // 扫描插件目录（config app.module.path，默认 <程序目录>/module）
     scan_plugins();
@@ -194,7 +193,7 @@ void ModuleManager::set_value_period(const std::string& module_name, const std::
         }
         rebuild_scheduler();
     }
-    emit period_changed();
+    emit_period_changed();
 }
 
 void ModuleManager::set_module_period(const std::string& module_name, QueryPeriod period) {
@@ -215,7 +214,7 @@ void ModuleManager::set_module_period(const std::string& module_name, QueryPerio
         }
         rebuild_scheduler();
     }
-    emit period_changed();
+    emit_period_changed();
 }
 
 void ModuleManager::set_all_period(QueryPeriod period) {
@@ -226,7 +225,7 @@ void ModuleManager::set_all_period(QueryPeriod period) {
         }
         rebuild_scheduler();
     }
-    emit period_changed();
+    emit_period_changed();
     LOG_MODULE("ModuleManager", "set_all_period", LOG_INFO,
         "已统一设置所有数值查询周期: " << query_period_to_text(period));
 }
@@ -256,7 +255,8 @@ int ModuleManager::query_value(const std::string& module_name, const std::string
             for (auto& value : module.get_values()) {
                 if (value.get_id() == value_id) {
                     if (!data_source_) {
-                        // 无数据源：保持"未获取"状态，不更新数值
+                        // 无数据源：返回已存储的值（外部写入如 GSI 数据），不触发轮询更新
+                        new_value = value.get_last_value();
                         break;
                     }
                     new_value = data_source_(value_id);
@@ -415,7 +415,7 @@ bool ModuleManager::register_module_values(const std::string& module_name,
         }
     }
     if (rebuild) {
-        emit period_changed();
+        emit_period_changed();
     }
     LOG_MODULE("ModuleManager", "register_module_values", LOG_INFO,
         "插件注册数值完成: " << module_name << "，数值数量: " << values.size());
@@ -435,19 +435,66 @@ void ModuleManager::unregister_module(const std::string& module_name) {
             return;
         }
     }
-    emit period_changed();
+    emit_period_changed();
     LOG_MODULE("ModuleManager", "unregister_module", LOG_INFO,
         "已注销模块: " << module_name);
 }
 
-DataListener* ModuleManager::data_listener() {
-    // 宿主共享数据接收器（懒创建；插件自行配置监听端口并注册处理器）
+bool ModuleManager::listen_data(int port) {
+    // 宿主共享数据接收器（懒创建），HTTP 协议监听
     if (!shared_listener_) {
         shared_listener_ = new DataListener(this);
-        LOG_MODULE("ModuleManager", "data_listener", LOG_DEBUG,
+        LOG_MODULE("ModuleManager", "listen_data", LOG_DEBUG,
             "创建宿主共享数据接收器");
     }
-    return shared_listener_;
+    return shared_listener_->start_listening(port);
+}
+
+void ModuleManager::stop_listening_data() {
+    if (shared_listener_) {
+        shared_listener_->stop_listening();
+    }
+}
+
+bool ModuleManager::register_data_handler(const std::string& source, const std::string& type,
+    const std::function<void(const QJsonObject&)>& handler) {
+    if (!shared_listener_) {
+        shared_listener_ = new DataListener(this);
+    }
+    // 无信封数据（如 CS2 GSI）回退默认来源：首次注册的来源+类型作为默认值
+    if (shared_listener_->default_source().isEmpty() && shared_listener_->default_type().isEmpty()) {
+        shared_listener_->set_default_source(QString::fromStdString(source));
+        shared_listener_->set_default_type(QString::fromStdString(type));
+    }
+    shared_listener_->register_handler(QString::fromStdString(source),
+        QString::fromStdString(type), handler);
+    return true;
+}
+
+void ModuleManager::unregister_data_handler(const std::string& source,
+    const std::string& type) {
+    if (shared_listener_) {
+        shared_listener_->unregister_handler(QString::fromStdString(source),
+            QString::fromStdString(type));
+    }
+}
+
+std::string ModuleManager::get_config_value(const std::string& key,
+    const std::string& default_value) {
+    return AppConfig::instance().get_value<std::string>(key, default_value);
+}
+
+void ModuleManager::set_config_value(const std::string& key, const std::string& value) {
+    AppConfig::instance().set_value_with_name<std::string>(key, value, "user");
+}
+
+int ModuleManager::base_period_ms() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return base_period_ms_;
+}
+
+void ModuleManager::notify(const std::string& title, const std::string& message) {
+    emit plugin_notification(QString::fromStdString(title), QString::fromStdString(message));
 }
 
 // ============================================
@@ -514,15 +561,14 @@ bool ModuleManager::query_value_locked(Module& module, ModuleValue& value) {
     return changed;
 }
 
-void ModuleManager::register_default_modules() {
-    // 默认 CS2 GSI 模块（数值定义由 CS2GSIModule 单独维护），同时挂载到 A、B 两个通道
-    Module cs2_module(CS2GSIModule::module_name(), {"A", "B"});
-    for (const auto& value : CS2GSIModule::create_default_values()) {
-        cs2_module.add_value(value);
+void ModuleManager::emit_period_changed() {
+    // 周期变化通知：先通知已加载插件（如 GSI 插件据此更新配置文件 throttle），再发出信号
+    for (const auto& entry : plugins_) {
+        if (entry.state == PluginLoadState::Loaded && entry.instance) {
+            entry.instance->on_host_period_changed();
+        }
     }
-    modules_.push_back(cs2_module);
-    LOG_MODULE("ModuleManager", "register_default_modules", LOG_DEBUG,
-        "已注册默认模块: " << cs2_module.get_name() << "，数值数量: " << cs2_module.get_values().size());
+    emit period_changed();
 }
 
 // -------------------- 插件扫描与加载（private） --------------------
