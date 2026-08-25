@@ -12,6 +12,7 @@
 
 ### Added
 
+- **插件接口 (IPlugin)**: 新增插件纯虚基类 `IPlugin`（生命周期 `initialize`/`uninitialize`/`cleanup`/`can_unload`、自描述 `name`/`version`/`api_version`/`capabilities`/`dependencies`、线程安全声明与错误码返回）与统一导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性，`include/plugin/plugin_export.h`）；约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 导出与 API 版本校验（`PLUGIN_API_VERSION=1`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`），内存隔离约定插件自行 `new`/`delete`。新增示例空壳插件（`module/example/`，类名 `ExamplePlugin`）演示接口实现与导出，构建后自动复制到 `<程序目录>/module/` 供扫描加载。
 - **数值模块（Module）**: 新增 `ModuleValue`/`Module`/`ModuleManager` 数据模型（`include/Module.h`、`include/ModuleValue.h`、`include/ModuleManager.h` 及对应源文件），默认注册 CS2 GSI 模块，内置 `health`（m_iHealth）、`armor`（m_ArmorValue）、`team_num`、`money`、`has_helmet`、`has_defuser` 等数值（参照 CS2 官方 GSI 规范）。
 - **模块页面**: 点击模块卡片弹出数值展示窗口（`ModuleValuesDialog`，每行两个数值框：名称 + 当前值 + 底层字段名小字），每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口。
 - **周期调度机制**: 以所有数值中最短查询周期为基准的调度算法（最短 250ms 精确计时），周期为基准整数倍的数值按对应倍率间隔查询；周期设置变化时自动重建调度器；数值变化时通过 `value_changed` 信号推送，未变化不推送。

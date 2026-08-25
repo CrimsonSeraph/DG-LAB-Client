@@ -7,7 +7,8 @@
 | `core/` | 核心基础设施 | 配置系统（AppConfig、ConfigManager、MultiConfigManager、配置结构体、默认配置及模板实现）、日志系统（DebugLog、控制台、日志导出器与导出设置对话框及工具函数） |
 | `bridge/` | Python 通信桥 | Python 子进程管理器接口 |
 | `rule/` | 规则引擎 | 规则实体与规则管理器接口（含模板实现），以及规则编辑 UI（公式构建对话框、父级编辑对话框、表格委托） |
-| `module/` | 数值模块 | 数据模块接口（Module/ModuleValue/ModuleManager）与数值展示对话框 |
+| `module/` | 数值模块 | 数据模块接口（Module/ModuleValue/ModuleManager）、通用数据接收器（DataListener）与数值展示对话框 |
+| `plugin/` | 插件接口 | 插件纯虚基类 IPlugin 与统一导出宏（plugin_export.h） |
 | `ui/` | 界面层 | 主窗口（DGLABClient 及模板/工具实现、`.ui` 界面文件）与通用控件（可编辑标签、统一下拉框、波形采样、主题选择、IP 选择） |
 
 > 说明：`include/` 下除分类子目录外不再存放散落文件（仅保留本说明文件）。
@@ -22,6 +23,7 @@ include/
 ├── bridge/   # Python 子进程通信
 ├── rule/     # 规则引擎（含规则编辑 UI）
 ├── module/   # 数值模块
+├── plugin/   # 插件接口
 ├── ui/       # 界面层（主窗口 + 通用控件）
 └── README.md # 本说明文件
 ```
@@ -102,7 +104,18 @@ include/
 
 ---
 
-## 五、ui/ —— 界面层
+## 五、plugin/ —— 插件接口
+
+插件化模块系统的公共接口声明，供主程序与外部插件动态库共同引用（插件与主程序必须使用同一工具链构建以保证 ABI 兼容）。
+
+| 文件名 | 描述 |
+| --- | --- |
+| `plugin_export.h` | 统一导出宏（`PLUGIN_EXPORT`/`PLUGIN_API`）与插件 API 版本（`PLUGIN_API_VERSION`）的定义，跨 Windows（`_WIN32`）/GCC/Clang 平台。 |
+| `IPlugin.h` | 插件纯虚基类 `IPlugin` 的声明：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明、错误码返回与日志回调（`set_log_callback`/`log`）；同时声明 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 导出约定（仅 `PLUGIN_BUILD` 时可见）与 `PLUGIN_LOG` 日志宏。 |
+
+---
+
+## 六、ui/ —— 界面层
 
 主窗口与通用控件的接口声明。
 

@@ -56,6 +56,8 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 - **数值模块（Module）** 提供 `ModuleManager` 单例与 `ModuleValue`/`Module` 数据模型，管理可查询数值（参照 CS2 官方 GSI 规范，如 `health`、`armor`、`team_num`、`money` 等）。每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口；调度器以所有数值中最短的查询周期为基准进行轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费。模块页点击模块卡片可弹出数值展示窗口（每行两个数值框，显示名称、当前值及底层字段名）。
 
+- **插件系统（IPlugin）** 提供插件化模块接口 `IPlugin`（纯虚基类）：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明与错误码返回；统一跨平台导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性），约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 工厂导出，主程序加载时校验 API 版本（`PLUGIN_API_VERSION`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`，类名/方法名自动为插件自身名称与函数名）；内存隔离约定插件自行 `new`/`delete`（宿主仅调用 `destroy_plugin`）。示例空壳插件（`module/example/`）演示完整接口实现，构建后自动复制到 `<程序目录>/module/` 供扫描加载（扫描/加载逻辑在模块管理器重构中实现）。
+
 - **波形采样控件（多通道）** 提供 `SampledWaveformWidget`，可同时接收多个独立数据源（监听器）的归一化值（0~1），每个监听器以不同颜色的滚动波形图实时显示。支持动态添加/删除监听器、自定义波形颜色、调整采样间隔和最大振幅比例。适用于同时监控 A/B 通道强度、外部传感器数值等场景。
 
 - **可编辑标签控件 (EditableLabel)** 提供 `EditableLabel` 控件，继承自 `QLabel`，支持双击进入编辑模式，内嵌 `QLineEdit` 并支持输入验证器。编辑完成后发出 `text_edited` 信号，用于需要直接修改文本的场景（如规则名称、设备别名等），提升交互灵活性。
@@ -560,6 +562,8 @@ DG-LAB-Client/
 │   ├── user.json                    # 用户配置
 │   └── rules/                       # 规则文件目录
 │       └── rules.json               # 规则定义
+├── module/                             # 插件源码目录（运行时扫描目录为可执行文件旁 module/）
+│   └── example/                        # 示例空壳插件（验证插件接口与导出约定）
 ├── include/                             # 公共头文件（按分类子目录存放，含 UI 文件）
 │   ├── core/                            # 核心基础设施：配置系统 + 日志系统
 │   │   ├── AppConfig.h                  # 应用配置接口
@@ -594,6 +598,9 @@ DG-LAB-Client/
 │   │   ├── ModuleValuesDialog.h         # 模块数值展示对话框
 │   │   ├── CS2GSIModule.h               # CS2 GSI 模块（路径查找、配置生成）
 │   │   └── DataListener.h              # 通用数据接收器（多模块注册分发）
+│   ├── plugin/                          # 插件接口
+│   │   ├── IPlugin.h                    # 插件纯虚基类（生命周期、自描述、日志回调）
+│   │   └── plugin_export.h              # 导出宏与 API 版本定义
 │   ├── ui/                              # 界面层（主窗口 + 通用控件）
 │   │   ├── DGLABClient.h                # 主窗口类定义
 │   │   ├── DGLABClient.ui               # Qt Designer 界面文件

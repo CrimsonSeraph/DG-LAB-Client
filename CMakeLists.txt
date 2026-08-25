@@ -144,6 +144,10 @@ set(PROJECT_SOURCES
 	include/module/DataListener.h
 	src/module/DataListener.cpp
 
+	# ---------- 插件接口（plugin） ----------
+	include/plugin/IPlugin.h
+	include/plugin/plugin_export.h
+
 	# ---------- 界面层（ui） ----------
 	include/ui/DGLABClient.h
 	src/ui/DGLABClient.cpp
@@ -398,10 +402,35 @@ target_include_directories(${PROJECT_NAME}
 		${CMAKE_CURRENT_SOURCE_DIR}/include/bridge
 		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
 		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
 		${CMAKE_CURRENT_SOURCE_DIR}/include/ui
 )
 target_compile_definitions(${PROJECT_NAME}
 	PRIVATE PYBIND11_ASSERT_GIL_HELD_INCREF_DECREF
+)
+
+# -------------------- 示例插件（动态库，验证插件接口与导出约定）--------------------
+add_library(dgl_example_plugin SHARED
+	module/example/ExamplePlugin.h
+	module/example/ExamplePlugin.cpp
+)
+# 定义 PLUGIN_BUILD 使接口类标记导出；插件与主程序使用同一工具链保证 ABI 兼容
+target_compile_definitions(dgl_example_plugin PRIVATE PLUGIN_BUILD)
+target_include_directories(dgl_example_plugin PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+)
+if(WIN32)
+	# 去掉 MinGW 的 lib 前缀，输出 dgl_example_plugin.dll
+	set_target_properties(dgl_example_plugin PROPERTIES PREFIX "")
+endif()
+# 构建后复制到可执行文件旁的 module/ 目录（默认插件扫描目录）
+add_custom_command(TARGET dgl_example_plugin POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E make_directory
+		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		"$<TARGET_FILE:dgl_example_plugin>"
+		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
+	COMMENT "Copying example plugin to module directory"
 )
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
