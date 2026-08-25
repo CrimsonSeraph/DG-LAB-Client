@@ -78,6 +78,16 @@
 
 这些设置会覆盖 `main.json` 和 `system.json` 中的同名项（若存在）。
 
+运行时由插件/模块写入的配置项（经宿主配置接口持久化到本文件）:
+
+| 路径 | 类型 | 说明 |
+| --- | --- | --- |
+| `app.gsi.cs_dir` | string | CS2 GSI 插件记录的 CS 游戏目录（`CS2GsiPlugin` 通过 `PathFinder.py` 查找） |
+| `app.gsi.config_path` | string | CS2 GSI 插件生成的 `gamestate_integration_dglab.cfg` 完整路径 |
+| `app.gsi.port` | int | CS2 GSI 插件当前监听端口（端口被占用时自动重选并更新） |
+
+> 插件配置读写通过 `IPluginHost::get_config_value`/`set_config_value` 完成，插件无需直接解析配置文件。
+
 ---
 
 ## 注意事项

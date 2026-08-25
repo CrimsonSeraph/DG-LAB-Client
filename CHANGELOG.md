@@ -29,6 +29,7 @@
 
 ### Changed
 
+- **文档更新**: 根 README 新增“六.12 插件开发指南”（插件接口、动态库导出约定、宿主能力 `IPluginHost`、构建示例、加载流程与状态、GSI 数据归属规则）；新增 `module/README.md`（插件目录说明与快速上手）；`config/README.md` 补充 `app.gsi.*` 运行时配置说明；`include/`、`src/` README 同步插件化后的文件清单。
 - **CS2 GSI 插件化 (CS2GsiPlugin)**: 将原静态 `CS2GSIModule` 改造为符合 `IPlugin` 接口的动态库插件（`module/gsi/`）——通过宿主配置接口读写 `app.gsi.*`、经宿主共享 `DataListener` 注册 GSI 数据处理器（来源 `CS2 GSI`/类型 `gsi`）并启动监听；注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP + CT/T 得分/连续失利/炸弹状态/地图阶段）。实现**自身/队友归属区分**：首次记录 `player.steamid` 为基准，一致为自身（个人数值正常更新）、不一致为队友（个人数值不更新，团队/地图数值仍更新）；周期变化时经 `on_host_period_changed` 更新配置，`cs2.exe` 运行中经宿主 `notify` 弹出重启提示。
 - **插件宿主接口扩展**: `IPluginHost` 增加数据接收（`listen_data`/`register_data_handler`/`unregister_data_handler`，替代直接 `DataListener` 访问解耦插件与宿主实现）、配置读写（`get_config_value`/`set_config_value`）、基础周期（`base_period_ms`）与用户通知（`notify` → `plugin_notification` 信号）；`IPlugin` 增加 `on_host_period_changed` 周期变化通知；首次注册的 (source, type) 自动作为无信封数据的默认来源。
 - **DataListener 收包增强**: TCP 请求体按 `Content-Length` 累积收齐再解析（修复分包导致的半包解析失败），异常数据大小上限 64KB 防御。

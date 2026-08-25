@@ -424,6 +424,103 @@ wave->input_data("strength_A", 250);
 
 > **注意**: 若所选主题的 QSS 文件不存在，程序会自动回退到 `light.qcss`。主题配置文件存储于 `config/user.json` 中的 `app.ui.theme` 键。
 
+### 12. 插件开发指南
+
+插件化模块系统允许将数值模块（如 CS2 GSI）实现为独立的动态库，由主程序动态扫描/加载/卸载，无需重新编译主程序。本节为插件开发者提供完整指南。
+
+#### 12.1 目录与现有插件
+
+- **源码目录**: `module/`（每个插件一个子目录，如 `module/example/`、`module/gsi/`）。
+- **运行时扫描目录**: 默认 `<程序目录>/module/`，构建后插件 DLL 自动复制至此；路径可由 `config/main.json` 的 `app.module.path` 更改。
+- **现有插件**: `module/example/`（示例空壳插件，演示接口与导出）、`module/gsi/`（CS2 GSI 插件，完整功能示例）。
+
+#### 12.2 接口（IPlugin，`include/plugin/IPlugin.h`）
+
+所有插件必须继承 `IPlugin` 并实现：
+
+| 分组 | 方法 | 说明 |
+| --- | --- | --- |
+| 自描述 | `name()` / `version()` / `api_version()` | 插件名称（同时作为模块名与日志类名）、版本号、API 版本 |
+| 自描述 | `capabilities()` / `dependencies()` | 能力标志（`ProvidesValues`/`ConsumesData`/`HasSettingsUi`）与依赖插件名列表（宿主加载前校验） |
+| 线程安全 | `thread_safety()` | 声明调用线程要求（默认仅主线程） |
+| 生命周期 | `initialize()` | 初始化：注册数值、注册数据处理器、启动服务（返回 `PluginError` 错误码） |
+| 生命周期 | `uninitialize()` | 反初始化：注销数值与处理器、停止服务（与 initialize 对称） |
+| 生命周期 | `cleanup()` / `can_unload()` | 资源清理 / 卸载前检查（拒绝时保持已加载） |
+| 周期通知 | `on_host_period_changed()` | 宿主查询周期变化时被调用（可选实现） |
+| 日志 | `set_log_callback()` / `log()` | 日志回调注入；插件用 `PLUGIN_LOG(this, level, ...)` 宏上报 |
+
+#### 12.3 动态库导出约定
+
+插件动态库必须通过 `extern "C"` 导出以下三个符号（`include/plugin/plugin_export.h` 提供 `PLUGIN_EXPORT` 宏）：
+
+```cpp
+// 编译插件时定义 PLUGIN_BUILD（见 12.6 构建示例）
+extern "C" {
+PLUGIN_EXPORT int get_plugin_api_version();  // 返回 PLUGIN_API_VERSION，宿主加载时校验
+PLUGIN_EXPORT IPlugin* create_plugin();      // 创建实例（插件内部 new）
+PLUGIN_EXPORT void destroy_plugin(IPlugin*); // 销毁实例（插件内部 delete）
+}
+```
+
+#### 12.4 宿主能力（IPluginHost，`include/plugin/PluginHost.h`）
+
+宿主在加载插件后通过 `attach_host()` 注入宿主上下文，插件在生命周期方法中调用：
+
+| 能力 | 方法 | 说明 |
+| --- | --- | --- |
+| 数值 | `register_module_values()` / `unregister_module()` / `set_value()` | 注册/注销模块、写入数值（变化触发规则计算） |
+| 数据接收 | `listen_data()` / `register_data_handler()` / `unregister_data_handler()` / `stop_listening_data()` | 共享 `DataListener`：监听端口、按 (source, type) 注册处理器；无信封数据回退默认来源 |
+| 配置 | `get_config_value()` / `set_config_value()` | 读写宿主合并配置（写入持久化到 user 配置，如 GSI 插件的 `app.gsi.*`） |
+| 基础信息 | `base_period_ms()` | 当前调度基准周期（用于 throttle 等计算） |
+| 通知 | `notify()` | 用户可见通知（宿主弹窗，如“需重启游戏”） |
+
+数据包信封格式（自定义协议建议采用）: `{"source": "<模块名>", "type": "<信息类型>", "data": {...}}`；无信封数据（如 CS2 GSI）回退到监听器默认来源。
+
+#### 12.5 规范要求
+
+- **日志转发**: 插件内部**不直接使用** `LOG_MODULE`，统一使用 `PLUGIN_LOG(this, level, ...)` 宏（类名/方法名自动为插件名称与函数名），由宿主统一记录。
+- **内存隔离**: 插件实例在插件内 `new`，宿主仅调用 `destroy_plugin` 销毁；**禁止跨模块 new/delete**、**禁止静态全局变量**。
+- **错误处理**: 可能失败的操作返回 `PluginError` 错误码而非抛出异常。
+- **命名**: 插件类名以 `Plugin` 结尾（如 `CS2GsiPlugin`）；导出函数使用标准三件套固定名。
+- **ABI 兼容**: 插件必须与主程序使用同一工具链构建（本项目 MinGW g++ + Qt 6.9.3），否则无法加载。
+- **API 版本**: 接口不兼容变更时递增 `PLUGIN_API_VERSION`，主程序加载时校验。
+
+#### 12.6 构建示例（CMake）
+
+```cmake
+# 插件目标：SHARED + PLUGIN_BUILD + 接口头文件路径
+add_library(my_plugin SHARED
+    module/my/MyPlugin.h
+    module/my/MyPlugin.cpp
+    src/module/ModuleValue.cpp   # ModuleValue 为纯 C++ 模型，编入插件以构造数值
+)
+target_compile_definitions(my_plugin PRIVATE PLUGIN_BUILD)
+target_include_directories(my_plugin PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/module
+)
+target_link_libraries(my_plugin PRIVATE Qt::Core Qt::Network)  # 按需
+if(WIN32)
+    set_target_properties(my_plugin PROPERTIES PREFIX "")     # 去掉 lib 前缀
+endif()
+# 构建后复制到插件扫描目录
+add_custom_command(TARGET my_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:my_plugin>"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
+)
+```
+
+#### 12.7 加载流程与状态
+
+1. 主程序启动时扫描插件目录（`*.dll`/`*.so`/`*.dylib`），**默认只扫描不加载**，模块页显示“暂未加载”与“启用”按钮；`app.module.scan_load=true` 时扫描即加载（调试用）。
+2. 加载流程: `QLibrary` 动态加载 → `get_plugin_api_version` 校验 → 依赖校验 → `create_plugin` → `attach_host` + `set_log_callback` → `initialize()`（插件在此注册数值与数据处理器）。
+3. 卸载流程: `can_unload()` 检查 → `uninitialize()` → `cleanup()` → `destroy_plugin()` → `QLibrary::unload`。
+4. 加载失败时记录原因，模块页显示“加载失败”。
+
+#### 12.8 GSI 插件数据归属规则（module/gsi/）
+
+CS2 GSI 插件按 `player.steamid` 区分数据归属：首次收到有效数据时记录为本地玩家基准，之后比较——**一致为自身**（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），**不一致为队友**（个人数值不更新，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。字符串字段按固定集合映射为数字（如 `team` CT/T→3/2、`bomb.state`→1-4、`map.phase`→0-6），不固定的值放弃该字段。
+
 ---
 
 ## 七、本地 WebSocket 中转服务部署
