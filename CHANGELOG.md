@@ -29,6 +29,7 @@
 
 ### Changed
 
+- **模块 UI 改造**: 模块页卡片区分插件卡片与静态模块卡片——插件卡片右侧提供“启用/禁用”按钮，未加载显示“暂未加载”（加载失败显示原因），已加载显示插件名与最小查询周期；未加载卡片点击不弹出设置窗口（仅已加载可点击弹出数值窗口）；卡片网格两列自适应布局、圆角样式，插件加载/卸载（`plugin_state_changed`）与周期变化时自动重建卡片。
 - **模块管理器重构（插件宿主）**: `ModuleManager` 重写为插件宿主——启动时扫描插件目录（默认 `<程序目录>/module/`，`app.module.path` 可配置，`app.module.scan_load` 控制"扫描即加载"），`QLibrary` 动态加载插件、`get_plugin_api_version` 版本校验、`dependencies()` 依赖校验、注入日志回调（插件日志统一由宿主 `LOG_MODULE` 记录）与宿主上下文（`IPluginHost`：数值注册/注销/写入、共享 `DataListener`），管理插件加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。新增 `PluginHost.h` 宿主接口；示例插件通过宿主注册示例数值（模块名"示例插件"）验证完整加载链路。
 - **通用数据接收器 (DataListener)**: 将 `GsiServer` 重构为通用数据接收器——单实例监听单个端口（支持 TCP HTTP POST 与 UDP 数据报两种协议），数据包支持来源标识信封 `{"source", "type", "data"}`，按 source + type 分发给已注册处理器（`register_handler`）；新增解析器抽象接口 `IDataParser` 及默认实现（`HttpJsonParser`/`JsonBodyParser`）解耦传输协议与 JSON 解析。`CS2GSIModule` 改用 `DataListener` 并注册 GSI 数据处理器（来源 `CS2 GSI`、类型 `gsi`），删除 `GsiServer.h/cpp`。
 - Windows 构建: Python 标准库 zip 打包优化——排除 site-packages（约 5GB 第三方包）、**pycache**/\*.pyc 与 test，改用系统内置 bsdtar 打包，configure 耗时由数十分钟降至数秒，zip 体积约 1GB 降至约 5MB，且 zipimport 可直接导入。

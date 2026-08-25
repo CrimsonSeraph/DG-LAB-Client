@@ -6,6 +6,7 @@
 #include "DGLABClient.h"
 
 #include "AppConfig.h"
+#include "CS2GSIModule.h"
 #include "ComboBoxDelegate.h"
 #include "DGLABClient_utils.hpp"
 #include "DebugLog.h"
@@ -13,7 +14,6 @@
 #include "FormulaBuilderDialog.h"
 #include "IpSelector.h"
 #include "LogExportSettingsDialog.h"
-#include "CS2GSIModule.h"
 #include "ModuleManager.h"
 #include "ModuleValuesDialog.h"
 #include "ParentEditDialog.h"
@@ -68,13 +68,15 @@
 
 #include <algorithm>
 #include <iostream>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <utility>
 
 // ============================================
-// ModuleCard - 模块页可点击卡片（局部辅助类）
-// 显示模块名称与模块内数值的最小查询周期，点击弹出数值展示窗口
+// ModuleCard - 模块页卡片（局部辅助类）
+// 显示模块/插件名称与状态（最小查询周期 / 暂未加载 / 加载失败），
+// 已加载卡片可点击弹出数值展示窗口；插件卡片右侧提供"启用/禁用"按钮
 // ============================================
 class ModuleCard : public QFrame {
     Q_OBJECT
@@ -88,38 +90,84 @@ public:
         , module_name_(module_name) {
         setProperty("type", "module_card");
         setFrameShape(QFrame::NoFrame);
-        setCursor(Qt::PointingHandCursor);
         setMinimumHeight(64);
 
-        QVBoxLayout* card_layout = new QVBoxLayout(this);
+        QHBoxLayout* card_layout = new QHBoxLayout(this);
         card_layout->setContentsMargins(14, 10, 14, 10);
-        card_layout->setSpacing(6);
+        card_layout->setSpacing(10);
 
+        // 左侧：名称 + 状态竖排
+        QVBoxLayout* info_layout = new QVBoxLayout();
+        info_layout->setSpacing(6);
         name_label_ = new QLabel(module_name, this);
         name_label_->setProperty("type", "module_card_name");
-        period_label_ = new QLabel(this);
-        period_label_->setProperty("type", "module_card_period");
-        card_layout->addWidget(name_label_);
-        card_layout->addWidget(period_label_);
+        name_label_->setWordWrap(true);
+        status_label_ = new QLabel(this);
+        status_label_->setProperty("type", "module_card_period");
+        status_label_->setWordWrap(true);
+        info_layout->addWidget(name_label_);
+        info_layout->addWidget(status_label_);
+        card_layout->addLayout(info_layout, 1);
+
+        // 右侧：启用/禁用按钮（插件卡片启用，静态模块隐藏）
+        toggle_btn_ = new QPushButton(this);
+        toggle_btn_->setFixedHeight(28);
+        toggle_btn_->hide();
+        card_layout->addWidget(toggle_btn_, 0, Qt::AlignVCenter);
+        connect(toggle_btn_, &QPushButton::clicked, this, [this]() {
+            emit toggle_requested(!loaded_);
+        });
     }
 
     /// @brief 获取卡片对应的模块名称
     /// @return 模块名称
     inline const QString& get_module_name() const { return module_name_; }
 
-    /// @brief 设置最小查询周期显示文本
-    /// @param text 周期显示文本
-    inline void set_period_text(const QString& text) { period_label_->setText(text); }
+    /// @brief 获取插件文件名（静态模块为空）
+    /// @return 插件文件名
+    inline const QString& get_file_name() const { return file_name_; }
+
+    /// @brief 设置状态显示文本（最小查询周期 / 暂未加载 / 加载失败原因）
+    /// @param text 状态文本
+    inline void set_status_text(const QString& text) { status_label_->setText(text); }
+
+    /// @brief 设置加载状态（控制点击行为、光标与按钮文本）
+    /// @param loaded 是否已加载
+    void set_loaded(bool loaded) {
+        loaded_ = loaded;
+        if (toggle_btn_) {
+            // 启用使用强调样式，禁用使用基础样式（动态属性变化后刷新样式）
+            toggle_btn_->setText(loaded ? "禁用" : "启用");
+            toggle_btn_->setProperty("button_type", loaded ? "default" : "special");
+            toggle_btn_->style()->unpolish(toggle_btn_);
+            toggle_btn_->style()->polish(toggle_btn_);
+        }
+        // 未加载/失败时移除非可点击光标
+        setCursor(loaded ? Qt::PointingHandCursor : Qt::ArrowCursor);
+    }
+
+    /// @brief 启用插件模式（显示启用/禁用按钮）
+    /// @param file_name 插件文件名
+    void enable_plugin_mode(const QString& file_name) {
+        file_name_ = file_name;
+        if (toggle_btn_) {
+            toggle_btn_->show();
+        }
+    }
 
 signals:
-    /// @brief 卡片被点击时发出
+    /// @brief 卡片被点击时发出（仅已加载状态）
     void clicked();
 
+    /// @brief 启用/禁用按钮点击时发出
+    /// @param load true=启用加载，false=禁用卸载
+    void toggle_requested(bool load);
+
 protected:
-    /// @brief 重写鼠标释放事件: 左键点击发出 clicked 信号
+    /// @brief 重写鼠标释放事件: 仅已加载状态下左键点击发出 clicked 信号
     /// @param event 鼠标事件
     void mouseReleaseEvent(QMouseEvent* event) override {
-        if (event->button() == Qt::LeftButton && rect().contains(event->pos())) {
+        if (loaded_ && event->button() == Qt::LeftButton && rect().contains(event->pos())) {
             emit clicked();
         }
         QFrame::mouseReleaseEvent(event);
@@ -127,9 +175,12 @@ protected:
 
 private:
     // -------------------- 成员变量 --------------------
-    QString module_name_;  ///< 模块名称
-    QLabel* name_label_ = nullptr;    ///< 模块名称标签
-    QLabel* period_label_ = nullptr;  ///< 周期显示标签
+    QString module_name_;               ///< 模块名称（已加载插件为插件名，未加载为文件名）
+    QString file_name_;                 ///< 插件文件名（静态模块为空）
+    bool loaded_ = true;                ///< 是否已加载（未加载/失败时不响应点击）
+    QLabel* name_label_ = nullptr;      ///< 名称标签
+    QLabel* status_label_ = nullptr;    ///< 状态标签（周期/暂未加载/加载失败）
+    QPushButton* toggle_btn_ = nullptr; ///< 启用/禁用按钮（插件卡片显示）
 };
 
 // ============================================
@@ -179,9 +230,7 @@ void DGLABClient::normal_init() {
     connect(&CS2GSIModule::instance(), &CS2GSIModule::game_restart_required,
         this, [this](const QString& config_path) {
             QMessageBox::warning(this, "需要重启游戏",
-                "已更新 GSI 配置文件（最小查询周期变化，throttle 已调整）:\n"
-                + config_path + "\n\n"
-                + "GSI 配置仅在游戏启动时加载，请重启 CS2 游戏使新配置生效。");
+                "已更新 GSI 配置文件（最小查询周期变化，throttle 已调整）:\n" + config_path + "\n\n" + "GSI 配置仅在游戏启动时加载，请重启 CS2 游戏使新配置生效。");
         });
     setup_channel_cards();
     init_python_manager();
@@ -760,38 +809,20 @@ void DGLABClient::setup_module_ui() {
     period_row->addStretch();
     page_layout->addLayout(period_row);
 
-    // 模块卡片滚动区域（自适应布局，不设固定尺寸）
+    // 模块卡片滚动区域（自适应布局，不设固定尺寸；网格由 refresh_module_cards 构建）
     QScrollArea* scroll_area = new QScrollArea(ui_.module_page);
     scroll_area->setWidgetResizable(true);
     scroll_area->setFrameShape(QFrame::NoFrame);
     module_cards_widget_ = new QWidget(scroll_area);
-    QGridLayout* cards_grid = new QGridLayout(module_cards_widget_);
-    cards_grid->setSpacing(15);
-    cards_grid->setContentsMargins(6, 6, 6, 6);
-
-    auto module_names = ModuleManager::instance().get_module_names();
-    int card_row = 0;
-    int card_col = 0;
-    for (const auto& module_name : module_names) {
-        create_module_card(QString::fromStdString(module_name), cards_grid, card_row, card_col);
-        ++card_col;
-        if (card_col >= 2) {
-            card_col = 0;
-            ++card_row;
-        }
-    }
-    // 底部弹簧，卡片靠上排列
-    cards_grid->setRowStretch(card_row + 1, 1);
-    cards_grid->setColumnStretch(0, 1);
-    cards_grid->setColumnStretch(1, 1);
-    module_cards_widget_->setLayout(cards_grid);
     scroll_area->setWidget(module_cards_widget_);
     page_layout->addWidget(scroll_area, 1);
 
-    // 连接统一周期应用按钮与周期变化刷新
+    // 连接统一周期应用按钮、周期变化与插件状态变化刷新
     connect(module_period_apply_btn_, &QPushButton::clicked,
         this, &DGLABClient::apply_module_period_setting);
     connect(&ModuleManager::instance(), &ModuleManager::period_changed,
+        this, &DGLABClient::refresh_module_cards);
+    connect(&ModuleManager::instance(), &ModuleManager::plugin_state_changed,
         this, &DGLABClient::refresh_module_cards);
 
     refresh_module_cards();
@@ -830,25 +861,111 @@ void DGLABClient::refresh_module_cards() {
     if (!module_cards_widget_) {
         return;
     }
-    auto& manager = ModuleManager::instance();
-    const QList<ModuleCard*> cards = module_cards_widget_->findChildren<ModuleCard*>();
-    for (ModuleCard* card : cards) {
-        int min_period_ms = manager.get_module_min_period_ms(
-            card->get_module_name().toStdString());
-        QueryPeriod min_period = query_period_from_ms(min_period_ms);
-        card->set_period_text(QString("最小查询周期: %1")
-                .arg(QString::fromUtf8(query_period_to_text(min_period))));
+    // 清空旧卡片网格（删除布局与全部卡片控件）
+    if (QLayout* old_layout = module_cards_widget_->layout()) {
+        while (QLayoutItem* item = old_layout->takeAt(0)) {
+            if (QWidget* widget = item->widget()) {
+                widget->deleteLater();
+            }
+            delete item;
+        }
+        delete old_layout;
     }
+    // 新建网格布局（两列自适应）
+    QGridLayout* cards_grid = new QGridLayout(module_cards_widget_);
+    cards_grid->setSpacing(15);
+    cards_grid->setContentsMargins(6, 6, 6, 6);
+    auto& manager = ModuleManager::instance();
+    int card_row = 0;
+    int card_col = 0;
+    const auto add_card = [&cards_grid, &card_row, &card_col](QWidget* card) {
+        cards_grid->addWidget(card, card_row, card_col);
+        ++card_col;
+        if (card_col >= 2) {
+            card_col = 0;
+            ++card_row;
+        }
+    };
+
+    // 1) 插件卡片（含未加载/失败状态与启用/禁用按钮）
+    const auto plugins = manager.get_plugins();
+    for (const auto& plugin : plugins) {
+        add_card(create_plugin_card(plugin));
+    }
+
+    // 2) 静态模块卡片（排除已加载插件注册的同名模块，避免重复显示）
+    const auto module_names = manager.get_module_names();
+    std::set<std::string> loaded_plugin_names;
+    for (const auto& plugin : plugins) {
+        if (plugin.state == ModuleManager::PluginLoadState::Loaded) {
+            loaded_plugin_names.insert(plugin.display_name);
+        }
+    }
+    for (const auto& module_name : module_names) {
+        if (loaded_plugin_names.count(module_name) > 0) {
+            continue;
+        }
+        add_card(create_module_card(QString::fromStdString(module_name)));
+    }
+
+    // 底部弹簧，卡片靠上排列
+    cards_grid->setRowStretch(card_row + 1, 1);
+    cards_grid->setColumnStretch(0, 1);
+    cards_grid->setColumnStretch(1, 1);
+    module_cards_widget_->setLayout(cards_grid);
 }
 
-void DGLABClient::create_module_card(const QString& module_name, QGridLayout* layout,
-    int row, int col) {
+ModuleCard* DGLABClient::create_module_card(const QString& module_name) {
     ModuleCard* card = new ModuleCard(module_name, module_cards_widget_);
+    // 静态模块始终已加载：显示最小查询周期
+    int min_period_ms = ModuleManager::instance().get_module_min_period_ms(
+        module_name.toStdString());
+    QueryPeriod min_period = query_period_from_ms(min_period_ms);
+    card->set_status_text(QString("最小查询周期: %1")
+            .arg(QString::fromUtf8(query_period_to_text(min_period))));
     // 点击卡片弹出该模块的数值展示窗口
     connect(card, &ModuleCard::clicked, this, [this, module_name]() {
         show_module_values(module_name);
     });
-    layout->addWidget(card, row, col);
+    return card;
+}
+
+ModuleCard* DGLABClient::create_plugin_card(const ModuleManager::PluginInfo& plugin) {
+    // 卡片标题：已加载显示插件名，未加载/失败显示文件名
+    const bool loaded = (plugin.state == ModuleManager::PluginLoadState::Loaded);
+    const QString display_name = QString::fromStdString(
+        loaded ? plugin.display_name : plugin.file_name);
+    ModuleCard* card = new ModuleCard(display_name, module_cards_widget_);
+    card->enable_plugin_mode(QString::fromStdString(plugin.file_name));
+    card->set_loaded(loaded);
+    // 状态文本：已加载显示最小查询周期，未加载显示"暂未加载"，失败显示原因
+    if (loaded) {
+        int min_period_ms = ModuleManager::instance().get_module_min_period_ms(
+            plugin.display_name);
+        QueryPeriod min_period = query_period_from_ms(min_period_ms);
+        card->set_status_text(QString("最小查询周期: %1")
+                .arg(QString::fromUtf8(query_period_to_text(min_period))));
+    }
+    else if (plugin.state == ModuleManager::PluginLoadState::Failed) {
+        card->set_status_text(QString("加载失败: %1").arg(QString::fromStdString(plugin.error)));
+    }
+    else {
+        card->set_status_text("暂未加载");
+    }
+    // 点击卡片（仅已加载）弹出数值窗口
+    connect(card, &ModuleCard::clicked, this, [this, display_name]() {
+        show_module_values(display_name);
+    });
+    // 启用/禁用按钮：加载/卸载插件（内部发出 plugin_state_changed 触发卡片重建）
+    connect(card, &ModuleCard::toggle_requested, this, [this, plugin](bool load) {
+        auto& manager = ModuleManager::instance();
+        bool ok = load ? manager.load_plugin(plugin.file_name)
+                       : manager.unload_plugin(plugin.file_name);
+        LOG_MODULE("DGLABClient", "create_plugin_card", LOG_INFO,
+            (load ? "启用插件: " : "禁用插件: ") << plugin.file_name
+                                                 << "，结果: " << (ok ? "成功" : "失败"));
+    });
+    return card;
 }
 
 // ----- 首页通道卡片相关 -----

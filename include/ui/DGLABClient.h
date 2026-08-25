@@ -7,6 +7,7 @@
 
 #include "DebugLog.h"
 #include "LogExporter.h"
+#include "ModuleManager.h"
 #include "PythonSubprocessManager.h"
 #include "ThemeSelectorDialog.h"
 #include "ui_DGLABClient.h"
@@ -26,6 +27,9 @@
 #include <map>
 #include <string>
 #include <vector>
+
+// 前置声明
+class ModuleCard;
 
 // ============================================
 // DGLABClient - 主窗口类
@@ -158,7 +162,7 @@ private:
     int B_limit_ = 200;      ///< B通道上限（默认200）
 
     PythonSubprocessManager* py_manager_; ///< Python 子进程管理器
-    LogExporter log_exporter_;             ///< 日志导出器（导出设置与导出/清理逻辑）
+    LogExporter log_exporter_;            ///< 日志导出器（导出设置与导出/清理逻辑）
 
     LogLevel ui_log_level_ = LOG_DEBUG; ///< UI 日志级别
     bool use_fixed_width_log_ = false;  ///< 是否使用固定宽度日志格式
@@ -178,11 +182,11 @@ private:
     bool updating_rule_table_ = false; ///< 表格刷新标志（防止 itemChanged 递归）
 
     // 模块页 UI 控件
-    QComboBox* module_period_combo_ = nullptr;        ///< 统一查询周期下拉框
-    QPushButton* module_period_apply_btn_ = nullptr;  ///< 统一周期应用按钮
-    QWidget* module_cards_widget_ = nullptr;          ///< 模块卡片容器
+    QComboBox* module_period_combo_ = nullptr;           ///< 统一查询周期下拉框
+    QPushButton* module_period_apply_btn_ = nullptr;     ///< 统一周期应用按钮
+    QWidget* module_cards_widget_ = nullptr;             ///< 模块卡片容器
     ModuleValuesDialog* module_values_dialog_ = nullptr; ///< 模块数值弹窗（防重复打开）
-    std::map<std::string, QLabel*> rule_value_labels_;    ///< "通道:规则名" → 数值标签（首页规则卡片）
+    std::map<std::string, QLabel*> rule_value_labels_;   ///< "通道:规则名" → 数值标签（首页规则卡片）
 
     // -------------------- 私有辅助函数（初始化） --------------------
     /// @brief 配置日志控件为只读并设置默认字体
@@ -239,14 +243,17 @@ private:
     void show_module_values(const QString& module_name);
     /// @brief 应用统一查询周期设置到所有数值
     void apply_module_period_setting();
-    /// @brief 刷新所有模块卡片的周期显示
+    /// @brief 重建模块卡片网格（插件卡片含启用/禁用按钮与加载状态，静态模块显示最小查询周期）
     void refresh_module_cards();
-    /// @brief 创建单个模块卡片并放入网格布局
+    /// @brief 创建单个模块卡片（静态模块，始终已加载）
     /// @param module_name 模块名称
-    /// @param layout 目标网格布局
-    /// @param row 行号
-    /// @param col 列号
-    void create_module_card(const QString& module_name, QGridLayout* layout, int row, int col);
+    /// @return 卡片控件指针（由调用方加入布局）
+    ModuleCard* create_module_card(const QString& module_name);
+
+    /// @brief 创建单个插件卡片（含启用/禁用按钮与加载状态显示）
+    /// @param plugin 插件状态信息
+    /// @return 卡片控件指针（由调用方加入布局）
+    ModuleCard* create_plugin_card(const ModuleManager::PluginInfo& plugin);
 
     // -------------------- 私有辅助函数（二维码） --------------------
     /// @brief 异步请求 Python 端生成二维码并获取路径
