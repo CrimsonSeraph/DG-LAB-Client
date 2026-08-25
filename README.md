@@ -56,7 +56,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 - **数值模块（Module）** 提供 `ModuleManager` 单例与 `ModuleValue`/`Module` 数据模型，管理可查询数值（参照 CS2 官方 GSI 规范，如 `health`、`armor`、`team_num`、`money` 等）。每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口；调度器以所有数值中最短的查询周期为基准进行轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费。模块页点击模块卡片可弹出数值展示窗口（每行两个数值框，显示名称、当前值及底层字段名）。
 
-- **插件系统（IPlugin）** 提供插件化模块接口 `IPlugin`（纯虚基类）：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明与错误码返回；统一跨平台导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性），约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 工厂导出，主程序加载时校验 API 版本（`PLUGIN_API_VERSION`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`，类名/方法名自动为插件自身名称与函数名）；内存隔离约定插件自行 `new`/`delete`（宿主仅调用 `destroy_plugin`）。示例空壳插件（`module/example/`）演示完整接口实现，构建后自动复制到 `<程序目录>/module/` 供扫描加载（扫描/加载逻辑在模块管理器重构中实现）。
+- **插件系统（IPlugin）** 提供插件化模块接口 `IPlugin`（纯虚基类）：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明与错误码返回；统一跨平台导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性），约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 工厂导出，主程序加载时校验 API 版本（`PLUGIN_API_VERSION`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`，类名/方法名自动为插件自身名称与函数名）；内存隔离约定插件自行 `new`/`delete`（宿主仅调用 `destroy_plugin`）。`ModuleManager` 作为插件宿主：启动时扫描 `<程序目录>/module/`（路径由 `config/main.json` 的 `app.module.path` 配置，`app.module.scan_load` 控制"扫描即加载"），通过 `QLibrary` 动态加载、校验 API 版本与依赖、注入日志回调与宿主上下文（`IPluginHost`：数值注册/写入、共享 `DataListener`），并管理加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。示例空壳插件（`module/example/`）演示完整接口实现与数值注册，构建后自动复制到 `<程序目录>/module/` 供扫描加载。
 
 - **波形采样控件（多通道）** 提供 `SampledWaveformWidget`，可同时接收多个独立数据源（监听器）的归一化值（0~1），每个监听器以不同颜色的滚动波形图实时显示。支持动态添加/删除监听器、自定义波形颜色、调整采样间隔和最大振幅比例。适用于同时监控 A/B 通道强度、外部传感器数值等场景。
 
@@ -295,6 +295,7 @@ cpack
 - **调度机制**: 以所有数值中最短的查询周期为基准周期（最小 250ms），每经过一个基准周期查询一次；周期为基准周期整数倍的数值按对应倍率间隔查询（如基准 250ms 时，500ms 的数值每 2 次查询一次，2s 的数值每 8 次查询一次），周期设置变化时自动重建调度器。
 - **数据源**: 未设置数据源时数值保持“未获取”状态（界面显示 `--`），不产生模拟数值；通过 `ModuleManager::instance().set_data_source(callback)` 接入真实数据（如 CS2 GSI）后开始取值。规则中引用无数据的数值视为空值，忽略该次计算。
 - **通用数据接收器 (DataListener)**: 负责统一接收外部推送的数据。单实例监听单个端口（支持 TCP HTTP POST 与 UDP 数据报两种协议），解析为 JSON 后按数据包携带的来源标识分发：数据包信封格式为 `{"source": "<模块名>", "type": "<信息类型>", "data": {...}}`，无信封字段时回退到监听器配置的默认来源（如 CS2 GSI 数据默认来源 `CS2 GSI`、类型 `gsi`）。各模块通过 `register_handler(source, type, callback)` 注册处理器，即可共享同一端口或多端口并行接收。
+- **插件加载**: `ModuleManager` 启动时扫描插件目录（默认 `<程序目录>/module/`，可由 `app.module.path` 更改），扫描到的插件默认**不立即加载**，界面显示为"暂未加载"；`app.module.scan_load` 设为 `true` 时扫描即加载（调试用）。插件加载流程：`QLibrary` 动态加载 → `get_plugin_api_version` 版本校验 → 依赖校验（`dependencies()` 需已加载）→ `create_plugin` 创建实例 → 注入日志回调与宿主上下文 → `initialize()`（插件在此通过 `IPluginHost` 注册数值与数据处理器）。加载失败时记录失败原因，界面显示"加载失败"状态。
 
 > 👉 规则引擎相关问题请查看 [常见问题 - 规则引擎问题](#规则引擎问题)
 

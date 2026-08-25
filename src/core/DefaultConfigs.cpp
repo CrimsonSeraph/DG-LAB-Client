@@ -28,6 +28,10 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
                     {"console_level", 0},
                     {"only_type_info", false},
                     {"ui_log_level", 0}
+                }},
+                {"module", {
+                    {"path", "./module"},
+                    {"scan_load", false}
                 }}
             }},
             {"python", {

@@ -8,6 +8,10 @@
             "console_level": 0,
             "only_type_info": false,
             "ui_log_level": 1
+        },
+        "module": {
+            "path": "./module",
+            "scan_load": false
         }
     },
     "python": {

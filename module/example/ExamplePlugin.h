@@ -29,12 +29,12 @@ public:
     /// @return API 版本号
     int api_version() const override { return PLUGIN_API_VERSION; }
 
-    /// @brief 获取插件能力标志（空壳插件无特殊能力）
+    /// @brief 获取插件能力标志（提供可查询数值）
     /// @return 能力标志
-    PluginCapability capabilities() const override { return PluginCapability::None; }
+    PluginCapability capabilities() const override { return PluginCapability::ProvidesValues; }
 
     // -------------------- 生命周期 --------------------
-    /// @brief 初始化：空壳插件仅输出日志
+    /// @brief 初始化：通过宿主上下文注册示例数值并输出日志
     /// @return 成功返回 PluginError::Ok
     PluginError initialize() override;
 

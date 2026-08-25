@@ -5,12 +5,24 @@
 
 #include "ModuleManager.h"
 
+#include "AppConfig.h"
 #include "CS2GSIModule.h"
+#include "DataListener.h"
 #include "DebugLog.h"
+#include "IPlugin.h"
+
+#include <QCoreApplication>
+#include <QDir>
+#include <QLibrary>
 
 #include <algorithm>
 #include <tuple>
 #include <utility>
+
+// 导出函数指针类型（extern "C" 约定）
+using PluginApiVersionFn = int (*)();
+using PluginCreateFn = IPlugin* (*)();
+using PluginDestroyFn = void (*)(IPlugin*);
 
 // ============================================
 // 单例（public）
@@ -37,6 +49,13 @@ ModuleManager::~ModuleManager() {
     if (timer_) {
         timer_->stop();
     }
+    // 卸载所有已加载插件（反初始化并销毁实例）
+    for (auto& entry : plugins_) {
+        if (entry.state == PluginLoadState::Loaded) {
+            unload_plugin_entry(entry);
+        }
+    }
+    plugins_.clear();
 }
 
 // ============================================
@@ -44,21 +63,33 @@ ModuleManager::~ModuleManager() {
 // ============================================
 
 void ModuleManager::init() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    // 幂等处理：避免重复注册
-    if (!modules_.empty()) {
-        return;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // 幂等处理：避免重复注册
+        if (!modules_.empty()) {
+            return;
+        }
+        register_default_modules();
+        // 数据源由外部通过 set_data_source 提供（真实 GSI 接入前无数据，数值保持"未获取"状态）
+        if (!data_source_) {
+            LOG_MODULE("ModuleManager", "init", LOG_WARN,
+                "未设置数据源，数值模块保持无数据状态（可通过 set_data_source 接入真实数据）");
+        }
+        // 以最短查询周期为基准启动调度器
+        rebuild_scheduler();
     }
-    register_default_modules();
-    // 数据源由外部通过 set_data_source 提供（真实 GSI 接入前无数据，数值保持"未获取"状态）
-    if (!data_source_) {
-        LOG_MODULE("ModuleManager", "init", LOG_WARN,
-            "未设置数据源，数值模块保持无数据状态（可通过 set_data_source 接入真实数据）");
+    // 扫描插件目录（config app.module.path，默认 <程序目录>/module）
+    scan_plugins();
+    // 扫描即加载（config app.module.scan_load，用于调试或特定场景）
+    if (scan_load_) {
+        LOG_MODULE("ModuleManager", "init", LOG_INFO, "扫描即加载已开启，开始加载全部插件");
+        for (auto& entry : plugins_) {
+            load_plugin_entry(entry);
+        }
+        emit plugin_state_changed();
     }
-    // 以最短查询周期为基准启动调度器
-    rebuild_scheduler();
     LOG_MODULE("ModuleManager", "init", LOG_INFO,
-        "数值模块初始化完成，基准周期: " << base_period_ms_ << "ms");
+        "数值模块初始化完成，基准周期: " << base_period_ms_ << "ms，插件候选: " << plugins_.size());
 }
 
 // ============================================
@@ -277,6 +308,149 @@ int ModuleManager::get_base_period_ms() const {
 }
 
 // ============================================
+// 插件管理（public）
+// ============================================
+
+std::string ModuleManager::get_plugin_dir() const {
+    return plugin_dir_;
+}
+
+bool ModuleManager::get_scan_load() const {
+    return scan_load_;
+}
+
+std::vector<ModuleManager::PluginInfo> ModuleManager::get_plugins() const {
+    // plugins_ 仅主线程访问（与模块数据锁分离）
+    std::vector<PluginInfo> infos;
+    infos.reserve(plugins_.size());
+    for (const auto& entry : plugins_) {
+        PluginInfo info;
+        info.file_name = entry.file_name;
+        info.file_path = entry.file_path;
+        info.display_name = (entry.state == PluginLoadState::Loaded) ? entry.display_name
+                                                                     : entry.file_name;
+        info.version = entry.version;
+        info.state = entry.state;
+        info.error = entry.error;
+        infos.push_back(std::move(info));
+    }
+    return infos;
+}
+
+bool ModuleManager::load_plugin(const std::string& file_name) {
+    PluginEntry* entry = find_plugin_entry(file_name);
+    if (!entry) {
+        LOG_MODULE("ModuleManager", "load_plugin", LOG_WARN,
+            "插件不存在: " << file_name);
+        return false;
+    }
+    bool ok = load_plugin_entry(*entry);
+    emit plugin_state_changed();
+    return ok;
+}
+
+bool ModuleManager::unload_plugin(const std::string& file_name) {
+    PluginEntry* entry = find_plugin_entry(file_name);
+    if (!entry) {
+        LOG_MODULE("ModuleManager", "unload_plugin", LOG_WARN,
+            "插件不存在: " << file_name);
+        return false;
+    }
+    unload_plugin_entry(*entry);
+    emit plugin_state_changed();
+    // 卸载成功（entry 已回到 NotLoaded）返回 true；插件拒绝卸载时保持 Loaded 返回 false
+    return entry->state != PluginLoadState::Loaded;
+}
+
+bool ModuleManager::is_plugin_loaded(const std::string& file_name) const {
+    const PluginEntry* entry = find_plugin_entry(file_name);
+    return entry && entry->state == PluginLoadState::Loaded;
+}
+
+// ============================================
+// 宿主能力（public，IPluginHost 实现）
+// ============================================
+
+bool ModuleManager::register_module_values(const std::string& module_name,
+    const std::vector<ModuleValue>& values,
+    const std::vector<std::string>& channels) {
+    if (module_name.empty() || values.empty()) {
+        return false;
+    }
+    bool rebuild = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // 已存在同名模块：合并数值（按 ID 去重，不覆盖已有数值）
+        auto it = std::find_if(modules_.begin(), modules_.end(),
+            [&](const Module& m) { return m.get_name() == module_name; });
+        if (it != modules_.end()) {
+            for (const auto& value : values) {
+                bool exists = false;
+                for (const auto& v : it->get_values()) {
+                    if (v.get_id() == value.get_id()) {
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    it->add_value(value);
+                    rebuild = true;
+                }
+            }
+            // 合并通道（挂载）
+            for (const auto& channel : channels) {
+                it->mount_channel(channel);
+            }
+        }
+        else {
+            Module module(module_name, channels);
+            for (const auto& value : values) {
+                module.add_value(value);
+            }
+            modules_.push_back(std::move(module));
+            rebuild = true;
+        }
+        if (rebuild) {
+            rebuild_scheduler();
+        }
+    }
+    if (rebuild) {
+        emit period_changed();
+    }
+    LOG_MODULE("ModuleManager", "register_module_values", LOG_INFO,
+        "插件注册数值完成: " << module_name << "，数值数量: " << values.size());
+    return true;
+}
+
+void ModuleManager::unregister_module(const std::string& module_name) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = std::remove_if(modules_.begin(), modules_.end(),
+            [&](const Module& m) { return m.get_name() == module_name; });
+        if (it != modules_.end()) {
+            modules_.erase(it, modules_.end());
+            rebuild_scheduler();
+        }
+        else {
+            return;
+        }
+    }
+    emit period_changed();
+    LOG_MODULE("ModuleManager", "unregister_module", LOG_INFO,
+        "已注销模块: " << module_name);
+}
+
+DataListener* ModuleManager::data_listener() {
+    // 宿主共享数据接收器（懒创建；插件自行配置监听端口并注册处理器）
+    if (!shared_listener_) {
+        shared_listener_ = new DataListener(this);
+        LOG_MODULE("ModuleManager", "data_listener", LOG_DEBUG,
+            "创建宿主共享数据接收器");
+    }
+    return shared_listener_;
+}
+
+// ============================================
 // private slots 实现
 // ============================================
 
@@ -351,3 +525,218 @@ void ModuleManager::register_default_modules() {
         "已注册默认模块: " << cs2_module.get_name() << "，数值数量: " << cs2_module.get_values().size());
 }
 
+// -------------------- 插件扫描与加载（private） --------------------
+
+std::string ModuleManager::resolve_plugin_dir() const {
+    auto& config = AppConfig::instance();
+    std::string configured = config.get_value<std::string>("app.module.path", "./module");
+    QDir dir(QString::fromStdString(configured));
+    if (dir.isRelative()) {
+        // 相对路径相对于程序目录解析（与 config/python 复制行为一致）
+        dir = QDir(QCoreApplication::applicationDirPath() + "/" + QString::fromStdString(configured));
+    }
+    return QDir::cleanPath(dir.absolutePath()).toStdString();
+}
+
+void ModuleManager::scan_plugins() {
+    plugin_dir_ = resolve_plugin_dir();
+    scan_load_ = AppConfig::instance().get_value<bool>("app.module.scan_load", false);
+    plugins_.clear();
+    QDir dir(QString::fromStdString(plugin_dir_));
+    if (!dir.exists()) {
+        LOG_MODULE("ModuleManager", "scan_plugins", LOG_WARN,
+            "插件目录不存在，跳过扫描: " << plugin_dir_);
+        return;
+    }
+    // 动态库文件即插件候选（*.dll / *.so / *.dylib）
+    const QStringList filters = {"*.dll", "*.so", "*.dylib"};
+    const QStringList files = dir.entryList(filters, QDir::Files, QDir::Name);
+    for (const QString& file : files) {
+        PluginEntry entry;
+        entry.file_name = file.toStdString();
+        entry.file_path = dir.filePath(file).toStdString();
+        plugins_.push_back(std::move(entry));
+    }
+    LOG_MODULE("ModuleManager", "scan_plugins", LOG_INFO,
+        "插件目录扫描完成: " << plugin_dir_ << "，候选: " << plugins_.size());
+}
+
+bool ModuleManager::load_plugin_entry(PluginEntry& entry) {
+    // 已加载直接返回成功
+    if (entry.state == PluginLoadState::Loaded) {
+        return true;
+    }
+    // 上次加载失败：重置后重试
+    entry.error.clear();
+    LOG_MODULE("ModuleManager", "load_plugin_entry", LOG_INFO,
+        "开始加载插件: " << entry.file_name);
+
+    // 动态加载动态库
+    QLibrary* library = new QLibrary(QString::fromStdString(entry.file_path), this);
+    if (!library->load()) {
+        entry.state = PluginLoadState::Failed;
+        entry.error = library->errorString().toStdString();
+        LOG_MODULE("ModuleManager", "load_plugin_entry", LOG_ERROR,
+            "插件加载失败: " << entry.file_name << "，原因: " << entry.error);
+        delete library;
+        return false;
+    }
+    // 版本校验：get_plugin_api_version 必须等于 PLUGIN_API_VERSION
+    auto api_version_fn = reinterpret_cast<PluginApiVersionFn>(library->resolve("get_plugin_api_version"));
+    if (!api_version_fn) {
+        entry.state = PluginLoadState::Failed;
+        entry.error = "缺少 get_plugin_api_version 导出，非插件动态库";
+        LOG_MODULE("ModuleManager", "load_plugin_entry", LOG_WARN, entry.error << ": " << entry.file_name);
+        library->unload();
+        delete library;
+        return false;
+    }
+    if (api_version_fn() != PLUGIN_API_VERSION) {
+        entry.state = PluginLoadState::Failed;
+        entry.error = "插件 API 版本不匹配（期望 " + std::to_string(PLUGIN_API_VERSION) + "，实际 " + std::to_string(api_version_fn()) + "）";
+        LOG_MODULE("ModuleManager", "load_plugin_entry", LOG_ERROR,
+            entry.error << ": " << entry.file_name);
+        library->unload();
+        delete library;
+        return false;
+    }
+    // 解析工厂函数
+    auto create_fn = reinterpret_cast<PluginCreateFn>(library->resolve("create_plugin"));
+    auto destroy_fn = reinterpret_cast<PluginDestroyFn>(library->resolve("destroy_plugin"));
+    if (!create_fn || !destroy_fn) {
+        entry.state = PluginLoadState::Failed;
+        entry.error = "缺少 create_plugin / destroy_plugin 导出";
+        LOG_MODULE("ModuleManager", "load_plugin_entry", LOG_WARN, entry.error << ": " << entry.file_name);
+        library->unload();
+        delete library;
+        return false;
+    }
+    // 创建插件实例（内存隔离：插件内部 new，宿主仅通过 destroy_plugin 销毁）
+    IPlugin* plugin = create_fn();
+    plugin->attach_host(this);
+    // 日志转发：插件回调 -> 宿主统一 LOG_MODULE（类名为插件名称、方法名为函数名）
+    plugin->set_log_callback([](PluginLogLevel level, const std::string& plugin_name,
+                                 const std::string& function, const std::string& message) {
+        LogLevel host_level = LOG_DEBUG;
+        switch (level) {
+        case PluginLogLevel::Debug: host_level = LOG_DEBUG; break;
+        case PluginLogLevel::Info: host_level = LOG_INFO; break;
+        case PluginLogLevel::Warn: host_level = LOG_WARN; break;
+        case PluginLogLevel::Error: host_level = LOG_ERROR; break;
+        case PluginLogLevel::None: host_level = LOG_NONE; break;
+        }
+        LOG_MODULE(plugin_name, function, host_level, message);
+    });
+    // 依赖校验：依赖的插件必须已加载
+    bool dependency_missing = false;
+    std::string missing_dependency;
+    for (const auto& dep : plugin->dependencies()) {
+        bool found = false;
+        for (const auto& other : plugins_) {
+            if (other.state == PluginLoadState::Loaded && other.instance && other.instance->name() == dep) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            dependency_missing = true;
+            missing_dependency = dep;
+            break;
+        }
+    }
+    if (dependency_missing) {
+        entry.state = PluginLoadState::Failed;
+        entry.error = "依赖插件未加载: " + missing_dependency;
+        LOG_MODULE("ModuleManager", "load_plugin_entry", LOG_ERROR,
+            entry.error << ": " << entry.file_name);
+        destroy_fn(plugin);
+        library->unload();
+        delete library;
+        return false;
+    }
+    // 初始化（插件在此通过 host_ 注册数值与数据处理器）
+    PluginError init_error = plugin->initialize();
+    if (init_error != PluginError::Ok) {
+        entry.state = PluginLoadState::Failed;
+        entry.error = "初始化失败，错误码: " + std::to_string(static_cast<int>(init_error));
+        LOG_MODULE("ModuleManager", "load_plugin_entry", LOG_ERROR,
+            entry.error << ": " << entry.file_name);
+        plugin->uninitialize();
+        destroy_fn(plugin);
+        library->unload();
+        delete library;
+        return false;
+    }
+    // 加载成功
+    entry.library = library;
+    entry.instance = plugin;
+    entry.state = PluginLoadState::Loaded;
+    entry.display_name = plugin->name();
+    entry.version = plugin->version();
+    LOG_MODULE("ModuleManager", "load_plugin_entry", LOG_INFO,
+        "插件加载成功: " << entry.display_name << " v" << entry.version
+                         << "（" << entry.file_name << "）");
+    return true;
+}
+
+void ModuleManager::unload_plugin_entry(PluginEntry& entry) {
+    if (entry.state != PluginLoadState::Loaded || !entry.instance) {
+        return;
+    }
+    IPlugin* plugin = entry.instance;
+    QLibrary* library = entry.library;
+    // 卸载前检查：插件拒绝卸载时保持已加载状态
+    if (!plugin->can_unload()) {
+        entry.error = "插件拒绝卸载（can_unload 返回 false）";
+        LOG_MODULE("ModuleManager", "unload_plugin_entry", LOG_WARN,
+            entry.error << ": " << entry.file_name);
+        return;
+    }
+    // 反初始化（插件在此通过 host_ 注销数值）与资源清理
+    plugin->uninitialize();
+    plugin->cleanup();
+    // 兜底：确保插件模块已从模块列表移除
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = std::remove_if(modules_.begin(), modules_.end(),
+            [&](const Module& m) { return m.get_name() == plugin->name(); });
+        if (it != modules_.end()) {
+            modules_.erase(it, modules_.end());
+            rebuild_scheduler();
+        }
+    }
+    // 销毁实例（插件内部 delete）并卸载动态库
+    auto destroy_fn = reinterpret_cast<PluginDestroyFn>(library->resolve("destroy_plugin"));
+    if (destroy_fn) {
+        destroy_fn(plugin);
+    }
+    library->unload();
+    library->deleteLater();
+    // 重置条目为未加载状态
+    entry.library = nullptr;
+    entry.instance = nullptr;
+    entry.state = PluginLoadState::NotLoaded;
+    entry.display_name.clear();
+    entry.version.clear();
+    entry.error.clear();
+    LOG_MODULE("ModuleManager", "unload_plugin_entry", LOG_INFO,
+        "插件已卸载: " << entry.file_name);
+}
+
+ModuleManager::PluginEntry* ModuleManager::find_plugin_entry(const std::string& file_name) {
+    for (auto& entry : plugins_) {
+        if (entry.file_name == file_name) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+const ModuleManager::PluginEntry* ModuleManager::find_plugin_entry(const std::string& file_name) const {
+    for (const auto& entry : plugins_) {
+        if (entry.file_name == file_name) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}

@@ -76,6 +76,7 @@ enum class PluginThreadSafety {
 
 // 前置声明
 class IPlugin;
+class IPluginHost;
 
 /// @brief 日志回调类型：插件通过回调向主程序上报日志（含级别、插件名、函数名、信息）
 /// @param level 日志级别
@@ -140,6 +141,11 @@ public:
     /// @return 允许卸载返回 true
     virtual bool can_unload() const { return true; }
 
+    // -------------------- 宿主上下文 --------------------
+    /// @brief 注入宿主上下文（宿主加载插件后调用；插件在 initialize 中通过 host_ 使用宿主能力）
+    /// @param host 宿主上下文接口
+    virtual void attach_host(IPluginHost* host) { host_ = host; }
+
     // -------------------- 日志转发 --------------------
     /// @brief 设置日志回调（宿主加载插件后调用；未设置时 log 静默丢弃）
     /// @param callback 日志回调
@@ -157,6 +163,7 @@ public:
 
 protected:
     PluginLogCallback log_callback_; ///< 日志回调（宿主注入）
+    IPluginHost* host_ = nullptr;    ///< 宿主上下文（宿主注入）
 };
 
 // ============================================

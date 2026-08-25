@@ -40,6 +40,8 @@
 | `app.log.console_level` | int | 控制台日志输出等级: 0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE |
 | `app.log.only_type_info` | bool | 是否仅输出单个类型日志（用于精简输出） |
 | `app.log.ui_log_level` | int | UI 界面日志输出等级（同 console_level 枚举） |
+| `app.module.path` | string | 插件扫描目录（默认 `./module`，相对路径相对于可执行文件所在目录解析） |
+| `app.module.scan_load` | bool | 是否"扫描即加载"：扫描到插件后立即加载（默认 `false`，仅扫描并在界面显示"暂未加载"；开启用于调试或特定场景） |
 | `python.path` | string | Python 解释器路径或可执行文件名 |
 | `python.packages_path` | string | Python 第三方包安装目录的相对路径（相对于可执行文件所在目录） |
 

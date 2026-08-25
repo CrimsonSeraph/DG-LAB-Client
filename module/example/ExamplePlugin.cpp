@@ -5,17 +5,31 @@
 
 #include "ExamplePlugin.h"
 
+#include "PluginHost.h"
+
+#include <vector>
+
 // ============================================
 // 生命周期实现（public）
 // ============================================
 
 PluginError ExamplePlugin::initialize() {
+    // 通过宿主上下文注册示例数值（模块名使用插件名称，挂载到 A/B 通道）
+    if (host_) {
+        std::vector<ModuleValue> values;
+        values.emplace_back("example_value", "示例数值", QueryPeriod::SECOND, "example_field");
+        host_->register_module_values(name(), values, {"A", "B"});
+    }
     // 通过日志回调上报（宿主注入回调后统一记录），类名为插件名称、方法名为 initialize
     PLUGIN_LOG(this, PluginLogLevel::Info, "示例插件初始化完成，版本: " << version());
     return PluginError::Ok;
 }
 
 void ExamplePlugin::uninitialize() {
+    // 注销插件注册的模块（与 initialize 对称）
+    if (host_) {
+        host_->unregister_module(name());
+    }
     PLUGIN_LOG(this, PluginLogLevel::Info, "示例插件反初始化完成");
 }
 

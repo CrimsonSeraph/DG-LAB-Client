@@ -146,6 +146,7 @@ set(PROJECT_SOURCES
 
 	# ---------- 插件接口（plugin） ----------
 	include/plugin/IPlugin.h
+	include/plugin/PluginHost.h
 	include/plugin/plugin_export.h
 
 	# ---------- 界面层（ui） ----------
@@ -413,11 +414,14 @@ target_compile_definitions(${PROJECT_NAME}
 add_library(dgl_example_plugin SHARED
 	module/example/ExamplePlugin.h
 	module/example/ExamplePlugin.cpp
+	# ModuleValue 为纯 C++ 模型，编入插件以便插件侧构造数值（与主程序同 ABI）
+	src/module/ModuleValue.cpp
 )
 # 定义 PLUGIN_BUILD 使接口类标记导出；插件与主程序使用同一工具链保证 ABI 兼容
 target_compile_definitions(dgl_example_plugin PRIVATE PLUGIN_BUILD)
 target_include_directories(dgl_example_plugin PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+	${CMAKE_CURRENT_SOURCE_DIR}/include/module
 )
 if(WIN32)
 	# 去掉 MinGW 的 lib 前缀，输出 dgl_example_plugin.dll
