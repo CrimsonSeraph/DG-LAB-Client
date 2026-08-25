@@ -29,6 +29,10 @@
 
 ### Changed
 
+- **CS2 GSI 插件化 (CS2GsiPlugin)**: 将原静态 `CS2GSIModule` 改造为符合 `IPlugin` 接口的动态库插件（`module/gsi/`）——通过宿主配置接口读写 `app.gsi.*`、经宿主共享 `DataListener` 注册 GSI 数据处理器（来源 `CS2 GSI`/类型 `gsi`）并启动监听；注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP + CT/T 得分/连续失利/炸弹状态/地图阶段）。实现**自身/队友归属区分**：首次记录 `player.steamid` 为基准，一致为自身（个人数值正常更新）、不一致为队友（个人数值不更新，团队/地图数值仍更新）；周期变化时经 `on_host_period_changed` 更新配置，`cs2.exe` 运行中经宿主 `notify` 弹出重启提示。
+- **插件宿主接口扩展**: `IPluginHost` 增加数据接收（`listen_data`/`register_data_handler`/`unregister_data_handler`，替代直接 `DataListener` 访问解耦插件与宿主实现）、配置读写（`get_config_value`/`set_config_value`）、基础周期（`base_period_ms`）与用户通知（`notify` → `plugin_notification` 信号）；`IPlugin` 增加 `on_host_period_changed` 周期变化通知；首次注册的 (source, type) 自动作为无信封数据的默认来源。
+- **DataListener 收包增强**: TCP 请求体按 `Content-Length` 累积收齐再解析（修复分包导致的半包解析失败），异常数据大小上限 64KB 防御。
+- **模块数值显示修复**: `query_value` 在无数据源时返回已存储的外部写入值（此前恒返回 0，导致弹窗显示与实际值不符）。
 - **模块 UI 改造**: 模块页卡片区分插件卡片与静态模块卡片——插件卡片右侧提供“启用/禁用”按钮，未加载显示“暂未加载”（加载失败显示原因），已加载显示插件名与最小查询周期；未加载卡片点击不弹出设置窗口（仅已加载可点击弹出数值窗口）；卡片网格两列自适应布局、圆角样式，插件加载/卸载（`plugin_state_changed`）与周期变化时自动重建卡片。
 - **模块管理器重构（插件宿主）**: `ModuleManager` 重写为插件宿主——启动时扫描插件目录（默认 `<程序目录>/module/`，`app.module.path` 可配置，`app.module.scan_load` 控制"扫描即加载"），`QLibrary` 动态加载插件、`get_plugin_api_version` 版本校验、`dependencies()` 依赖校验、注入日志回调（插件日志统一由宿主 `LOG_MODULE` 记录）与宿主上下文（`IPluginHost`：数值注册/注销/写入、共享 `DataListener`），管理插件加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。新增 `PluginHost.h` 宿主接口；示例插件通过宿主注册示例数值（模块名"示例插件"）验证完整加载链路。
 - **通用数据接收器 (DataListener)**: 将 `GsiServer` 重构为通用数据接收器——单实例监听单个端口（支持 TCP HTTP POST 与 UDP 数据报两种协议），数据包支持来源标识信封 `{"source", "type", "data"}`，按 source + type 分发给已注册处理器（`register_handler`）；新增解析器抽象接口 `IDataParser` 及默认实现（`HttpJsonParser`/`JsonBodyParser`）解耦传输协议与 JSON 解析。`CS2GSIModule` 改用 `DataListener` 并注册 GSI 数据处理器（来源 `CS2 GSI`、类型 `gsi`），删除 `GsiServer.h/cpp`。
@@ -44,7 +48,7 @@
 
 ### Removed
 
-- 无
+- 移除静态 `CS2GSIModule`（`include/module/CS2GSIModule.h` / `src/module/CS2GSIModule.cpp`），其功能由 `CS2GsiPlugin` 动态库插件替代（`module/gsi/`）。
 
 ### Fixed
 

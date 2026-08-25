@@ -97,10 +97,9 @@ include/
 | --- | --- |
 | `ModuleValue.h` | 数值模型（`ModuleValue`）的声明：单个可查询数值，包含查询周期枚举（`QueryPeriod`）及其与毫秒数、中文显示文本的相互转换辅助函数。 |
 | `Module.h` | 数据模块（`Module`）的声明。一个模块包含一组可查询数值（如 CS2 GSI 模块），支持挂载/卸载到 A/B 通道，提供数值列表与通道列表的访问接口。 |
-| `ModuleManager.h` | 数值模块管理器 `ModuleManager`（单例）的声明，同时实现插件宿主接口 `IPluginHost`。负责模块注册、数值查询、以所有数值中最短查询周期为基准的调度轮询，数值变化时通过 `value_changed` 信号推送；支持通过 `set_data_source` 接入真实数据源。插件能力：扫描/加载/卸载动态库插件（`QLibrary`）、`get_plugin_api_version` 版本校验、依赖校验、加载状态管理（`PluginLoadState`/`PluginInfo`）、日志回调注入与宿主上下文（数值注册/注销/写入、共享 `DataListener`）。 |
+| `ModuleManager.h` | 数值模块管理器 `ModuleManager`（单例）的声明，同时实现插件宿主接口 `IPluginHost`。负责模块注册、数值查询、以所有数值中最短查询周期为基准的调度轮询，数值变化时通过 `value_changed` 信号推送；支持通过 `set_data_source` 接入真实数据源。插件能力：扫描/加载/卸载动态库插件（`QLibrary`）、`get_plugin_api_version` 版本校验、依赖校验、加载状态管理（`PluginLoadState`/`PluginInfo`）、日志回调注入与宿主上下文（数值注册/注销/写入、数据监听与分发、配置读写、周期通知 `plugin_notification`）。 |
 | `ModuleValuesDialog.h` | 模块数值展示对话框（`ModuleValuesDialog`）的声明，继承自 `QDialog`。点击模块卡片后弹出，每行两个数值框（名称 + 当前值 + 底层字段名），底部下拉框可单独设置该数值的查询周期。 |
-| `CS2GSIModule.h` | CS2 GSI 数值模块（`CS2GSIModule`，单例）的声明。负责 CS2 模块数值定义、通过 `PathFinder.py` 查找 CS 游戏目录、生成/更新 GSI 配置文件（`gamestate_integration_*.cfg`）与周期变更时的重启提示。 |
-| `DataListener.h` | 通用数据接收器（`DataListener`）的声明，继承自 `QTcpServer`。单实例监听单个端口（TCP HTTP POST 或 UDP 数据报），解析为 JSON 后按数据包来源标识（source + type）分发给已注册的处理器；同时提供解析器抽象接口 `IDataParser` 及其默认实现（`HttpJsonParser`/`JsonBodyParser`）。 |
+| `DataListener.h` | 通用数据接收器（`DataListener`）的声明，继承自 `QTcpServer`。单实例监听单个端口（TCP HTTP POST 或 UDP 数据报），解析为 JSON 后按数据包来源标识（source + type）分发给已注册的处理器（含分包累积收包）；同时提供解析器抽象接口 `IDataParser` 及其默认实现（`HttpJsonParser`/`JsonBodyParser`）。 |
 
 ---
 
@@ -112,7 +111,7 @@ include/
 | --- | --- |
 | `plugin_export.h` | 统一导出宏（`PLUGIN_EXPORT`/`PLUGIN_API`）与插件 API 版本（`PLUGIN_API_VERSION`）的定义，跨 Windows（`_WIN32`）/GCC/Clang 平台。 |
 | `IPlugin.h` | 插件纯虚基类 `IPlugin` 的声明：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明、错误码返回与日志回调（`set_log_callback`/`log`）；同时声明 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 导出约定（仅 `PLUGIN_BUILD` 时可见）与 `PLUGIN_LOG` 日志宏。 |
-| `PluginHost.h` | 宿主上下文接口 `IPluginHost` 的声明：插件在 `initialize`/`uninitialize` 中调用宿主能力——数值注册（`register_module_values`）、数值写入（`set_value`）、模块注销（`unregister_module`）与共享数据接收器获取（`data_listener`）。 |
+| `PluginHost.h` | 宿主上下文接口 `IPluginHost` 的声明：插件在 `initialize`/`uninitialize` 中调用宿主能力——数值注册（`register_module_values`）、数值写入（`set_value`）、模块注销（`unregister_module`）、数据接收（`listen_data`/`register_data_handler`）、配置读写（`get_config_value`/`set_config_value`）、基础周期（`base_period_ms`）与用户通知（`notify`）。 |
 
 ---
 

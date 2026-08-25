@@ -91,8 +91,9 @@ src/
 | `Module.cpp` | 数据模块（`Module`）的实现。一个模块包含一组可查询数值（如 CS2 GSI 模块），支持挂载/卸载到 A/B 通道，提供数值列表与通道列表的访问接口。 |
 | `ModuleManager.cpp` | 数值模块管理器（`ModuleManager`）的实现，单例模式，同时实现插件宿主接口 `IPluginHost`。负责模块注册、数值查询、以所有数值中最短查询周期为基准的调度轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费；支持通过 `set_data_source` 接入真实数据源。插件宿主：扫描插件目录（`app.module.path`）、`QLibrary` 动态加载、`get_plugin_api_version` 版本校验、依赖校验、`initialize`/`uninitialize` 生命周期、日志回调转发（插件名 + 函数名）、加载状态管理与共享 `DataListener`。 |
 | `ModuleValuesDialog.cpp` | 模块数值展示对话框（`ModuleValuesDialog`）的实现。点击模块卡片后弹出，每行两个数值框（名称 + 当前值 + 底层字段名），底部下拉框可单独设置该数值的查询周期。 |
-| `CS2GSIModule.cpp` | CS2 GSI 数值模块（`CS2GSIModule`）的实现。负责 CS2 模块数值定义、通过 `PathFinder.py` 查找 CS 游戏目录、生成/更新 GSI 配置文件与周期变更时的重启提示；通过 `DataListener` 注册 GSI 数据处理器（来源 `CS2 GSI`、类型 `gsi`）接收并解析游戏推送的数据。 |
-| `DataListener.cpp` | 通用数据接收器（`DataListener`）的实现。单实例监听单个端口（TCP HTTP POST 或 UDP 数据报），解析为 JSON 后按数据包来源标识（source + type）分发给已注册的处理器；提供解析器抽象接口 `IDataParser` 及其默认实现（`HttpJsonParser`/`JsonBodyParser`）。 |
+| `DataListener.cpp` | 通用数据接收器（`DataListener`）的实现。单实例监听单个端口（TCP HTTP POST 或 UDP 数据报），解析为 JSON 后按数据包来源标识（source + type）分发给已注册的处理器（HTTP 请求体按 Content-Length 累积收齐）；提供解析器抽象接口 `IDataParser` 及其默认实现（`HttpJsonParser`/`JsonBodyParser`）。 |
+
+> 注：CS2 GSI 模块已改造为动态库插件（源码位于 `module/gsi/`，不再属于 `src/module/`）。
 
 ---
 

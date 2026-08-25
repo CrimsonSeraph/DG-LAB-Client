@@ -49,8 +49,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 - **进程检查 (ProcessChecker)**
   提供 `ProcessChecker` 静态工具类，跨平台查询指定名称的进程是否在运行（Windows 使用 `tasklist`，macOS/Linux 使用 `ps`），支持大小写敏感开关。用于 CS2 GSI 配置更新时判断游戏是否运行（配置仅游戏启动时加载，运行中更新需提示重启游戏）。
 
-- **CS2 GSI 模块 (CS2GSIModule)**
-  `CS2GSIModule` 单独封装 CS2 的 Game State Integration 逻辑：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取 GSI 监听端口，按模块最小查询周期计算 `buffer`/`throttle` 参数并生成 `gamestate_integration_dglab.cfg`（配置文件地址记录到 `user.json` 的 `app.gsi` 下）。配置生成后 `DataListener`（通用数据接收器）即监听对应端口，接收 CS2 游戏按 `throttle` 频率推送的 GSI 数据（HTTP POST），解析血量/护甲/金钱/队伍/头盔/拆弹器并写入数值模块触发规则计算。当最小查询周期改变时自动更新配置；若检测到 `cs2.exe` 正在运行，弹出提示要求重启游戏使配置生效，未运行则无需提示。
+- **CS2 GSI 插件 (CS2GsiPlugin)**  `CS2GsiPlugin`（`module/gsi/`）将原静态 `CS2GSIModule` 改造为符合 `IPlugin` 接口的动态库插件：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取监听端口，按模块最小查询周期计算 `buffer`/`throttle` 并生成 `gamestate_integration_dglab.cfg`（路径记录到 `user.json` 的 `app.gsi` 下，经宿主配置接口读写）。插件经宿主共享 `DataListener` 接收 GSI 数据（HTTP POST），注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项，参照官方 GSI 规范），并实现**自身/队友数据归属区分**：首次收到有效数据时记录 `player.steamid` 为本地玩家基准，之后比较——一致为自身（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），不一致为队友（个人数值**不更新**，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。周期变化时自动更新配置；若 `cs2.exe` 运行中，经宿主 `notify` 弹出重启游戏提示。
 
 - **首页通道面板** 首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式，`x_wave_card` 波形卡片保持现状。
 
@@ -564,7 +563,8 @@ DG-LAB-Client/
 │   └── rules/                       # 规则文件目录
 │       └── rules.json               # 规则定义
 ├── module/                             # 插件源码目录（运行时扫描目录为可执行文件旁 module/）
-│   └── example/                        # 示例空壳插件（验证插件接口与导出约定）
+│   ├── example/                        # 示例空壳插件（验证插件接口与导出约定）
+│   └── gsi/                            # CS2 GSI 插件（路径查找、配置生成、SteamID 归属区分）
 ├── include/                             # 公共头文件（按分类子目录存放，含 UI 文件）
 │   ├── core/                            # 核心基础设施：配置系统 + 日志系统
 │   │   ├── AppConfig.h                  # 应用配置接口
@@ -597,7 +597,6 @@ DG-LAB-Client/
 │   │   ├── Module.h                     # 数据模块（一组数值）
 │   │   ├── ModuleManager.h              # 数值模块管理器（周期调度）
 │   │   ├── ModuleValuesDialog.h         # 模块数值展示对话框
-│   │   ├── CS2GSIModule.h               # CS2 GSI 模块（路径查找、配置生成）
 │   │   └── DataListener.h              # 通用数据接收器（多模块注册分发）
 │   ├── plugin/                          # 插件接口
 │   │   ├── IPlugin.h                    # 插件纯虚基类（生命周期、自描述、日志回调）
@@ -666,8 +665,7 @@ DG-LAB-Client/
 │   │   ├── ModuleValue.cpp              # 数值模型实现
 │   │   ├── Module.cpp                   # 数据模块实现
 │   │   ├── ModuleManager.cpp            # 数值模块管理器实现
-│   │   └── ModuleValuesDialog.cpp       # 模块数值展示对话框实现
-│   │   ├── CS2GSIModule.cpp               # CS2 GSI 模块实现
+│   │   ├── ModuleValuesDialog.cpp       # 模块数值展示对话框实现
 │   │   └── DataListener.cpp              # 通用数据接收器实现
 │   ├── ui/                              # 界面层（主窗口 + 通用控件）
 │   │   ├── DGLABClient.cpp              # 主窗口实现
