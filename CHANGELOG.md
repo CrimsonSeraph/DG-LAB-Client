@@ -28,6 +28,7 @@
 
 ### Changed
 
+- **通用数据接收器 (DataListener)**: 将 `GsiServer` 重构为通用数据接收器——单实例监听单个端口（支持 TCP HTTP POST 与 UDP 数据报两种协议），数据包支持来源标识信封 `{"source", "type", "data"}`，按 source + type 分发给已注册处理器（`register_handler`）；新增解析器抽象接口 `IDataParser` 及默认实现（`HttpJsonParser`/`JsonBodyParser`）解耦传输协议与 JSON 解析。`CS2GSIModule` 改用 `DataListener` 并注册 GSI 数据处理器（来源 `CS2 GSI`、类型 `gsi`），删除 `GsiServer.h/cpp`。
 - Windows 构建: Python 标准库 zip 打包优化——排除 site-packages（约 5GB 第三方包）、**pycache**/\*.pyc 与 test，改用系统内置 bsdtar 打包，configure 耗时由数十分钟降至数秒，zip 体积约 1GB 降至约 5MB，且 zipimport 可直接导入。
 - 统一全项目注释规范: 头文件函数补齐 Doxygen 注释（中文 @brief/@param/@return），源文件行尾注释全部改为独立行注释。
 - **规则文件格式**: 新增 `enabled`（bool）与 `parents`（数组，`"A"`/`"B"` 字符串或规则序号整数）字段，`valuePattern` 支持 `{id:xxx(名称)}`/`{rule:xx}` 占位符；兼容旧 `channel` 字段（未提供 `parents` 时作为唯一父级）。

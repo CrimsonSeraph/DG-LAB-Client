@@ -6,8 +6,8 @@
 #include "CS2GSIModule.h"
 
 #include "AppConfig.h"
+#include "DataListener.h"
 #include "DebugLog.h"
-#include "GsiServer.h"
 #include "ModuleManager.h"
 #include "ProcessChecker.h"
 
@@ -38,10 +38,14 @@ CS2GSIModule::CS2GSIModule()
     // 监听模块周期变化：最小查询周期改变时更新 GSI 配置并检查游戏进程
     connect(&ModuleManager::instance(), &ModuleManager::period_changed,
         this, &CS2GSIModule::on_period_changed);
-    // 创建 GSI 监听服务器，接收 CS2 游戏推送的数据
-    gsi_server_ = new GsiServer(this);
-    connect(gsi_server_, &GsiServer::data_received,
-        this, &CS2GSIModule::on_gsi_data_received);
+    // 创建通用数据接收器（HTTP 协议），注册 GSI 数据处理器（来源 + 类型）
+    data_listener_ = new DataListener(this);
+    data_listener_->set_default_source(QString::fromUtf8(module_name()));
+    data_listener_->set_default_type("gsi");
+    data_listener_->register_handler(QString::fromUtf8(module_name()), "gsi",
+        [this](const QJsonObject& data) {
+            on_gsi_data_received(data);
+        });
 }
 
 CS2GSIModule::~CS2GSIModule() = default;
@@ -259,14 +263,14 @@ void CS2GSIModule::on_gsi_data_received(const QJsonObject& data) {
 // ============================================
 
 void CS2GSIModule::start_gsi_listener() {
-    if (!gsi_server_ || port_ <= 0) {
+    if (!data_listener_ || port_ <= 0) {
         LOG_MODULE("CS2GSIModule", "start_gsi_listener", LOG_WARN,
             "端口无效，无法启动监听（端口: " << port_ << "）");
         return;
     }
     // 端口被占用时重新随机端口并重新生成配置，最多重试 5 次
     for (int attempt = 0; attempt < 5; ++attempt) {
-        if (gsi_server_->start_listening(port_)) {
+        if (data_listener_->start_listening(port_)) {
             LOG_MODULE("CS2GSIModule", "start_gsi_listener", LOG_INFO,
                 "GSI 端口监听已启动: " << port_);
             return;

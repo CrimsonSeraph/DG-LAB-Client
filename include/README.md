@@ -97,6 +97,8 @@ include/
 | `Module.h` | 数据模块（`Module`）的声明。一个模块包含一组可查询数值（如 CS2 GSI 模块），支持挂载/卸载到 A/B 通道，提供数值列表与通道列表的访问接口。 |
 | `ModuleManager.h` | 数值模块管理器 `ModuleManager`（单例）的声明。负责模块注册、数值查询、以所有数值中最短查询周期为基准的调度轮询，数值变化时通过 `value_changed` 信号推送；支持通过 `set_data_source` 接入真实数据源。 |
 | `ModuleValuesDialog.h` | 模块数值展示对话框（`ModuleValuesDialog`）的声明，继承自 `QDialog`。点击模块卡片后弹出，每行两个数值框（名称 + 当前值 + 底层字段名），底部下拉框可单独设置该数值的查询周期。 |
+| `CS2GSIModule.h` | CS2 GSI 数值模块（`CS2GSIModule`，单例）的声明。负责 CS2 模块数值定义、通过 `PathFinder.py` 查找 CS 游戏目录、生成/更新 GSI 配置文件（`gamestate_integration_*.cfg`）与周期变更时的重启提示。 |
+| `DataListener.h` | 通用数据接收器（`DataListener`）的声明，继承自 `QTcpServer`。单实例监听单个端口（TCP HTTP POST 或 UDP 数据报），解析为 JSON 后按数据包来源标识（source + type）分发给已注册的处理器；同时提供解析器抽象接口 `IDataParser` 及其默认实现（`HttpJsonParser`/`JsonBodyParser`）。 |
 
 ---
 

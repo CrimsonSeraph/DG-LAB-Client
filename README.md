@@ -50,7 +50,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
   提供 `ProcessChecker` 静态工具类，跨平台查询指定名称的进程是否在运行（Windows 使用 `tasklist`，macOS/Linux 使用 `ps`），支持大小写敏感开关。用于 CS2 GSI 配置更新时判断游戏是否运行（配置仅游戏启动时加载，运行中更新需提示重启游戏）。
 
 - **CS2 GSI 模块 (CS2GSIModule)**
-  `CS2GSIModule` 单独封装 CS2 的 Game State Integration 逻辑：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取 GSI 监听端口，按模块最小查询周期计算 `buffer`/`throttle` 参数并生成 `gamestate_integration_dglab.cfg`（配置文件地址记录到 `user.json` 的 `app.gsi` 下）。配置生成后 `GsiServer` 即监听对应端口，接收 CS2 游戏按 `throttle` 频率推送的 GSI 数据（HTTP POST），解析血量/护甲/金钱/队伍/头盔/拆弹器并写入数值模块触发规则计算。当最小查询周期改变时自动更新配置；若检测到 `cs2.exe` 正在运行，弹出提示要求重启游戏使配置生效，未运行则无需提示。
+  `CS2GSIModule` 单独封装 CS2 的 Game State Integration 逻辑：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取 GSI 监听端口，按模块最小查询周期计算 `buffer`/`throttle` 参数并生成 `gamestate_integration_dglab.cfg`（配置文件地址记录到 `user.json` 的 `app.gsi` 下）。配置生成后 `DataListener`（通用数据接收器）即监听对应端口，接收 CS2 游戏按 `throttle` 频率推送的 GSI 数据（HTTP POST），解析血量/护甲/金钱/队伍/头盔/拆弹器并写入数值模块触发规则计算。当最小查询周期改变时自动更新配置；若检测到 `cs2.exe` 正在运行，弹出提示要求重启游戏使配置生效，未运行则无需提示。
 
 - **首页通道面板** 首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式，`x_wave_card` 波形卡片保持现状。
 
@@ -292,6 +292,7 @@ cpack
 - **数值变化推送**: 模块保留上次查询结果，数值未变化时不推送；数值变化时通过 `ModuleManager::value_changed` 信号推送，供规则引擎等消费。
 - **调度机制**: 以所有数值中最短的查询周期为基准周期（最小 250ms），每经过一个基准周期查询一次；周期为基准周期整数倍的数值按对应倍率间隔查询（如基准 250ms 时，500ms 的数值每 2 次查询一次，2s 的数值每 8 次查询一次），周期设置变化时自动重建调度器。
 - **数据源**: 未设置数据源时数值保持“未获取”状态（界面显示 `--`），不产生模拟数值；通过 `ModuleManager::instance().set_data_source(callback)` 接入真实数据（如 CS2 GSI）后开始取值。规则中引用无数据的数值视为空值，忽略该次计算。
+- **通用数据接收器 (DataListener)**: 负责统一接收外部推送的数据。单实例监听单个端口（支持 TCP HTTP POST 与 UDP 数据报两种协议），解析为 JSON 后按数据包携带的来源标识分发：数据包信封格式为 `{"source": "<模块名>", "type": "<信息类型>", "data": {...}}`，无信封字段时回退到监听器配置的默认来源（如 CS2 GSI 数据默认来源 `CS2 GSI`、类型 `gsi`）。各模块通过 `register_handler(source, type, callback)` 注册处理器，即可共享同一端口或多端口并行接收。
 
 > 👉 规则引擎相关问题请查看 [常见问题 - 规则引擎问题](#规则引擎问题)
 
@@ -592,7 +593,7 @@ DG-LAB-Client/
 │   │   ├── ModuleManager.h              # 数值模块管理器（周期调度）
 │   │   ├── ModuleValuesDialog.h         # 模块数值展示对话框
 │   │   ├── CS2GSIModule.h               # CS2 GSI 模块（路径查找、配置生成）
-│   │   └── GsiServer.h                 # GSI 数据监听服务器
+│   │   └── DataListener.h              # 通用数据接收器（多模块注册分发）
 │   ├── ui/                              # 界面层（主窗口 + 通用控件）
 │   │   ├── DGLABClient.h                # 主窗口类定义
 │   │   ├── DGLABClient.ui               # Qt Designer 界面文件
@@ -659,7 +660,7 @@ DG-LAB-Client/
 │   │   ├── ModuleManager.cpp            # 数值模块管理器实现
 │   │   └── ModuleValuesDialog.cpp       # 模块数值展示对话框实现
 │   │   ├── CS2GSIModule.cpp               # CS2 GSI 模块实现
-│   │   └── GsiServer.cpp                 # GSI 数据监听服务器实现
+│   │   └── DataListener.cpp              # 通用数据接收器实现
 │   ├── ui/                              # 界面层（主窗口 + 通用控件）
 │   │   ├── DGLABClient.cpp              # 主窗口实现
 │   │   ├── EditableLabel.cpp            # 可编辑标签实现

@@ -14,7 +14,7 @@
 #include <vector>
 
 // 前置声明
-class GsiServer;
+class DataListener;
 class ModuleManager;
 
 // ============================================
@@ -125,5 +125,5 @@ private:
     QString config_path_;     ///< GSI 配置文件路径
     int port_ = 0;            ///< GSI 监听端口
     int last_min_period_ms_ = 0; ///< 上次处理的最小查询周期
-    GsiServer* gsi_server_ = nullptr; ///< GSI 监听服务器
+    DataListener* data_listener_ = nullptr; ///< 通用数据接收器（GSI HTTP 监听）
 };
