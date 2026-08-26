@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 
 // ============================================
@@ -77,8 +78,11 @@ public:
     /// @param name 数值中文名称（如 "当前血量"）
     /// @param period 查询周期
     /// @param field 底层字段名（用于展示，如 "m_iHealth"）
+    /// @param min_value 最小值（空表示无下限）
+    /// @param max_value 最大值（空表示无上限）
     ModuleValue(const std::string& id, const std::string& name, QueryPeriod period,
-        const std::string& field);
+        const std::string& field, std::optional<int> min_value = std::nullopt,
+        std::optional<int> max_value = std::nullopt);
 
     // -------------------- 公共接口（属性获取）--------------------
     /// @brief 获取数值 ID（用于规则引用，如 {id:health}）
@@ -105,24 +109,59 @@ public:
     /// @return 已获取返回 true
     inline bool get_has_value() const { return has_value_; }
 
+    /// @brief 获取最小值（空表示无下限）
+    /// @return 最小值
+    inline std::optional<int> get_min() const { return min_value_; }
+
+    /// @brief 获取最大值（空表示无上限）
+    /// @return 最大值
+    inline std::optional<int> get_max() const { return max_value_; }
+
+    /// @brief 是否配置了数值范围（上下限任一存在即 true）
+    /// @return 配置返回 true
+    inline bool has_range() const { return min_value_.has_value() || max_value_.has_value(); }
+
     // -------------------- 公共接口（属性设置）--------------------
     /// @brief 设置查询周期
     /// @param period 新的查询周期
     inline void set_query_period(QueryPeriod period) { query_period_ = period; }
 
-    /// @brief 记录最新查询到的数值
+    /// @brief 设置数值范围（空表示对应侧无限制）
+    /// @param min_value 最小值
+    /// @param max_value 最大值
+    inline void set_range(std::optional<int> min_value, std::optional<int> max_value) {
+        min_value_ = min_value;
+        max_value_ = max_value;
+    }
+
+    /// @brief 将数值钳制到配置范围内（未配置侧不限制）
+    /// @param value 原始数值
+    /// @return 钳制后的数值
+    inline int clamp_value(int value) const {
+        if (min_value_ && value < *min_value_) {
+            return *min_value_;
+        }
+        if (max_value_ && value > *max_value_) {
+            return *max_value_;
+        }
+        return value;
+    }
+
+    /// @brief 记录最新查询到的数值（自动钳制到配置范围）
     /// @param value 查询到的数值
     inline void set_last_value(int value) {
-        last_value_ = value;
+        last_value_ = clamp_value(value);
         has_value_ = true;
     }
 
 private:
     // -------------------- 成员变量 --------------------
-    std::string id_;                                        ///< 数值 ID（如 "health"）
-    std::string name_;                                      ///< 数值中文名称（如 "当前血量"）
-    QueryPeriod query_period_ = QueryPeriod::SECOND;        ///< 查询周期
-    std::string field_;                                     ///< 底层字段名（如 "m_iHealth"）
-    int last_value_ = 0;                                    ///< 上次查询到的数值
-    bool has_value_ = false;                                ///< 是否已获取过数值
+    std::string id_;                                 ///< 数值 ID（如 "health"）
+    std::string name_;                               ///< 数值中文名称（如 "当前血量"）
+    QueryPeriod query_period_ = QueryPeriod::SECOND; ///< 查询周期
+    std::string field_;                              ///< 底层字段名（如 "m_iHealth"）
+    std::optional<int> min_value_;                   ///< 最小值（空表示无下限）
+    std::optional<int> max_value_;                   ///< 最大值（空表示无上限）
+    int last_value_ = 0;                             ///< 上次查询到的数值
+    bool has_value_ = false;                         ///< 是否已获取过数值
 };

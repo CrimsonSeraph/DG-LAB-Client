@@ -17,7 +17,8 @@ PluginError ExamplePlugin::initialize() {
     // 通过宿主上下文注册示例数值（模块名使用插件名称，挂载到 A/B 通道）
     if (host_) {
         std::vector<ModuleValue> values;
-        values.emplace_back("example_value", "示例数值", QueryPeriod::SECOND, "example_field");
+        // 示例数值配置范围 0-200，演示最值显示与写入钳制
+        values.emplace_back("example_value", "示例数值", QueryPeriod::SECOND, "example_field", 0, 200);
         host_->register_module_values(name(), values, {"A", "B"});
     }
     // 通过日志回调上报（宿主注入回调后统一记录），类名为插件名称、方法名为 initialize

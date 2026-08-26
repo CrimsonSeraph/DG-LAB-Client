@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QString>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -50,16 +51,17 @@ private:
     // -------------------- 成员变量 --------------------
     /// @brief 单个数值框的控件集合
     struct ValueBox {
-        QLabel* name_label = nullptr;        ///< 数值名称标签
-        QLabel* value_label = nullptr;       ///< 当前数值标签
-        QLabel* field_label = nullptr;       ///< 底层字段名标签（小字）
-        QComboBox* period_combo = nullptr;   ///< 查询周期下拉框
+        QLabel* name_label = nullptr;      ///< 数值名称标签
+        QLabel* value_label = nullptr;     ///< 当前数值标签（容器左侧）
+        QLabel* range_label = nullptr;     ///< 最小/最大值标签（容器右侧，无范围显示 NULL）
+        QLabel* field_label = nullptr;     ///< 底层字段名标签（小字）
+        QComboBox* period_combo = nullptr; ///< 查询周期下拉框
     };
 
-    std::string module_name_;                ///< 模块名称
-    std::vector<ValueBox> value_boxes_;      ///< 数值框列表
-    std::vector<std::string> value_ids_;     ///< 数值 ID 列表（与数值框一一对应）
-    bool syncing_combos_ = false;            ///< 正在同步下拉框（防止信号循环）
+    std::string module_name_;            ///< 模块名称
+    std::vector<ValueBox> value_boxes_;  ///< 数值框列表
+    std::vector<std::string> value_ids_; ///< 数值 ID 列表（与数值框一一对应）
+    bool syncing_combos_ = false;        ///< 正在同步下拉框（防止信号循环）
 
     // -------------------- 私有辅助函数 --------------------
     /// @brief 构建界面（根据模块数值每行两个生成数值框）
@@ -70,7 +72,10 @@ private:
     /// @param layout 目标网格布局
     /// @param row 行号
     /// @param col 列号
-    void create_value_box(const ModuleValue& value, QGridLayout* layout, int row, int col);
+    /// @param min_value 最小值（空表示无下限，显示 NULL）
+    /// @param max_value 最大值（空表示无上限，显示 NULL）
+    void create_value_box(const ModuleValue& value, QGridLayout* layout, int row, int col,
+        std::optional<int> min_value, std::optional<int> max_value);
     /// @brief 刷新所有数值框的当前值与周期显示
     void refresh_all_boxes();
 };

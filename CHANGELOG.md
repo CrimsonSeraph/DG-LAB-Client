@@ -12,6 +12,7 @@
 
 ### Added
 
+- **数值范围（最值）支持**: `ModuleValue` 新增可选最小/最大值（`std::optional<int>`，空表示无上下限），插件可通过构造函数或 `set_range` 为数值配置范围（CS2 GSI 插件 23 项数值均已配置：血量 0-100、金钱 0-16000、闪光/烟雾/燃烧 0-255、队伍得分 0-999 等；示例插件 0-200）。**写入钳制**：`ModuleManager::set_value`/`query_value` 写入前自动钳制到范围（外部超范围数据被限制，如 health=150 → 100），变化检测基于钳制后数值。**弹窗显示**：`ModuleValuesDialog` 数值框首行改为「名称（左）｜ 当前值 | 最小值/最大值（右）」——当前值与最值用容器包裹，名称:容器=1:2、当前值:最值=1:2 成比例，超出宽度省略号显示；无范围显示 `NULL`，单侧缺失显示 `NULL/255` 形式。修复首次写入（无历史值→有值）不推送 `value_changed` 的问题（此前首条 GSI 数据不触发弹窗/规则更新）。
 - **插件接口 (IPlugin)**: 新增插件纯虚基类 `IPlugin`（生命周期 `initialize`/`uninitialize`/`cleanup`/`can_unload`、自描述 `name`/`version`/`api_version`/`capabilities`/`dependencies`、线程安全声明与错误码返回）与统一导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性，`include/plugin/plugin_export.h`）；约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 导出与 API 版本校验（`PLUGIN_API_VERSION=1`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`），内存隔离约定插件自行 `new`/`delete`。新增示例空壳插件（`module/example/`，类名 `ExamplePlugin`）演示接口实现与导出，构建后自动复制到 `<程序目录>/module/` 供扫描加载。
 - **数值模块（Module）**: 新增 `ModuleValue`/`Module`/`ModuleManager` 数据模型（`include/Module.h`、`include/ModuleValue.h`、`include/ModuleManager.h` 及对应源文件），默认注册 CS2 GSI 模块，内置 `health`（m_iHealth）、`armor`（m_ArmorValue）、`team_num`、`money`、`has_helmet`、`has_defuser` 等数值（参照 CS2 官方 GSI 规范）。
 - **模块页面**: 点击模块卡片弹出数值展示窗口（`ModuleValuesDialog`，每行两个数值框：名称 + 当前值 + 底层字段名小字），每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口。

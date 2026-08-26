@@ -95,7 +95,7 @@ include/
 
 | 文件名 | 描述 |
 | --- | --- |
-| `ModuleValue.h` | 数值模型（`ModuleValue`）的声明：单个可查询数值，包含查询周期枚举（`QueryPeriod`）及其与毫秒数、中文显示文本的相互转换辅助函数。 |
+| `ModuleValue.h` | 数值模型（`ModuleValue`）的声明：单个可查询数值，包含查询周期枚举（`QueryPeriod`）及其与毫秒数、中文显示文本的相互转换辅助函数；支持可选最小/最大值（`std::optional<int>`，空表示无上下限），写入时自动钳制到配置范围。 |
 | `Module.h` | 数据模块（`Module`）的声明。一个模块包含一组可查询数值（如 CS2 GSI 模块），支持挂载/卸载到 A/B 通道，提供数值列表与通道列表的访问接口。 |
 | `ModuleManager.h` | 数值模块管理器 `ModuleManager`（单例）的声明，同时实现插件宿主接口 `IPluginHost`。负责模块注册、数值查询、以所有数值中最短查询周期为基准的调度轮询，数值变化时通过 `value_changed` 信号推送；支持通过 `set_data_source` 接入真实数据源。插件能力：扫描/加载/卸载动态库插件（`QLibrary`）、`get_plugin_api_version` 版本校验、依赖校验、加载状态管理（`PluginLoadState`/`PluginInfo`）、日志回调注入与宿主上下文（数值注册/注销/写入、数据监听与分发、配置读写、周期通知 `plugin_notification`）。 |
 | `ModuleValuesDialog.h` | 模块数值展示对话框（`ModuleValuesDialog`）的声明，继承自 `QDialog`。点击模块卡片后弹出，每行两个数值框（名称 + 当前值 + 底层字段名），底部下拉框可单独设置该数值的查询周期。 |

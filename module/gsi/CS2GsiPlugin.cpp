@@ -22,33 +22,33 @@
 std::vector<ModuleValue> CS2GsiPlugin::create_default_values() {
     // 完整数值列表（参照官方 GSI 规范）：个人状态类数值队友数据不更新，团队/地图类始终更新
     std::vector<ModuleValue> values;
-    // 个人状态类
-    values.emplace_back("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth");
-    values.emplace_back("armor", "当前护甲", QueryPeriod::HALF_SECOND, "m_ArmorValue");
-    values.emplace_back("money", "金钱", QueryPeriod::TWO_SECONDS, "m_iMoney");
-    values.emplace_back("team_num", "队伍编号", QueryPeriod::SECOND, "team");
-    values.emplace_back("has_helmet", "是否有头盔", QueryPeriod::FOUR_SECONDS, "m_bHasHelmet");
-    values.emplace_back("has_defuser", "是否有拆弹器", QueryPeriod::FOUR_SECONDS, "m_bHasDefuser");
-    values.emplace_back("flashed", "闪光致盲程度", QueryPeriod::SECOND, "flashed");
-    values.emplace_back("smoked", "烟雾遮蔽程度", QueryPeriod::SECOND, "smoked");
-    values.emplace_back("burning", "燃烧灼烧程度", QueryPeriod::SECOND, "burning");
-    values.emplace_back("round_kills", "当前回合击杀数", QueryPeriod::SECOND, "round_kills");
-    values.emplace_back("round_killhs", "当前回合爆头击杀数", QueryPeriod::SECOND, "round_killhs");
-    values.emplace_back("round_totaldmg", "当前回合总伤害", QueryPeriod::SECOND, "round_totaldmg");
-    values.emplace_back("equip_value", "装备总价值", QueryPeriod::SECOND, "equip_value");
-    values.emplace_back("kills", "总击杀数", QueryPeriod::SECOND, "kills");
-    values.emplace_back("assists", "总助攻数", QueryPeriod::SECOND, "assists");
-    values.emplace_back("deaths", "总死亡数", QueryPeriod::SECOND, "deaths");
-    values.emplace_back("mvps", "MVP 次数", QueryPeriod::SECOND, "mvps");
+    // 个人状态类（最值参照官方 GSI 取值，写入时自动钳制到范围）
+    values.emplace_back("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth", 0, 100);
+    values.emplace_back("armor", "当前护甲", QueryPeriod::HALF_SECOND, "m_ArmorValue", 0, 100);
+    values.emplace_back("money", "金钱", QueryPeriod::TWO_SECONDS, "m_iMoney", 0, 16000);
+    values.emplace_back("team_num", "队伍编号", QueryPeriod::SECOND, "team", 2, 3);
+    values.emplace_back("has_helmet", "是否有头盔", QueryPeriod::FOUR_SECONDS, "m_bHasHelmet", 0, 1);
+    values.emplace_back("has_defuser", "是否有拆弹器", QueryPeriod::FOUR_SECONDS, "m_bHasDefuser", 0, 1);
+    values.emplace_back("flashed", "闪光致盲程度", QueryPeriod::SECOND, "flashed", 0, 255);
+    values.emplace_back("smoked", "烟雾遮蔽程度", QueryPeriod::SECOND, "smoked", 0, 255);
+    values.emplace_back("burning", "燃烧灼烧程度", QueryPeriod::SECOND, "burning", 0, 255);
+    values.emplace_back("round_kills", "当前回合击杀数", QueryPeriod::SECOND, "round_kills", 0, 255);
+    values.emplace_back("round_killhs", "当前回合爆头击杀数", QueryPeriod::SECOND, "round_killhs", 0, 255);
+    values.emplace_back("round_totaldmg", "当前回合总伤害", QueryPeriod::SECOND, "round_totaldmg", 0, 10000);
+    values.emplace_back("equip_value", "装备总价值", QueryPeriod::SECOND, "equip_value", 0, 65535);
+    values.emplace_back("kills", "总击杀数", QueryPeriod::SECOND, "kills", 0, 99999);
+    values.emplace_back("assists", "总助攻数", QueryPeriod::SECOND, "assists", 0, 99999);
+    values.emplace_back("deaths", "总死亡数", QueryPeriod::SECOND, "deaths", 0, 99999);
+    values.emplace_back("mvps", "MVP 次数", QueryPeriod::SECOND, "mvps", 0, 99999);
     // 团队/地图类
-    values.emplace_back("ct_score", "CT 队伍得分", QueryPeriod::SECOND, "map.team_ct.score");
-    values.emplace_back("t_score", "T 队伍得分", QueryPeriod::SECOND, "map.team_t.score");
+    values.emplace_back("ct_score", "CT 队伍得分", QueryPeriod::SECOND, "map.team_ct.score", 0, 999);
+    values.emplace_back("t_score", "T 队伍得分", QueryPeriod::SECOND, "map.team_t.score", 0, 999);
     values.emplace_back("ct_consecutive_round_losses", "CT 连续失利次数", QueryPeriod::SECOND,
-        "map.team_ct.consecutive_round_losses");
+        "map.team_ct.consecutive_round_losses", 0, 99);
     values.emplace_back("t_consecutive_round_losses", "T 连续失利次数", QueryPeriod::SECOND,
-        "map.team_t.consecutive_round_losses");
-    values.emplace_back("bomb_state", "炸弹状态", QueryPeriod::SECOND, "bomb.state");
-    values.emplace_back("map_phase", "地图阶段", QueryPeriod::SECOND, "map.phase");
+        "map.team_t.consecutive_round_losses", 0, 99);
+    values.emplace_back("bomb_state", "炸弹状态", QueryPeriod::SECOND, "bomb.state", 0, 4);
+    values.emplace_back("map_phase", "地图阶段", QueryPeriod::SECOND, "map.phase", 0, 6);
     return values;
 }
 

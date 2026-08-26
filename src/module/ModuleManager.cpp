@@ -260,8 +260,9 @@ int ModuleManager::query_value(const std::string& module_name, const std::string
                         break;
                     }
                     new_value = data_source_(value_id);
-                    // 数值变化检测：已有历史值且与最新值不同才推送
-                    changed = value.get_has_value() && value.get_last_value() != new_value;
+                    // 钳制到配置范围后检测变化：无历史值（首次获取）或与钳制后不同均视为变化
+                    new_value = value.clamp_value(new_value);
+                    changed = !value.get_has_value() || value.get_last_value() != new_value;
                     value.set_last_value(new_value);
                     break;
                 }
@@ -287,8 +288,9 @@ void ModuleManager::set_value(const std::string& module_name, const std::string&
             }
             for (auto& v : module.get_values()) {
                 if (v.get_id() == value_id) {
-                    // 变化检测：已有历史值且不同才推送
-                    changed = v.get_has_value() && v.get_last_value() != value;
+                    // 钳制到配置范围后检测变化：无历史值（首次写入）或与钳制后不同均视为变化
+                    value = v.clamp_value(value);
+                    changed = !v.get_has_value() || v.get_last_value() != value;
                     v.set_last_value(value);
                     break;
                 }
@@ -555,8 +557,9 @@ bool ModuleManager::query_value_locked(Module& module, ModuleValue& value) {
         return false;
     }
     int new_value = data_source_(value.get_id());
-    // 数值变化检测：已有历史值且与最新值不同才返回 true（触发推送）
-    bool changed = value.get_has_value() && value.get_last_value() != new_value;
+    // 钳制到配置范围后检测变化：无历史值（首次获取）或与钳制后不同均返回 true（触发推送）
+    new_value = value.clamp_value(new_value);
+    bool changed = !value.get_has_value() || value.get_last_value() != new_value;
     value.set_last_value(new_value);
     return changed;
 }

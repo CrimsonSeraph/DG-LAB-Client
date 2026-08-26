@@ -12,13 +12,50 @@
 
 #include <QComboBox>
 #include <QFont>
+#include <QFontMetrics>
 #include <QGridLayout>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QScreen>
 #include <QScrollArea>
 #include <QSignalBlocker>
+#include <QSizePolicy>
 #include <QVBoxLayout>
+
+// ============================================
+// 文件级辅助（数值范围显示与省略号文本）
+// ============================================
+namespace {
+    // 当前值标签省略号宽度（容器左半部分）
+    constexpr int VALUE_LABEL_ELIDE_WIDTH = 90;
+    // 最值标签省略号宽度（容器右半部分）
+    constexpr int RANGE_LABEL_ELIDE_WIDTH = 150;
+
+    /// @brief 格式化最值显示：无范围显示 NULL；单侧缺失对应侧显示 NULL（如 "NULL/255"）
+    /// @param min_value 最小值（空表示无下限）
+    /// @param max_value 最大值（空表示无上限）
+    /// @return 显示文本（如 "0/100"、"NULL/255"、"NULL"）
+    QString format_range(std::optional<int> min_value, std::optional<int> max_value) {
+        if (!min_value && !max_value) {
+            return QStringLiteral("NULL");
+        }
+        const QString min_str = min_value ? QString::number(*min_value) : QStringLiteral("NULL");
+        const QString max_str = max_value ? QString::number(*max_value) : QStringLiteral("NULL");
+        return min_str + "/" + max_str;
+    }
+
+    /// @brief 设置带省略号的标签文本（超出最大宽度时右侧省略），完整文本放入悬浮提示
+    /// @param label 目标标签
+    /// @param text 完整文本
+    /// @param max_width 省略宽度（像素）
+    void set_elided_label_text(QLabel* label, const QString& text, int max_width) {
+        const QFontMetrics metrics(label->font());
+        label->setText(metrics.elidedText(text, Qt::ElideRight, max_width));
+        label->setToolTip(text);
+    }
+} // namespace
 
 // ============================================
 // 构造/析构（public）
@@ -41,10 +78,11 @@ ModuleValuesDialog::ModuleValuesDialog(const std::string& module_name, QWidget* 
     setWindowTitle(QString::fromStdString(module->get_name()) + " - 可获取数值");
     setup_ui(*module);
 
-    // 立即查询一次所有数值，用于首次展示当前值
+    // 立即查询一次所有数值，用于首次展示当前值（带省略号处理）
     for (size_t i = 0; i < value_ids_.size(); ++i) {
         int value = manager.query_value(module_name_, value_ids_[i]);
-        value_boxes_[i].value_label->setText(QString::number(value));
+        set_elided_label_text(value_boxes_[i].value_label, QString::number(value),
+            VALUE_LABEL_ELIDE_WIDTH);
     }
 
     // 监听数值变化与周期变化，实时刷新界面
@@ -66,18 +104,18 @@ void ModuleValuesDialog::on_value_changed(const QString& module_name, const QStr
     if (module_name != QString::fromStdString(module_name_)) {
         return;
     }
-    // 查找对应的数值框并更新数值标签
+    // 查找对应的数值框并更新数值标签（带省略号处理）
     for (size_t i = 0; i < value_ids_.size(); ++i) {
         if (value_ids_[i] == value_id.toStdString()) {
-            value_boxes_[i].value_label->setText(QString::number(new_value));
+            set_elided_label_text(value_boxes_[i].value_label, QString::number(new_value),
+                VALUE_LABEL_ELIDE_WIDTH);
             return;
         }
     }
 }
 
 void ModuleValuesDialog::on_period_combo_changed(int box_index) {
-    if (syncing_combos_ || box_index < 0
-        || static_cast<size_t>(box_index) >= value_ids_.size()) {
+    if (syncing_combos_ || box_index < 0 || static_cast<size_t>(box_index) >= value_ids_.size()) {
         return;
     }
     // 由下拉框当前显示文本解析查询周期
@@ -135,7 +173,7 @@ void ModuleValuesDialog::setup_ui(const Module& module) {
     int row = 0;
     int col = 0;
     for (const auto& value : values) {
-        create_value_box(value, grid_layout, row, col);
+        create_value_box(value, grid_layout, row, col, value.get_min(), value.get_max());
         value_ids_.push_back(value.get_id());
         ++col;
         if (col >= 2) {
@@ -153,11 +191,27 @@ void ModuleValuesDialog::setup_ui(const Module& module) {
     connect(close_btn, &QPushButton::clicked, this, &QDialog::accept);
     main_layout->addWidget(close_btn);
 
-    resize(560, 60 + static_cast<int>((values.size() + 1) / 2) * 110);
+    // 用户可调整弹窗区域大小
+    setSizeGripEnabled(true);
+
+    // 获取主屏幕可用区域
+    QScreen* screen = QGuiApplication::primaryScreen();
+    if (screen) {
+        QRect screenRect = screen->availableGeometry();
+        int maxHeight = static_cast<int>(screenRect.height() * 0.8);
+        // 宽度留白
+        int width = qMin(560, screenRect.width() - 40);
+        // 设置窗口大小（高度取最大高度，宽度固定）
+        resize(width, maxHeight);
+    }
+    else {
+        // 保底方案（无屏幕信息时）
+        resize(560, 400);
+    }
 }
 
 void ModuleValuesDialog::create_value_box(const ModuleValue& value, QGridLayout* layout,
-    int row, int col) {
+    int row, int col, std::optional<int> min_value, std::optional<int> max_value) {
     // 数值框容器（圆角卡片）
     QWidget* box = new QWidget(this);
     box->setProperty("type", "module_value_box");
@@ -166,17 +220,44 @@ void ModuleValuesDialog::create_value_box(const ModuleValue& value, QGridLayout*
     box_layout->setSpacing(4);
     box_layout->setContentsMargins(10, 8, 10, 8);
 
-    // 第一行：名称（左）+ 当前值（右）
+    // 第一行：名称（左）+ 值范围容器（右：当前值 | 最小值/最大值）
     QHBoxLayout* name_row = new QHBoxLayout();
     name_row->setSpacing(8);
     QLabel* name_label = new QLabel(QString::fromStdString(value.get_name()), box);
     name_label->setProperty("type", "module_value_name");
+    name_label->setWordWrap(true);
+    name_row->addWidget(name_label, 1);
+
+    // 容器：当前值（左）| 最值（右），"|" 左右成比例（当前值 1 : 最值 2），超出省略号
+    QWidget* value_container = new QWidget(box);
+    value_container->setProperty("type", "module_value_range_container");
+    QHBoxLayout* container_layout = new QHBoxLayout(value_container);
+    container_layout->setContentsMargins(0, 0, 0, 0);
+    container_layout->setSpacing(4);
     QLabel* value_label = new QLabel(
-        value.get_has_value() ? QString::number(value.get_last_value()) : QString("--"), box);
+        value.get_has_value() ? QString::number(value.get_last_value()) : QString("--"),
+        value_container);
     value_label->setProperty("type", "module_value_current");
     value_label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    name_row->addWidget(name_label, 1);
-    name_row->addWidget(value_label);
+    value_label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    QLabel* separator_label = new QLabel(QStringLiteral("|"), value_container);
+    separator_label->setAlignment(Qt::AlignCenter);
+    QLabel* range_label = new QLabel(format_range(min_value, max_value), value_container);
+    range_label->setProperty("type", "module_value_range");
+    range_label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    range_label->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    container_layout->addWidget(value_label, 1);
+    container_layout->addWidget(separator_label, 0);
+    container_layout->addWidget(range_label, 2);
+    // 最值标签初始即做省略号处理（无范围时显示 NULL）
+    set_elided_label_text(range_label, format_range(min_value, max_value),
+        RANGE_LABEL_ELIDE_WIDTH);
+    set_elided_label_text(value_label,
+        value.get_has_value() ? QString::number(value.get_last_value()) : QString("--"),
+        VALUE_LABEL_ELIDE_WIDTH);
+
+    // 名称（左）与容器（右）成比例（名称 1 : 容器 2）
+    name_row->addWidget(value_container, 2);
     box_layout->addLayout(name_row);
 
     // 第二行：底层字段名小字（如 m_iHealth）
@@ -208,6 +289,7 @@ void ModuleValuesDialog::create_value_box(const ModuleValue& value, QGridLayout*
     ValueBox vb;
     vb.name_label = name_label;
     vb.value_label = value_label;
+    vb.range_label = range_label;
     vb.field_label = field_label;
     vb.period_combo = period_combo;
     value_boxes_.push_back(vb);
@@ -228,8 +310,9 @@ void ModuleValuesDialog::refresh_all_boxes() {
     for (size_t i = 0; i < value_ids_.size(); ++i) {
         const ModuleValue* value = manager.get_value(module_name_, value_ids_[i]);
         if (value) {
-            value_boxes_[i].value_label->setText(
-                value->get_has_value() ? QString::number(value->get_last_value()) : QString("--"));
+            set_elided_label_text(value_boxes_[i].value_label,
+                value->get_has_value() ? QString::number(value->get_last_value()) : QString("--"),
+                VALUE_LABEL_ELIDE_WIDTH);
         }
     }
 }
