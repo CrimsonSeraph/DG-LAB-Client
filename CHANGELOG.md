@@ -4,7 +4,7 @@
 
 版本号格式遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)
 
-> **注意**: 当前主版本号为 0（表示开发测试阶段，尚不具备获取数据功能，只有处理数据、发送指令能力）。
+> **注意**: 当前版本为 v1.0.0，已具备数据获取与处理能力（数值模块、插件化数据接入如 CS2 GSI、规则引擎等）。
 
 ---
 
@@ -12,37 +12,11 @@
 
 ### Added
 
-- **数值范围（最值）支持**: `ModuleValue` 新增可选最小/最大值（`std::optional<int>`，空表示无上下限），插件可通过构造函数或 `set_range` 为数值配置范围（CS2 GSI 插件 23 项数值均已配置：血量 0-100、金钱 0-16000、闪光/烟雾/燃烧 0-255、队伍得分 0-999 等；示例插件 0-200）。**写入钳制**：`ModuleManager::set_value`/`query_value` 写入前自动钳制到范围（外部超范围数据被限制，如 health=150 → 100），变化检测基于钳制后数值。**弹窗显示**：`ModuleValuesDialog` 数值框首行改为「名称（左）｜ 当前值 | 最小值/最大值（右）」——当前值与最值用容器包裹，名称:容器=1:2、当前值:最值=1:2 成比例，超出宽度省略号显示；无范围显示 `NULL`，单侧缺失显示 `NULL/255` 形式。修复首次写入（无历史值→有值）不推送 `value_changed` 的问题（此前首条 GSI 数据不触发弹窗/规则更新）。
-- **插件接口 (IPlugin)**: 新增插件纯虚基类 `IPlugin`（生命周期 `initialize`/`uninitialize`/`cleanup`/`can_unload`、自描述 `name`/`version`/`api_version`/`capabilities`/`dependencies`、线程安全声明与错误码返回）与统一导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性，`include/plugin/plugin_export.h`）；约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 导出与 API 版本校验（`PLUGIN_API_VERSION=1`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`），内存隔离约定插件自行 `new`/`delete`。新增示例空壳插件（`module/example/`，类名 `ExamplePlugin`）演示接口实现与导出，构建后自动复制到 `<程序目录>/module/` 供扫描加载。
-- **数值模块（Module）**: 新增 `ModuleValue`/`Module`/`ModuleManager` 数据模型（`include/Module.h`、`include/ModuleValue.h`、`include/ModuleManager.h` 及对应源文件），默认注册 CS2 GSI 模块，内置 `health`（m_iHealth）、`armor`（m_ArmorValue）、`team_num`、`money`、`has_helmet`、`has_defuser` 等数值（参照 CS2 官方 GSI 规范）。
-- **模块页面**: 点击模块卡片弹出数值展示窗口（`ModuleValuesDialog`，每行两个数值框：名称 + 当前值 + 底层字段名小字），每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口。
-- **周期调度机制**: 以所有数值中最短查询周期为基准的调度算法（最短 250ms 精确计时），周期为基准整数倍的数值按对应倍率间隔查询；周期设置变化时自动重建调度器；数值变化时通过 `value_changed` 信号推送，未变化不推送。
-- **规则数据结构扩展**: 规则新增 `enabled` 启用状态、多父级（通道 A/B 与规则序号，可混合）、唯一规则序号（按加载顺序编号）；启用逻辑为父级非空且任一父级可用（通道启用/父级规则启用），不影响其他分支。
-- **值模式扩展**: 支持 `{id:xxx(名称)}` 模块数值引用与 `{rule:xx}` 规则结果引用占位符；空值语义——任一引用为空时本次计算被忽略（不推送、不发送）。
-- **计算表达式编辑器**: 新增“显示可用数值”按钮，弹出菜单列出模块数值（名称 + ID）与除自身外的所有规则（含父级为通道的规则，按规则序号插入 `{rule:xx}`）；`{id:xxx(名称)}` 括号注释部分以灰色显示（`PlaceholderHighlighter` 高亮）。
-- **规则间引用与级联触发**: `{rule:xx}` 引用其他规则计算结果（优先缓存，未计算则递归计算，深度保护防循环）；规则计算完成后结果推送给所有父级（规则父级同样触发计算，通道父级通过 `rule_command_ready` 信号发送给 Python 端）；模块数值变化时自动触发引用该数值的规则；A/B 通道启用状态联动规则引擎。
-- **规则页面**: 表格新增“启用”列（勾选框，点击切换启用状态）；新增“编辑父级”按钮与 `ParentEditDialog`（通道父级单选 + 规则父级多选，通过增删目标规则值模式中的 `{rule:xx}` 实现）；“通道”列更名为“父级”列，显示通道/规则引用组合（如 `A;rule:1,2`），模式列按父级类型灰显（`(不适用)`/`(部分不适用)`，黑白主题颜色互反）；通道父级唯一性去重（加载时保留序号最小，手动设置保留最后设置）。
-- **日志导出（自动 + 手动）**: `LogExporter` 提供两类日志记录——自动日志在程序启动、配置系统加载完毕后自动记录运行日志（默认写入程序目录 `log/`，受导出级别/保留数量/大小上限限制，超限分片、自动清理多余日志）；手动日志在点击“导出日志”时写入手动目录（默认 `log/handle/`，仅应用级别过滤，不受数量与大小限制）。自动与手动各有独立的级别过滤设置（导出级别/仅指定级别/范围/位置），在“更多设置”弹窗（`LogExportSettingsDialog`）中分别配置，持久化到 `user.json` 的 `app.log.auto` / `app.log.manual` 下（兼容旧版平铺键）。
-- **进程检查 (ProcessChecker)**: 静态工具类跨平台查询进程是否运行（Windows `tasklist`、macOS/Linux `ps`），用于 CS2 GSI 配置更新时判断游戏运行状态。
-- **CS2 GSI 模块 (CS2GSIModule)**: 单独封装 CS2 GSI 逻辑——通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录、随机选取监听端口、按模块最小查询周期计算 buffer/throttle 生成 `gamestate_integration_dglab.cfg`（路径记录到 `user.json` 的 `app.gsi`）；新增 `GsiServer` 监听 GSI 端口接收游戏推送数据（HTTP POST），解析血量/护甲/金钱/队伍/头盔/拆弹器写入数值模块触发规则计算；最小周期变化时自动更新配置，若 `cs2.exe` 运行中则提示重启游戏生效，未运行无需提示。
-- **首页通道面板**: 改造 `x_normal_cards`——模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期，规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）；`x_wave_card` 保留现状。
-- **勾选框样式**: 规则表格启用列勾选框增加 `QTableWidget::indicator` 样式（未选中空心、选中强调色填充 + 勾号），新增 `check_white.svg`/`check_dark.svg` 资源，14 个主题统一应用。
+- 无
 
 ### Changed
 
-- **文档更新**: 根 README 新增“六.12 插件开发指南”（插件接口、动态库导出约定、宿主能力 `IPluginHost`、构建示例、加载流程与状态、GSI 数据归属规则）；新增 `module/README.md`（插件目录说明与快速上手）；`config/README.md` 补充 `app.gsi.*` 运行时配置说明；`include/`、`src/` README 同步插件化后的文件清单。
-- **CS2 GSI 插件化 (CS2GsiPlugin)**: 将原静态 `CS2GSIModule` 改造为符合 `IPlugin` 接口的动态库插件（`module/gsi/`）——通过宿主配置接口读写 `app.gsi.*`、经宿主共享 `DataListener` 注册 GSI 数据处理器（来源 `CS2 GSI`/类型 `gsi`）并启动监听；注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP + CT/T 得分/连续失利/炸弹状态/地图阶段）。实现**自身/队友归属区分**：首次记录 `player.steamid` 为基准，一致为自身（个人数值正常更新）、不一致为队友（个人数值不更新，团队/地图数值仍更新）；周期变化时经 `on_host_period_changed` 更新配置，`cs2.exe` 运行中经宿主 `notify` 弹出重启提示。
-- **插件宿主接口扩展**: `IPluginHost` 增加数据接收（`listen_data`/`register_data_handler`/`unregister_data_handler`，替代直接 `DataListener` 访问解耦插件与宿主实现）、配置读写（`get_config_value`/`set_config_value`）、基础周期（`base_period_ms`）与用户通知（`notify` → `plugin_notification` 信号）；`IPlugin` 增加 `on_host_period_changed` 周期变化通知；首次注册的 (source, type) 自动作为无信封数据的默认来源。
-- **DataListener 收包增强**: TCP 请求体按 `Content-Length` 累积收齐再解析（修复分包导致的半包解析失败），异常数据大小上限 64KB 防御。
-- **模块数值显示修复**: `query_value` 在无数据源时返回已存储的外部写入值（此前恒返回 0，导致弹窗显示与实际值不符）。
-- **模块 UI 改造**: 模块页卡片区分插件卡片与静态模块卡片——插件卡片右侧提供“启用/禁用”按钮，未加载显示“暂未加载”（加载失败显示原因），已加载显示插件名与最小查询周期；未加载卡片点击不弹出设置窗口（仅已加载可点击弹出数值窗口）；卡片网格两列自适应布局、圆角样式，插件加载/卸载（`plugin_state_changed`）与周期变化时自动重建卡片。
-- **模块管理器重构（插件宿主）**: `ModuleManager` 重写为插件宿主——启动时扫描插件目录（默认 `<程序目录>/module/`，`app.module.path` 可配置，`app.module.scan_load` 控制"扫描即加载"），`QLibrary` 动态加载插件、`get_plugin_api_version` 版本校验、`dependencies()` 依赖校验、注入日志回调（插件日志统一由宿主 `LOG_MODULE` 记录）与宿主上下文（`IPluginHost`：数值注册/注销/写入、共享 `DataListener`），管理插件加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。新增 `PluginHost.h` 宿主接口；示例插件通过宿主注册示例数值（模块名"示例插件"）验证完整加载链路。
-- **通用数据接收器 (DataListener)**: 将 `GsiServer` 重构为通用数据接收器——单实例监听单个端口（支持 TCP HTTP POST 与 UDP 数据报两种协议），数据包支持来源标识信封 `{"source", "type", "data"}`，按 source + type 分发给已注册处理器（`register_handler`）；新增解析器抽象接口 `IDataParser` 及默认实现（`HttpJsonParser`/`JsonBodyParser`）解耦传输协议与 JSON 解析。`CS2GSIModule` 改用 `DataListener` 并注册 GSI 数据处理器（来源 `CS2 GSI`、类型 `gsi`），删除 `GsiServer.h/cpp`。
-- Windows 构建: Python 标准库 zip 打包优化——排除 site-packages（约 5GB 第三方包）、**pycache**/\*.pyc 与 test，改用系统内置 bsdtar 打包，configure 耗时由数十分钟降至数秒，zip 体积约 1GB 降至约 5MB，且 zipimport 可直接导入。
-- 统一全项目注释规范: 头文件函数补齐 Doxygen 注释（中文 @brief/@param/@return），源文件行尾注释全部改为独立行注释。
-- **规则文件格式**: 新增 `enabled`（bool）与 `parents`（数组，`"A"`/`"B"` 字符串或规则序号整数）字段，`valuePattern` 支持 `{id:xxx(名称)}`/`{rule:xx}` 占位符；兼容旧 `channel` 字段（未提供 `parents` 时作为唯一父级）。
-- **规则保存**: 按规则序号排序输出，保证序号稳定；`FormulaBuilderDialog` 改用 `QTextEdit` 编辑并支持灰色注释显示。
-- **首页布局**: 放宽 `x_normal_cards` 高度限制，通道卡片自适应布局。
+- 无
 
 ### Deprecated
 
@@ -50,30 +24,53 @@
 
 ### Removed
 
-- 移除静态 `CS2GSIModule`（`include/module/CS2GSIModule.h` / `src/module/CS2GSIModule.cpp`），其功能由 `CS2GsiPlugin` 动态库插件替代（`module/gsi/`）。
+- 无
 
 ### Fixed
 
-- 修复新版 macOS SDK 移除 AGL.framework 导致的链接失败（ld: framework 'AGL' not found）：从 Qt 导入目标中剥离 AGL 引用，并显式链接 OpenGL.framework。
-- 构建系统: nlohmann/json.hpp 下载失败留下的 0 字节空文件现在会被识别并重新下载，避免误判为已存在而跳过下载。
-- 修复关闭窗口时托盘图标为空导致的野指针崩溃隐患（tray*icon* 判空）。
-- 修复 ValueModeDelegate 事件转发传递默认构造 option 导致未处理事件状态丢失的问题。
-- 修复创建规则文件时规则文件列表被重复刷新的问题。
-- 修复 ConfigManager::validate 端口校验键名错误（app.server_port -> app.websocket.port）。
-- 清理 MultiConfigManager 重复 include 分支、IpSelector 未使用变量、AppConfig 未使用锁变量及 DebugLog 重复查找等冗余代码。
-- 修复计算表达式“显示可用数值”规则列表误过滤父级为通道的规则，现包含除自身外的所有规则（引用通道规则不要求对应通道已启用）。
-- 修复规则表格启用列勾选框因样式覆盖难以分辨选中状态的问题。
-- 修复日志导出设置对话框中 QSpinBox 数字输入框右侧纯黑色块（新增 QSpinBox/QDoubleSpinBox 样式并隐藏按钮区）。
-- 修复下拉框弹出列表上下黑色边缘：为弹出容器（QComboBoxPrivateContainer）设置不透明背景（原被全局 transparent 覆盖导致透出），并回退引发规则菜单选项重叠/留白的 item 样式，14 主题统一应用。
-- 修复规则表格“规则名称”列编辑栏字体显示不全（增大默认行高至 30px）。
-- 规则表格列宽策略：启用/父级/模式按内容自适应（宽度可预测），规则名称按最长名称设置宽度（上限 200px），值模式占据剩余宽度。
-- 新增统一下拉框控件 `StyledComboBox`：规则表格下拉框委托、模块页统一周期下拉框、模块数值弹窗、父级编辑与日志设置对话框统一复用（内置弹出样式处理规避黑色边缘，弹出容器圆角裁剪保证圆角外观）。
-- 移除 `QComboBoxPrivateContainer` 样式（避免干扰原生弹出渲染），弹出菜单圆角由 `StyledComboBox` 弹出时裁剪保证。
-- 移除默认模拟数据源：未接入真实数据（如 CS2 GSI）时数值保持“未获取”状态（界面显示 `--`），不再显示误导性模拟数值；规则引用无数据的数值视为空值忽略计算。
-- 修复规则值模式编辑未应用的问题：`ValueModeDelegate` 编辑后写回规则管理器并即时保存规则文件（启用/父级/值模式表格编辑均自动持久化）。
-- 修复 Python 子进程 `<stderr>`/`<stdout>` 日志行尾回车导致的额外换行/空行。
-- 修复 `WebSocketCore.py` 使用 `Union` 类型注解但未导入导致 Bridge 启动失败（NameError）。
-- 修复首页通道面板卡片宽度分配问题：模块/规则/波形卡片 1:1:1 等分，长规则名称不再压缩波形卡片；模块/规则信息外层新增子卡片并留出边距，模块信息改为名称与最小周期分行居中显示，布局参数提升为头文件常量。
+- 无
+
+### Security
+
+- 无
+
+---
+
+## [v1.0.0] - 2026-08-26
+
+### Added
+
+- **数值模块系统**: 新增 `ModuleValue`/`Module`/`ModuleManager` 数据模型与模块页面，支持周期查询调度（最小 250ms 基准轮询）与数值变化检测推送；数值支持可选最小/最大值（写入自动钳制到范围，弹窗显示当前值/最值）。
+- **插件系统**: 新增 `IPlugin` 插件接口、`PLUGIN_EXPORT` 导出宏与 API 版本校验；`ModuleManager` 重构为插件宿主（扫描/加载/卸载/状态管理）；新增示例插件 `module/example` 与插件开发指南。
+- **CS2 GSI 数据接入**: 新增 CS2 GSI 模块与 `CS2GsiPlugin` 插件——监听 GSI 端口接收 CS2 游戏数据，注册 23 项数值（个人状态 17 项 + 团队/地图 6 项）并实现自身/队友归属区分；配套新增 `ProcessChecker` 进程检查工具与 `PathFinder.py` 路径查找工具。
+- **通用数据接收器 (DataListener)**: 将 `GsiServer` 重构为通用数据接收器，支持 TCP/UDP、来源信封分发与解析器抽象（`IDataParser`）。
+- **规则引擎增强**: 规则新增启用状态、多父级（通道 A/B 与规则引用）与唯一序号；值模式支持 `{id:xxx(名称)}`/`{rule:xx}` 占位符与空值语义；实现规则间引用、级联触发与深度保护；规则页面新增启用列、父级编辑对话框与模式列灰显。
+- **首页通道面板**: 首页 A/B 通道卡片新增模块信息与规则最近计算结果显示（实时刷新）。
+- **日志导出**: 自动日志（分片轮转、数量/大小限制）与手动日志（导出按钮、不受限制）分离，设置持久化到 `user.json`。
+- **UI 改进**: 统一下拉框控件 `StyledComboBox`、勾选框样式、表格编辑显示与首页卡片布局修复。
+
+### Changed
+
+- **插件宿主接口**: `IPluginHost` 新增数据接收、配置读写、基础周期与用户通知能力；`IPlugin` 增加周期变化通知。
+- **CS2 GSI 插件化**: 原静态 CS2 GSI 模块改造为符合 `IPlugin` 接口的动态库插件（`module/gsi/`）。
+- **规则文件格式**: 新增 `enabled` 与 `parents` 字段，兼容旧 `channel` 字段；规则按序号排序保存。
+- 源码按功能分类整理（`include/`、`src/` 子目录），统一 Doxygen 中文注释与 Prettier/clang-format 格式规范。
+- Windows 构建优化 Python 标准库 zip 打包（configure 耗时由数十分钟降至数秒）。
+
+### Deprecated
+
+- 无
+
+### Removed
+
+- 无
+
+### Fixed
+
+- 修复新版 macOS SDK 缺失 AGL.framework 导致的链接失败。
+- 修复托盘图标野指针、下拉框黑色边缘/菜单重叠、表格编辑显示不全等 UI 问题。
+- 修复日志清理分组、规则值模式编辑未应用、Python 日志换行与 `WebSocketCore.py` 导入缺失等问题。
+- 修复数据源为空时查询返回 0 导致的显示失真、首次写入不推送 `value_changed` 等问题。
 
 ### Security
 
@@ -347,7 +344,10 @@
 
 ## 其他
 
-**变动**:[v0.6.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0
+**变动**:
+
+- [v1.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.6.0...v1.0.0
+- [v0.6.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0
 
 **变更分类**:
 
