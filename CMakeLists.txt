@@ -417,9 +417,10 @@ add_library(dgl_example_plugin SHARED
 )
 # 定义 PLUGIN_BUILD 使接口类标记导出；插件与主程序使用同一工具链保证 ABI 兼容
 target_compile_definitions(dgl_example_plugin PRIVATE PLUGIN_BUILD)
-target_include_directories(dgl_example_plugin PRIVATE
-	${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-	${CMAKE_CURRENT_SOURCE_DIR}/include/module
+target_include_directories(dgl_example_plugin
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
 )
 # PluginHost.h 依赖 QJsonObject，插件需链接 Qt Core
 target_link_libraries(dgl_example_plugin PRIVATE Qt::Core)
@@ -428,7 +429,9 @@ if(WIN32)
 	set_target_properties(dgl_example_plugin PROPERTIES PREFIX "")
 endif()
 # 构建后复制到可执行文件旁的 module/ 目录（默认插件扫描目录）
-add_custom_command(TARGET dgl_example_plugin POST_BUILD
+add_custom_command(
+	TARGET dgl_example_plugin
+	POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E make_directory
 		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -445,19 +448,21 @@ add_library(dgl_gsi_plugin SHARED
 	src/module/ModuleValue.cpp
 )
 target_compile_definitions(dgl_gsi_plugin PRIVATE PLUGIN_BUILD)
-target_include_directories(dgl_gsi_plugin PRIVATE
-	${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-	${CMAKE_CURRENT_SOURCE_DIR}/include/module
+target_include_directories(dgl_gsi_plugin
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
 )
 target_link_libraries(dgl_gsi_plugin PRIVATE Qt::Core Qt::Network)
 if(WIN32)
 	set_target_properties(dgl_gsi_plugin PROPERTIES PREFIX "")
 endif()
-add_custom_command(TARGET dgl_gsi_plugin POST_BUILD
+add_custom_command(
+	TARGET dgl_gsi_plugin
+	POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E make_directory
 		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		"$<TARGET_FILE:dgl_gsi_plugin>"
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:dgl_gsi_plugin>"
 		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
 	COMMENT "Copying gsi plugin to module directory"
 )
@@ -562,41 +567,45 @@ if(WIN32)
 			endif()
 		endif()
 
-		if(_PYTHON_ZIP_NEED_CREATE)
-			# 在配置阶段创建 zip 文件
-			message(STATUS "Creating Python standard library zip: ${PYTHON_ZIP_PATH}")
-			file(TO_CMAKE_PATH "${Python_STDLIB}" PYTHON_STDLIB_CMAKE)
-
-			if(CMAKE_HOST_WIN32)
-				# 使用系统自带的 bsdtar（Windows 10+ 内置）打包，并排除以下内容：
-				#  - site-packages：第三方包体积巨大（本机约 5GB），且已有独立的
-				#    PYTHON_PACKAGES_DIR 安装通道，不应打进标准库 zip
-				#  - __pycache__ / *.pyc：字节码缓存，运行时自动重建
-				#  - test：测试用例，运行时不需要
-				# --strip-components=1 去掉 tar 的 "./" 前缀，否则 zipimport 无法导入
-				execute_process(
-					COMMAND tar --format=zip -cf "${PYTHON_ZIP_PATH}" --strip-components=1
-						--exclude=site-packages --exclude=__pycache__ --exclude=test
-						--exclude=*.pyc -C "${PYTHON_STDLIB_CMAKE}" .
-					RESULT_VARIABLE _zip_result
-					ERROR_VARIABLE _zip_error
-					OUTPUT_VARIABLE _zip_output
+		if(CMAKE_HOST_WIN32)
+			# 创建 zip
+			set(_ZIP_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/make_pyzip.py")
+			file(WRITE "${_ZIP_SCRIPT}"
+				"import os, sys, zipfile\n"
+				"root = sys.argv[1]\n"
+				"out = sys.argv[2]\n"
+				"exclude_dirs = {'site-packages', '__pycache__', 'test'}\n"
+				"exclude_ext = {'.pyc'}\n"
+				"with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zf:\n"
+				"    for dirpath, dirnames, filenames in os.walk(root):\n"
+				"        # 跳过排除的目录\n"
+				"        dirnames[:] = [d for d in dirnames if d not in exclude_dirs]\n"
+				"        for f in filenames:\n"
+				"            if any(f.endswith(ext) for ext in exclude_ext): continue\n"
+				"            full = os.path.join(dirpath, f)\n"
+				"            arcname = os.path.relpath(full, root)\n"
+				"            zf.write(full, arcname)\n"
+			)
+			execute_process(
+				COMMAND "${Python_EXECUTABLE}" "${_ZIP_SCRIPT}" "${PYTHON_STDLIB_CMAKE}"
+					"${PYTHON_ZIP_PATH}"
+				RESULT_VARIABLE _zip_result
+				ERROR_VARIABLE _zip_error
+			)
+			if(NOT _zip_result EQUAL 0)
+				message(FATAL_ERROR
+					"Failed to create Python standard library zip: ${_zip_error}"
 				)
-				if(NOT _zip_result EQUAL 0)
-					message(FATAL_ERROR
-						"Failed to create Python standard library zip: ${_zip_error}"
-					)
-				endif()
-			else()
-				# Linux/macOS 交叉打包 Windows 目标时使用 tar
-				execute_process(
-					COMMAND ${CMAKE_COMMAND} -E tar cf "${PYTHON_ZIP_PATH}" --format=zip -- .
-					WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
-					RESULT_VARIABLE _zip_result
-				)
-				if(NOT _zip_result EQUAL 0)
-					message(FATAL_ERROR "Failed to create Python standard library zip")
-				endif()
+			endif()
+		else()
+			# Linux/macOS 交叉打包 Windows 目标时使用 tar
+			execute_process(
+				COMMAND ${CMAKE_COMMAND} -E tar cf "${PYTHON_ZIP_PATH}" --format=zip -- .
+				WORKING_DIRECTORY "${PYTHON_STDLIB_CMAKE}"
+				RESULT_VARIABLE _zip_result
+			)
+			if(NOT _zip_result EQUAL 0)
+				message(FATAL_ERROR "Failed to create Python standard library zip")
 			endif()
 		endif()
 
