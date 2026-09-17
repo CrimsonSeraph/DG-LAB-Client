@@ -71,6 +71,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED
 		QuickControls2
 		QuickDialogs2
 		WebSockets
+		Bluetooth
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
@@ -145,6 +146,10 @@ set(PROJECT_SOURCES
 	src/module/ModuleValuesDialog.cpp
 	include/module/DataListener.h
 	src/module/DataListener.cpp
+
+	# ---------- 蓝牙（ble）：郊狼 V3 直连 ----------
+	include/ble/CoyoteBleController.h
+	src/ble/CoyoteBleController.cpp
 
 	# ---------- 网络（net）：应用内中转服务 ----------
 	include/net/DglabRelayServer.h
@@ -467,6 +472,7 @@ target_link_libraries(${PROJECT_NAME}
 		Qt::QuickControls2
 		Qt::QuickDialogs2
 		Qt::WebSockets
+		Qt::Bluetooth
 	PRIVATE
 		nlohmann_json
 		Python::Python
@@ -482,6 +488,7 @@ target_include_directories(${PROJECT_NAME}
 		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
 		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
 		${CMAKE_CURRENT_SOURCE_DIR}/include/net
+		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
 		${CMAKE_CURRENT_SOURCE_DIR}/include/ui
 		# 第三方库（QR 码生成）
 		${CMAKE_CURRENT_SOURCE_DIR}/third_party/qrcodegen

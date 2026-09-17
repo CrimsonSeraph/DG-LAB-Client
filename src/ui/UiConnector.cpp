@@ -6,6 +6,7 @@
 #include "UiConnector.h"
 
 #include "AppBridge.h"
+#include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DeviceController.h"
 #include "HomeBridge.h"
@@ -43,14 +44,16 @@ namespace {
 } // namespace
 
 UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
-    DeviceController* device, ModuleBridge* module, WaveBridge* wave, QObject* parent)
+    DeviceController* device, ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble,
+    QObject* parent)
     : QObject(parent)
     , app_(app)
     , home_(home)
     , theme_(theme)
     , device_(device)
     , module_(module)
-    , wave_(wave) {
+    , wave_(wave)
+    , ble_(ble) {
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -133,6 +136,16 @@ void UiConnector::attach(QObject* root_object) {
         SLOT(on_wave_delete_clicked()));
     watch_items(root_object, "waveSectionList", QStringLiteral("waveSectionClick"),
         SLOT(on_wave_section_clicked()));
+
+    // 蓝牙直连
+    connect_clicked(root_object, "bleScanButton", SLOT(on_ble_scan_clicked()));
+    connect_clicked(root_object, "bleDisconnectButton", SLOT(on_ble_disconnect_clicked()));
+    connect_clicked(root_object, "bleStrengthADecrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "bleStrengthAIncrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "bleStrengthBDecrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "bleStrengthBIncrease", SLOT(on_ble_strength_clicked()));
+    watch_items(root_object, "bleDeviceList", QStringLiteral("bleDeviceClick"),
+        SLOT(on_ble_device_clicked()));
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
@@ -375,6 +388,36 @@ void UiConnector::on_wave_editor_close_clicked() {
 
 void UiConnector::on_wave_select_close_clicked() {
     close_dialog("waveSelectDialog");
+}
+
+void UiConnector::on_ble_scan_clicked() {
+    if (ble_ != nullptr) {
+        ble_->startScan();
+    }
+}
+
+void UiConnector::on_ble_device_clicked() {
+    auto* item = sender();
+    if (item != nullptr && ble_ != nullptr) {
+        ble_->connectDevice(item->property("address").toString());
+    }
+}
+
+void UiConnector::on_ble_disconnect_clicked() {
+    if (ble_ != nullptr) {
+        ble_->disconnectDevice();
+    }
+}
+
+void UiConnector::on_ble_strength_clicked() {
+    auto* button = sender();
+    if (button == nullptr || ble_ == nullptr) {
+        return;
+    }
+    const QString name = button->objectName();
+    const int channel = name.contains(QStringLiteral("StrengthA")) ? 1 : 2;
+    const int delta = name.contains(QStringLiteral("Increase")) ? 1 : -1;
+    ble_->setStrength(channel, delta > 0 ? 1 : 0, 1);
 }
 
 void UiConnector::on_config_connect_clicked() {

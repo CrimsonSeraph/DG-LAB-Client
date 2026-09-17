@@ -12,6 +12,7 @@
 #include <QString>
 
 class AppBridge;
+class CoyoteBleController;
 class DeviceController;
 class HomeBridge;
 class ModuleBridge;
@@ -30,7 +31,7 @@ class UiConnector : public QObject {
 
 public:
     UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme, DeviceController* device,
-        ModuleBridge* module, WaveBridge* wave, QObject* parent = nullptr);
+        ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble, QObject* parent = nullptr);
 
     /// @brief 在 engine.load 之后调用，连接根对象下的全部交互控件
     void attach(QObject* root_object);
@@ -74,6 +75,11 @@ private slots:
     void on_wave_send_clicked();
     void on_wave_editor_close_clicked();
     void on_wave_select_close_clicked();
+    // 蓝牙直连
+    void on_ble_scan_clicked();
+    void on_ble_device_clicked();
+    void on_ble_disconnect_clicked();
+    void on_ble_strength_clicked();
     // 动态内容变化后重扫热区
     void on_tracked_children_changed();
 
@@ -98,6 +104,7 @@ private:
     DeviceController* device_ = nullptr;
     ModuleBridge* module_ = nullptr;
     WaveBridge* wave_ = nullptr;
+    CoyoteBleController* ble_ = nullptr;
     QPointer<QObject> root_;
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;

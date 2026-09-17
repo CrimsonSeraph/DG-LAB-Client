@@ -295,6 +295,144 @@ Item {
             }
         }
 
+        // ------------------------------------------------------------ 蓝牙直连
+        GlassCard {
+            Layout.fillWidth: true
+            title: qsTr("蓝牙直连（郊狼 V3）")
+
+            Column {
+                width: parent.width
+                spacing: Metrics.spacingMd
+
+                RowLayout {
+                    width: parent.width
+                    spacing: Metrics.spacingMd
+
+                    Text {
+                        text: ble.connected ? qsTr("已连接 %1").arg(ble.deviceName) : qsTr("未连接")
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.fontBody
+                    }
+
+                    Text {
+                        visible: ble.battery >= 0
+                        text: qsTr("电量 %1%").arg(ble.battery)
+                        color: Theme.textMuted
+                        font.pixelSize: Typography.fontCaption
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    AppButton {
+                        objectName: "bleScanButton"
+                        text: ble.scanning ? qsTr("扫描中…") : qsTr("扫描设备")
+                        enabled: !ble.scanning
+                    }
+
+                    AppButton {
+                        objectName: "bleDisconnectButton"
+                        text: qsTr("断开")
+                        danger: true
+                        enabled: ble.connected
+                    }
+                }
+
+                Text {
+                    width: parent.width
+                    text: ble.status
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontCaption
+                    elide: Text.ElideRight
+                }
+
+                ListView {
+                    id: bleDeviceList
+
+                    objectName: "bleDeviceList"
+                    width: parent.width
+                    height: 96
+                    clip: true
+                    model: ble.devices
+                    spacing: Metrics.spacing2xs
+
+                    delegate: Rectangle {
+                        width: bleDeviceList.width
+                        height: 32
+                        radius: Metrics.radiusXs
+                        color: Theme.surfaceAlt
+                        border.width: Metrics.borderWidth
+                        border.color: Theme.divider
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Metrics.spacingMd
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: modelData.name + "   " + modelData.address
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontCaption
+                        }
+
+                        MouseArea {
+                            objectName: "bleDeviceClick"
+                            anchors.fill: parent
+                            property string address: modelData.address
+                        }
+                    }
+                }
+
+                RowLayout {
+                    width: parent.width
+                    spacing: Metrics.spacingMd
+
+                    Text {
+                        text: qsTr("强度")
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.fontBody
+                    }
+
+                    Text {
+                        text: "A " + ble.strengthA
+                        color: Theme.accent
+                        font.pixelSize: Typography.fontBody
+                        font.bold: true
+                    }
+
+                    AppButton {
+                        objectName: "bleStrengthADecrease"
+                        text: "A－"
+                    }
+
+                    AppButton {
+                        objectName: "bleStrengthAIncrease"
+                        text: "A＋"
+                    }
+
+                    Text {
+                        text: "B " + ble.strengthB
+                        color: Theme.accent
+                        font.pixelSize: Typography.fontBody
+                        font.bold: true
+                    }
+
+                    AppButton {
+                        objectName: "bleStrengthBDecrease"
+                        text: "B－"
+                    }
+
+                    AppButton {
+                        objectName: "bleStrengthBIncrease"
+                        text: "B＋"
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+        }
+
         Item {
             Layout.fillHeight: true
         }

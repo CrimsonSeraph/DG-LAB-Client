@@ -7,6 +7,7 @@
 #include "AppConfig.h"
 #include "Console.h"
 #include "DebugLog.h"
+#include "CoyoteBleController.h"
 #include "DeviceController.h"
 #include "HomeBridge.h"
 #include "ModuleBridge.h"
@@ -100,6 +101,8 @@ int main(int argc, char* argv[]) {
     WaveLibrary::instance().initialize();
     WaveBridge wave(&device);
     wave.initialize();
+    CoyoteBleController ble;
+    ble.initialize();
 
     QObject::connect(&device, &DeviceController::statusMessage, &bridge,
         [&bridge](const QString& message) { bridge.setStatus(message); });
@@ -113,9 +116,10 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("home"), &home);
     engine.rootContext()->setContextProperty(QStringLiteral("moduleBridge"), &module_bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("waveBridge"), &wave);
+    engine.rootContext()->setContextProperty(QStringLiteral("ble"), &ble);
 
     // QML 交互连接集中在 C++ 侧
-    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave);
+    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave, &ble);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 
