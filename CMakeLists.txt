@@ -10,8 +10,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Qt 相关设置（自动处理 uic/moc/rcc）
-set(CMAKE_AUTOUIC ON)
+# Qt 相关设置（自动处理 moc/rcc；已无 .ui 文件，不再需要 AUTOUIC）
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
@@ -64,7 +63,6 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED
 	COMPONENTS
 		Core
 		Gui
-		Widgets
 		Network
 		Qml
 		Quick
@@ -107,17 +105,10 @@ set(PROJECT_SOURCES
 	src/core/Console.cpp
 	include/core/LogExporter.h
 	src/core/LogExporter.cpp
-	include/core/LogExportSettingsDialog.h
-	src/core/LogExportSettingsDialog.cpp
 
 	# ---------- 核心基础设施（core）：工具类 ----------
 	include/core/ProcessChecker.h
 	src/core/ProcessChecker.cpp
-
-
-	# ---------- Python 通信桥（bridge） ----------
-	include/bridge/PythonSubprocessManager.h
-	src/bridge/PythonSubprocessManager.cpp
 
 	# ---------- 规则引擎（rule） ----------
 	include/rule/Rule.h
@@ -127,15 +118,6 @@ set(PROJECT_SOURCES
 	include/rule/RuleManager_impl.hpp
 	include/rule/RuleGraph.h
 	src/rule/RuleGraph.cpp
-	# 规则编辑 UI
-	include/rule/FormulaBuilderDialog.h
-	src/rule/FormulaBuilderDialog.cpp
-	include/rule/ParentEditDialog.h
-	src/rule/ParentEditDialog.cpp
-	include/rule/ComboBoxDelegate.h
-	src/rule/ComboBoxDelegate.cpp
-	include/rule/ValueModeDelegate.h
-	src/rule/ValueModeDelegate.cpp
 
 	# ---------- 数值模块（module） ----------
 	include/module/ModuleValue.h
@@ -144,8 +126,6 @@ set(PROJECT_SOURCES
 	src/module/Module.cpp
 	include/module/ModuleManager.h
 	src/module/ModuleManager.cpp
-	include/module/ModuleValuesDialog.h
-	src/module/ModuleValuesDialog.cpp
 	include/module/DataListener.h
 	src/module/DataListener.cpp
 
@@ -171,23 +151,6 @@ set(PROJECT_SOURCES
 	include/plugin/IPlugin.h
 	include/plugin/PluginHost.h
 	include/plugin/plugin_export.h
-
-	# ---------- 界面层（ui） ----------
-	include/ui/DGLABClient.h
-	src/ui/DGLABClient.cpp
-	include/ui/DGLABClient_impl.hpp
-	include/ui/DGLABClient_utils.hpp
-	include/ui/DGLABClient.ui
-	include/ui/EditableLabel.h
-	src/ui/EditableLabel.cpp
-	include/ui/StyledComboBox.h
-	src/ui/StyledComboBox.cpp
-	include/ui/SampledWaveformWidget.h
-	src/ui/SampledWaveformWidget.cpp
-	include/ui/ThemeSelectorDialog.h
-	src/ui/ThemeSelectorDialog.cpp
-	include/ui/IpSelector.h
-	src/ui/IpSelector.cpp
 
 	# ---------- 界面层（ui）：QML 桥接 ----------
 	include/ui/ThemeManager.h
@@ -335,16 +298,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 		COMMENT "Copying assets to output directory"
 	)
 endif()
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/qcss/")
-	add_custom_command(
-		TARGET ${PROJECT_NAME}
-		POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/qcss"
-			"$<TARGET_FILE_DIR:${PROJECT_NAME}>/qcss"
-		COMMENT "Copying qcss files to output directory"
-	)
-endif()
-
 # -------------------- 查找 Python --------------------
 find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 
@@ -471,12 +424,12 @@ endfunction()
 
 if(APPLE)
 	# 对项目用到的所有 Qt 目标执行剥离
-	foreach(_qt_comp IN ITEMS Core Gui Widgets Network Qml)
+	foreach(_qt_comp IN ITEMS Core Gui Network Qml Quick)
 		dgl_strip_agl_target(Qt${QT_VERSION_MAJOR}::${_qt_comp})
 	endforeach()
 
 	# 诊断输出：确认剥离后不再出现 AGL（便于在 CI 日志中核对）
-	foreach(_qt_comp IN ITEMS Core Gui Widgets Network Qml)
+	foreach(_qt_comp IN ITEMS Core Gui Network Qml Quick)
 		set(_t Qt${QT_VERSION_MAJOR}::${_qt_comp})
 		if(TARGET ${_t})
 			get_target_property(_ill ${_t} INTERFACE_LINK_LIBRARIES)
@@ -505,7 +458,6 @@ target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		Qt::Core
 		Qt::Gui
-		Qt::Widgets
 		Qt::Network
 		Qt::Qml
 		Qt::Quick
@@ -515,14 +467,12 @@ target_link_libraries(${PROJECT_NAME}
 		Qt::Bluetooth
 	PRIVATE
 		nlohmann_json
-		Python::Python
 )
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/include
 		# 头文件按分类存放于 include/ 子目录，全部加入包含路径以便源码以文件名直接引用
 		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/bridge
 		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
 		${CMAKE_CURRENT_SOURCE_DIR}/include/module
 		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
@@ -533,9 +483,7 @@ target_include_directories(${PROJECT_NAME}
 		# 第三方库（QR 码生成）
 		${CMAKE_CURRENT_SOURCE_DIR}/third_party/qrcodegen
 )
-target_compile_definitions(${PROJECT_NAME}
-	PRIVATE PYBIND11_ASSERT_GIL_HELD_INCREF_DECREF
-)
+# （无额外编译宏）
 
 # -------------------- 示例插件（动态库，验证插件接口与导出约定）--------------------
 add_library(dgl_example_plugin SHARED
@@ -607,9 +555,6 @@ install(DIRECTORY python/ DESTINATION python FILES_MATCHING PATTERN "*.py")
 install(DIRECTORY config/ DESTINATION config FILES_MATCHING PATTERN "*.json")
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 	install(DIRECTORY assets/ DESTINATION assets)
-endif()
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/qcss/")
-	install(DIRECTORY qcss/ DESTINATION qcss)
 endif()
 
 # -------------------- Qt 部署工具 --------------------

@@ -18,7 +18,7 @@
 // 并将用户选择持久化到 user.json 的 app.ui 下。
 //
 // 说明：颜色令牌全部集中在 C++，QML 只引用令牌名，不在页面里写颜色字面量；
-//      预设主/副色与 ThemeSelectorDialog 中的映射保持一致。
+//      预设主/副色沿用原 QSS 主题的配色（浅色/深色 + 12 套扩展主题）。
 class ThemeManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString themeName READ theme_name NOTIFY themeChanged)
