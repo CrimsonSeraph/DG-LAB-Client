@@ -9,6 +9,7 @@
 #include "DebugLog.h"
 #include "DeviceController.h"
 #include "HomeBridge.h"
+#include "ModuleBridge.h"
 #include "ModuleManager.h"
 #include "RuleManager.h"
 #include "ThemeManager.h"
@@ -91,6 +92,8 @@ int main(int argc, char* argv[]) {
     device.initialize();
     HomeBridge home(&device);
     home.initialize();
+    ModuleBridge module_bridge;
+    module_bridge.initialize();
 
     QObject::connect(&device, &DeviceController::statusMessage, &bridge,
         [&bridge](const QString& message) { bridge.setStatus(message); });
@@ -101,9 +104,10 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("device"), &device);
     engine.rootContext()->setContextProperty(QStringLiteral("home"), &home);
+    engine.rootContext()->setContextProperty(QStringLiteral("moduleBridge"), &module_bridge);
 
     // QML 交互连接集中在 C++ 侧
-    UiConnector connector(&bridge, &home, &theme, &device);
+    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 

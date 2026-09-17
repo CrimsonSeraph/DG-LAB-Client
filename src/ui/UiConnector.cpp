@@ -9,6 +9,7 @@
 #include "DebugLog.h"
 #include "DeviceController.h"
 #include "HomeBridge.h"
+#include "ModuleBridge.h"
 #include "ThemeManager.h"
 
 #include <QColor>
@@ -41,12 +42,13 @@ namespace {
 } // namespace
 
 UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
-    DeviceController* device, QObject* parent)
+    DeviceController* device, ModuleBridge* module, QObject* parent)
     : QObject(parent)
     , app_(app)
     , home_(home)
     , theme_(theme)
-    , device_(device) {
+    , device_(device)
+    , module_(module) {
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -90,16 +92,23 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "customThemeSaveButton", SLOT(on_custom_theme_save_clicked()));
     connect_clicked(root_object, "customThemePrimaryButton", SLOT(on_custom_primary_clicked()));
     connect_clicked(root_object, "customThemeSecondaryButton", SLOT(on_custom_secondary_clicked()));
-
     if (auto* primary = root_object->findChild<QObject*>(QStringLiteral("primaryColorDialog"))) {
         QObject::connect(primary, SIGNAL(accepted()), this, SLOT(on_primary_color_accepted()));
     }
     if (auto* secondary = root_object->findChild<QObject*>(QStringLiteral("secondaryColorDialog"))) {
         QObject::connect(secondary, SIGNAL(accepted()), this, SLOT(on_secondary_color_accepted()));
     }
-
-    watch_list(root_object, "themePresetList", QStringLiteral("themePresetClick"),
+    watch_items(root_object, "themePresetList", QStringLiteral("themePresetClick"),
         SLOT(on_theme_preset_clicked()));
+
+    connect_clicked(root_object, "modulePeriodApplyButton", SLOT(on_module_period_applied()));
+    if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("modulePeriodCombo"))) {
+        QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_module_period_applied()));
+    }
+    watch_items(root_object, "moduleCardFlow", QStringLiteral("moduleCardClick"),
+        SLOT(on_module_card_clicked()));
+    watch_items(root_object, "moduleCardFlow", QStringLiteral("pluginToggleClick"),
+        SLOT(on_plugin_toggle_clicked()));
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
@@ -136,25 +145,29 @@ void UiConnector::close_dialog(const char* object_name) {
     }
 }
 
-void UiConnector::watch_list(QObject* root_object, const char* list_name, const QString& item_name,
+void UiConnector::watch_items(QObject* root_object, const char* owner_name, const QString& item_name,
     const char* slot) {
-    auto* list = root_object->findChild<QObject*>(QString::fromLatin1(list_name));
-    if (list == nullptr) {
-        LOG_MODULE("UiConnector", "watch_list", LOG_WARN, std::string("未找到列表: ") + list_name);
+    auto* owner = root_object->findChild<QObject*>(QString::fromLatin1(owner_name));
+    if (owner == nullptr) {
+        LOG_MODULE("UiConnector", "watch_items", LOG_WARN, std::string("未找到容器: ") + owner_name);
         return;
     }
-    auto* content = list->property("contentItem").value<QQuickItem*>();
-    if (content == nullptr) {
-        LOG_MODULE("UiConnector", "watch_list", LOG_WARN, std::string("列表无 contentItem: ") + list_name);
+    // 列表用 contentItem 承载委托；普通布局项本身即可视子树根
+    QQuickItem* item = owner->property("contentItem").value<QQuickItem*>();
+    if (item == nullptr) {
+        item = qobject_cast<QQuickItem*>(owner);
+    }
+    if (item == nullptr) {
+        LOG_MODULE("UiConnector", "watch_items", LOG_WARN, std::string("容器无可视子树: ") + owner_name);
         return;
     }
-    ListWatch watch;
-    watch.content = content;
+    ItemWatch watch;
+    watch.owner = item;
     watch.item_name = item_name;
     watch.slot = slot;
     watches_.append(watch);
-    scan_dynamic_items(content, item_name, slot);
-    QObject::connect(content, SIGNAL(childrenChanged()), this, SLOT(on_tracked_children_changed()));
+    scan_dynamic_items(item, item_name, slot);
+    QObject::connect(item, SIGNAL(childrenChanged()), this, SLOT(on_tracked_children_changed()));
 }
 
 void UiConnector::scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot) {
@@ -170,7 +183,7 @@ void UiConnector::scan_dynamic_items(QQuickItem* parent, const QString& item_nam
 
 void UiConnector::on_tracked_children_changed() {
     for (const auto& watch : watches_) {
-        scan_dynamic_items(watch.content, watch.item_name, watch.slot);
+        scan_dynamic_items(watch.owner, watch.item_name, watch.slot);
     }
 }
 
@@ -309,4 +322,28 @@ void UiConnector::on_secondary_color_accepted() {
     if (picker != nullptr && dialog != nullptr) {
         dialog->setProperty("customSecondary", picker->property("selectedColor"));
     }
+}
+
+void UiConnector::on_module_period_applied() {
+    if (module_ == nullptr) {
+        return;
+    }
+    auto* combo = find("modulePeriodCombo");
+    module_->applyAllPeriod(combo != nullptr ? combo->property("currentIndex").toInt() : 0);
+}
+
+void UiConnector::on_plugin_toggle_clicked() {
+    auto* button = sender();
+    if (button != nullptr && module_ != nullptr) {
+        module_->togglePlugin(button->property("fileName").toString());
+    }
+}
+
+void UiConnector::on_module_card_clicked() {
+    auto* item = sender();
+    if (item == nullptr || module_ == nullptr) {
+        return;
+    }
+    module_->selectModule(item->property("moduleName").toString());
+    open_dialog("moduleValuesDialog");
 }

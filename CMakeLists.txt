@@ -178,6 +178,8 @@ set(PROJECT_SOURCES
 	src/ui/DeviceController.cpp
 	include/ui/HomeBridge.h
 	src/ui/HomeBridge.cpp
+	include/ui/ModuleBridge.h
+	src/ui/ModuleBridge.cpp
 
 	# 资源文件
 	DGLABClient.qrc
