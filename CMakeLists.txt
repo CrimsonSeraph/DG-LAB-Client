@@ -174,6 +174,10 @@ set(PROJECT_SOURCES
 	src/ui/AppBridge.cpp
 	include/ui/UiConnector.h
 	src/ui/UiConnector.cpp
+	include/ui/DeviceController.h
+	src/ui/DeviceController.cpp
+	include/ui/HomeBridge.h
+	src/ui/HomeBridge.cpp
 
 	# 资源文件
 	DGLABClient.qrc
@@ -226,6 +230,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 			src/ui/qml/pages/ConfigPage.qml
 			src/ui/qml/pages/ModulePage.qml
 			src/ui/qml/pages/AboutPage.qml
+			src/ui/qml/home/ChannelPanel.qml
 			src/ui/qml/components/NavButton.qml
 			src/ui/qml/components/GlassCard.qml
 			src/ui/qml/components/AppButton.qml

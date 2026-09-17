@@ -7,6 +7,10 @@
 #include "AppConfig.h"
 #include "Console.h"
 #include "DebugLog.h"
+#include "DeviceController.h"
+#include "HomeBridge.h"
+#include "ModuleManager.h"
+#include "RuleManager.h"
 #include "ThemeManager.h"
 #include "UiConnector.h"
 
@@ -65,15 +69,41 @@ int main(int argc, char* argv[]) {
     theme.initialize();
     qmlRegisterSingletonInstance("Dglab", 1, 0, "Theme", &theme);
 
+    // 数值模块与规则引擎初始化（后续界面统一经桥接对象访问）
+    ModuleManager::instance().init();
+    RuleManager::instance().init();
+    const auto rule_files = RuleManager::instance().get_available_rule_files();
+    if (!rule_files.empty()) {
+        try {
+            RuleManager::instance().load_rule_file(rule_files.front());
+        }
+        catch (const std::exception& e) {
+            LOG_MODULE("main", "main", LOG_ERROR, "加载默认规则文件失败: " << e.what());
+        }
+    }
+
     // 应用状态桥接（QML 上下文属性 app）
     AppBridge bridge;
     bridge.initialize();
 
+    // 设备控制与首页桥接（QML 上下文属性 device / home）
+    DeviceController device;
+    device.initialize();
+    HomeBridge home(&device);
+    home.initialize();
+
+    QObject::connect(&device, &DeviceController::statusMessage, &bridge,
+        [&bridge](const QString& message) { bridge.setStatus(message); });
+    QObject::connect(&device, &DeviceController::errorOccurred, &bridge,
+        [&bridge](const QString& message) { bridge.setStatus(message); });
+
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &bridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("device"), &device);
+    engine.rootContext()->setContextProperty(QStringLiteral("home"), &home);
 
     // QML 交互连接集中在 C++ 侧
-    UiConnector connector(&bridge);
+    UiConnector connector(&bridge, &home);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 
