@@ -17,7 +17,7 @@
 > - [十三、许可证](#十三许可证)
 > - [十四、联系方式](#十四联系方式)
 
-一个基于 Qt 的桌面客户端，用于与 DG-Lab 服务进行 WebSocket 通信。项目采用 C++20 编写，通过启动独立的 Python 子进程（`Bridge.py`）来管理与 DG-Lab 服务器的 WebSocket 连接。实现了多级配置管理、模块化日志、异步任务以及灵活的规则引擎等功能。当前版本号: `v1.0.0`
+一个基于 Qt/QML 的 DG-Lab 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v1.0.0`
 
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
@@ -27,20 +27,20 @@
 
 DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客户端工具，核心目标是从外部程序（如游戏、传感器等）获取数据，经过可配置的规则引擎计算后，向 DG-Lab 的 WebSocket 服务发送强度调节、波形输出等指令。
 
-项目采用 **C++/Qt** 实现用户界面、配置管理、规则引擎与进程调度，通过启动独立的 **Python 子进程**（`Bridge.py`）作为 TCP 中转服务器，封装与 DG-Lab 服务的 WebSocket 通信。整体架构如下:
+项目采用 **C++20 + Qt6/QML** 实现，分为 `core`（配置/日志）、`module`（数值与插件）、`rule`（规则与规则图）、`wave`（波形）、`ble`（蓝牙）、`net`（WebSocket 中转）与 `ui`（界面桥接 + QML）七层，依赖单向。整体架构如下:
 
-- **C++ 主程序**: 负责界面展示、多级配置（main/system/user）、规则文件管理、日志系统、以及向 Python 子进程发送命令。
+- **C++ 主程序**: 负责界面桥接、多级配置（main/system/user）、规则与规则图、波形库、日志系统与传输调度。
 - **内置 WebSocket 中转服务**: 应用自身托管 DG-LAB 中转服务（V3 端口 9999 / V4 端口 9998），由 DG-LAB APP 扫码配对，应用直接下发强度/波形/清除指令并接收回传；配对二维码由内嵌 `qrcodegen` 生成。`Bridge.py` / `WebSocketCore.py` 已退出 WebSocket 链路（Python 仅保留给插件工具 `PathFinder.py`）。
 - **规则引擎**: 支持加载带占位符 `{}` 的 JSON 规则文件，动态填入参数（例如从外部数据模块接收的数值），生成最终命令。规则可指定通道（A/B）、模式（0~4）和值计算表达式（支持四则运算、括号）。
 - **数据扩展机制（插件化）**: 通过动态库插件（`module/`）从不同外部源获取数据——现已内置 CS2 GSI 插件（从 CS2 游戏读取状态数据），未来可扩展更多插件；主程序仅负责接收数值序列并按规则处理，不关心数据具体含义，实现灵活的社区扩展。
 
-> **当前状态**: 已具备配置管理、规则编辑、Python 子进程通信、WebSocket 指令发送、数值模块与插件化数据接入（如 CS2 GSI）等核心能力，可获取外部数据并驱动规则计算。实时强度/波形反馈等后续功能正在规划中。
+> **当前状态**: 界面已整体迁移到 QML；具备配置管理、可视化规则图、波形库与编辑器、内置 V3/V4 中转服务与配对二维码、郊狼 V3 蓝牙直连、数值模块与插件化数据接入（如 CS2 GSI）等能力。
 
 ---
 
 ## 二、功能特性
 
-- **QML 界面层（迁移中）** 界面正由 Qt Widgets 迁移到 QML：`Dglab` QML 模块包含主窗口、页面与组件，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 14 套预设与自定义主/副色）；QML 不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接。详见 [src/ui/README.md](src/ui/README.md)。
+- **QML 界面层** `Dglab` QML 模块包含主窗口、页面、组件与对话框，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 14 套预设与自定义主/副色）；QML 默认不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接（画布类手势为登记在案的例外）。详见 [src/ui/README.md](src/ui/README.md)。
 
 - **内置 WebSocket 中转服务** `DglabRelayServer` 基于 `Qt WebSockets` 在应用内托管 DG-LAB 中转服务（V3 / V4）：分配 clientId、处理 bind 配对与心跳、转发强度/波形/清除指令、解析 APP 回传；V4 额外维护被控方设备列表并下发 `device.op` / `device.op.clear`。配对二维码由内嵌 `qrcodegen`（MIT）经 `QrImageProvider` 提供给 QML。
 
@@ -82,10 +82,8 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 ### 1. 系统依赖
 
 - **C++ 编译器**: 支持 C++20 标准（如 GCC 10+、Clang 12+、MSVC 2022）
-- **Qt**: 5.15 或 6.x（Core、Gui、Widgets、Network）
-- **Python**: 3.9 或更高版本
-
-**注意**: Python 需要安装在系统环境中，并且 `python` 命令可用。CMake 配置时会自动查找 Python 解释器路径。
+- **Qt 6**: Core、Gui、Network、Qml、Quick、QuickControls2、QuickDialogs2、WebSockets、Bluetooth
+- **Python**（可选）: 仅 GSI 插件的 `PathFinder.py`（查找 CS 游戏目录）需要，不再用于 WebSocket 通信
 
 > 推荐使用 VS2022/2026（MSVC）进行 Windows 开发，Linux/macOS 可使用 GCC 或 Clang。👉 遇到依赖问题？请查看 [常见问题 - 编译与运行](#编译与运行)
 
@@ -95,14 +93,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 ### 3. Python 包依赖
 
-Python 子进程（`Bridge.py`）需要以下库，由 CI 自动安装或手动部署:
-
-- `websockets` (建议版本 10.0 或更高)
-- `qrcode[pil]` (用于生成二维码) 安装命令:
-
-```bash
-pip install websockets qrcode[pil]
-```
+**不再需要**。原先的 WebSocket 通信与二维码生成已改为应用内实现（`DglabRelayServer` + 内嵌 `qrcodegen`），无需安装 `websockets` / `qrcode`。仅在使用 CS2 GSI 插件时需要系统中有 Python 解释器运行 `PathFinder.py`。
 
 ---
 
@@ -143,10 +134,10 @@ cmake --build . --config Release
 
 编译完成后，可执行文件位于 `build/Release`（Windows）或 `build`（Linux/macOS）目录下。运行时需要确保以下目录与可执行文件同级:
 
-- `config/`: 包含 `main.json`、`system.json`、`user.json` 以及规则子目录（如 `config/rules/`）
-- `python/`: 包含 `Bridge.py` 和 `WebSocketCore.py`
-- `qcss/`: 包含所有主题样式文件（`light.qcss`, `night.qcss`, `style_*.qcss`）
+- `config/`: 包含 `main.json`、`system.json`、`user.json`、规则子目录（`config/rules/`）与波形库目录（`config/waves/`）
+- `python/`: 可选，仅 `PathFinder.py`（GSI 插件查找游戏目录用）
 - `assets/`: 包含资源文件（如图片）
+- Qt 运行时（DLL / 平台插件 / QML 模块）由构建后自动 `windeployqt` 部署到可执行文件目录
 
 CMake 的 `POST_BUILD` 命令会自动复制这些目录到输出目录。
 
@@ -222,10 +213,10 @@ cpack
 
 **注意: ** 其中 `"version"` 与 `"DGLABClient"` 为检查字段，内容随意，但 **请勿删除或修改** 此字段。`app.ui.theme` 存储当前选中的主题模式。
 
-### 2. Python 脚本
+### 2. Python 脚本（可选）
 
-- `python/Bridge.py`: 主入口脚本，启动 TCP 服务器，等待 C++ 客户端连接，解析命令并调用 `WebSocketCore.py` 中的 `DGLabClient` 类。
-- `python/WebSocketCore.py`: WebSocket 客户端核心库，封装了与 DG-Lab 服务器的连接、心跳、绑定、强度控制等逻辑。
+- `python/PathFinder.py`: 跨平台查找 CS 游戏目录的工具，供 CS2 GSI 插件调用。
+- 原 `Bridge.py` / `WebSocketCore.py` 已随内置中转服务上线而移除。
 
 ### 3. 规则引擎
 
@@ -1207,8 +1198,9 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 
 本项目依赖的第三方组件适用不同的许可证:
 
-- **Qt 框架**（Core, Gui, Widgets, Network, Qml）: GNU Lesser General Public License v3.0（LGPLv3）
+- **Qt 框架**（Core, Gui, Network, Qml, Quick, QuickControls2, QuickDialogs2, WebSockets, Bluetooth）: GNU Lesser General Public License v3.0（LGPLv3）
 - **nlohmann/json**: MIT 许可证
+- **Nayuki qrcodegen**（`third_party/qrcodegen`）: MIT 许可证
 
 有关第三方许可证的完整声明和文本，请查看 [NOTICE.txt](NOTICE.txt) 及 `licenses/` 目录。
 

@@ -15,7 +15,9 @@
 | 7 | 应用内 WebSocket 服务（V3 + V4，内嵌二维码，移除 Python / Node 依赖） | 已完成 |
 | 8 | 蓝牙直连（郊狼 V3 BLE，Qt Bluetooth 已安装） | 已完成 |
 | 9 | 规则可视化编辑器（节点图、拖拽连线、右键建节点、Ctrl+C/V/Delete、模块面板） | 已完成 |
-| 10 | 清理 Widgets / QSS / `.ui` 与文档收尾 | 待做 |
+| 10 | 清理 Widgets / QSS / `.ui` 与文档收尾 | 已完成 |
+
+**全部阶段已完成**：界面已整体迁移到 QML，旧 Widgets 界面、qcss 样式表与 Python WebSocket 通信层均已移除（见 CHANGELOG）。
 
 界面层说明与 objectName 契约见 [src/ui/README.md](src/ui/README.md)；其中登记了"必须使用手势的视图"下允许 QML 信号处理器的例外（其余界面仍需遵守"QML 无信号处理器"）。
 

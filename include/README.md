@@ -1,15 +1,17 @@
 # 头文件目录（include）
 
-本目录包含项目的所有公共头文件（`.h` 及部分模板实现 `.hpp`，另含 Qt Designer 界面文件 `.ui`），按功能划分为与 `src/` 对应的分类子目录，定义了应用程序的核心接口、数据结构、配置管理、日志系统、规则引擎以及与 Python 子进程通信的类。头文件之间通过前置声明和包含关系相互引用，形成了清晰的模块化结构。
+本目录包含项目的全部公共头文件（`.h` 及模板实现 `.hpp`），按功能分层组织，与 `src/` 一一对应。
 
-| 子目录 | 分类 | 包含文件类型 |
+| 子目录 | 分类 | 说明 |
 | --- | --- | --- |
-| `core/` | 核心基础设施 | 配置系统（AppConfig、ConfigManager、MultiConfigManager、配置结构体、默认配置及模板实现）、日志系统（DebugLog、控制台、日志导出器与导出设置对话框及工具函数） |
-| `bridge/` | Python 通信桥 | Python 子进程管理器接口 |
-| `rule/` | 规则引擎 | 规则实体与规则管理器接口（含模板实现），以及规则编辑 UI（公式构建对话框、父级编辑对话框、表格委托） |
-| `module/` | 数值模块 | 数据模块接口（Module/ModuleValue/ModuleManager）、通用数据接收器（DataListener）与数值展示对话框 |
-| `plugin/` | 插件接口 | 插件纯虚基类 IPlugin 与统一导出宏（plugin_export.h） |
-| `ui/` | 界面层 | 主窗口（DGLABClient 及模板/工具实现、`.ui` 界面文件）与通用控件（可编辑标签、统一下拉框、波形采样、主题选择、IP 选择） |
+| `core/` | 核心基础设施 | 配置系统（AppConfig / ConfigManager / MultiConfigManager / 结构体 / 默认配置）、日志系统（DebugLog、Console、LogExporter） |
+| `rule/` | 规则引擎 | `Rule` / `RuleManager`（含模板实现）与规则图模型 `RuleGraph` |
+| `module/` | 数值模块 | `ModuleValue` / `Module` / `ModuleManager`（插件宿主）与 `DataListener` |
+| `wave/` | 波形 | `Wave` 与 `WaveLibrary` |
+| `ble/` | 蓝牙 | `CoyoteBleController` |
+| `net/` | 网络 | `DglabRelayServer` |
+| `plugin/` | 插件接口 | `IPlugin`、`PluginHost`、`plugin_export.h` |
+| `ui/` | 界面层 | 桥接对象、`ThemeManager`、`QrImageProvider`、`UiConnector` |
 
 > 说明：`include/` 下除分类子目录外不再存放散落文件（仅保留本说明文件）。
 
@@ -17,273 +19,100 @@
 
 ## 目录结构
 
-```
+```text
 include/
-├── core/     # 核心基础设施：配置系统 + 日志系统
-├── bridge/   # Python 子进程通信
-├── rule/     # 规则引擎（含规则编辑 UI）
-├── module/   # 数值模块
+├── core/     # 配置系统 + 日志系统
+├── rule/     # 规则引擎 + 规则图
+├── module/   # 数值模块 + 数据接收器
+├── wave/     # 波形模型与库
+├── ble/      # 郊狼 V3 蓝牙直连
+├── net/      # 应用内 WebSocket 中转服务
 ├── plugin/   # 插件接口
-├── ui/       # 界面层（主窗口 + 通用控件）
+├── ui/       # 界面桥接对象
 └── README.md # 本说明文件
 ```
 
 ---
 
-## 一、core/ —— 核心基础设施
+## 一、core/
 
-配置系统与日志系统的接口声明，是其他模块依赖的基础层。
-
-### 配置系统
-
-| 文件名 | 描述 |
+| 文件 | 描述 |
 | --- | --- |
-| `AppConfig.h` | 应用配置主类 `AppConfig`（单例）的声明。提供配置系统的全局入口，负责初始化、销毁、配置项的读写（支持点分隔路径）、监听器管理、批量操作、导入导出等功能。内部集成 `MultiConfigManager` 实现多级配置优先级合并。 |
-| `AppConfig_impl.hpp` | `AppConfig` 的模板方法实现，包括设置配置值、批量更新多个配置、获取配置值等。 |
-| `AppConfig_utils.hpp` | `AppConfig` 的工具包装器实现，辅助模板类 `ConfigValue<T>`、`ConfigObject<T>` 的定义。`ConfigValue` 用于简单类型的配置项包装（带缓存和变更回调），`ConfigObject` 用于复杂结构体的配置包装，支持 JSON 序列化与验证。 |
-| `ConfigManager.h` | 单个配置管理器 `ConfigManager` 的声明。封装了 JSON 配置文件的加载、保存、键值访问（支持默认值）、批量更新（`merge_patch`）、删除及变更通知（观察者模式）。内部使用递归互斥锁保证线程安全。 |
-| `ConfigManager_impl.hpp` | `ConfigManager` 的模板方法实现，包括 `get<T>`、`set<T>` 等模板函数的定义，提供类型安全的配置读写。 |
-| `MultiConfigManager.h` | 多配置管理器 `MultiConfigManager`（单例）的声明。维护多个 `ConfigManager` 实例的注册表，支持按优先级（`__priority` 字段）排序配置，提供合并读取、优先级冲突检测、文件热重载等功能。 |
-| `MultiConfigManager_impl.hpp` | `MultiConfigManager` 的模板方法实现，包括按优先级或名称获取/设置配置值的模板函数，以及内部排序缓存的管理。 |
-| `ConfigStructs.h` | 配置结构体的定义，包括通用的 `ConfigTemplate` 模板以及具体的 `MainConfig`、`SystemConfig`、`UserConfig` 结构体。每个结构体提供 `to_json`/`from_json` 静态方法用于 JSON 转换，以及 `validate()` 方法进行字段有效性验证。 |
-| `DefaultConfigs.h` | 默认配置提供类 `DefaultConfigs` 的声明，仅包含静态方法 `get_default_config`，根据配置名称（如 "main"、"system"、"user"）返回对应的默认 JSON 配置。 |
+| `AppConfig.h` / `AppConfig_impl.hpp` / `AppConfig_utils.hpp` | 配置主类与模板方法、`ConfigValue<T>` / `ConfigObject<T>` 包装 |
+| `ConfigManager.h` / `ConfigManager_impl.hpp` | 单文件配置读写与变更通知 |
+| `MultiConfigManager.h` / `MultiConfigManager_impl.hpp` | 多配置文件优先级合并与热重载 |
+| `ConfigStructs.h` | `MainConfig` / `SystemConfig` / `UserConfig` |
+| `DefaultConfigs.h` | 默认配置提供 |
+| `DebugLog.h` / `DebugLog_utils.hpp` | 日志核心与工具函数（`LogSink` / `LOG_MODULE`） |
+| `Console.h` | 调试控制台 |
+| `LogExporter.h` | 自动/手动日志导出设置与导出、清理 |
+| `ProcessChecker.h` | 进程存在性检查 |
 
-### 日志系统
+## 二、rule/
 
-| 文件名 | 描述 |
+| 文件 | 描述 |
 | --- | --- |
-| `DebugLog.h` | 日志系统核心类 `DebugLog`（单例）的声明。支持模块级日志等级过滤、多个输出接收器（sink）、线程安全写入。提供宏 `LOG_MODULE` 用于统一格式的日志输出。 |
-| `DebugLog_utils.hpp` | 日志系统辅助工具，包含 `DebugLogUtil` 命名空间下的函数，如将 `QJsonValue` 转换为字符串、去除字符串中的换行符等，便于日志格式化。 |
-| `Console.h` | Windows 控制台辅助类 `Console`（单例）的声明。用于在 GUI 程序启动时创建或附加调试控制台，设置 UTF-8 代码页和字体，并重定向标准流。非 Windows 平台仅提供空实现。 |
-| `LogExporter.h` | 日志导出器（`LogExporter`）的声明。自动日志（`AutoSettings`：级别过滤、位置、保留数量、大小上限，超限分片轮转）与手动日志（`ManualSettings`：级别过滤、位置，不受数量/大小限制）两类导出设置结构，负责加载/保存设置（`user.json` 的 `app.log.auto` / `app.log.manual`）与日志导出清理。 |
-| `LogExportSettingsDialog.h` | 日志导出设置对话框（`LogExportSettingsDialog`）的声明，继承自 `QDialog`。自动/手动两组设置界面，通过 `get_auto_settings()` / `get_manual_settings()` 返回编辑结果。 |
+| `Rule.h` | 规则实体：占位符、`valuePattern`、父级（通道/规则）与模式 |
+| `RuleManager.h` / `RuleManager_impl.hpp` | 规则文件管理、规则增删改查、级联触发、`evaluate_command` 模板 |
+| `RuleGraph.h` | 规则图节点/连线模型与规则 JSON 双向转换 |
 
----
+## 三、module/
 
-## 二、bridge/ —— Python 子进程通信
-
-| 文件名 | 描述 |
+| 文件 | 描述 |
 | --- | --- |
-| `PythonSubprocessManager.h` | Python 子进程管理器 `PythonSubprocessManager` 的声明。基于 `QProcess` 启动外部 Python 脚本，通过解析脚本输出的端口号建立 TCP 连接（`QTcpSocket`），实现 C++ 与 Python 的 JSON 通信。提供异步调用接口 `call`，支持超时和回调。 |
+| `ModuleValue.h` | 数值模型（周期、最值、钳制、JSON 互转） |
+| `Module.h` | 模块（数值集合与通道挂载） |
+| `ModuleManager.h` | 数值调度、变化推送、插件宿主（`IPluginHost`） |
+| `DataListener.h` | 通用数据接收器与解析器接口 |
 
----
+## 四、wave/ · ble/ · net/
 
-## 三、rule/ —— 规则引擎
-
-规则引擎核心接口及其配套的规则编辑 UI。
-
-### 引擎核心
-
-| 文件名 | 描述 |
+| 文件 | 描述 |
 | --- | --- |
-| `Rule.h` | 规则类 `Rule` 的声明。单个规则包含名称、父级（通道 A/B 或规则引用）、模式（0-4）和带占位符 `{}` 的值计算式。提供占位符数量统计、通道规范化、值计算（支持四则运算和括号表达式）、生成命令以及用于 UI 显示的格式化字符串方法。 |
-| `RuleManager.h` | 规则管理器 `RuleManager`（单例）的声明。负责扫描指定目录下的 JSON 规则文件（含特定关键字），加载/保存规则文件，管理当前规则集，提供规则的增删改查、命令生成（变参模板）以及显示字符串生成等接口。 |
-| `RuleManager_impl.hpp` | `RuleManager` 的模板方法实现，主要提供 `evaluate_command` 变参模板函数，将参数转换为 `std::vector<int>` 后调用对应规则的生成方法。 |
+| `wave/Wave.h` | V3 波形模型（段落 → 八字节帧） |
+| `wave/WaveLibrary.h` | 波形库与 A/B 当前波形 |
+| `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1） |
+| `net/DglabRelayServer.h` | 应用内 V3/V4 中转服务 |
 
-### 规则编辑 UI
+## 五、plugin/
 
-| 文件名 | 描述 |
+| 文件 | 描述 |
 | --- | --- |
-| `FormulaBuilderDialog.h` | **值模式编辑对话框**（`FormulaBuilderDialog`），带按钮快速插入符号、实时括号匹配检查和合法性验证。 |
-| `ParentEditDialog.h` | 规则父级编辑对话框（`ParentEditDialog`）的声明，继承自 `QDialog`。通道父级（A/B/无）单选 + 规则父级（引用 `{rule:xx}`）多选。 |
-| `ComboBoxDelegate.h` | **表格下拉框委托**（`ComboBoxDelegate`），用于规则表格的"通道"和"模式"列，提供 QComboBox 编辑器。 |
-| `ValueModeDelegate.h` | **值模式列自定义委托**（`ValueModeDelegate`），双击时弹出公式构建对话框，支持 `{}` + `+-*/()` 计算式。 |
+| `IPlugin.h` | 插件纯虚基类与生命周期/自描述接口 |
+| `PluginHost.h` | 宿主上下文接口（数值注册、数据接收、配置读写、通知、周期） |
+| `plugin_export.h` | 导出宏与 API 版本 |
 
----
+## 六、ui/
 
-## 四、module/ —— 数值模块
-
-| 文件名 | 描述 |
+| 文件 | 描述 |
 | --- | --- |
-| `ModuleValue.h` | 数值模型（`ModuleValue`）的声明：单个可查询数值，包含查询周期枚举（`QueryPeriod`）及其与毫秒数、中文显示文本的相互转换辅助函数；支持可选最小/最大值（`std::optional<int>`，空表示无上下限），写入时自动钳制到配置范围。 |
-| `Module.h` | 数据模块（`Module`）的声明。一个模块包含一组可查询数值（如 CS2 GSI 模块），支持挂载/卸载到 A/B 通道，提供数值列表与通道列表的访问接口。 |
-| `ModuleManager.h` | 数值模块管理器 `ModuleManager`（单例）的声明，同时实现插件宿主接口 `IPluginHost`。负责模块注册、数值查询、以所有数值中最短查询周期为基准的调度轮询，数值变化时通过 `value_changed` 信号推送；支持通过 `set_data_source` 接入真实数据源。插件能力：扫描/加载/卸载动态库插件（`QLibrary`）、`get_plugin_api_version` 版本校验、依赖校验、加载状态管理（`PluginLoadState`/`PluginInfo`）、日志回调注入与宿主上下文（数值注册/注销/写入、数据监听与分发、配置读写、周期通知 `plugin_notification`）。 |
-| `ModuleValuesDialog.h` | 模块数值展示对话框（`ModuleValuesDialog`）的声明，继承自 `QDialog`。点击模块卡片后弹出，每行两个数值框（名称 + 当前值 + 底层字段名），底部下拉框可单独设置该数值的查询周期。 |
-| `DataListener.h` | 通用数据接收器（`DataListener`）的声明，继承自 `QTcpServer`。单实例监听单个端口（TCP HTTP POST 或 UDP 数据报），解析为 JSON 后按数据包来源标识（source + type）分发给已注册的处理器（含分包累积收包）；同时提供解析器抽象接口 `IDataParser` 及其默认实现（`HttpJsonParser`/`JsonBodyParser`）。 |
-
----
-
-## 五、plugin/ —— 插件接口
-
-插件化模块系统的公共接口声明，供主程序与外部插件动态库共同引用（插件与主程序必须使用同一工具链构建以保证 ABI 兼容）。
-
-| 文件名 | 描述 |
-| --- | --- |
-| `plugin_export.h` | 统一导出宏（`PLUGIN_EXPORT`/`PLUGIN_API`）与插件 API 版本（`PLUGIN_API_VERSION`）的定义，跨 Windows（`_WIN32`）/GCC/Clang 平台。 |
-| `IPlugin.h` | 插件纯虚基类 `IPlugin` 的声明：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明、错误码返回与日志回调（`set_log_callback`/`log`）；同时声明 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 导出约定（仅 `PLUGIN_BUILD` 时可见）与 `PLUGIN_LOG` 日志宏。 |
-| `PluginHost.h` | 宿主上下文接口 `IPluginHost` 的声明：插件在 `initialize`/`uninitialize` 中调用宿主能力——数值注册（`register_module_values`）、数值写入（`set_value`）、模块注销（`unregister_module`）、数据接收（`listen_data`/`register_data_handler`）、配置读写（`get_config_value`/`set_config_value`）、基础周期（`base_period_ms`）与用户通知（`notify`）。 |
-
----
-
-## 六、ui/ —— 界面层
-
-主窗口与通用控件的接口声明。
-
-### 主窗口
-
-| 文件名 | 描述 |
-| --- | --- |
-| `DGLABClient.h` | Qt 主窗口类 `DGLABClient` 的声明，继承自 `QWidget`。负责界面初始化、按钮事件处理、日志显示控件管理、规则管理 UI（规则文件选择、表格展示、添加/编辑/删除规则），并通过 `PythonSubprocessManager` 异步调用 Python 子进程进行 WebSocket 连接/断开操作。样式系统方法 `apply_widget_properties()`、`apply_inline_styles()`，以及主题切换的增强。 |
-| `DGLABClient_impl.hpp` | `DGLABClient` 的模板方法实现，主要提供 `async_call` 模板函数，用于在后台线程池中异步调用 Python 子进程命令，并将结果通过回调返回主线程。 |
-| `DGLABClient_utils.hpp` | `DGLABClient` 的工具函数，目前包含 `contains_any_keyword` 辅助函数，用于在网卡名称中匹配黑/白名单关键字。 |
-| `DGLABClient.ui` | Qt Designer 界面文件，与 `DGLABClient.h` 中的类关联，定义了主窗口的布局和控件（含 `EditableLabel`、`SampledWaveformWidget` 等提升控件）。该文件虽不属头文件，但属于界面设计的一部分，与主窗口配套使用。 |
-
-### 通用控件
-
-| 文件名 | 描述 |
-| --- | --- |
-| `EditableLabel.h` | **可编辑标签控件**（`EditableLabel`），继承自 `QLabel`。支持双击进入编辑模式，内嵌 `QLineEdit`，可设置输入验证器，编辑完成后发出 `text_edited` 信号。用于需要直接修改文本的场景（如规则名称、设备名称等）。 |
-| `StyledComboBox.h` | **统一下拉框控件**（`StyledComboBox`），继承自 `QComboBox`。内置弹出样式处理（规避弹出列表黑色边缘）与弹出圆角裁剪，规则表格委托、模块页、父级/日志设置等所有展开式下拉框统一使用本类。 |
-| `SampledWaveformWidget.h` | 实时波形采样控件的声明。继承 `QWidget`，提供 `input_data(name, value)` 接口为指定监听器输入归一化数据，内部为每个监听器维护独立的环形缓冲区，并通过定时器驱动采样和重绘。支持动态添加/移除监听器、修改监听器颜色、设置采样间隔、最大振幅比例、输入范围及监听器数量上限。默认包含一个名为 `default` 的绿色监听器，兼容旧接口 `input_data(double)`。 |
-| `ThemeSelectorDialog.h` | 主题选择对话框的声明。继承自 `QDialog`，包含 `theme_selected` 信号和私有映射（中文名、模式名、主色）。通过 `setup_ui()` 构建网格布局的主题卡片，`create_theme_card()` 创建可点击的卡片控件，用于直观的主题选择。 |
-| `IpSelector.h` | **IP 选择器单例类**（`IpSelector`）。提供自动匹配 IP 地址的功能（基于黑白名单关键词过滤网卡名称），支持弹出对话框让用户手动编辑黑白名单并选择 IP。用于连接设备前的 IP 自动检测与选择。 |
+| `ThemeManager.h` | 主题令牌（QML 单例 `Theme`） |
+| `AppBridge.h` | 应用信息与页面导航 |
+| `DeviceController.h` | 内置中转服务、二维码、指令下发与回传 |
+| `HomeBridge.h` | 首页通道面板数据 |
+| `ModuleBridge.h` | 模块页数据与操作 |
+| `WaveBridge.h` | 波形库与波形编辑器草稿 |
+| `RuleGraphBridge.h` | 规则图编辑器桥接 |
+| `LogBridge.h` | 界面日志收集与导出 |
+| `QrImageProvider.h` | 二维码图像提供者 |
+| `UiConnector.h` | QML↔C++ 连接集中点 |
 
 ---
 
 ## 依赖关系
 
-- **Qt 5/6**: `DGLABClient.h`、`PythonSubprocessManager.h`、`SampledWaveformWidget.h`、`EditableLabel.h` 依赖 Qt Core、Widgets、Network 模块；`DebugLog_utils.hpp` 依赖 QtCore 的 JSON 类；`IpSelector.h` 依赖 Qt Network 模块（`QNetworkInterface`）。
-- **nlohmann/json**: 所有配置相关头文件（`AppConfig.h`、`ConfigManager.h`、`ConfigStructs.h` 等）以及规则相关头文件（`RuleManager.h`）依赖 JSON 解析库。
-- **C++20**: 项目使用 C++20 标准，部分模板、概念（如 `ConfigSerializable`）要求编译器支持 C++20。
+- **Qt 6**：Core / Gui / Network / Qml / Quick / QuickControls2 / QuickDialogs2 / WebSockets / Bluetooth
+- **nlohmann/json**：配置、规则与规则图
+- **qrcodegen**（`third_party/qrcodegen`）：二维码生成
+- **C++20**：模板与概念要求（`ConfigSerializable` 等）
 
 ---
 
 ## 设计要点
 
-### 1. 配置系统
-
-- **多级配置**: 通过 `MultiConfigManager` 管理多个 `ConfigManager` 实例（main/user/system），每个实例有独立优先级，读取时高优先级覆盖低优先级。
-- **类型安全**: `ConfigValue<T>` 和 `ConfigObject<T>` 包装配置项，提供类型安全的读写、缓存和变更回调，避免直接操作 JSON；`ConfigManager` 的模板方法 `get<T>` 和 `set<T>` 同样提供类型安全访问。
-- **热重载**: `MultiConfigManager` 支持文件监控，当配置文件变化时自动重新加载并通知监听器。
-
-### 2. 日志系统
-
-- **模块化过滤**: 每个模块可独立设置日志等级，支持按等级输出或仅输出指定等级的日志。
-- **多接收器**: 可注册多个 `LogSink`（如控制台、UI 控件），每个接收器可设置独立的最低等级，日志消息会分发到所有符合条件的接收器。
-- **线程安全**: 所有日志写入操作均受互斥锁保护，确保多线程环境下的安全性。
-- **日志导出**: 自动日志分片轮转并受保留数量/大小上限限制，手动日志不受限制；两者各有独立设置并通过 `LogExporter` 持久化。
-
-### 3. Python 子进程通信
-
-- **进程管理**: `PythonSubprocessManager` 通过 `QProcess` 启动独立 Python 进程，子进程启动后立即输出监听端口，主进程通过 `QTcpSocket` 连接。
-- **异步调用**: 提供 `call` 方法将命令提交到全局线程池执行，避免阻塞主线程；通过 `req_id` 关联请求与响应，支持超时和回调。
-- **停止安全**: 析构时设置停止标志，唤醒所有等待线程，并等待线程池任务完成，防止资源泄漏。
-
-### 4. 规则引擎
-
-- **模式匹配**: `Rule` 类使用 `{}` 作为占位符，可解析占位符位置并动态替换为整数参数，生成最终字符串。
-- **文件管理**: `RuleManager` 扫描配置目录下含关键字的 JSON 文件，支持创建、删除、切换规则文件，并自动解析 `rules` 对象为 `Rule` 实例。
-- **线程安全**: 规则集合的读写操作使用互斥锁保护。
-
-### 5. 数值模块
-
-- **周期调度**: `ModuleManager` 以所有数值中最短查询周期（最小 250ms）为基准轮询，周期为基准周期整数倍的数值按对应倍率间隔查询。
-- **变化推送**: 数值变化时通过 `value_changed` 信号推送；数据源未接入时数值保持"未获取"状态，规则中引用无数据的数值视为空值。
-
-### 6. 波形采样控件
-
-- **实时性**: 使用独立 `QTimer` 定时采样，避免阻塞主线程；环形缓冲区无锁写入（通过索引取模），读取时加锁保护最新值。
-- **灵活性**: 提供 `add_listener()`、`remove_listener()`、`set_listener_color()` 等接口，方便运行时动态调整。
-- **可视化**: 抗锯齿折线，背景深色，基线灰色虚线，适应亮色/暗色主题（通过 QSS 设置背景色）。
-- **多监听器支持**: 控件可同时显示多条波形曲线，每条曲线独立采样、独立颜色，适用于同时监控多个数据源（如 A/B 通道强度、传感器数值等）。
-- **线程安全**: 内部使用 `QMutex` 保护监听器映射及最新输入值，保证多线程输入的安全性。
-- **支持范围输入**: 提供 `set_input_range()` 方法，允许为每个监听器设置输入值的最小值和最大值，控件内部将输入值归一化到 0~1 后进行绘制，适应不同量级的数据输入。
-
-### 7. GUI 响应性
-
-- **后台任务**: `DGLABClient` 将耗时操作（如 Python 调用）通过 `async_call` 模板方法（基于 `PythonSubprocessManager::call` 和线程池）放入后台执行，完成后通过信号槽将结果传回主线程更新界面。
-- **日志显示**: 日志接收器 `qtSink` 将日志消息通过 `QMetaObject::invokeMethod` 安全地追加到 UI 控件，并支持按等级着色。
-- **规则管理**: 规则文件的加载、保存及规则的增删改查均在 UI 线程同步执行（操作轻量），不影响流畅度。
-- **样式系统**: 通过 `apply_widget_properties()` 为所有控件设置 `type` 属性，配合 QSS 中的 `[type="..."]` 选择器，实现统一的主题切换和视觉风格。
-- **IP 选择辅助**: `IpSelector` 单例提供自动 IP 匹配（基于黑白名单关键词），并允许用户通过对话框手动选择，简化连接配置流程。
-- **可编辑标签**: `EditableLabel` 控件允许用户双击直接修改文本，常用于规则名称、设备别名等场景，提升交互效率。
-
----
-
-## 使用说明
-
-### 包含头文件
-
-项目中只需包含所需模块的头文件，例如:
-
-```cpp
-#include "AppConfig.h"
-#include "DebugLog.h"
-#include "RuleManager.h"
-#include "IpSelector.h"
-#include "EditableLabel.h"
-```
-
-> 头文件虽已按分类移动到子目录，但 `target_include_directories` 已将各子目录加入包含路径，源码内仍可直接使用文件名包含（无需带目录前缀）。
-
-### 配置系统初始化
-
-在应用程序启动时调用:
-
-```cpp
-AppConfig::instance().initialize("./config");
-```
-
-之后可通过 `AppConfig::instance().get_value<T>("key", default)` 读取配置。
-
-### 日志输出
-
-使用宏 `LOG_MODULE`:
-
-```cpp
-LOG_MODULE("MyModule", "myFunction", LOG_INFO, "Hello, world!");
-```
-
-可在 `DebugLog::instance()` 中注册自定义接收器，如 Qt 界面控件。
-
-### Python 子进程调用
-
-```cpp
-auto* pyMgr = new PythonSubprocessManager(this);
-pyMgr->start_process("python", "/path/to/Bridge.py");
-// 异步调用
-QJsonObject cmd{{"cmd", "connect"}, {"req_id", 123}};
-pyMgr->call(cmd, [](const QJsonObject& resp){
-    // 处理响应
-}, 5000);
-```
-
-在 `DGLABClient` 中推荐使用 `async_call` 模板方法：
-
-```cpp
-async_call({{"cmd", "connect"}}, 5000, [](bool success, QString msg){
-    if (success) { /* ... */ }
-});
-```
-
-### 规则引擎使用
-
-```cpp
-// 初始化（通常在 AppConfig 初始化后调用）
-RuleManager::instance().init();
-// 加载规则文件
-RuleManager::instance().load_rule_file("rules.json");
-// 生成命令（参数将填充到 value_pattern 中计算）
-QJsonObject cmd = RuleManager::instance().evaluate_command("strength_up", 2);
-// cmd 包含: {"cmd":"send_strength", "channel":1, "mode":1, "value":2}
-```
-
-### IP 自动选择与手动选择
-
-```cpp
-// 自动获取匹配黑白名单的 IP
-QString ip = IpSelector::instance()->auto_select_ip();
-// 弹出对话框让用户编辑黑白名单并选择 IP
-QString selected = IpSelector::instance()->show_selection_dialog(this);
-if (!selected.isEmpty()) { /* 使用 selected */ }
-```
-
-### 注意事项
-
-- 所有 `*_impl.hpp` 文件通常被对应的 `.h` 文件在末尾包含，无需手动引入。
-- 多线程环境下，确保对 `AppConfig` 的访问通过其提供的线程安全方法进行（内部已加锁）。
-- Python 子进程的 `Bridge.py` 必须实现 JSON 行协议（每条响应以换行符结尾），并正确处理 `req_id`。
-- 规则文件中的 value_pattern 可以包含 `{}` 占位符，调用 `evaluate_command` 时传入的参数数量必须与占位符数量匹配。
-- 规则支持通道（A/B）和模式（0-4）配置，模式含义: 0=递减, 1=递增, 2=设为, 3=连减, 4=连增。
-- `EditableLabel` 在编辑模式下会隐藏原有文本显示，编辑完成后才更新标签内容，需确保布局不受影响。
-- `IpSelector` 的黑白名单关键词匹配对网卡名称进行大小写不敏感的子串匹配，白名单优先于黑名单。
+- **分层单向依赖**：`core` 无依赖；`module`/`rule`/`wave`/`net`/`ble` 依赖 `core`；`ui` 依赖全部。规则层通过 `DeviceController` 完成下发，不反向依赖传输实现。
+- **配置系统**：多级配置（main/system/user）优先级合并、类型安全包装、热重载与变更监听。
+- **日志系统**：模块级过滤、多输出通道（控制台 / 界面 / 自动日志文件）、线程安全；界面通过 `LogBridge` 注册独立通道。
+- **规则引擎**：`valuePattern` 由 QJSEngine 求值，因此支持任意 JS 表达式（规则图的高级节点即生成 `Math.*` 子表达式）；规则间通过 `{rule:xx}` 引用并级联触发，带深度保护。
+- **传输与蓝牙**：`DglabRelayServer` 由应用自身托管中转服务（无需 Node/Python）；`CoyoteBleController` 按官方 V3 蓝牙协议直连设备。
+- **界面层**：QML 只做属性绑定与渲染，交互由 `UiConnector` 在 C++ 侧按 `objectName` 连接；画布类手势为登记在案的例外。

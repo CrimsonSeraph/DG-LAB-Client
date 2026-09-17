@@ -28,6 +28,8 @@
 
 - 程序入口由 `QApplication` + `DGLABClient` 改为 `QGuiApplication` + `QQmlApplicationEngine`；界面统一使用 `Basic` 控件样式，外观由样式令牌控制。
 - 数值模块与规则引擎改为在启动时初始化并加载默认规则文件。
+- 依赖调整：新增 Qt WebSockets / Bluetooth，移除 Qt Widgets；新增内嵌 `qrcodegen`；不再需要 Python `websockets` / `qrcode`。
+- CMake 在 Windows 构建后自动调用 `windeployqt` 把 Qt 运行时部署到输出目录（原先仅在打包阶段执行）。
 
 ### Deprecated
 
@@ -35,7 +37,11 @@
 
 ### Removed
 
-- 无
+- **Qt Widgets 旧界面**: 移除 `DGLABClient`（含 `.ui`、`_impl`、`_utils`）与配套控件 `ThemeSelectorDialog`、`EditableLabel`、`StyledComboBox`、`SampledWaveformWidget`、`IpSelector`。
+- **旧规则编辑 UI**: 移除 `FormulaBuilderDialog`、`ParentEditDialog`、`ComboBoxDelegate`、`ValueModeDelegate`（由可视化规则图取代）。
+- **旧对话框**: 移除 `ModuleValuesDialog`、`LogExportSettingsDialog`（日志导出位置/保留数量/大小上限改为直接编辑 `user.json`）。
+- **Python WebSocket 通信层**: 移除 `PythonSubprocessManager`、`python/Bridge.py`、`python/WebSocketCore.py`（保留 `python/PathFinder.py` 供 GSI 插件使用）。
+- **qcss 主题样式表**: 移除 `qcss/` 目录及其资源、拷贝与安装规则（主题改由 `ThemeManager` 提供）。
 
 ### Fixed
 
