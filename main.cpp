@@ -3,26 +3,33 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+#include "AppBridge.h"
 #include "AppConfig.h"
 #include "Console.h"
-#include "DGLABClient.h"
 #include "DebugLog.h"
+#include "ThemeManager.h"
+#include "UiConnector.h"
 
-#include <QStyleFactory>
-#include <QtWidgets/QApplication>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickStyle>
 
 #include <iostream>
 
 int main(int argc, char* argv[]) {
-    QApplication app(argc, argv);
+    QGuiApplication app(argc, argv);
+    // 统一使用 Basic 样式：界面外观完全由 QML 的样式令牌控制（不叠加平台样式）
+    QQuickStyle::setStyle(QStringLiteral("Basic"));
+
     // 直接创建控制台，以便在初始化配置系统时输出日志
     Console& console = Console::get_instance();
     console.create();
+
     // 配置初始化
     auto& config = AppConfig::instance();
-    std::string config_dir = "./config";
     try {
-        if (!config.initialize(config_dir)) {
+        if (!config.initialize("./config")) {
             DebugLog::instance().set_log_level("main", LOG_DEBUG);
             LOG_MODULE("main", "main", LOG_WARN, "配置系统初始化失败，使用内存配置");
         }
@@ -36,9 +43,8 @@ int main(int argc, char* argv[]) {
     }
 
     // 启用控制台
-    bool enable_console = config.get_value<bool>("app.debug", false);
+    const bool enable_console = config.get_value<bool>("app.debug", false);
     if (enable_console) {
-        Console& console = Console::get_instance();
         if (console.create()) {
             LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用");
             LOG_MODULE("main", "main", LOG_INFO, "配置初始化完成，debug模式=" << enable_console);
@@ -48,20 +54,36 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    int console_log_level = config.get_value<int>("app.log.console_level", 0);
+    const int console_log_level = config.get_value<int>("app.log.console_level", 0);
     DebugLog::instance().set_log_sink_level("console", static_cast<LogLevel>(console_log_level));
     LOG_MODULE("main", "main", LOG_DEBUG, "控制台日志级别设置为: " << console_log_level);
-    bool is_only_type_info = config.get_value<bool>("app.log.only_type_info", false);
+    const bool is_only_type_info = config.get_value<bool>("app.log.only_type_info", false);
     DebugLog::instance().set_only_type_info(is_only_type_info);
 
-    // 创建窗口
-    DGLABClient window;
-    std::string app_name = config.get_value<std::string>("app.name", "DG-LAB-Client");
-    std::string app_version = config.get_value<std::string>("app.version", "1.0.0");
-    window.setWindowTitle(QString::fromStdString(app_name + "[" + app_version) + "]");
-    window.setStyle(QStyleFactory::create("Fusion"));
-    window.show();
-    LOG_MODULE("main", "main", LOG_DEBUG, "窗口已创建，标题: " << window.windowTitle().toStdString());
+    // 主题令牌（QML 单例 Theme）
+    ThemeManager theme;
+    theme.initialize();
+    qmlRegisterSingletonInstance("Dglab", 1, 0, "Theme", &theme);
+
+    // 应用状态桥接（QML 上下文属性 app）
+    AppBridge bridge;
+    bridge.initialize();
+
+    QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty(QStringLiteral("app"), &bridge);
+
+    // QML 交互连接集中在 C++ 侧
+    UiConnector connector(&bridge);
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
+        []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
+
+    engine.loadFromModule("Dglab", "MainWindow");
+    if (engine.rootObjects().isEmpty()) {
+        LOG_MODULE("main", "main", LOG_ERROR, "QML 主界面加载失败");
+        return -1;
+    }
+    connector.attach(engine.rootObjects().first());
+    LOG_MODULE("main", "main", LOG_DEBUG, "QML 主界面已加载");
 
     return app.exec();
 }

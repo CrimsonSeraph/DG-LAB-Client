@@ -67,6 +67,9 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED
 		Widgets
 		Network
 		Qml
+		Quick
+		QuickControls2
+		QuickDialogs2
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
@@ -164,6 +167,14 @@ set(PROJECT_SOURCES
 	include/ui/IpSelector.h
 	src/ui/IpSelector.cpp
 
+	# ---------- 界面层（ui）：QML 桥接 ----------
+	include/ui/ThemeManager.h
+	src/ui/ThemeManager.cpp
+	include/ui/AppBridge.h
+	src/ui/AppBridge.cpp
+	include/ui/UiConnector.h
+	src/ui/UiConnector.cpp
+
 	# 资源文件
 	DGLABClient.qrc
 
@@ -188,6 +199,40 @@ endif()
 if(WIN32)
 	set_target_properties(${PROJECT_NAME}
 		PROPERTIES WIN32_EXECUTABLE TRUE
+	)
+endif()
+
+# -------------------- QML 模块（界面层）--------------------
+# 采用 /qt/qml 作为模块默认资源前缀（qrc:/qt/qml/Dglab/...），并为子目录生成 qmldir。
+if(QT_VERSION_MAJOR EQUAL 6)
+	qt_policy(SET QTP0001 NEW)
+	qt_policy(SET QTP0004 NEW)
+
+	# style/ 下全部是 QML 单例（设计令牌）：QT_QML_SINGLETON_TYPE 是逐文件属性，
+	# 一次 set_source_files_properties 写多组同名属性只有最后一组生效，故一个文件一条。
+	set_source_files_properties(style/Metrics.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+	set_source_files_properties(style/Typography.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+	set_source_files_properties(style/Responsive.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+	set_source_files_properties(style/ComponentStyle.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
+	qt_add_qml_module(${PROJECT_NAME}
+		URI
+		Dglab
+		VERSION
+		1.0
+		QML_FILES
+			src/ui/qml/MainWindow.qml
+			src/ui/qml/pages/HomePage.qml
+			src/ui/qml/pages/ConfigPage.qml
+			src/ui/qml/pages/ModulePage.qml
+			src/ui/qml/pages/AboutPage.qml
+			src/ui/qml/components/NavButton.qml
+			src/ui/qml/components/GlassCard.qml
+			src/ui/qml/components/AppButton.qml
+			src/ui/qml/style/Metrics.qml
+			src/ui/qml/style/Typography.qml
+			src/ui/qml/style/Responsive.qml
+			src/ui/qml/style/ComponentStyle.qml
 	)
 endif()
 
@@ -389,6 +434,9 @@ target_link_libraries(${PROJECT_NAME}
 		Qt::Widgets
 		Qt::Network
 		Qt::Qml
+		Qt::Quick
+		Qt::QuickControls2
+		Qt::QuickDialogs2
 	PRIVATE
 		nlohmann_json
 		Python::Python
