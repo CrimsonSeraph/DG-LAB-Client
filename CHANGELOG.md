@@ -12,11 +12,17 @@
 
 ### Added
 
-- 无
+- **QML 界面层（迁移中）**: 新增 `Dglab` QML 模块（`MainWindow` / 页面 / 组件 / `style` 单例），以 `qt_add_qml_module` 接入构建；界面采用左侧导航 + 页面栈 + 状态栏结构（原生标题栏）。
+- **主题令牌系统**: 新增 `ThemeManager`（注册为 QML 单例 `Theme`），提供 14 套预设主题与自定义主/副色的语义化颜色令牌，自定义色持久化到 `user.json`（`app.ui.custom.primary` / `app.ui.custom.secondary`）。
+- **界面桥接对象**: 新增 `AppBridge`（应用信息与页面导航）、`DeviceController`（连接状态、地址读写、二维码、强度/波形/清除指令与设备回传解析）、`HomeBridge`（A/B 通道强度、上限、启用状态、模块摘要与规则摘要）。
+- **首页 QML 通道面板**: A/B 通道面板包含强度（可编辑目标值、± 快捷、上限显示）、模块摘要、规则摘要（最近计算值）、波形入口与启停按钮。
+- **配置页连接与主题卡片**: 连接卡片（IP / 端口 / 连接断开 / 二维码）；主题卡片合并为单卡，展示当前主题名称、主色与副色，支持预设主题网格与 `ColorDialog` 自定义取色。
+- **集中式 QML↔C++ 连接**: `UiConnector` 按 `objectName` 统一建立交互连接；列表/中继器动态委托通过可视子树扫描连接。
 
 ### Changed
 
-- 无
+- 程序入口由 `QApplication` + `DGLABClient` 改为 `QGuiApplication` + `QQmlApplicationEngine`；界面统一使用 `Basic` 控件样式，外观由样式令牌控制。
+- 数值模块与规则引擎改为在启动时初始化并加载默认规则文件。
 
 ### Deprecated
 

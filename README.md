@@ -40,6 +40,8 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 ## 二、功能特性
 
+- **QML 界面层（迁移中）** 界面正由 Qt Widgets 迁移到 QML：`Dglab` QML 模块包含主窗口、页面与组件，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 14 套预设与自定义主/副色）；QML 不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接。详见 [src/ui/README.md](src/ui/README.md)。
+
 - **Python 子进程通信** 通过 `PythonSubprocessManager` 启动外部 Python 脚本（`Bridge.py`），脚本启动后输出监听端口，主程序通过 `QTcpSocket` 连接，以 JSON 格式发送命令并接收响应。所有耗时调用均放入全局线程池执行，完成后通过信号槽返回主线程。
 
 - **配置系统** 采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。规则表格高级编辑: 在“配置”页面的规则表格中，“通道”和“模式”列使用下拉框选择，“值模式”列使用可视化公式构建器。支持通过按钮快速插入 {}、+-*/()，并在保存时自动检查括号平衡合法性，极大提升了复杂计算式（如 {}+{}*2、({}\*2)+{}）的编辑体验。
