@@ -14,7 +14,7 @@
 | 6 | 波形库与波形编辑器（段落 + 关键帧 + 原始 V3 帧 + 预览） | 已完成 |
 | 7 | 应用内 WebSocket 服务（V3 + V4，内嵌二维码，移除 Python / Node 依赖） | 已完成 |
 | 8 | 蓝牙直连（郊狼 V3 BLE，Qt Bluetooth 已安装） | 已完成 |
-| 9 | 规则可视化编辑器（节点图、拖拽连线、右键建节点、Ctrl+C/V/Delete、模块面板） | 待做 |
+| 9 | 规则可视化编辑器（节点图、拖拽连线、右键建节点、Ctrl+C/V/Delete、模块面板） | 已完成 |
 | 10 | 清理 Widgets / QSS / `.ui` 与文档收尾 | 待做 |
 
 界面层说明与 objectName 契约见 [src/ui/README.md](src/ui/README.md)；其中登记了"必须使用手势的视图"下允许 QML 信号处理器的例外（其余界面仍需遵守"QML 无信号处理器"）。

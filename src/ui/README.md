@@ -25,6 +25,10 @@ src/ui/
 ├── README.md
 ├── qml/
 │   ├── MainWindow.qml          # 左侧导航 + 页面栈 + 状态栏（原生标题栏）
+│   ├── dialogs/
+│   │   ├── RuleEditorDialog.qml # 规则可视化编辑器（画布手势例外见下）
+│   │   ├── WaveSelectDialog.qml
+│   │   └── WaveEditorDialog.qml
 │   ├── pages/
 │   │   ├── HomePage.qml        # 首页：A/B 通道面板
 │   │   ├── ConfigPage.qml      # 配置：连接 / 波形 / 主题 / 日志
@@ -53,6 +57,10 @@ src/ui/
 | `app` | `AppBridge` | 应用名称/版本、当前页面（`currentPage`）、状态栏文本 |
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、配对链接 `pairingUrl` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
+| `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期、选中模块数值 |
+| `waveBridge` | `WaveBridge` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
+| `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放 |
+| `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
 | `Theme` | `ThemeManager`（QML 单例） | 主题令牌（14 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom` |
 
 ## objectName 契约表
@@ -117,7 +125,7 @@ src/ui/
 
 | 例外位置 | 原因 | 约束 |
 | --- | --- | --- |
-| `qml/ruleeditor/` 画布与节点（拖动、滚轮缩放、右键菜单、框选） | 手势无法通过 `objectName` + C++ 连接表达 | 处理器内只调用 C++ 桥接对象的方法/读取属性；节点与连线的增删改、复制粘贴、求值全部在 C++，QML 不直接改模型 |
+| `dialogs/RuleEditorDialog.qml` 的规则图画布与节点（拖动、滚轮缩放、右键菜单、快捷键） | 手势与命中测试无法通过 `objectName` + C++ 连接表达 | 处理器内只调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型 |
 | `Shape`/`Canvas` 的 `onPaint` 等绘制回调 | 渲染框架要求 | 只读取传入的 `points` 等属性，不写业务逻辑 |
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。

@@ -21,6 +21,7 @@
 - **波形库与波形编辑器**: 新增 `Wave`/`WaveLibrary`（`config/waves/waves.json`，内置三种波形）与 `WaveBridge`；QML 提供 `WavePreview`（Shape 强度/频率双曲线）、`WaveSelectDialog`（"确定波形"改为"选择波形"）与 `WaveEditorDialog`（段落+关键帧、原始 V3 帧、实时预览、保存/发送）。
 - **应用内 WebSocket 中转服务**: 新增 `DglabRelayServer`，由应用直接托管 V3（9999）与 V4（9998）中转服务（配对、心跳、强度/波形/清除、V4 设备与 `device.op`），不再依赖 Node 官方后端与 Python `Bridge.py`/`WebSocketCore.py`。
 - **内置二维码**: 内嵌 Nayuki `qrcodegen`（MIT，`third_party/qrcodegen`）与 `QrImageProvider`，配对二维码由应用自身生成。
+- **规则可视化编辑器**: 新增 `RuleGraph`（规则/模块源/运算符/高级/通道输出节点与连线模型、规则 JSON 双向转换、侧车文件保存位置）与 `RuleGraphBridge`；QML 提供节点画布（平移/缩放、拖拽移动、拖拽连线、右键建节点、Ctrl+C/V、Delete）、模块数值面板与节点检查器；首页与配置页入口打开编辑器。
 - **蓝牙直连（郊狼 V3）**: 新增 `CoyoteBleController`，按官方 V3 蓝牙协议扫描设备（47L121000 / 47L120100）、连接、每 100ms 写 B0（强度 + 双通道波形）、写 BF 软上限与平衡参数、解析 B1 强度回传与电量；配置页新增蓝牙卡片（扫描/连接/设备列表/电量/强度增减）。
 
 ### Changed
