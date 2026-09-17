@@ -231,7 +231,15 @@ void UiConnector::scan_dynamic_items(QQuickItem* parent, const QString& item_nam
     for (QQuickItem* child : children) {
         if (child->objectName() == item_name && !connected_items_.contains(child)) {
             connected_items_.insert(child);
-            QObject::connect(child, SIGNAL(clicked()), this, slot);
+            // 旧式 SIGNAL 宏按签名精确匹配：MouseArea 的 clicked 带 QQuickMouseEvent* 参数，
+            // Button 系控件是无参 clicked()，两者都要覆盖。
+            const QMetaObject* meta = child->metaObject();
+            if (meta->indexOfSignal("clicked()") >= 0) {
+                QObject::connect(child, SIGNAL(clicked()), this, slot);
+            }
+            else if (meta->indexOfSignal("clicked(QQuickMouseEvent*)") >= 0) {
+                QObject::connect(child, SIGNAL(clicked(QQuickMouseEvent*)), this, slot);
+            }
         }
         scan_dynamic_items(child, item_name, slot);
     }

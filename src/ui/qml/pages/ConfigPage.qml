@@ -701,13 +701,13 @@ Item {
         id: primaryColorDialog
         objectName: "primaryColorDialog"
         title: qsTr("选择主色")
-        color: customThemeDialog.customPrimary
+        selectedColor: customThemeDialog.customPrimary
     }
 
     ColorDialog {
         id: secondaryColorDialog
         objectName: "secondaryColorDialog"
         title: qsTr("选择副色")
-        color: customThemeDialog.customSecondary
+        selectedColor: customThemeDialog.customSecondary
     }
 }

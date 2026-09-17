@@ -35,9 +35,14 @@ Item {
                 path: root.buildPath(false)
             }
         }
+    }
+
+    Shape {
+        anchors.fill: parent
+        anchors.margins: 3
+        visible: root.showFrequency && root.points.length > 0
 
         ShapePath {
-            visible: root.showFrequency && root.points.length > 0
             strokeColor: Theme.secondary
             strokeWidth: 1
             fillColor: "transparent"

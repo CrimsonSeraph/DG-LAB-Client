@@ -212,10 +212,10 @@ if(QT_VERSION_MAJOR EQUAL 6)
 
 	# style/ 下全部是 QML 单例（设计令牌）：QT_QML_SINGLETON_TYPE 是逐文件属性，
 	# 一次 set_source_files_properties 写多组同名属性只有最后一组生效，故一个文件一条。
-	set_source_files_properties(style/Metrics.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-	set_source_files_properties(style/Typography.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-	set_source_files_properties(style/Responsive.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-	set_source_files_properties(style/ComponentStyle.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+	set_source_files_properties(src/ui/qml/style/Metrics.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+	set_source_files_properties(src/ui/qml/style/Typography.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+	set_source_files_properties(src/ui/qml/style/Responsive.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+	set_source_files_properties(src/ui/qml/style/ComponentStyle.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 
 	qt_add_qml_module(${PROJECT_NAME}
 		URI
