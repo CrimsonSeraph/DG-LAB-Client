@@ -140,6 +140,15 @@ ApplicationWindow {
         }
     }
 
+    // 波形库与波形编辑器（首页 / 配置页均可打开）
+    WaveSelectDialog {
+        id: waveSelectDialog
+    }
+
+    WaveEditorDialog {
+        id: waveEditorDialog
+    }
+
     // 底部状态栏
     Rectangle {
         id: statusBar

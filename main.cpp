@@ -14,6 +14,8 @@
 #include "RuleManager.h"
 #include "ThemeManager.h"
 #include "UiConnector.h"
+#include "WaveBridge.h"
+#include "WaveLibrary.h"
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -94,6 +96,9 @@ int main(int argc, char* argv[]) {
     home.initialize();
     ModuleBridge module_bridge;
     module_bridge.initialize();
+    WaveLibrary::instance().initialize();
+    WaveBridge wave(&device);
+    wave.initialize();
 
     QObject::connect(&device, &DeviceController::statusMessage, &bridge,
         [&bridge](const QString& message) { bridge.setStatus(message); });
@@ -105,9 +110,10 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("device"), &device);
     engine.rootContext()->setContextProperty(QStringLiteral("home"), &home);
     engine.rootContext()->setContextProperty(QStringLiteral("moduleBridge"), &module_bridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("waveBridge"), &wave);
 
     // QML 交互连接集中在 C++ 侧
-    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge);
+    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 

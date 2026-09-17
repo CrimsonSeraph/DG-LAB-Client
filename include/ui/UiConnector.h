@@ -16,6 +16,7 @@ class DeviceController;
 class HomeBridge;
 class ModuleBridge;
 class ThemeManager;
+class WaveBridge;
 class QQuickItem;
 
 // ============================================
@@ -29,7 +30,7 @@ class UiConnector : public QObject {
 
 public:
     UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme, DeviceController* device,
-        ModuleBridge* module, QObject* parent = nullptr);
+        ModuleBridge* module, WaveBridge* wave, QObject* parent = nullptr);
 
     /// @brief 在 engine.load 之后调用，连接根对象下的全部交互控件
     void attach(QObject* root_object);
@@ -59,6 +60,20 @@ private slots:
     void on_module_period_applied();
     void on_plugin_toggle_clicked();
     void on_module_card_clicked();
+    // 波形库与编辑器（on_wave_select_clicked 见"首页通道"）
+    void on_wave_channel_clicked();
+    void on_wave_create_clicked();
+    void on_wave_library_item_clicked();
+    void on_wave_delete_clicked();
+    void on_wave_section_clicked();
+    void on_wave_add_section_clicked();
+    void on_wave_remove_section_clicked();
+    void on_wave_apply_section_clicked();
+    void on_wave_apply_raw_clicked();
+    void on_wave_save_clicked();
+    void on_wave_send_clicked();
+    void on_wave_editor_close_clicked();
+    void on_wave_select_close_clicked();
     // 动态内容变化后重扫热区
     void on_tracked_children_changed();
 
@@ -82,6 +97,7 @@ private:
     ThemeManager* theme_ = nullptr;
     DeviceController* device_ = nullptr;
     ModuleBridge* module_ = nullptr;
+    WaveBridge* wave_ = nullptr;
     QPointer<QObject> root_;
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;

@@ -145,6 +145,12 @@ set(PROJECT_SOURCES
 	include/module/DataListener.h
 	src/module/DataListener.cpp
 
+	# ---------- 波形（wave） ----------
+	include/wave/Wave.h
+	src/wave/Wave.cpp
+	include/wave/WaveLibrary.h
+	src/wave/WaveLibrary.cpp
+
 	# ---------- 插件接口（plugin） ----------
 	include/plugin/IPlugin.h
 	include/plugin/PluginHost.h
@@ -180,6 +186,8 @@ set(PROJECT_SOURCES
 	src/ui/HomeBridge.cpp
 	include/ui/ModuleBridge.h
 	src/ui/ModuleBridge.cpp
+	include/ui/WaveBridge.h
+	src/ui/WaveBridge.cpp
 
 	# 资源文件
 	DGLABClient.qrc
@@ -233,9 +241,12 @@ if(QT_VERSION_MAJOR EQUAL 6)
 			src/ui/qml/pages/ModulePage.qml
 			src/ui/qml/pages/AboutPage.qml
 			src/ui/qml/home/ChannelPanel.qml
+			src/ui/qml/dialogs/WaveSelectDialog.qml
+			src/ui/qml/dialogs/WaveEditorDialog.qml
 			src/ui/qml/components/NavButton.qml
 			src/ui/qml/components/GlassCard.qml
 			src/ui/qml/components/AppButton.qml
+			src/ui/qml/components/WavePreview.qml
 			src/ui/qml/style/Metrics.qml
 			src/ui/qml/style/Typography.qml
 			src/ui/qml/style/Responsive.qml
@@ -457,6 +468,7 @@ target_include_directories(${PROJECT_NAME}
 		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
 		${CMAKE_CURRENT_SOURCE_DIR}/include/module
 		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
 		${CMAKE_CURRENT_SOURCE_DIR}/include/ui
 )
 target_compile_definitions(${PROJECT_NAME}

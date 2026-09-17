@@ -56,6 +56,7 @@ Item {
                 modules: home.modulesA
                 rules: home.rulesA
                 waveName: home.waveA
+                wavePoints: waveBridge.pointsA
             }
 
             ChannelPanel {
@@ -69,6 +70,7 @@ Item {
                 modules: home.modulesB
                 rules: home.rulesB
                 waveName: home.waveB
+                wavePoints: waveBridge.pointsB
             }
         }
     }

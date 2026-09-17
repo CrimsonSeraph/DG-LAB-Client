@@ -42,6 +42,9 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
                 {"path", "./config/rules"},
                 {"key", "rule"}
             }},
+            {"wave", {
+                {"path", "./config/waves"}
+            }},
             {"version", "1.0"},
             {"DGLABClient", "DG-LAB-Client"}
         };

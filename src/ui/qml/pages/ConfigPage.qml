@@ -106,12 +106,101 @@ Item {
             Layout.fillWidth: true
             title: qsTr("波形")
 
-            Text {
+            Column {
                 width: parent.width
-                text: qsTr("波形卡片（选择波形 / 创建波形）将在阶段 6 实现。")
-                color: Theme.textMuted
-                font.pixelSize: Typography.fontBody
-                wrapMode: Text.WordWrap
+                spacing: Metrics.spacingMd
+
+                RowLayout {
+                    width: parent.width
+                    spacing: Metrics.spacingMd
+
+                    Text {
+                        text: qsTr("目标通道")
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.fontBody
+                    }
+
+                    AppButton {
+                        objectName: "configWaveChannelAButton"
+                        text: "A"
+                        primary: waveBridge.targetChannel === "A"
+                    }
+
+                    AppButton {
+                        objectName: "configWaveChannelBButton"
+                        text: "B"
+                        primary: waveBridge.targetChannel === "B"
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    Text {
+                        text: qsTr("当前：A = %1 ｜ B = %2").arg(waveBridge.currentA.length > 0 ? waveBridge.currentA : qsTr("未选择")).arg(waveBridge.currentB.length > 0 ? waveBridge.currentB : qsTr("未选择"))
+                        color: Theme.textMuted
+                        font.pixelSize: Typography.fontCaption
+                        elide: Text.ElideRight
+                    }
+                }
+
+                RowLayout {
+                    width: parent.width
+                    spacing: Metrics.spacingLg
+
+                    Column {
+                        Layout.fillWidth: true
+                        spacing: Metrics.spacingXs
+
+                        Text {
+                            text: qsTr("通道 A")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontSmall
+                        }
+
+                        WavePreview {
+                            width: parent.width
+                            height: ComponentStyle.wavePreviewHeight
+                            points: waveBridge.pointsA
+                        }
+                    }
+
+                    Column {
+                        Layout.fillWidth: true
+                        spacing: Metrics.spacingXs
+
+                        Text {
+                            text: qsTr("通道 B")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontSmall
+                        }
+
+                        WavePreview {
+                            width: parent.width
+                            height: ComponentStyle.wavePreviewHeight
+                            points: waveBridge.pointsB
+                        }
+                    }
+                }
+
+                RowLayout {
+                    width: parent.width
+                    spacing: Metrics.spacingMd
+
+                    AppButton {
+                        objectName: "configWaveSelectButton"
+                        text: qsTr("选择波形")
+                    }
+
+                    AppButton {
+                        objectName: "configWaveCreateButton"
+                        text: qsTr("创建波形")
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                }
             }
         }
 

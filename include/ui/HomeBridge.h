@@ -47,8 +47,8 @@ public:
     QVariantList modules_b() const;
     QVariantList rules_a() const;
     QVariantList rules_b() const;
-    QString wave_a() const { return wave_a_; }
-    QString wave_b() const { return wave_b_; }
+    QString wave_a() const;
+    QString wave_b() const;
 
     /// @brief 切换通道启用状态（同步到规则引擎的通道启用变量）
     Q_INVOKABLE void toggleChannel(const QString& channel);
@@ -75,6 +75,4 @@ private:
     int strength_b_ = 0;
     int limit_a_ = 200;
     int limit_b_ = 200;
-    QString wave_a_ = QStringLiteral("未选择");
-    QString wave_b_ = QStringLiteral("未选择");
 };

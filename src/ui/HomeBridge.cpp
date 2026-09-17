@@ -9,6 +9,7 @@
 #include "DeviceController.h"
 #include "ModuleManager.h"
 #include "RuleManager.h"
+#include "WaveLibrary.h"
 
 #include <QVariantMap>
 
@@ -45,7 +46,19 @@ void HomeBridge::initialize() {
     connect(&modules, &ModuleManager::period_changed, this, &HomeBridge::dataChanged);
     connect(&modules, &ModuleManager::plugin_state_changed, this, &HomeBridge::dataChanged);
 
+    connect(&WaveLibrary::instance(), &WaveLibrary::current_changed, this, &HomeBridge::dataChanged);
+
     LOG_MODULE("HomeBridge", "initialize", LOG_INFO, "首页桥接初始化完成");
+}
+
+QString HomeBridge::wave_a() const {
+    const QString name = WaveLibrary::instance().current("A");
+    return name.isEmpty() ? QStringLiteral("未选择") : name;
+}
+
+QString HomeBridge::wave_b() const {
+    const QString name = WaveLibrary::instance().current("B");
+    return name.isEmpty() ? QStringLiteral("未选择") : name;
 }
 
 bool HomeBridge::running_a() const {

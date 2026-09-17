@@ -16,6 +16,7 @@ GlassCard {
     property var modules: []
     property var rules: []
     property string waveName: "未选择"
+    property var wavePoints: []
 
     title: qsTr("通道 %1").arg(root.channel)
 
@@ -214,44 +215,50 @@ GlassCard {
             id: waveBlock
 
             width: parent.width
-            height: waveRow.implicitHeight + Metrics.spacingLg * 2
+            height: waveColumn.implicitHeight + Metrics.spacingLg * 2
             color: Theme.surfaceAlt
             radius: Metrics.radiusMd
             border.width: Metrics.borderWidth
             border.color: Theme.border
 
-            RowLayout {
-                id: waveRow
+            Column {
+                id: waveColumn
 
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: Metrics.spacingLg
-                spacing: Metrics.spacingMd
+                spacing: Metrics.spacingSm
 
-                Column {
-                    Layout.fillWidth: true
-                    spacing: 0
+                Text {
+                    text: qsTr("波形")
+                    color: Theme.textPrimary
+                    font.pixelSize: Typography.fontBody
+                    font.bold: true
+                }
+
+                WavePreview {
+                    width: parent.width
+                    height: ComponentStyle.wavePreviewHeight
+                    points: root.wavePoints
+                }
+
+                RowLayout {
+                    width: parent.width
+                    spacing: Metrics.spacingMd
 
                     Text {
-                        text: qsTr("波形")
-                        color: Theme.textPrimary
-                        font.pixelSize: Typography.fontBody
-                        font.bold: true
-                    }
-
-                    Text {
+                        Layout.fillWidth: true
                         text: root.waveName
                         color: Theme.textMuted
                         font.pixelSize: Typography.fontCaption
                         elide: Text.ElideRight
-                        width: parent.width
                     }
-                }
 
-                AppButton {
-                    objectName: "channel" + root.channel + "SelectWaveButton"
-                    text: qsTr("选择波形")
+                    AppButton {
+                        objectName: "channel" + root.channel + "SelectWaveButton"
+                        text: qsTr("选择波形")
+                    }
                 }
             }
         }

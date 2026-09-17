@@ -11,6 +11,7 @@
 #include "HomeBridge.h"
 #include "ModuleBridge.h"
 #include "ThemeManager.h"
+#include "WaveBridge.h"
 
 #include <QColor>
 #include <QHash>
@@ -42,13 +43,14 @@ namespace {
 } // namespace
 
 UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
-    DeviceController* device, ModuleBridge* module, QObject* parent)
+    DeviceController* device, ModuleBridge* module, WaveBridge* wave, QObject* parent)
     : QObject(parent)
     , app_(app)
     , home_(home)
     , theme_(theme)
     , device_(device)
-    , module_(module) {
+    , module_(module)
+    , wave_(wave) {
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -109,6 +111,28 @@ void UiConnector::attach(QObject* root_object) {
         SLOT(on_module_card_clicked()));
     watch_items(root_object, "moduleCardFlow", QStringLiteral("pluginToggleClick"),
         SLOT(on_plugin_toggle_clicked()));
+
+    // 波形库与编辑器
+    connect_clicked(root_object, "configWaveChannelAButton", SLOT(on_wave_channel_clicked()));
+    connect_clicked(root_object, "configWaveChannelBButton", SLOT(on_wave_channel_clicked()));
+    connect_clicked(root_object, "configWaveSelectButton", SLOT(on_wave_select_clicked()));
+    connect_clicked(root_object, "configWaveCreateButton", SLOT(on_wave_create_clicked()));
+    connect_clicked(root_object, "waveSelectCreateButton", SLOT(on_wave_create_clicked()));
+    connect_clicked(root_object, "waveSelectCloseButton", SLOT(on_wave_select_close_clicked()));
+    connect_clicked(root_object, "waveAddSectionButton", SLOT(on_wave_add_section_clicked()));
+    connect_clicked(root_object, "waveRemoveSectionButton", SLOT(on_wave_remove_section_clicked()));
+    connect_clicked(root_object, "waveApplySectionButton", SLOT(on_wave_apply_section_clicked()));
+    connect_clicked(root_object, "waveApplyRawButton", SLOT(on_wave_apply_raw_clicked()));
+    connect_clicked(root_object, "waveSaveButton", SLOT(on_wave_save_clicked()));
+    connect_clicked(root_object, "waveSendAButton", SLOT(on_wave_send_clicked()));
+    connect_clicked(root_object, "waveSendBButton", SLOT(on_wave_send_clicked()));
+    connect_clicked(root_object, "waveEditorCloseButton", SLOT(on_wave_editor_close_clicked()));
+    watch_items(root_object, "waveLibraryList", QStringLiteral("waveSelectClick"),
+        SLOT(on_wave_library_item_clicked()));
+    watch_items(root_object, "waveLibraryList", QStringLiteral("waveDeleteClick"),
+        SLOT(on_wave_delete_clicked()));
+    watch_items(root_object, "waveSectionList", QStringLiteral("waveSectionClick"),
+        SLOT(on_wave_section_clicked()));
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
@@ -229,13 +253,128 @@ void UiConnector::on_strength_adjust_clicked() {
     home_->adjustChannelStrength(channel_of(name), name.contains(QStringLiteral("Increase")) ? 1 : -1);
 }
 
-void UiConnector::on_wave_select_clicked() {
+void UiConnector::on_wave_channel_clicked() {
     auto* button = sender();
-    if (button == nullptr || home_ == nullptr) {
+    if (button == nullptr || wave_ == nullptr) {
         return;
     }
-    home_->requestWaveSelect(channel_of(button->objectName()));
-    app_->setStatus(QStringLiteral("波形库将在阶段 6 实现"));
+    const QString name = button->objectName();
+    wave_->setTargetChannel(name.endsWith(QStringLiteral("AButton")) ? QStringLiteral("A") : QStringLiteral("B"));
+}
+
+void UiConnector::on_wave_select_clicked() {
+    auto* button = sender();
+    if (button == nullptr || wave_ == nullptr) {
+        return;
+    }
+    // 首页通道按钮会先指定目标通道，再打开波形库
+    if (button->objectName().startsWith(QStringLiteral("channel"))) {
+        wave_->setTargetChannel(channel_of(button->objectName()));
+    }
+    open_dialog("waveSelectDialog");
+}
+
+void UiConnector::on_wave_create_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    close_dialog("waveSelectDialog");
+    wave_->beginCreate();
+    open_dialog("waveEditorDialog");
+}
+
+void UiConnector::on_wave_library_item_clicked() {
+    auto* item = sender();
+    if (item == nullptr || wave_ == nullptr) {
+        return;
+    }
+    wave_->assignWave(item->property("waveName").toString());
+    close_dialog("waveSelectDialog");
+}
+
+void UiConnector::on_wave_delete_clicked() {
+    auto* item = sender();
+    if (item != nullptr && wave_ != nullptr) {
+        wave_->deleteWave(item->property("waveName").toString());
+    }
+}
+
+void UiConnector::on_wave_section_clicked() {
+    auto* item = sender();
+    if (item != nullptr && wave_ != nullptr) {
+        wave_->selectSection(item->property("sectionIndex").toInt());
+    }
+}
+
+void UiConnector::on_wave_add_section_clicked() {
+    if (wave_ != nullptr) {
+        wave_->addSection();
+    }
+}
+
+void UiConnector::on_wave_remove_section_clicked() {
+    if (wave_ != nullptr) {
+        wave_->removeSelectedSection();
+    }
+}
+
+void UiConnector::on_wave_apply_section_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    auto value_of = [this](const char* name) {
+        auto* spin = find(name);
+        return spin == nullptr ? 0 : spin->property("value").toInt();
+    };
+    wave_->applySectionEdits(value_of("waveSectionDurationSpin"), value_of("waveSectionFreqStartSpin"),
+        value_of("waveSectionFreqEndSpin"), value_of("waveSectionStrengthStartSpin"),
+        value_of("waveSectionStrengthEndSpin"));
+}
+
+void UiConnector::on_wave_apply_raw_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    auto* area = find("waveRawFramesArea");
+    if (area != nullptr) {
+        wave_->applyRawFrames(area->property("text").toString());
+    }
+}
+
+void UiConnector::on_wave_save_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    auto* name_field = find("waveNameField");
+    const QString name = name_field == nullptr ? QString() : name_field->property("text").toString();
+    if (name.isEmpty()) {
+        app_->setStatus(QStringLiteral("请先填写波形名称"));
+        return;
+    }
+    if (wave_->saveDraft(name)) {
+        app_->setStatus(QStringLiteral("波形已保存：") + name);
+    }
+    else {
+        app_->setStatus(QStringLiteral("波形保存失败"));
+    }
+}
+
+void UiConnector::on_wave_send_clicked() {
+    auto* button = sender();
+    if (button == nullptr || wave_ == nullptr) {
+        return;
+    }
+    wave_->sendDraft(button->objectName().endsWith(QStringLiteral("AButton"))
+            ? QStringLiteral("A")
+            : QStringLiteral("B"));
+}
+
+void UiConnector::on_wave_editor_close_clicked() {
+    close_dialog("waveEditorDialog");
+}
+
+void UiConnector::on_wave_select_close_clicked() {
+    close_dialog("waveSelectDialog");
 }
 
 void UiConnector::on_config_connect_clicked() {
