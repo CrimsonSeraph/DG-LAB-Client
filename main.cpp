@@ -12,6 +12,7 @@
 #include "HomeBridge.h"
 #include "ModuleBridge.h"
 #include "ModuleManager.h"
+#include "RuleGraphBridge.h"
 #include "RuleManager.h"
 #include "ThemeManager.h"
 #include "UiConnector.h"
@@ -87,6 +88,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // 规则可视化编辑器桥接（QML 上下文属性 ruleGraph）
+    RuleGraphBridge rule_graph;
+    rule_graph.initialize();
+
     // 应用状态桥接（QML 上下文属性 app）
     AppBridge bridge;
     bridge.initialize();
@@ -117,9 +122,10 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("moduleBridge"), &module_bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("waveBridge"), &wave);
     engine.rootContext()->setContextProperty(QStringLiteral("ble"), &ble);
+    engine.rootContext()->setContextProperty(QStringLiteral("ruleGraph"), &rule_graph);
 
     // QML 交互连接集中在 C++ 侧
-    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave, &ble);
+    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave, &ble, &rule_graph);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 

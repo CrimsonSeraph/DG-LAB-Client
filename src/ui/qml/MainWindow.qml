@@ -149,6 +149,11 @@ ApplicationWindow {
         id: waveEditorDialog
     }
 
+    // 规则可视化编辑器（首页 / 配置页入口打开）
+    RuleEditorDialog {
+        id: ruleEditorDialog
+    }
+
     // 底部状态栏
     Rectangle {
         id: statusBar

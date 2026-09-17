@@ -206,6 +206,8 @@ set(PROJECT_SOURCES
 	src/ui/WaveBridge.cpp
 	include/ui/QrImageProvider.h
 	src/ui/QrImageProvider.cpp
+	include/ui/RuleGraphBridge.h
+	src/ui/RuleGraphBridge.cpp
 
 	# 资源文件
 	DGLABClient.qrc
@@ -261,6 +263,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 			src/ui/qml/home/ChannelPanel.qml
 			src/ui/qml/dialogs/WaveSelectDialog.qml
 			src/ui/qml/dialogs/WaveEditorDialog.qml
+			src/ui/qml/dialogs/RuleEditorDialog.qml
 			src/ui/qml/components/NavButton.qml
 			src/ui/qml/components/GlassCard.qml
 			src/ui/qml/components/AppButton.qml

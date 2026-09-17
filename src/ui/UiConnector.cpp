@@ -11,6 +11,7 @@
 #include "DeviceController.h"
 #include "HomeBridge.h"
 #include "ModuleBridge.h"
+#include "RuleGraphBridge.h"
 #include "ThemeManager.h"
 #include "WaveBridge.h"
 
@@ -45,7 +46,7 @@ namespace {
 
 UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     DeviceController* device, ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble,
-    QObject* parent)
+    RuleGraphBridge* rule_graph, QObject* parent)
     : QObject(parent)
     , app_(app)
     , home_(home)
@@ -53,7 +54,8 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     , device_(device)
     , module_(module)
     , wave_(wave)
-    , ble_(ble) {
+    , ble_(ble)
+    , rule_graph_(rule_graph) {
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -240,7 +242,10 @@ void UiConnector::on_home_module_entry_clicked() {
 }
 
 void UiConnector::on_rule_editor_clicked() {
-    app_->setStatus(QStringLiteral("规则编辑器将在后续阶段实现"));
+    if (rule_graph_ != nullptr) {
+        rule_graph_->refreshModuleValues();
+    }
+    open_dialog("ruleEditorDialog");
 }
 
 void UiConnector::on_channel_toggle_clicked() {

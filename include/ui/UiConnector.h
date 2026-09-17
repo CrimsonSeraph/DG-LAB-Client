@@ -16,6 +16,7 @@ class CoyoteBleController;
 class DeviceController;
 class HomeBridge;
 class ModuleBridge;
+class RuleGraphBridge;
 class ThemeManager;
 class WaveBridge;
 class QQuickItem;
@@ -31,7 +32,8 @@ class UiConnector : public QObject {
 
 public:
     UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme, DeviceController* device,
-        ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble, QObject* parent = nullptr);
+        ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble, RuleGraphBridge* rule_graph,
+        QObject* parent = nullptr);
 
     /// @brief 在 engine.load 之后调用，连接根对象下的全部交互控件
     void attach(QObject* root_object);
@@ -105,6 +107,7 @@ private:
     ModuleBridge* module_ = nullptr;
     WaveBridge* wave_ = nullptr;
     CoyoteBleController* ble_ = nullptr;
+    RuleGraphBridge* rule_graph_ = nullptr;
     QPointer<QObject> root_;
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
