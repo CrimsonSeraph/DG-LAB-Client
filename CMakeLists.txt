@@ -58,19 +58,22 @@ target_include_directories(nlohmann_json
 )
 
 # -------------------- 查找 Qt --------------------
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED
-	COMPONENTS
-		Core
-		Gui
-		Network
-		Qml
-		Quick
-		QuickControls2
-		QuickDialogs2
-		WebSockets
-		Bluetooth
+# 项目使用的 Qt 模块清单：find_package 与"构建后 Qt 运行时部署"检查共用，
+# 新增模块时只需在此处添加，无需改动其它位置。
+set(DGLAB_QT_MODULES
+	Core
+	Gui
+	Network
+	Qml
+	Quick
+	QuickControls2
+	QuickDialogs2
+	WebSockets
+	Bluetooth
 )
+
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS ${DGLAB_QT_MODULES})
 
 if(QT_VERSION_MAJOR EQUAL 6)
 	qt_standard_project_setup()
@@ -254,6 +257,8 @@ if(WIN32)
 		HINTS "${_qt_binary_dir}"
 	)
 	if(WINDEPLOYQT_EXECUTABLE)
+		# 自定义命令经 Windows cmd 执行，分隔符用逗号（不能用 ; 或 |）
+		string(REPLACE ";" "," _deploy_modules "${DGLAB_QT_MODULES}")
 		add_custom_command(
 			TARGET ${PROJECT_NAME}
 			POST_BUILD
@@ -264,6 +269,7 @@ if(WIN32)
 				"-DTARGET_DIR=$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 				"-DQML_DIR=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/qml"
 				"-DDEPLOY_MODE=$<IF:$<CONFIG:Debug>,--debug,--release>"
+				"-DDEPLOY_MODULES=${_deploy_modules}"
 				-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_qt.cmake"
 			COMMENT "Deploying Qt runtime to build output directory"
 		)
