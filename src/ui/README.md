@@ -86,6 +86,9 @@ src/ui/
 | `themePresetList` / `themePresetClick` | 预设主题列表与行热区（`mode` 属性） |
 | `customThemePrimaryButton` / `customThemeSecondaryButton` | 打开主/副色取色对话框 |
 | `customThemeSaveButton` | 保存并应用自定义主题 |
+| `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备 |
+| `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性） |
+| `bleStrengthA{Increase,Decrease}` / `bleStrengthB{Increase,Decrease}` | 蓝牙通道强度增减 |
 
 ## 样式令牌（style/ 单例）
 
