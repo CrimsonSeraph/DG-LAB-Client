@@ -9,6 +9,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QUrl>
 
 #include <functional>
 
@@ -24,6 +25,9 @@ class DeviceController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
     Q_PROPERTY(bool connecting READ connecting NOTIFY connectingChanged)
+    Q_PROPERTY(QString ip READ ip NOTIFY endpointChanged)
+    Q_PROPERTY(int port READ port NOTIFY endpointChanged)
+    Q_PROPERTY(QUrl qrUrl READ qr_url NOTIFY qrUrlChanged)
 
 public:
     explicit DeviceController(QObject* parent = nullptr);
@@ -34,7 +38,12 @@ public:
 
     bool connected() const { return connected_; }
     bool connecting() const { return connecting_; }
+    QString ip() const { return ip_; }
+    int port() const { return port_; }
+    QUrl qr_url() const { return qr_url_; }
 
+    /// @brief 更新并持久化连接地址
+    Q_INVOKABLE void setEndpoint(const QString& ip, int port);
     Q_INVOKABLE void connectDevice();
     Q_INVOKABLE void disconnectDevice();
 
@@ -51,6 +60,8 @@ public:
 signals:
     void connectedChanged();
     void connectingChanged();
+    void endpointChanged();
+    void qrUrlChanged();
     /// @brief 设备回传的通道强度与上限（A/B 各一）
     void strengthFeedback(int aStrength, int bStrength, int aLimit, int bLimit);
     /// @brief APP 反馈按钮（channel: 1/2；button: 0~4）
@@ -61,10 +72,14 @@ signals:
 private:
     void request(const QJsonObject& cmd, int timeout, std::function<void(bool, const QString&)> callback);
     void handle_active_message(const QJsonObject& message);
+    void fetch_qr();
     void set_connected(bool value);
     void set_connecting(bool value);
 
     PythonSubprocessManager* python_ = nullptr;
     bool connected_ = false;
     bool connecting_ = false;
+    QString ip_ = QStringLiteral("127.0.0.1");
+    int port_ = 9999;
+    QUrl qr_url_;
 };

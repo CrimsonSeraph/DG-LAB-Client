@@ -50,7 +50,25 @@ void DeviceController::initialize() {
     }
     const QString script_path = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
     python_->start_process(python_path, script_path);
+
+    ip_ = QString::fromStdString(config.get_value<std::string>("app.websocket.ip", "127.0.0.1"));
+    port_ = config.get_value<int>("app.websocket.port", 9999);
+    emit endpointChanged();
     LOG_MODULE("DeviceController", "initialize", LOG_INFO, "已启动 Python 服务进程");
+}
+
+void DeviceController::setEndpoint(const QString& ip, int port) {
+    if (ip.isEmpty() || port <= 0 || port > 65535) {
+        emit errorOccurred(QStringLiteral("连接地址或端口无效"));
+        return;
+    }
+    ip_ = ip;
+    port_ = port;
+    auto& config = AppConfig::instance();
+    config.set_value<std::string>("app.websocket.ip", ip.toStdString());
+    config.set_value<int>("app.websocket.port", port);
+    config.save_all();
+    emit endpointChanged();
 }
 
 void DeviceController::connectDevice() {
@@ -59,10 +77,7 @@ void DeviceController::connectDevice() {
     }
     set_connecting(true);
 
-    const auto& config = AppConfig::instance();
-    const QString ip = QString::fromStdString(config.get_value<std::string>("app.websocket.ip", "127.0.0.1"));
-    const int port = config.get_value<int>("app.websocket.port", 9999);
-    const QString url = QStringLiteral("ws://%1:%2").arg(ip).arg(port);
+    const QString url = QStringLiteral("ws://%1:%2").arg(ip_).arg(port_);
     LOG_MODULE("DeviceController", "connectDevice", LOG_INFO, "连接地址: " + url.toStdString());
 
     QJsonObject set_url;
@@ -81,6 +96,7 @@ void DeviceController::connectDevice() {
             set_connected(ok2);
             if (ok2) {
                 emit statusMessage(QStringLiteral("已连接设备服务"));
+                fetch_qr();
             }
             else {
                 emit errorOccurred(QStringLiteral("连接失败: ") + msg2);
@@ -164,6 +180,19 @@ void DeviceController::request(const QJsonObject& cmd, int timeout,
             callback(ok, response.value("message").toString());
         },
         timeout);
+}
+
+void DeviceController::fetch_qr() {
+    QJsonObject cmd;
+    cmd["cmd"] = "get_qr_path";
+    request(cmd, 5000, [this](bool ok, const QString& path) {
+        if (!ok || path.isEmpty()) {
+            LOG_MODULE("DeviceController", "fetch_qr", LOG_WARN, "获取二维码失败: " + path.toStdString());
+            return;
+        }
+        qr_url_ = QUrl::fromLocalFile(path);
+        emit qrUrlChanged();
+    });
 }
 
 void DeviceController::handle_active_message(const QJsonObject& message) {

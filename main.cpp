@@ -103,7 +103,7 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("home"), &home);
 
     // QML 交互连接集中在 C++ 侧
-    UiConnector connector(&bridge, &home);
+    UiConnector connector(&bridge, &home, &theme, &device);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 

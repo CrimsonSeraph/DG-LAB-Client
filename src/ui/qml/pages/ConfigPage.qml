@@ -1,8 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 
-// 配置页：连接（IP/端口/二维码）、波形卡、主题卡、日志卡，以及规则编辑器入口。
+// 配置页：连接（IP/端口/二维码）、波形、主题、日志，以及规则编辑器入口。
+// 交互约定：本文件不写任何信号处理器；交互控件由 C++（UiConnector）按 objectName 连接。
 Item {
     id: page
 
@@ -34,47 +36,354 @@ Item {
             }
         }
 
+        // ------------------------------------------------------------ 连接
         GlassCard {
             Layout.fillWidth: true
             title: qsTr("连接")
 
-            Text {
+            RowLayout {
                 width: parent.width
-                text: qsTr("连接卡片将在阶段 3 实现。")
-                color: Theme.textMuted
-                font.pixelSize: Typography.fontBody
-                wrapMode: Text.WordWrap
+                spacing: Metrics.spacingMd
+
+                Text {
+                    text: qsTr("地址")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                }
+
+                TextField {
+                    id: ipField
+
+                    objectName: "configIpField"
+                    text: device.ip
+                    Layout.preferredWidth: 180
+                }
+
+                Text {
+                    text: qsTr("端口")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                }
+
+                TextField {
+                    id: portField
+
+                    objectName: "configPortField"
+                    text: device.port
+                    Layout.preferredWidth: 100
+                    validator: IntValidator {
+                        bottom: 1
+                        top: 65535
+                    }
+                }
+
+                AppButton {
+                    objectName: "configConnectButton"
+                    text: device.connected ? qsTr("断开") : qsTr("连接")
+                    primary: !device.connected
+                    enabled: !device.connecting
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+            }
+
+            Image {
+                objectName: "configQrImage"
+                visible: device.qrUrl.toString().length > 0
+                source: device.qrUrl
+                sourceSize.width: 180
+                sourceSize.height: 180
+                Layout.preferredWidth: 180
+                Layout.preferredHeight: 180
+                fillMode: Image.PreserveAspectFit
             }
         }
 
+        // ------------------------------------------------------------ 波形
         GlassCard {
             Layout.fillWidth: true
             title: qsTr("波形")
 
             Text {
                 width: parent.width
-                text: qsTr("波形卡片（选择波形 / 创建波形）将在阶段 3、6 实现。")
+                text: qsTr("波形卡片（选择波形 / 创建波形）将在阶段 6 实现。")
                 color: Theme.textMuted
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap
             }
         }
 
+        // ------------------------------------------------------------ 主题
         GlassCard {
             Layout.fillWidth: true
             title: qsTr("主题")
 
-            Text {
+            RowLayout {
                 width: parent.width
-                text: qsTr("主题卡片（当前主题 / 主色 / 副色、选择与自定义）将在阶段 3、5 实现。")
-                color: Theme.textMuted
-                font.pixelSize: Typography.fontBody
-                wrapMode: Text.WordWrap
+                spacing: Metrics.spacingLg
+
+                Text {
+                    text: Theme.displayName
+                    color: Theme.textPrimary
+                    font.pixelSize: Typography.fontBodyLarge
+                    font.bold: true
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: ComponentStyle.swatchMinWidth
+                    Layout.preferredHeight: ComponentStyle.swatchHeight
+                    radius: Metrics.radiusSm
+                    color: Theme.primary
+                    border.width: Metrics.borderWidth
+                    border.color: Theme.border
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                    }
+                }
+
+                Text {
+                    text: qsTr("主色 %1").arg(Theme.primary)
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontCaption
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: ComponentStyle.swatchMinWidth
+                    Layout.preferredHeight: ComponentStyle.swatchHeight
+                    radius: Metrics.radiusSm
+                    color: Theme.secondary
+                    border.width: Metrics.borderWidth
+                    border.color: Theme.border
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                    }
+                }
+
+                Text {
+                    text: qsTr("副色 %1").arg(Theme.secondary)
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontCaption
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                AppButton {
+                    objectName: "configThemeSelectButton"
+                    text: qsTr("选择主题")
+                }
+
+                AppButton {
+                    objectName: "configThemeCustomButton"
+                    text: qsTr("自定义主题")
+                    primary: Theme.custom
+                }
             }
         }
 
         Item {
             Layout.fillHeight: true
         }
+    }
+
+    // -------------------------------------------------------- 预设主题对话框
+    Dialog {
+        id: themePresetDialog
+
+        objectName: "themePresetDialog"
+        title: qsTr("选择主题")
+        modal: true
+        anchors.centerIn: Overlay.overlay
+        width: 560
+        height: 460
+        padding: Metrics.spacingMd
+
+        ListView {
+            id: presetList
+
+            objectName: "themePresetList"
+            anchors.fill: parent
+            clip: true
+            model: Theme.presets
+            spacing: Metrics.spacingXs
+
+            delegate: Item {
+                width: presetList.width
+                height: 54
+
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 2
+                    radius: Metrics.radiusSm
+                    color: Theme.surfaceAlt
+                    border.width: Metrics.borderWidth
+                    border.color: Theme.border
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: Metrics.spacingMd
+                        spacing: Metrics.spacingMd
+
+                        Rectangle {
+                            Layout.preferredWidth: 40
+                            Layout.preferredHeight: 20
+                            radius: Metrics.radiusXs
+                            color: modelData.primary
+                            border.width: Metrics.borderWidth
+                            border.color: Theme.divider
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: 40
+                            Layout.preferredHeight: 20
+                            radius: Metrics.radiusXs
+                            color: modelData.secondary
+                            border.width: Metrics.borderWidth
+                            border.color: Theme.divider
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: modelData.name
+                            color: Theme.textPrimary
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            text: modelData.mode
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontCaption
+                        }
+                    }
+                }
+
+                // C++ 侧扫描该热区并按 mode 应用主题（QML 不写 onClicked）
+                MouseArea {
+                    objectName: "themePresetClick"
+                    anchors.fill: parent
+                    property string mode: modelData.mode
+                }
+            }
+        }
+    }
+
+    // -------------------------------------------------------- 自定义主题对话框
+    Dialog {
+        id: customThemeDialog
+
+        objectName: "customThemeDialog"
+        title: qsTr("自定义主题")
+        modal: true
+        anchors.centerIn: Overlay.overlay
+        width: 420
+        height: 260
+        padding: Metrics.spacingLg
+
+        property color customPrimary: Theme.primary
+        property color customSecondary: Theme.secondary
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: Metrics.spacingLg
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Metrics.spacingMd
+
+                Text {
+                    text: qsTr("主色")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                    Layout.preferredWidth: 48
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: ComponentStyle.swatchMinWidth
+                    Layout.preferredHeight: ComponentStyle.swatchHeight
+                    radius: Metrics.radiusSm
+                    color: customThemeDialog.customPrimary
+                    border.width: Metrics.borderWidth
+                    border.color: Theme.border
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: customThemeDialog.customPrimary
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontCaption
+                }
+
+                AppButton {
+                    objectName: "customThemePrimaryButton"
+                    text: qsTr("选色")
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Metrics.spacingMd
+
+                Text {
+                    text: qsTr("副色")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                    Layout.preferredWidth: 48
+                }
+
+                Rectangle {
+                    Layout.preferredWidth: ComponentStyle.swatchMinWidth
+                    Layout.preferredHeight: ComponentStyle.swatchHeight
+                    radius: Metrics.radiusSm
+                    color: customThemeDialog.customSecondary
+                    border.width: Metrics.borderWidth
+                    border.color: Theme.border
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: customThemeDialog.customSecondary
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontCaption
+                }
+
+                AppButton {
+                    objectName: "customThemeSecondaryButton"
+                    text: qsTr("选色")
+                }
+            }
+
+            Item {
+                Layout.fillHeight: true
+            }
+
+            AppButton {
+                objectName: "customThemeSaveButton"
+                Layout.fillWidth: true
+                text: qsTr("保存并应用")
+                primary: true
+            }
+        }
+    }
+
+    ColorDialog {
+        id: primaryColorDialog
+        objectName: "primaryColorDialog"
+        title: qsTr("选择主色")
+        color: customThemeDialog.customPrimary
+    }
+
+    ColorDialog {
+        id: secondaryColorDialog
+        objectName: "secondaryColorDialog"
+        title: qsTr("选择副色")
+        color: customThemeDialog.customSecondary
     }
 }

@@ -7,10 +7,14 @@
 
 #include "AppBridge.h"
 #include "DebugLog.h"
+#include "DeviceController.h"
 #include "HomeBridge.h"
+#include "ThemeManager.h"
 
+#include <QColor>
 #include <QHash>
-#include <QObject>
+#include <QMetaObject>
+#include <QQuickItem>
 
 namespace {
 
@@ -36,10 +40,13 @@ namespace {
 
 } // namespace
 
-UiConnector::UiConnector(AppBridge* app, HomeBridge* home, QObject* parent)
+UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
+    DeviceController* device, QObject* parent)
     : QObject(parent)
     , app_(app)
-    , home_(home) {
+    , home_(home)
+    , theme_(theme)
+    , device_(device) {
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -47,27 +54,12 @@ void UiConnector::attach(QObject* root_object) {
         LOG_MODULE("UiConnector", "attach", LOG_ERROR, "根对象为空，无法建立 QML 连接");
         return;
     }
-    connect_navigation(root_object);
-    connect_home(root_object);
-    LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
-}
+    root_ = root_object;
 
-void UiConnector::connect_clicked(QObject* root_object, const char* object_name, const char* slot) {
-    auto* target = root_object->findChild<QObject*>(QString::fromLatin1(object_name));
-    if (target == nullptr) {
-        LOG_MODULE("UiConnector", "connect_clicked", LOG_WARN,
-            std::string("未找到控件: ") + object_name);
-        return;
-    }
-    QObject::connect(target, SIGNAL(clicked()), this, slot);
-}
-
-void UiConnector::connect_navigation(QObject* root_object) {
     for (auto it = nav_bindings().constBegin(); it != nav_bindings().constEnd(); ++it) {
         auto* button = root_object->findChild<QObject*>(it.key());
         if (button == nullptr) {
-            LOG_MODULE("UiConnector", "connect_navigation", LOG_WARN,
-                "未找到导航按钮: " + it.key().toStdString());
+            LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到导航按钮: " + it.key().toStdString());
             continue;
         }
         QObject::connect(button, SIGNAL(clicked()), this, SLOT(on_nav_button_clicked()));
@@ -75,9 +67,7 @@ void UiConnector::connect_navigation(QObject* root_object) {
     connect_clicked(root_object, "homeModuleEntryButton", SLOT(on_home_module_entry_clicked()));
     connect_clicked(root_object, "homeRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "configRuleEditorButton", SLOT(on_rule_editor_clicked()));
-}
 
-void UiConnector::connect_home(QObject* root_object) {
     connect_clicked(root_object, "channelAStartButton", SLOT(on_channel_toggle_clicked()));
     connect_clicked(root_object, "channelBStartButton", SLOT(on_channel_toggle_clicked()));
     connect_clicked(root_object, "channelAStrengthIncrease", SLOT(on_strength_adjust_clicked()));
@@ -86,14 +76,101 @@ void UiConnector::connect_home(QObject* root_object) {
     connect_clicked(root_object, "channelBStrengthDecrease", SLOT(on_strength_adjust_clicked()));
     connect_clicked(root_object, "channelASelectWaveButton", SLOT(on_wave_select_clicked()));
     connect_clicked(root_object, "channelBSelectWaveButton", SLOT(on_wave_select_clicked()));
-
     const char* spins[] = { "channelAStrengthSpin", "channelBStrengthSpin" };
     for (const char* name : spins) {
         auto* spin = root_object->findChild<QObject*>(QString::fromLatin1(name));
-        if (spin == nullptr) {
-            continue;
+        if (spin != nullptr) {
+            QObject::connect(spin, SIGNAL(valueModified()), this, SLOT(on_strength_modified()));
         }
-        QObject::connect(spin, SIGNAL(valueModified()), this, SLOT(on_strength_modified()));
+    }
+
+    connect_clicked(root_object, "configConnectButton", SLOT(on_config_connect_clicked()));
+    connect_clicked(root_object, "configThemeSelectButton", SLOT(on_theme_select_clicked()));
+    connect_clicked(root_object, "configThemeCustomButton", SLOT(on_theme_custom_clicked()));
+    connect_clicked(root_object, "customThemeSaveButton", SLOT(on_custom_theme_save_clicked()));
+    connect_clicked(root_object, "customThemePrimaryButton", SLOT(on_custom_primary_clicked()));
+    connect_clicked(root_object, "customThemeSecondaryButton", SLOT(on_custom_secondary_clicked()));
+
+    if (auto* primary = root_object->findChild<QObject*>(QStringLiteral("primaryColorDialog"))) {
+        QObject::connect(primary, SIGNAL(accepted()), this, SLOT(on_primary_color_accepted()));
+    }
+    if (auto* secondary = root_object->findChild<QObject*>(QStringLiteral("secondaryColorDialog"))) {
+        QObject::connect(secondary, SIGNAL(accepted()), this, SLOT(on_secondary_color_accepted()));
+    }
+
+    watch_list(root_object, "themePresetList", QStringLiteral("themePresetClick"),
+        SLOT(on_theme_preset_clicked()));
+
+    LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
+}
+
+QObject* UiConnector::find(const char* object_name) const {
+    if (root_.isNull()) {
+        return nullptr;
+    }
+    return root_->findChild<QObject*>(QString::fromLatin1(object_name));
+}
+
+void UiConnector::connect_clicked(QObject* root_object, const char* object_name, const char* slot) {
+    auto* target = root_object->findChild<QObject*>(QString::fromLatin1(object_name));
+    if (target == nullptr) {
+        LOG_MODULE("UiConnector", "connect_clicked", LOG_WARN, std::string("未找到控件: ") + object_name);
+        return;
+    }
+    QObject::connect(target, SIGNAL(clicked()), this, slot);
+}
+
+void UiConnector::open_dialog(const char* object_name) {
+    auto* dialog = find(object_name);
+    if (dialog == nullptr) {
+        LOG_MODULE("UiConnector", "open_dialog", LOG_WARN, std::string("未找到对话框: ") + object_name);
+        return;
+    }
+    QMetaObject::invokeMethod(dialog, "open");
+}
+
+void UiConnector::close_dialog(const char* object_name) {
+    auto* dialog = find(object_name);
+    if (dialog != nullptr) {
+        QMetaObject::invokeMethod(dialog, "close");
+    }
+}
+
+void UiConnector::watch_list(QObject* root_object, const char* list_name, const QString& item_name,
+    const char* slot) {
+    auto* list = root_object->findChild<QObject*>(QString::fromLatin1(list_name));
+    if (list == nullptr) {
+        LOG_MODULE("UiConnector", "watch_list", LOG_WARN, std::string("未找到列表: ") + list_name);
+        return;
+    }
+    auto* content = list->property("contentItem").value<QQuickItem*>();
+    if (content == nullptr) {
+        LOG_MODULE("UiConnector", "watch_list", LOG_WARN, std::string("列表无 contentItem: ") + list_name);
+        return;
+    }
+    ListWatch watch;
+    watch.content = content;
+    watch.item_name = item_name;
+    watch.slot = slot;
+    watches_.append(watch);
+    scan_dynamic_items(content, item_name, slot);
+    QObject::connect(content, SIGNAL(childrenChanged()), this, SLOT(on_tracked_children_changed()));
+}
+
+void UiConnector::scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot) {
+    const auto children = parent->childItems();
+    for (QQuickItem* child : children) {
+        if (child->objectName() == item_name && !connected_items_.contains(child)) {
+            connected_items_.insert(child);
+            QObject::connect(child, SIGNAL(clicked()), this, slot);
+        }
+        scan_dynamic_items(child, item_name, slot);
+    }
+}
+
+void UiConnector::on_tracked_children_changed() {
+    for (const auto& watch : watches_) {
+        scan_dynamic_items(watch.content, watch.item_name, watch.slot);
     }
 }
 
@@ -113,25 +190,21 @@ void UiConnector::on_home_module_entry_clicked() {
 }
 
 void UiConnector::on_rule_editor_clicked() {
-    // 规则可视化编辑器在阶段 9 接入
     app_->setStatus(QStringLiteral("规则编辑器将在后续阶段实现"));
 }
 
 void UiConnector::on_channel_toggle_clicked() {
     auto* button = sender();
-    if (button == nullptr || home_ == nullptr) {
-        return;
+    if (button != nullptr && home_ != nullptr) {
+        home_->toggleChannel(channel_of(button->objectName()));
     }
-    home_->toggleChannel(channel_of(button->objectName()));
 }
 
 void UiConnector::on_strength_modified() {
     auto* spin = sender();
-    if (spin == nullptr || home_ == nullptr) {
-        return;
+    if (spin != nullptr && home_ != nullptr) {
+        home_->setChannelStrength(channel_of(spin->objectName()), spin->property("value").toInt());
     }
-    const QString channel = channel_of(spin->objectName());
-    home_->setChannelStrength(channel, spin->property("value").toInt());
 }
 
 void UiConnector::on_strength_adjust_clicked() {
@@ -140,9 +213,7 @@ void UiConnector::on_strength_adjust_clicked() {
         return;
     }
     const QString name = button->objectName();
-    const QString channel = channel_of(name);
-    const int delta = name.contains(QStringLiteral("Increase")) ? 1 : -1;
-    home_->adjustChannelStrength(channel, delta);
+    home_->adjustChannelStrength(channel_of(name), name.contains(QStringLiteral("Increase")) ? 1 : -1);
 }
 
 void UiConnector::on_wave_select_clicked() {
@@ -152,4 +223,90 @@ void UiConnector::on_wave_select_clicked() {
     }
     home_->requestWaveSelect(channel_of(button->objectName()));
     app_->setStatus(QStringLiteral("波形库将在阶段 6 实现"));
+}
+
+void UiConnector::on_config_connect_clicked() {
+    if (device_ == nullptr) {
+        return;
+    }
+    auto* ip_field = find("configIpField");
+    auto* port_field = find("configPortField");
+    const QString ip = (ip_field != nullptr) ? ip_field->property("text").toString() : QString();
+    const int port = (port_field != nullptr) ? port_field->property("text").toInt() : 0;
+    if (!ip.isEmpty() && port > 0) {
+        device_->setEndpoint(ip, port);
+    }
+    if (device_->connected()) {
+        device_->disconnectDevice();
+    }
+    else {
+        device_->connectDevice();
+    }
+}
+
+void UiConnector::on_theme_select_clicked() {
+    open_dialog("themePresetDialog");
+}
+
+void UiConnector::on_theme_custom_clicked() {
+    auto* dialog = find("customThemeDialog");
+    if (dialog == nullptr || theme_ == nullptr) {
+        return;
+    }
+    dialog->setProperty("customPrimary", theme_->primary());
+    dialog->setProperty("customSecondary", theme_->secondary());
+    open_dialog("customThemeDialog");
+}
+
+void UiConnector::on_theme_preset_clicked() {
+    auto* item = sender();
+    if (item == nullptr || theme_ == nullptr) {
+        return;
+    }
+    theme_->applyPreset(item->property("mode").toString());
+    close_dialog("themePresetDialog");
+}
+
+void UiConnector::on_custom_theme_save_clicked() {
+    auto* dialog = find("customThemeDialog");
+    if (dialog == nullptr || theme_ == nullptr) {
+        return;
+    }
+    theme_->applyCustom(dialog->property("customPrimary").value<QColor>(),
+        dialog->property("customSecondary").value<QColor>());
+    close_dialog("customThemeDialog");
+}
+
+void UiConnector::on_custom_primary_clicked() {
+    auto* dialog = find("customThemeDialog");
+    auto* picker = find("primaryColorDialog");
+    if (dialog != nullptr && picker != nullptr) {
+        picker->setProperty("color", dialog->property("customPrimary"));
+        QMetaObject::invokeMethod(picker, "open");
+    }
+}
+
+void UiConnector::on_custom_secondary_clicked() {
+    auto* dialog = find("customThemeDialog");
+    auto* picker = find("secondaryColorDialog");
+    if (dialog != nullptr && picker != nullptr) {
+        picker->setProperty("color", dialog->property("customSecondary"));
+        QMetaObject::invokeMethod(picker, "open");
+    }
+}
+
+void UiConnector::on_primary_color_accepted() {
+    auto* picker = sender();
+    auto* dialog = find("customThemeDialog");
+    if (picker != nullptr && dialog != nullptr) {
+        dialog->setProperty("customPrimary", picker->property("selectedColor"));
+    }
+}
+
+void UiConnector::on_secondary_color_accepted() {
+    auto* picker = sender();
+    auto* dialog = find("customThemeDialog");
+    if (picker != nullptr && dialog != nullptr) {
+        dialog->setProperty("customSecondary", picker->property("selectedColor"));
+    }
 }
