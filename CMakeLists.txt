@@ -125,6 +125,8 @@ set(PROJECT_SOURCES
 	include/rule/RuleManager.h
 	src/rule/RuleManager.cpp
 	include/rule/RuleManager_impl.hpp
+	include/rule/RuleGraph.h
+	src/rule/RuleGraph.cpp
 	# 规则编辑 UI
 	include/rule/FormulaBuilderDialog.h
 	src/rule/FormulaBuilderDialog.cpp
