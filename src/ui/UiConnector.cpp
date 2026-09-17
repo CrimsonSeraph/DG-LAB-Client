@@ -10,6 +10,7 @@
 #include "DebugLog.h"
 #include "DeviceController.h"
 #include "HomeBridge.h"
+#include "LogBridge.h"
 #include "ModuleBridge.h"
 #include "RuleGraphBridge.h"
 #include "ThemeManager.h"
@@ -46,7 +47,7 @@ namespace {
 
 UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     DeviceController* device, ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble,
-    RuleGraphBridge* rule_graph, QObject* parent)
+    RuleGraphBridge* rule_graph, LogBridge* log, QObject* parent)
     : QObject(parent)
     , app_(app)
     , home_(home)
@@ -55,7 +56,16 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     , module_(module)
     , wave_(wave)
     , ble_(ble)
-    , rule_graph_(rule_graph) {
+    , rule_graph_(rule_graph)
+    , log_(log) {
+    if (log_ != nullptr) {
+        QObject::connect(log_, &LogBridge::statusMessage, this,
+            [this](const QString& message) {
+                if (app_ != nullptr) {
+                    app_->setStatus(message);
+                }
+            });
+    }
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -148,6 +158,13 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "bleStrengthBIncrease", SLOT(on_ble_strength_clicked()));
     watch_items(root_object, "bleDeviceList", QStringLiteral("bleDeviceClick"),
         SLOT(on_ble_device_clicked()));
+
+    // 日志
+    connect_clicked(root_object, "logExportButton", SLOT(on_log_export_clicked()));
+    connect_clicked(root_object, "logClearButton", SLOT(on_log_clear_clicked()));
+    if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("logLevelCombo"))) {
+        QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_log_level_changed()));
+    }
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
@@ -412,6 +429,26 @@ void UiConnector::on_ble_disconnect_clicked() {
     if (ble_ != nullptr) {
         ble_->disconnectDevice();
     }
+}
+
+void UiConnector::on_log_export_clicked() {
+    if (log_ != nullptr) {
+        log_->exportLogs();
+    }
+}
+
+void UiConnector::on_log_clear_clicked() {
+    if (log_ != nullptr) {
+        log_->clear();
+    }
+}
+
+void UiConnector::on_log_level_changed() {
+    if (log_ == nullptr) {
+        return;
+    }
+    auto* combo = find("logLevelCombo");
+    log_->setLevelFilter(combo == nullptr ? 0 : combo->property("currentIndex").toInt());
 }
 
 void UiConnector::on_ble_strength_clicked() {

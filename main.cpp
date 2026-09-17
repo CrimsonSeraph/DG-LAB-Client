@@ -10,6 +10,7 @@
 #include "CoyoteBleController.h"
 #include "DeviceController.h"
 #include "HomeBridge.h"
+#include "LogBridge.h"
 #include "ModuleBridge.h"
 #include "ModuleManager.h"
 #include "RuleGraphBridge.h"
@@ -88,6 +89,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // 界面日志桥接（QML 上下文属性 logBridge）
+    LogBridge log_bridge;
+    log_bridge.initialize();
+
     // 规则可视化编辑器桥接（QML 上下文属性 ruleGraph）
     RuleGraphBridge rule_graph;
     rule_graph.initialize();
@@ -123,9 +128,11 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("waveBridge"), &wave);
     engine.rootContext()->setContextProperty(QStringLiteral("ble"), &ble);
     engine.rootContext()->setContextProperty(QStringLiteral("ruleGraph"), &rule_graph);
+    engine.rootContext()->setContextProperty(QStringLiteral("logBridge"), &log_bridge);
 
     // QML 交互连接集中在 C++ 侧
-    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave, &ble, &rule_graph);
+    UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave, &ble, &rule_graph,
+        &log_bridge);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
         []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 

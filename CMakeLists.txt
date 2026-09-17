@@ -208,6 +208,8 @@ set(PROJECT_SOURCES
 	src/ui/QrImageProvider.cpp
 	include/ui/RuleGraphBridge.h
 	src/ui/RuleGraphBridge.cpp
+	include/ui/LogBridge.h
+	src/ui/LogBridge.cpp
 
 	# 资源文件
 	DGLABClient.qrc

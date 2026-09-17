@@ -433,6 +433,85 @@ Item {
             }
         }
 
+        // ------------------------------------------------------------ 日志
+        GlassCard {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 260
+            title: qsTr("日志")
+
+            RowLayout {
+                width: parent.width
+                spacing: Metrics.spacingMd
+
+                Text {
+                    text: qsTr("级别")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                }
+
+                ComboBox {
+                    id: logLevelCombo
+
+                    objectName: "logLevelCombo"
+                    Layout.preferredWidth: 120
+                    model: ["DEBUG", "INFO", "WARN", "ERROR"]
+                    currentIndex: logBridge.levelFilter
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                AppButton {
+                    objectName: "logExportButton"
+                    text: qsTr("导出日志")
+                }
+
+                AppButton {
+                    objectName: "logClearButton"
+                    text: qsTr("清空")
+                }
+            }
+
+            ListView {
+                id: logList
+
+                width: parent.width
+                height: 170
+                clip: true
+                model: logBridge.messages
+                spacing: 0
+
+                delegate: Rectangle {
+                    width: logList.width
+                    height: 18
+                    color: "transparent"
+
+                    Text {
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: parent.width
+                        text: modelData.text
+                        color: modelData.level >= 3 ? Theme.danger : (modelData.level === 2 ? Theme.warning : Theme.textSecondary)
+                        font.family: "Consolas"
+                        font.pixelSize: Typography.fontCaption
+                        elide: Text.ElideRight
+                    }
+                }
+
+                // 无信号处理器：新日志到达时内容高度变化，绑定自动滚到底部
+                contentY: Math.max(0, contentHeight - height)
+            }
+
+            Text {
+                width: parent.width
+                text: qsTr("导出目录：%1").arg(logBridge.exportDir)
+                color: Theme.textMuted
+                font.pixelSize: Typography.fontCaption
+                elide: Text.ElideMiddle
+            }
+        }
+
         Item {
             Layout.fillHeight: true
         }
