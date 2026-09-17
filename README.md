@@ -30,7 +30,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 项目采用 **C++/Qt** 实现用户界面、配置管理、规则引擎与进程调度，通过启动独立的 **Python 子进程**（`Bridge.py`）作为 TCP 中转服务器，封装与 DG-Lab 服务的 WebSocket 通信。整体架构如下:
 
 - **C++ 主程序**: 负责界面展示、多级配置（main/system/user）、规则文件管理、日志系统、以及向 Python 子进程发送命令。
-- **Python 子进程**: 运行 `Bridge.py`，启动 TCP 服务器监听本地端口，接收主程序的 JSON 命令，并调用 `WebSocketCore.py` 完成与 DG-Lab 服务端的 WebSocket 交互（连接、心跳、绑定、强度/波形控制）。
+- **内置 WebSocket 中转服务**: 应用自身托管 DG-LAB 中转服务（V3 端口 9999 / V4 端口 9998），由 DG-LAB APP 扫码配对，应用直接下发强度/波形/清除指令并接收回传；配对二维码由内嵌 `qrcodegen` 生成。`Bridge.py` / `WebSocketCore.py` 已退出 WebSocket 链路（Python 仅保留给插件工具 `PathFinder.py`）。
 - **规则引擎**: 支持加载带占位符 `{}` 的 JSON 规则文件，动态填入参数（例如从外部数据模块接收的数值），生成最终命令。规则可指定通道（A/B）、模式（0~4）和值计算表达式（支持四则运算、括号）。
 - **数据扩展机制（插件化）**: 通过动态库插件（`module/`）从不同外部源获取数据——现已内置 CS2 GSI 插件（从 CS2 游戏读取状态数据），未来可扩展更多插件；主程序仅负责接收数值序列并按规则处理，不关心数据具体含义，实现灵活的社区扩展。
 
@@ -42,7 +42,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 - **QML 界面层（迁移中）** 界面正由 Qt Widgets 迁移到 QML：`Dglab` QML 模块包含主窗口、页面与组件，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 14 套预设与自定义主/副色）；QML 不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接。详见 [src/ui/README.md](src/ui/README.md)。
 
-- **Python 子进程通信** 通过 `PythonSubprocessManager` 启动外部 Python 脚本（`Bridge.py`），脚本启动后输出监听端口，主程序通过 `QTcpSocket` 连接，以 JSON 格式发送命令并接收响应。所有耗时调用均放入全局线程池执行，完成后通过信号槽返回主线程。
+- **内置 WebSocket 中转服务** `DglabRelayServer` 基于 `Qt WebSockets` 在应用内托管 DG-LAB 中转服务（V3 / V4）：分配 clientId、处理 bind 配对与心跳、转发强度/波形/清除指令、解析 APP 回传；V4 额外维护被控方设备列表并下发 `device.op` / `device.op.clear`。配对二维码由内嵌 `qrcodegen`（MIT）经 `QrImageProvider` 提供给 QML。
 
 - **配置系统** 采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。规则表格高级编辑: 在“配置”页面的规则表格中，“通道”和“模式”列使用下拉框选择，“值模式”列使用可视化公式构建器。支持通过按钮快速插入 {}、+-*/()，并在保存时自动检查括号平衡合法性，极大提升了复杂计算式（如 {}+{}*2、({}\*2)+{}）的编辑体验。
 

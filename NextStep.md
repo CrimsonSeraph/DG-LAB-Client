@@ -12,12 +12,14 @@
 | 4 | 模块页与关于页（插件卡片、数值展示弹窗） | 已完成 |
 | 5 | 主题系统完善（按预设从 QSS 提炼精确调色板） | 待做 |
 | 6 | 波形库与波形编辑器（段落 + 关键帧 + 原始 V3 帧 + 预览） | 已完成 |
-| 7 | 应用内 WebSocket 服务（V3 + V4，内嵌二维码，移除 Python / Node 依赖） | 待做 |
+| 7 | 应用内 WebSocket 服务（V3 + V4，内嵌二维码，移除 Python / Node 依赖） | 已完成 |
 | 8 | 蓝牙直连（郊狼 V3 BLE，Qt Bluetooth 已安装） | 待做 |
 | 9 | 规则可视化编辑器（节点图、拖拽连线、右键建节点、Ctrl+C/V/Delete、模块面板） | 待做 |
 | 10 | 清理 Widgets / QSS / `.ui` 与文档收尾 | 待做 |
 
-界面层说明与 objectName 契约见 [src/ui/README.md](src/ui/README.md)。
+界面层说明与 objectName 契约见 [src/ui/README.md](src/ui/README.md)；其中登记了"必须使用手势的视图"下允许 QML 信号处理器的例外（其余界面仍需遵守"QML 无信号处理器"）。
+
+**四（长期计划）的"移除 Python WebSocket 依赖"与"用 C++ 实现 DG-Lab 官方 WebSocket 服务端"随阶段 7 一并完成**：应用内 `DglabRelayServer` 直接托管 V3/V4 中转服务，二维码由内嵌 `qrcodegen` 生成，仅插件工具（`PathFinder.py`）仍使用 Python。
 
 ---
 

@@ -51,7 +51,7 @@ src/ui/
 | 上下文属性 | 类型 | 职责 |
 | --- | --- | --- |
 | `app` | `AppBridge` | 应用名称/版本、当前页面（`currentPage`）、状态栏文本 |
-| `device` | `DeviceController` | 连接状态、IP/端口、二维码 `qrUrl`，强度 / 波形 / 清除指令下发与设备回传解析 |
+| `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、配对链接 `pairingUrl` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
 | `Theme` | `ThemeManager`（QML 单例） | 主题令牌（14 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom` |
 
@@ -107,6 +107,17 @@ src/ui/
 - 新增交互控件必须同步更新 `UiConnector` 与本文件的 objectName 表。
 - 列表/中继器动态生成的委托（如 `themePresetList` 的 `themePresetClick`）不在 `QObject::children()` 中：`UiConnector::watch_list()` 沿 `QQuickItem::childItems()` 扫描热区并在 `childrenChanged` 后重扫。
 - 用户可编辑但需要回灌的控件（如强度 `SpinBox`）使用 `Binding` 元素回写，避免用户操作破坏绑定。
+
+## 信号处理器例外（必须使用手势的视图）
+
+默认规则不变：QML **不写** `onClicked` / `Connections` / `onXxx`。但**必须依赖指针手势或逐帧回调的视图**允许例外，且需逐处登记：
+
+| 例外位置 | 原因 | 约束 |
+| --- | --- | --- |
+| `qml/ruleeditor/` 画布与节点（拖动、滚轮缩放、右键菜单、框选） | 手势无法通过 `objectName` + C++ 连接表达 | 处理器内只调用 C++ 桥接对象的方法/读取属性；节点与连线的增删改、复制粘贴、求值全部在 C++，QML 不直接改模型 |
+| `Shape`/`Canvas` 的 `onPaint` 等绘制回调 | 渲染框架要求 | 只读取传入的 `points` 等属性，不写业务逻辑 |
+
+新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
 ## 扩展点与注意事项
 

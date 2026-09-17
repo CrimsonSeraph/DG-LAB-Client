@@ -18,6 +18,9 @@
 - **首页 QML 通道面板**: A/B 通道面板包含强度（可编辑目标值、± 快捷、上限显示）、模块摘要、规则摘要（最近计算值）、波形入口与启停按钮。
 - **配置页连接与主题卡片**: 连接卡片（IP / 端口 / 连接断开 / 二维码）；主题卡片合并为单卡，展示当前主题名称、主色与副色，支持预设主题网格与 `ColorDialog` 自定义取色。
 - **集中式 QML↔C++ 连接**: `UiConnector` 按 `objectName` 统一建立交互连接；列表/中继器动态委托通过可视子树扫描连接。
+- **波形库与波形编辑器**: 新增 `Wave`/`WaveLibrary`（`config/waves/waves.json`，内置三种波形）与 `WaveBridge`；QML 提供 `WavePreview`（Shape 强度/频率双曲线）、`WaveSelectDialog`（"确定波形"改为"选择波形"）与 `WaveEditorDialog`（段落+关键帧、原始 V3 帧、实时预览、保存/发送）。
+- **应用内 WebSocket 中转服务**: 新增 `DglabRelayServer`，由应用直接托管 V3（9999）与 V4（9998）中转服务（配对、心跳、强度/波形/清除、V4 设备与 `device.op`），不再依赖 Node 官方后端与 Python `Bridge.py`/`WebSocketCore.py`。
+- **内置二维码**: 内嵌 Nayuki `qrcodegen`（MIT，`third_party/qrcodegen`）与 `QrImageProvider`，配对二维码由应用自身生成。
 
 ### Changed
 
