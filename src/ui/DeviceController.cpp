@@ -7,13 +7,37 @@
 
 #include "AppConfig.h"
 #include "DebugLog.h"
-#include "PythonSubprocessManager.h"
-#include "RuleManager.h"
+#include "DglabRelayServer.h"
+#include "QrImageProvider.h"
 
-#include <QCoreApplication>
+#include <QHostAddress>
 #include <QJsonArray>
+#include <QNetworkInterface>
 
 #include <algorithm>
+
+namespace {
+
+    /// @brief 选择一个可用于手机扫码的局域网 IPv4 地址（无则回退环回）
+    QString detect_lan_ip() {
+        const auto interfaces = QNetworkInterface::allInterfaces();
+        for (const auto& interface : interfaces) {
+            const auto flags = interface.flags();
+            if (!flags.testFlag(QNetworkInterface::IsUp) || !flags.testFlag(QNetworkInterface::IsRunning)
+                || flags.testFlag(QNetworkInterface::IsLoopBack)) {
+                continue;
+            }
+            for (const auto& entry : interface.addressEntries()) {
+                const QHostAddress address = entry.ip();
+                if (address.protocol() == QAbstractSocket::IPv4Protocol && !address.isLoopback()) {
+                    return address.toString();
+                }
+            }
+        }
+        return QStringLiteral("127.0.0.1");
+    }
+
+} // namespace
 
 DeviceController::DeviceController(QObject* parent)
     : QObject(parent) {
@@ -22,44 +46,55 @@ DeviceController::DeviceController(QObject* parent)
 DeviceController::~DeviceController() = default;
 
 void DeviceController::initialize() {
-    python_ = new PythonSubprocessManager(this);
+    qr_provider_ = new QrImageProvider();
+    relay_ = new DglabRelayServer(this);
 
-    connect(python_, &PythonSubprocessManager::started, this, [this](bool success, const QString& error) {
-        if (!success) {
-            set_connecting(false);
-            emit errorOccurred(QStringLiteral("Python 服务启动失败: ") + error);
-        }
+    connect(relay_, &DglabRelayServer::statusMessage, this, &DeviceController::statusMessage);
+    connect(relay_, &DglabRelayServer::errorOccurred, this, &DeviceController::errorOccurred);
+    connect(relay_, &DglabRelayServer::strengthFeedback, this, &DeviceController::strengthFeedback);
+    connect(relay_, &DglabRelayServer::deviceFeedback, this, &DeviceController::deviceFeedback);
+    connect(relay_, &DglabRelayServer::pairingChanged, this, [this]() {
+        update_pairing_url();
+        emit pairingChanged();
     });
-    connect(python_, &PythonSubprocessManager::finished, this, [this]() {
-        set_connected(false);
-        set_connecting(false);
-        emit statusMessage(QStringLiteral("设备连接已断开"));
-    });
-    connect(python_, &PythonSubprocessManager::active_message_received,
-        this, &DeviceController::handle_active_message);
-
-    // 规则引擎命令统一经本类下发（规则层只依赖本类接口）
-    connect(&RuleManager::instance(), &RuleManager::rule_command_ready,
-        this, [this](const QJsonObject& cmd) { send_command(cmd); });
 
     const auto& config = AppConfig::instance();
-    const QString python_path = QString::fromStdString(config.get_value<std::string>("python.path", "python"));
-    std::string bridge_module = config.get_value<std::string>("python.bridge_path", "./python/Bridge.py");
-    if (bridge_module.starts_with(".")) {
-        bridge_module = bridge_module.substr(1);
-    }
-    const QString script_path = QCoreApplication::applicationDirPath() + QString::fromStdString(bridge_module);
-    python_->start_process(python_path, script_path);
-
     ip_ = QString::fromStdString(config.get_value<std::string>("app.websocket.ip", "127.0.0.1"));
     port_ = config.get_value<int>("app.websocket.port", 9999);
+    if (ip_ == QStringLiteral("127.0.0.1") || ip_.isEmpty()) {
+        ip_ = detect_lan_ip();
+    }
     emit endpointChanged();
-    LOG_MODULE("DeviceController", "initialize", LOG_INFO, "已启动 Python 服务进程");
+    LOG_MODULE("DeviceController", "initialize", LOG_INFO,
+        "设备控制已就绪，配对地址: " << ip_.toStdString() << ":" << port_);
+
+    // 内置中转服务随应用启动，配置页可立即展示配对二维码
+    connectDevice();
+}
+
+QQuickImageProvider* DeviceController::qr_image_provider() const {
+    return qr_provider_;
+}
+
+QString DeviceController::qr_image_url() const {
+    return QStringLiteral("image://dglabqr/qr?rev=%1").arg(qr_revision_);
+}
+
+bool DeviceController::v3_paired() const {
+    return relay_ != nullptr && relay_->v3_paired();
+}
+
+bool DeviceController::v4_attached() const {
+    return relay_ != nullptr && relay_->v4_attached();
+}
+
+QVariantList DeviceController::v4_devices() const {
+    return relay_ == nullptr ? QVariantList() : relay_->v4_devices();
 }
 
 void DeviceController::setEndpoint(const QString& ip, int port) {
     if (ip.isEmpty() || port <= 0 || port > 65535) {
-        emit errorOccurred(QStringLiteral("连接地址或端口无效"));
+        emit errorOccurred(QStringLiteral("地址或端口无效"));
         return;
     }
     ip_ = ip;
@@ -69,192 +104,100 @@ void DeviceController::setEndpoint(const QString& ip, int port) {
     config.set_value<int>("app.websocket.port", port);
     config.save_all();
     emit endpointChanged();
+    update_pairing_url();
 }
 
 void DeviceController::connectDevice() {
-    if (connecting_ || connected_) {
+    if (relay_ == nullptr || connected_) {
         return;
     }
-    set_connecting(true);
+    connecting_ = true;
+    emit connectingChanged();
 
-    const QString url = QStringLiteral("ws://%1:%2").arg(ip_).arg(port_);
-    LOG_MODULE("DeviceController", "connectDevice", LOG_INFO, "连接地址: " + url.toStdString());
+    const bool started = relay_->start();
+    connecting_ = false;
+    emit connectingChanged();
 
-    QJsonObject set_url;
-    set_url["cmd"] = "set_ws_url";
-    set_url["url"] = url;
-    request(set_url, 5000, [this](bool ok, const QString& msg) {
-        if (!ok) {
-            set_connecting(false);
-            emit errorOccurred(QStringLiteral("设置 WebSocket 地址失败: ") + msg);
-            return;
-        }
-        QJsonObject connect_cmd;
-        connect_cmd["cmd"] = "connect";
-        request(connect_cmd, 8000, [this](bool ok2, const QString& msg2) {
-            set_connecting(false);
-            set_connected(ok2);
-            if (ok2) {
-                emit statusMessage(QStringLiteral("已连接设备服务"));
-                fetch_qr();
-            }
-            else {
-                emit errorOccurred(QStringLiteral("连接失败: ") + msg2);
-            }
-        });
-    });
+    connected_ = started;
+    emit connectedChanged();
+    if (started) {
+        update_pairing_url();
+        emit statusMessage(QStringLiteral("内置中转服务已启动，请用 APP 扫码配对"));
+    }
 }
 
 void DeviceController::disconnectDevice() {
-    QJsonObject close_cmd;
-    close_cmd["cmd"] = "close";
-    request(close_cmd, 5000, [this](bool ok, const QString& msg) {
-        if (ok) {
-            set_connected(false);
-            emit statusMessage(QStringLiteral("已断开连接"));
-        }
-        else {
-            emit errorOccurred(QStringLiteral("断开失败: ") + msg);
-        }
-    });
+    if (relay_ == nullptr) {
+        return;
+    }
+    relay_->stop();
+    connected_ = false;
+    pairing_url_.clear();
+    ++qr_revision_;
+    if (qr_provider_ != nullptr) {
+        qr_provider_->set_text(QString());
+    }
+    emit connectedChanged();
+    emit qrUrlChanged();
+    emit pairingChanged();
+}
+
+void DeviceController::update_pairing_url() {
+    if (relay_ == nullptr) {
+        return;
+    }
+    pairing_url_ = relay_->pairing_url(ip_);
+    ++qr_revision_;
+    if (qr_provider_ != nullptr) {
+        qr_provider_->set_text(pairing_url_);
+    }
+    emit qrUrlChanged();
 }
 
 void DeviceController::sendStrength(int channel, int mode, int value) {
-    QJsonObject cmd;
-    cmd["cmd"] = "send_strength";
-    cmd["channel"] = channel;
-    cmd["mode"] = mode;
-    cmd["value"] = value;
-    send_command(cmd);
+    if (relay_ != nullptr) {
+        relay_->send_strength(channel, mode, value);
+    }
 }
 
 void DeviceController::sendWave(int channel, const QStringList& pulses, int seconds) {
-    QJsonArray array;
-    for (const auto& pulse : pulses) {
-        array.append(pulse);
+    if (relay_ != nullptr) {
+        relay_->send_pulse(channel, pulses, seconds);
     }
-    QJsonObject cmd;
-    cmd["cmd"] = "send_pulse";
-    cmd["channel"] = (channel == 1) ? "A" : "B";
-    cmd["pulses"] = array;
-    cmd["duration"] = seconds;
-    send_command(cmd);
 }
 
 void DeviceController::clearQueue(int channel) {
-    QJsonObject cmd;
-    cmd["cmd"] = "clear_queue";
-    cmd["channel"] = channel;
-    send_command(cmd);
+    if (relay_ != nullptr) {
+        relay_->send_clear(channel);
+    }
 }
 
 void DeviceController::send_command(const QJsonObject& cmd) {
     if (!connected_) {
-        LOG_MODULE("DeviceController", "send_command", LOG_WARN, "未连接，命令未发送");
-        emit statusMessage(QStringLiteral("未连接，命令未发送"));
+        emit statusMessage(QStringLiteral("中转服务未启动，命令未发送"));
         return;
     }
-    request(cmd, 5000, [this](bool ok, const QString& msg) {
-        if (!ok) {
-            LOG_MODULE("DeviceController", "send_command", LOG_ERROR, "命令发送失败: " + msg.toStdString());
-            emit errorOccurred(QStringLiteral("命令发送失败: ") + msg);
+    const QString type = cmd.value("cmd").toString();
+    if (type == QStringLiteral("send_strength")) {
+        sendStrength(cmd.value("channel").toInt(1), cmd.value("mode").toInt(0), cmd.value("value").toInt(0));
+    }
+    else if (type == QStringLiteral("send_pulse")) {
+        QStringList pulses;
+        for (const auto& item : cmd.value("pulses").toArray()) {
+            pulses.append(item.toString());
         }
-    });
-}
-
-void DeviceController::request(const QJsonObject& cmd, int timeout,
-    std::function<void(bool, const QString&)> callback) {
-    if (python_ == nullptr) {
-        if (callback) {
-            callback(false, QStringLiteral("Python 服务未初始化"));
-        }
-        return;
+        sendWave(cmd.value("channel").toString() == QStringLiteral("B") ? 2 : 1,
+            pulses, cmd.value("duration").toInt(5));
     }
-    python_->call(
-        cmd,
-        [callback = std::move(callback)](const QJsonObject& response) {
-            if (!callback) {
-                return;
-            }
-            const bool ok = response.value("status").toString() == QStringLiteral("ok");
-            callback(ok, response.value("message").toString());
-        },
-        timeout);
-}
-
-void DeviceController::fetch_qr() {
-    QJsonObject cmd;
-    cmd["cmd"] = "get_qr_path";
-    request(cmd, 5000, [this](bool ok, const QString& path) {
-        if (!ok || path.isEmpty()) {
-            LOG_MODULE("DeviceController", "fetch_qr", LOG_WARN, "获取二维码失败: " + path.toStdString());
-            return;
-        }
-        qr_url_ = QUrl::fromLocalFile(path);
-        emit qrUrlChanged();
-    });
-}
-
-void DeviceController::handle_active_message(const QJsonObject& message) {
-    const QJsonObject data = message.value("data").toObject();
-    const QString msg_type = data.value("type").toString();
-
-    if (msg_type == QStringLiteral("msg")) {
-        const QString content = data.value("message").toString();
-        if (content.startsWith(QStringLiteral("strength-"))) {
-            // 格式: strength-A强度+B强度+A上限+B上限
-            const QStringList parts = content.mid(9).split('+');
-            if (parts.size() >= 4) {
-                bool ok1 = false;
-                bool ok2 = false;
-                bool ok3 = false;
-                bool ok4 = false;
-                const int a_strength = parts[0].toInt(&ok1);
-                const int b_strength = parts[1].toInt(&ok2);
-                const int a_limit = parts[2].toInt(&ok3);
-                const int b_limit = parts[3].toInt(&ok4);
-                if (ok1 && ok2 && ok3 && ok4) {
-                    emit strengthFeedback(std::clamp(a_strength, 0, 200), std::clamp(b_strength, 0, 200),
-                        std::clamp(a_limit, 0, 200), std::clamp(b_limit, 0, 200));
-                }
-                else {
-                    LOG_MODULE("DeviceController", "handle_active_message", LOG_WARN,
-                        "解析强度回传失败: " + content.toStdString());
-                }
-            }
-        }
-        else if (content.startsWith(QStringLiteral("feedback-"))) {
-            bool ok = false;
-            const int index = content.mid(9).toInt(&ok);
-            if (ok) {
-                emit deviceFeedback(index < 5 ? 1 : 2, index % 5);
-            }
-        }
+    else if (type == QStringLiteral("clear_queue")) {
+        clearQueue(cmd.value("channel").toInt(1));
     }
-    else if (msg_type == QStringLiteral("break")) {
-        set_connected(false);
-        emit statusMessage(QStringLiteral("对端已断开"));
+    else if (type == QStringLiteral("set_strength")) {
+        sendStrength(cmd.value("channel").toString() == QStringLiteral("B") ? 2 : 1,
+            cmd.value("mode").toInt(2), cmd.value("value").toInt(0));
     }
-    else if (msg_type == QStringLiteral("error")) {
-        emit errorOccurred(QStringLiteral("服务端错误: ") + data.value("message").toString());
+    else {
+        LOG_MODULE("DeviceController", "send_command", LOG_WARN,
+            "未知命令: " << type.toStdString());
     }
-    else if (msg_type == QStringLiteral("bind")) {
-        LOG_MODULE("DeviceController", "handle_active_message", LOG_DEBUG, "收到绑定消息");
-    }
-}
-
-void DeviceController::set_connected(bool value) {
-    if (connected_ == value) {
-        return;
-    }
-    connected_ = value;
-    emit connectedChanged();
-}
-
-void DeviceController::set_connecting(bool value) {
-    if (connecting_ == value) {
-        return;
-    }
-    connecting_ = value;
-    emit connectingChanged();
 }

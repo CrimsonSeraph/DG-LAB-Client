@@ -89,15 +89,33 @@ Item {
                 }
             }
 
-            Image {
-                objectName: "configQrImage"
-                visible: device.qrUrl.toString().length > 0
-                source: device.qrUrl
-                sourceSize.width: 180
-                sourceSize.height: 180
-                Layout.preferredWidth: 180
-                Layout.preferredHeight: 180
-                fillMode: Image.PreserveAspectFit
+            Column {
+                visible: device.connected
+                spacing: Metrics.spacingSm
+
+                Image {
+                    objectName: "configQrImage"
+                    width: 200
+                    height: 200
+                    source: device.qrImageUrl
+                    sourceSize.width: 200
+                    sourceSize.height: 200
+                    fillMode: Image.PreserveAspectFit
+                }
+
+                Text {
+                    width: 420
+                    text: device.pairingUrl
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontCaption
+                    elide: Text.ElideMiddle
+                }
+
+                Text {
+                    text: device.v3Paired ? qsTr("APP 已配对") : (device.v4Attached ? qsTr("V4 已接入，等待设备上报") : qsTr("等待 APP 扫码配对"))
+                    color: (device.v3Paired || device.v4Attached) ? Theme.accent : Theme.textMuted
+                    font.pixelSize: Typography.fontCaption
+                }
             }
         }
 

@@ -70,6 +70,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED
 		Quick
 		QuickControls2
 		QuickDialogs2
+		WebSockets
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
@@ -145,6 +146,14 @@ set(PROJECT_SOURCES
 	include/module/DataListener.h
 	src/module/DataListener.cpp
 
+	# ---------- 网络（net）：应用内中转服务 ----------
+	include/net/DglabRelayServer.h
+	src/net/DglabRelayServer.cpp
+
+	# ---------- 第三方库（QR 码生成，MIT） ----------
+	third_party/qrcodegen/qrcodegen.hpp
+	third_party/qrcodegen/qrcodegen.cpp
+
 	# ---------- 波形（wave） ----------
 	include/wave/Wave.h
 	src/wave/Wave.cpp
@@ -188,6 +197,8 @@ set(PROJECT_SOURCES
 	src/ui/ModuleBridge.cpp
 	include/ui/WaveBridge.h
 	src/ui/WaveBridge.cpp
+	include/ui/QrImageProvider.h
+	src/ui/QrImageProvider.cpp
 
 	# 资源文件
 	DGLABClient.qrc
@@ -455,6 +466,7 @@ target_link_libraries(${PROJECT_NAME}
 		Qt::Quick
 		Qt::QuickControls2
 		Qt::QuickDialogs2
+		Qt::WebSockets
 	PRIVATE
 		nlohmann_json
 		Python::Python
@@ -469,7 +481,10 @@ target_include_directories(${PROJECT_NAME}
 		${CMAKE_CURRENT_SOURCE_DIR}/include/module
 		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
 		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+		${CMAKE_CURRENT_SOURCE_DIR}/include/net
 		${CMAKE_CURRENT_SOURCE_DIR}/include/ui
+		# 第三方库（QR 码生成）
+		${CMAKE_CURRENT_SOURCE_DIR}/third_party/qrcodegen
 )
 target_compile_definitions(${PROJECT_NAME}
 	PRIVATE PYBIND11_ASSERT_GIL_HELD_INCREF_DECREF

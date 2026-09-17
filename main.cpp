@@ -20,6 +20,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickImageProvider>
 #include <QQuickStyle>
 
 #include <iostream>
@@ -106,6 +107,7 @@ int main(int argc, char* argv[]) {
         [&bridge](const QString& message) { bridge.setStatus(message); });
 
     QQmlApplicationEngine engine;
+    engine.addImageProvider(QStringLiteral("dglabqr"), device.qr_image_provider());
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("device"), &device);
     engine.rootContext()->setContextProperty(QStringLiteral("home"), &home);
