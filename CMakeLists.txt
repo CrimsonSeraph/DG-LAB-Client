@@ -275,6 +275,39 @@ if(QT_VERSION_MAJOR EQUAL 6)
 	)
 endif()
 
+# -------------------- 构建后部署 Qt 运行时（Windows）--------------------
+# 直接运行构建输出目录中的可执行文件需要 Qt DLL / 平台插件 / QML 模块；
+# 这里在构建后调用 windeployqt 部署到可执行文件目录（已部署则跳过）。
+if(WIN32)
+	get_target_property(_qt_qmake_location
+		Qt${QT_VERSION_MAJOR}::qmake
+		IMPORTED_LOCATION
+	)
+	get_filename_component(_qt_binary_dir "${_qt_qmake_location}" DIRECTORY)
+	find_program(WINDEPLOYQT_EXECUTABLE
+		NAMES windeployqt windeployqt6
+		HINTS "${_qt_binary_dir}"
+	)
+	if(WINDEPLOYQT_EXECUTABLE)
+		add_custom_command(
+			TARGET ${PROJECT_NAME}
+			POST_BUILD
+			COMMAND
+				"${CMAKE_COMMAND}"
+				"-DWINDEPLOYQT=${WINDEPLOYQT_EXECUTABLE}"
+				"-DTARGET_FILE=$<TARGET_FILE:${PROJECT_NAME}>"
+				"-DTARGET_DIR=$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+				"-DQML_DIR=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/qml"
+				"-DDEPLOY_MODE=$<IF:$<CONFIG:Debug>,--debug,--release>"
+				-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_qt.cmake"
+			COMMENT "Deploying Qt runtime to build output directory"
+		)
+		message(STATUS "windeployqt found: ${WINDEPLOYQT_EXECUTABLE} (build output deployment enabled)")
+	else()
+		message(WARNING "windeployqt not found; Qt runtime will not be deployed to build output")
+	endif()
+endif()
+
 # 复制配置文件、Python脚本、资源、样式表（构建后）
 add_custom_command(
 	TARGET ${PROJECT_NAME}
