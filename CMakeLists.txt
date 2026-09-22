@@ -235,6 +235,11 @@ if(QT_VERSION_MAJOR EQUAL 6)
 			src/ui/qml/components/NavButton.qml
 			src/ui/qml/components/GlassCard.qml
 			src/ui/qml/components/AppButton.qml
+			src/ui/qml/components/AppSpinBox.qml
+			src/ui/qml/components/AppTextField.qml
+			src/ui/qml/components/AppTextArea.qml
+			src/ui/qml/components/AppComboBox.qml
+			src/ui/qml/components/AppCheckBox.qml
 			src/ui/qml/components/WavePreview.qml
 			src/ui/qml/style/Metrics.qml
 			src/ui/qml/style/Typography.qml

@@ -51,7 +51,7 @@ Item {
                     font.pixelSize: Typography.fontBody
                 }
 
-                TextField {
+                AppTextField {
                     id: ipField
 
                     objectName: "configIpField"
@@ -65,7 +65,7 @@ Item {
                     font.pixelSize: Typography.fontBody
                 }
 
-                TextField {
+                AppTextField {
                     id: portField
 
                     objectName: "configPortField"
@@ -449,7 +449,7 @@ Item {
                     font.pixelSize: Typography.fontBody
                 }
 
-                ComboBox {
+                AppComboBox {
                     id: logLevelCombo
 
                     objectName: "logLevelCombo"
@@ -528,6 +528,13 @@ Item {
         width: 560
         height: 460
         padding: Metrics.spacingMd
+
+        background: Rectangle {
+            radius: Metrics.radiusMd
+            color: Theme.surface
+            border.width: Metrics.borderWidth
+            border.color: Theme.border
+        }
 
         ListView {
             id: presetList
@@ -610,6 +617,13 @@ Item {
         width: 420
         height: 260
         padding: Metrics.spacingLg
+
+        background: Rectangle {
+            radius: Metrics.radiusMd
+            color: Theme.surface
+            border.width: Metrics.borderWidth
+            border.color: Theme.border
+        }
 
         property color customPrimary: Theme.primary
         property color customSecondary: Theme.secondary

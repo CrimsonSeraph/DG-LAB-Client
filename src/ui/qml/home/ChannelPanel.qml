@@ -52,7 +52,7 @@ GlassCard {
                     font.pixelSize: Typography.fontBody
                 }
 
-                SpinBox {
+                AppSpinBox {
                     id: strengthSpin
 
                     objectName: "channel" + root.channel + "StrengthSpin"

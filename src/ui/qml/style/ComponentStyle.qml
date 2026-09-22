@@ -24,4 +24,12 @@ QtObject {
     // ------------------------------------------------------------ 主题色块
     readonly property int swatchHeight: 28
     readonly property int swatchMinWidth: 64
+
+    // ---------------------------------------------------------------- 输入控件
+    readonly property int inputHeight: 30
+    readonly property int inputMinWidth: 120
+    readonly property int inputPadding: 8
+    readonly property int spinIndicatorWidth: 22
+    readonly property int spinContentPadding: 6
+    readonly property int checkIndicatorSize: 16
 }

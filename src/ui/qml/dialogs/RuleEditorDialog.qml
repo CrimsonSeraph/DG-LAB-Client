@@ -19,6 +19,13 @@ Dialog {
     height: 700
     padding: Metrics.spacingMd
 
+    background: Rectangle {
+        radius: Metrics.radiusMd
+        color: Theme.surface
+        border.width: Metrics.borderWidth
+        border.color: Theme.border
+    }
+
     RowLayout {
         anchors.fill: parent
         spacing: Metrics.spacingLg
@@ -473,7 +480,7 @@ Dialog {
                 Layout.fillWidth: true
             }
 
-            TextField {
+            AppTextField {
                 id: nameField
 
                 placeholderText: qsTr("规则名")
@@ -483,7 +490,7 @@ Dialog {
                 onEditingFinished: if (ruleGraph.selectedNode.type === "rule") ruleGraph.renameRuleNode(ruleGraph.selectedNode.id, text)
             }
 
-            ComboBox {
+            AppComboBox {
                 id: modeCombo
 
                 Layout.fillWidth: true
@@ -493,7 +500,7 @@ Dialog {
                 onActivated: ruleGraph.setRuleMode(ruleGraph.selectedNode.id, currentIndex)
             }
 
-            CheckBox {
+            AppCheckBox {
                 text: qsTr("启用规则")
                 enabled: ruleGraph.selectedNode.type === "rule"
                 checked: ruleGraph.selectedNode.enabled === true
@@ -506,7 +513,7 @@ Dialog {
                 font.pixelSize: Typography.fontCaption
             }
 
-            TextArea {
+            AppTextArea {
                 id: expressionArea
 
                 Layout.fillWidth: true

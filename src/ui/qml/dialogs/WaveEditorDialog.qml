@@ -14,6 +14,13 @@ Dialog {
     height: 640
     padding: Metrics.spacingMd
 
+    background: Rectangle {
+        radius: Metrics.radiusMd
+        color: Theme.surface
+        border.width: Metrics.borderWidth
+        border.color: Theme.border
+    }
+
     RowLayout {
         anchors.fill: parent
         spacing: Metrics.spacingLg
@@ -30,7 +37,7 @@ Dialog {
                 font.pixelSize: Typography.fontBody
             }
 
-            TextField {
+            AppTextField {
                 id: nameField
 
                 objectName: "waveNameField"
@@ -109,7 +116,7 @@ Dialog {
                     font.pixelSize: Typography.fontSmall
                 }
 
-                SpinBox {
+                AppSpinBox {
                     id: durationSpin
 
                     objectName: "waveSectionDurationSpin"
@@ -132,7 +139,7 @@ Dialog {
                     font.pixelSize: Typography.fontSmall
                 }
 
-                SpinBox {
+                AppSpinBox {
                     id: freqStartSpin
 
                     objectName: "waveSectionFreqStartSpin"
@@ -154,7 +161,7 @@ Dialog {
                     font.pixelSize: Typography.fontSmall
                 }
 
-                SpinBox {
+                AppSpinBox {
                     id: freqEndSpin
 
                     objectName: "waveSectionFreqEndSpin"
@@ -176,7 +183,7 @@ Dialog {
                     font.pixelSize: Typography.fontSmall
                 }
 
-                SpinBox {
+                AppSpinBox {
                     id: strengthStartSpin
 
                     objectName: "waveSectionStrengthStartSpin"
@@ -198,7 +205,7 @@ Dialog {
                     font.pixelSize: Typography.fontSmall
                 }
 
-                SpinBox {
+                AppSpinBox {
                     id: strengthEndSpin
 
                     objectName: "waveSectionStrengthEndSpin"
@@ -255,7 +262,7 @@ Dialog {
                 Layout.fillHeight: true
                 clip: true
 
-                TextArea {
+                AppTextArea {
                     id: rawArea
 
                     objectName: "waveRawFramesArea"

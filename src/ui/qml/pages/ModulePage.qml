@@ -35,7 +35,7 @@ Item {
                     font.pixelSize: Typography.fontBody
                 }
 
-                ComboBox {
+                AppComboBox {
                     id: periodCombo
 
                     objectName: "modulePeriodCombo"
@@ -161,6 +161,13 @@ Item {
         width: 540
         height: 460
         padding: Metrics.spacingMd
+
+        background: Rectangle {
+            radius: Metrics.radiusMd
+            color: Theme.surface
+            border.width: Metrics.borderWidth
+            border.color: Theme.border
+        }
 
         ListView {
             anchors.fill: parent

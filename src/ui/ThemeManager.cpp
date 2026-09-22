@@ -10,6 +10,10 @@
 
 #include <QVariantMap>
 
+#include <algorithm>
+#include <cmath>
+#include <initializer_list>
+
 namespace {
 
     /// @brief 线性混合两个颜色（t=0 取 a，t=1 取 b）
@@ -20,15 +24,77 @@ namespace {
             a.blueF() * (1.0 - t) + b.blueF() * t);
     }
 
-    /// @brief 相对亮度（0~1），用于判断颜色深浅
+    /// @brief 粗略亮度（0~1），用于挑选底色与判断自定义主题明暗
     qreal luminance(const QColor& c) {
         return (0.2126 * c.redF() + 0.7152 * c.greenF() + 0.0722 * c.blueF());
     }
 
-    /// @brief 选择对比色（浅底给深字，深底给浅字）
-    QColor contrast_text(const QColor& background) {
-        return luminance(background) > 0.55 ? QColor(0x1F, 0x2A, 0x44) : QColor(0xFF, 0xFF, 0xFF);
+    /// @brief sRGB 单通道线性化（WCAG 2.x 定义）
+    qreal linear_channel(qreal channel) {
+        return channel <= 0.03928 ? channel / 12.92 : std::pow((channel + 0.055) / 1.055, 2.4);
     }
+
+    /// @brief WCAG 相对亮度（0~1）
+    qreal relative_luminance(const QColor& c) {
+        return 0.2126 * linear_channel(c.redF()) + 0.7152 * linear_channel(c.greenF()) + 0.0722 * linear_channel(c.blueF());
+    }
+
+    /// @brief WCAG 对比度（1~21），与前景/背景顺序无关
+    qreal contrast_ratio(const QColor& a, const QColor& b) {
+        const qreal la = relative_luminance(a);
+        const qreal lb = relative_luminance(b);
+        return (std::max(la, lb) + 0.05) / (std::min(la, lb) + 0.05);
+    }
+
+    /// @brief 将前景色朝远离背景色的方向调整，直到对比度达到 target
+    QColor ensure_contrast(QColor foreground, const QColor& background, qreal target) {
+        if (contrast_ratio(foreground, background) >= target) {
+            return foreground;
+        }
+        const QColor limit = relative_luminance(background) < 0.5 ? QColor(Qt::white) : QColor(Qt::black);
+        for (int step = 1; step <= 100; ++step) {
+            const QColor candidate = mix(foreground, limit, step / 100.0);
+            if (contrast_ratio(candidate, background) >= target) {
+                return candidate;
+            }
+        }
+        return limit;
+    }
+
+    /// @brief 依次对多个背景保证对比度（同一主题内调整方向一致，取最严格结果）
+    QColor ensure_contrast_on(QColor foreground, std::initializer_list<QColor> backgrounds, qreal target) {
+        for (const QColor& background : backgrounds) {
+            foreground = ensure_contrast(foreground, background, target);
+        }
+        return foreground;
+    }
+
+    /// @brief 将背景色朝远离文字色的方向调整，直到纯黑/纯白文字在其上达到 target
+    QColor ensure_background(QColor background, const QColor& text, qreal target) {
+        if (contrast_ratio(text, background) >= target) {
+            return background;
+        }
+        const QColor limit = relative_luminance(text) < 0.5 ? QColor(Qt::white) : QColor(Qt::black);
+        for (int step = 1; step <= 100; ++step) {
+            const QColor candidate = mix(background, limit, step / 100.0);
+            if (contrast_ratio(text, candidate) >= target) {
+                return candidate;
+            }
+        }
+        return limit;
+    }
+
+    /// @brief 选择对比色（在给定背景上取黑/白中对比度更高者）
+    QColor contrast_text(const QColor& background) {
+        const QColor dark(0x1F, 0x2A, 0x44);
+        const QColor light(Qt::white);
+        return contrast_ratio(light, background) >= contrast_ratio(dark, background) ? light : dark;
+    }
+
+    // 语义色基准值：每个主题都从基准色重新校正，避免主题间反复调整产生漂移
+    const QColor kSuccess(0x2E, 0x7D, 0x5B);
+    const QColor kWarning(0xB7, 0x79, 0x1F);
+    const QColor kDanger(0xC0, 0x39, 0x2B);
 
 } // namespace
 
@@ -53,7 +119,9 @@ void ThemeManager::build_presets() {
         { QStringLiteral("tiffany_blue_cheese"), QStringLiteral("蒂芙尼奶酪"), QColor(0x81, 0xD8, 0xCF), QColor(0xF8, 0xF5, 0xD6), false },
         { QStringLiteral("china_red_yellow"), QStringLiteral("中国红黄"), QColor(0xFF, 0x00, 0x00), QColor(0xFA, 0xEA, 0xD3), false },
         { QStringLiteral("vandyke_brown_khaki"), QStringLiteral("凡戴克棕卡其"), QColor(0x49, 0x2D, 0x22), QColor(0xD8, 0xC7, 0xB5), false },
-        { QStringLiteral("prussian_blue_fog"), QStringLiteral("普鲁士雾灰"), QColor(0x00, 0x31, 0x53), QColor(0xE5, 0xDD, 0xD7), false }
+        { QStringLiteral("prussian_blue_fog"), QStringLiteral("普鲁士雾灰"), QColor(0x00, 0x31, 0x53), QColor(0xE5, 0xDD, 0xD7), false },
+        { QStringLiteral("midnight_blue"), QStringLiteral("午夜蓝"), QColor(0x14, 0x22, 0x40), QColor(0x5B, 0x8D, 0xEF), true },
+        { QStringLiteral("forest_green"), QStringLiteral("森野绿"), QColor(0x16, 0x33, 0x2A), QColor(0x7B, 0xC9, 0x8A), true }
     };
 }
 
@@ -149,35 +217,52 @@ void ThemeManager::recompute() {
     const QColor dark_c = (light == primary_) ? secondary_ : primary_;
 
     if (!dark_) {
-        window_bg_ = mix(light, Qt::white, 0.30);
-        surface_ = mix(light, Qt::white, 0.62);
-        surface_alt_ = mix(light, Qt::white, 0.45);
+        // 浅色主题：先保证底色浅到能承载深色文字，再逐级校正文字与边框对比度
+        surface_ = ensure_background(mix(light, Qt::white, 0.62), QColor(Qt::black), 7.05);
+        surface_alt_ = ensure_background(mix(light, Qt::white, 0.45), QColor(Qt::black), 4.60);
+        window_bg_ = ensure_background(mix(light, Qt::white, 0.30), QColor(Qt::black), 4.60);
         surface_subtle_ = mix(light, Qt::white, 0.80);
-        border_ = mix(dark_c, Qt::white, 0.68);
-        divider_ = mix(dark_c, Qt::white, 0.82);
-        text_primary_ = mix(dark_c, Qt::black, 0.55);
-        text_secondary_ = mix(dark_c, Qt::white, 0.20);
-        text_muted_ = mix(dark_c, Qt::white, 0.48);
+        text_primary_ = ensure_contrast(mix(dark_c, Qt::black, 0.55), surface_, 7.0);
+        text_secondary_ = ensure_contrast_on(mix(dark_c, Qt::white, 0.05), { surface_, surface_alt_, window_bg_ }, 4.5);
+        text_muted_ = ensure_contrast_on(mix(dark_c, Qt::white, 0.30), { surface_, surface_alt_, window_bg_ }, 4.5);
         accent_ = dark_c;
         // 过浅的强调色在浅色底上不可读，统一压暗到可用范围
         if (luminance(accent_) > 0.72) {
             accent_ = accent_.darker(170);
         }
+        border_ = mix(dark_c, Qt::white, 0.68);
+        divider_ = mix(dark_c, Qt::white, 0.82);
     }
     else {
-        window_bg_ = mix(dark_c, Qt::black, 0.15);
-        surface_ = dark_c;
-        surface_alt_ = mix(dark_c, Qt::white, 0.08);
-        surface_subtle_ = mix(dark_c, Qt::white, 0.03);
-        border_ = mix(dark_c, Qt::white, 0.22);
-        divider_ = mix(dark_c, Qt::white, 0.14);
-        text_primary_ = mix(light, Qt::white, 0.88);
-        text_secondary_ = mix(light, Qt::white, 0.58);
-        text_muted_ = mix(light, Qt::white, 0.38);
+        // 深色主题：底色压暗到能承载接近纯白的文字，再派生次级表面
+        surface_ = ensure_background(dark_c, QColor(Qt::white), 7.05);
+        surface_alt_ = ensure_background(mix(surface_, Qt::white, 0.08), QColor(Qt::white), 4.60);
+        window_bg_ = ensure_background(mix(surface_, Qt::black, 0.15), QColor(Qt::white), 4.60);
+        surface_subtle_ = mix(surface_, Qt::white, 0.03);
+        text_primary_ = ensure_contrast(mix(light, Qt::white, 0.88), surface_, 7.0);
+        text_secondary_ = ensure_contrast_on(mix(light, Qt::white, 0.58), { surface_, surface_alt_, window_bg_ }, 4.5);
+        text_muted_ = ensure_contrast_on(mix(light, Qt::white, 0.38), { surface_, surface_alt_, window_bg_ }, 4.5);
         accent_ = light;
+        border_ = mix(surface_, Qt::white, 0.22);
+        divider_ = mix(surface_, Qt::white, 0.14);
     }
 
-    accent_text_ = contrast_text(accent_);
+    // 文字需同时在 surface / surfaceAlt / windowBg 上可读：surface 上达 WCAG AAA（7:1），其余至少达 AA（4.5:1）
+    text_primary_ = ensure_contrast_on(text_primary_, { surface_alt_, window_bg_ }, 4.5);
+
+    // 强调色作为文字/图标需在表面上可读，其上的对比文字也需可读
+    accent_ = ensure_contrast_on(accent_, { surface_, surface_alt_ }, 4.5);
+    accent_text_ = ensure_contrast(contrast_text(accent_), accent_, 4.5);
+
+    // 边框与分隔线在 surface 与 surfaceAlt 上都需可见
+    border_ = ensure_contrast_on(border_, { surface_, surface_alt_ }, 1.35);
+    divider_ = ensure_contrast_on(divider_, { surface_, surface_alt_ }, 1.15);
+
+    // 语义色随主题校正，保证作为文字/描边时可见
+    success_ = ensure_contrast(kSuccess, surface_, 4.5);
+    warning_ = ensure_contrast(kWarning, surface_, 4.5);
+    danger_ = ensure_contrast(kDanger, surface_, 4.5);
+
     hover_ = mix(accent_, dark_ ? Qt::white : Qt::black, 0.14);
     pressed_ = mix(accent_, dark_ ? Qt::black : Qt::white, 0.14);
     selection_bg_ = mix(accent_, dark_ ? Qt::black : Qt::white, dark_ ? 0.62 : 0.74);
