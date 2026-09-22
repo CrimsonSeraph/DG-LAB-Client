@@ -17,7 +17,7 @@
 > - [十三、许可证](#十三许可证)
 > - [十四、联系方式](#十四联系方式)
 
-一个基于 Qt/QML 的 DG-Lab 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v1.0.0`
+一个基于 Qt/QML 的 DG-Lab 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v2.0.0`
 
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
@@ -40,7 +40,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 ## 二、功能特性
 
-- **QML 界面层** `Dglab` QML 模块包含主窗口、页面、组件与对话框，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 14 套预设与自定义主/副色）；QML 默认不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接（画布类手势为登记在案的例外）。详见 [src/ui/README.md](src/ui/README.md)。
+- **QML 界面层** `Dglab` QML 模块包含主窗口、页面、组件与对话框，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 16 套预设与自定义主/副色，令牌与对比度说明见 [docs/theme.md](docs/theme.md)）；QML 默认不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接（画布类手势为登记在案的例外）。详见 [src/ui/README.md](src/ui/README.md)。
 
 - **内置 WebSocket 中转服务** `DglabRelayServer` 基于 `Qt WebSockets` 在应用内托管 DG-LAB 中转服务（V3 / V4）：分配 clientId、处理 bind 配对与心跳、转发强度/波形/清除指令、解析 APP 回传；V4 额外维护被控方设备列表并下发 `device.op` / `device.op.clear`。配对二维码由内嵌 `qrcodegen`（MIT）经 `QrImageProvider` 提供给 QML。
 
@@ -48,10 +48,9 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 - **规则引擎** 提供 `Rule` 类（支持 `{}`、`{id:xxx(名称)}`、`{rule:xx}` 占位符）和单例 `RuleManager`。可从指定目录下扫描 JSON 规则文件（含关键字 `rule`），加载规则集，并支持创建/删除/切换规则文件。规则支持启用状态（`enabled`）、多父级（通道 A/B 或规则引用）、唯一规则序号，值模式支持空值语义（任一引用为空时忽略该项计算），规则间可通过 `{rule:xx}` 引用结果并级联触发，父级为通道的规则结果自动发送给 Python 子进程。规则可用于动态生成发送给 Python 子进程的命令（如强度操作、波形参数），极大提升了操作的灵活性。
 
-- **进程检查 (ProcessChecker)**
-  提供 `ProcessChecker` 静态工具类，跨平台查询指定名称的进程是否在运行（Windows 使用 `tasklist`，macOS/Linux 使用 `ps`），支持大小写敏感开关。用于 CS2 GSI 配置更新时判断游戏是否运行（配置仅游戏启动时加载，运行中更新需提示重启游戏）。
+- **进程检查 (ProcessChecker)** 提供 `ProcessChecker` 静态工具类，跨平台查询指定名称的进程是否在运行（Windows 使用 `tasklist`，macOS/Linux 使用 `ps`），支持大小写敏感开关。用于 CS2 GSI 配置更新时判断游戏是否运行（配置仅游戏启动时加载，运行中更新需提示重启游戏）。
 
-- **CS2 GSI 插件 (CS2GsiPlugin)**  `CS2GsiPlugin`（`module/gsi/`）将原静态 `CS2GSIModule` 改造为符合 `IPlugin` 接口的动态库插件：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取监听端口，按模块最小查询周期计算 `buffer`/`throttle` 并生成 `gamestate_integration_dglab.cfg`（路径记录到 `user.json` 的 `app.gsi` 下，经宿主配置接口读写）。插件经宿主共享 `DataListener` 接收 GSI 数据（HTTP POST），注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项，参照官方 GSI 规范），并实现**自身/队友数据归属区分**：首次收到有效数据时记录 `player.steamid` 为本地玩家基准，之后比较——一致为自身（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），不一致为队友（个人数值**不更新**，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。周期变化时自动更新配置；若 `cs2.exe` 运行中，经宿主 `notify` 弹出重启游戏提示。
+- **CS2 GSI 插件 (CS2GsiPlugin)** `CS2GsiPlugin`（`module/gsi/`）将原静态 `CS2GSIModule` 改造为符合 `IPlugin` 接口的动态库插件：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取监听端口，按模块最小查询周期计算 `buffer`/`throttle` 并生成 `gamestate_integration_dglab.cfg`（路径记录到 `user.json` 的 `app.gsi` 下，经宿主配置接口读写）。插件经宿主共享 `DataListener` 接收 GSI 数据（HTTP POST），注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项，参照官方 GSI 规范），并实现**自身/队友数据归属区分**：首次收到有效数据时记录 `player.steamid` 为本地玩家基准，之后比较——一致为自身（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），不一致为队友（个人数值**不更新**，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。周期变化时自动更新配置；若 `cs2.exe` 运行中，经宿主 `notify` 弹出重启游戏提示。
 
 - **首页通道面板** 首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式，`x_wave_card` 波形卡片保持现状。
 
@@ -65,7 +64,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 - **IP 选择辅助 (IpSelector)** 提供 `IpSelector` 单例类，自动匹配可用 IP 地址（基于黑白名单关键词过滤网卡名称），支持弹出图形化对话框让用户编辑黑白名单并手动选择 IP。简化设备连接前的网络配置流程。
 
-- **样式系统增强** 重构 Qt 样式表，使用 `type` 和 `theme` 属性实现精细的控件分类（导航按钮、操作按钮、标题、输入框等）。支持 **14 种预设主题**（亮色、暗色及 12 种彩色主题，如炭黑甜粉、深海奶白、克莱因黄等），通过 `ThemeSelectorDialog` 以网格卡片形式可视化切换，代码中通过 `apply_widget_properties()` 统一设置控件属性，配合 QSS 实现现代化玻璃拟态界面。
+- **主题系统（QML）** 颜色集中在 C++ 单例 `Theme`（`ThemeManager`）：16 套预设 + 自定义主/副色，运行时按主/副色派生 `surface` / `surfaceAlt` / `border` / `textPrimary` / `accent` 等语义令牌，并按 WCAG 对比度下限逐主题校正；配置页提供预设网格与取色对话框切换，即时生效。令牌清单、预设色值与扩展方式见 [docs/theme.md](docs/theme.md)。
 
 - **日志与调试** `DebugLog` 提供模块化日志等级控制，可输出到控制台、Qt 界面等不同的 `LogSink`；通过 `Console` 类可在 Windows 上创建调试控制台。
 
@@ -185,7 +184,7 @@ cpack
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "debug": false,
         "log": {
             "console_level": 0,
@@ -405,17 +404,14 @@ wave->input_data("strength_A", 250);
 
 ### 11. 主题切换
 
-程序内置了 **14 种**预设主题，涵盖亮色、暗色及多种彩色风格（如炭黑甜粉、深海奶白、克莱因黄、中国红黄等）。用户可通过以下方式切换主题:
+程序内置了 **16 套**预设主题，涵盖亮色、暗色及多种彩色风格（如炭黑甜粉、深海奶白、克莱因黄、午夜蓝、森野绿等）。颜色由 C++ 单例 `Theme` 提供，切换后 QML 属性绑定即时刷新，无需重启或重载样式表。用户可通过以下方式切换主题:
 
-1. 在“设置”页面点击“主题选择”按钮，打开 `ThemeSelectorDialog` 对话框。
-2. 对话框以卡片形式列出所有主题，每张卡片显示:
-    - 主题中文名称（如“浅色模式”、“炭黑甜粉”）
-    - 英文模式名（如 `light`、`charcoal_pink`）
-    - 主色预览块及颜色代码（如 `#E8F0FE`）
-3. 单击任意卡片，程序将立即加载对应主题的样式表（`qcss/主题英文名.qcss`），并保存配置到 `app.ui.theme` 字段。
-4. 切换后主窗口的标题栏、按钮、日志区域等控件会自动应用新主题（通过 `load_stylesheet()` 和 `apply_inline_styles()` 实现）。
+1. 打开“配置”页面的“主题”卡片，点击“选择主题”按钮，弹出预设主题对话框。
+2. 对话框逐行列出所有预设，每行显示主色块、副色块、中文名称与英文模式名（如 `light`、`charcoal_pink`）。
+3. 单击任意一行即调用 `Theme.applyPreset(mode)` 应用该主题，并把模式名保存到 `config/user.json` 的 `app.ui.theme`。
+4. 需要自定义主/副色时点击“自定义主题”，通过取色对话框选择颜色后保存（`Theme.applyCustom`，持久化到 `app.ui.custom.primary` / `app.ui.custom.secondary`）。
 
-> **注意**: 若所选主题的 QSS 文件不存在，程序会自动回退到 `light.qcss`。主题配置文件存储于 `config/user.json` 中的 `app.ui.theme` 键。
+> **注意**: 所有主题的令牌都会按 WCAG 对比度下限校正，浅色主题下也不会出现不可读文字；令牌清单、每套预设的主/副色与派生色值、扩展新主题的方法见 [docs/theme.md](docs/theme.md)。
 
 ### 12. 插件开发指南
 
@@ -441,8 +437,9 @@ wave->input_data("strength_A", 250);
 | 生命周期 | `cleanup()` / `can_unload()` | 资源清理 / 卸载前检查（拒绝时保持已加载） |
 | 周期通知 | `on_host_period_changed()` | 宿主查询周期变化时被调用（可选实现） |
 
-数值通过 `ModuleValue` 构造可携带**可选最小/最大值**（如 `ModuleValue("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth", 0, 100)`，空表示无上下限）：弹窗显示 `当前值 \| 最小值/最大值`（无范围显示 `NULL`），写入时自动钳制到范围。
 | 日志 | `set_log_callback()` / `log()` | 日志回调注入；插件用 `PLUGIN_LOG(this, level, ...)` 宏上报 |
+
+数值通过 `ModuleValue` 构造可携带**可选最小/最大值**（如 `ModuleValue("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth", 0, 100)`，空表示无上下限）：弹窗显示 `当前值 \| 最小值/最大值`（无范围显示 `NULL`），写入时自动钳制到范围。
 
 #### 12.3 动态库导出约定
 
@@ -713,21 +710,8 @@ DG-LAB-Client/
 │   ├── WebSocketCore.py                # WebSocket 核心逻辑
 │   ├── PathFinder.py                   # 跨平台路径查找工具（Steam 游戏目录等）
 │   └── README.md                       # Python 脚本说明
-├── qcss/                               # Qt 样式表（共 14 个主题文件）
-│   ├── light.qcss                      # 浅色模式
-│   ├── night.qcss                      # 深色模式
-│   ├── charcoal_pink.qcss              # 炭黑甜粉
-│   ├── deepsea_cream.qcss              # 深海奶白
-│   ├── vine_purple_tea_green.qcss      # 藤紫钛绿
-│   ├── offwhite_camellia.qcss          # 无白茶花
-│   ├── dark_blue_clear_blue.qcss       # 捣蓝清水
-│   ├── klein_yellow.qcss               # 克莱因黄
-│   ├── mars_green_rose.qcss            # 马尔斯玫瑰
-│   ├── hermes_orange_navy.qcss         # 爱马仕深蓝
-│   ├── tiffany_blue_cheese.qcss        # 蒂芙尼奶酪
-│   ├── china_red_yellow.qcss           # 中国红黄
-│   ├── vandyke_brown_khaki.qcss        # 凡戴克棕卡其
-│   └── prussian_blue_fog.qcss          # 普鲁士雾灰
+├── docs/                               # 开发文档
+│   └── theme.md                        # 主题令牌、预设配色与对比度说明
 ├── screenshot/                         # 截屏资源文件
 │   ├── others/                         # 其他截屏
 │   ├── pages/                          # 页面截屏
@@ -805,7 +789,7 @@ DG-LAB-Client/
 | :-: | :-: | :-: | :-: |
 | ![IpSelector](screenshot/others/IpSelector.png) | ![ThemeSelectorDialog](screenshot/others/ThemeSelectorDialog.png) | ![ValueModeDelegate](screenshot/others/ValueModeDelegate.png) | ![Console](screenshot/others/Console.png) |
 
-> 更多主题截图请查看 [`screenshot/themes/`](screenshot/themes/) 目录，共 14 种配色方案。
+> 更多主题截图请查看 [`screenshot/themes/`](screenshot/themes/) 目录，共收录 14 套配色截图（应用内置 16 套主题，「午夜蓝」「森野绿」的预览待补充）。
 
 </details>
 
@@ -920,7 +904,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 - 编译运行客户端后，打开 `配置` 页面，在端口中输入 **你需要更换的端口** 并点击右侧的 `确定`，若显示端口更改成功即完成更改。
 - 在默认的配置文件 `system.json` 中 `app.websocket.port` 即是所用端口
 
-> 若在项目根目录更改，请确保构建输出目录下的配置文件也应用更改！端口范围建议使用 1024~65535 之间的数字，避免使用系统保留端口（0~1023）。
+> 若在项目根目录更改，请确保构建输出目录下的配置文件也应用更改！端口范围建议使用 1024~~65535 之间的数字，避免使用系统保留端口（0~~1023）。
 
 **现象**
 

@@ -54,7 +54,7 @@ signals:
 
 private:
     QString app_name_ = QStringLiteral("DG-LAB-Client");
-    QString app_version_ = QStringLiteral("1.0.0");
+    QString app_version_ = QStringLiteral("2.0.0");
     int current_page_ = HomePage;
     QString status_text_;
 };

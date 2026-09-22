@@ -120,7 +120,7 @@ C++ 侧提供桥接对象与连接集中点，QML 只做绑定与渲染；界面
 
 | 文件 | 描述 |
 | --- | --- |
-| `ThemeManager.cpp` | 主题令牌（14 套预设 + 自定义主/副色），注册为 QML 单例 `Theme` |
+| `ThemeManager.cpp` | 主题令牌（16 套预设 + 自定义主/副色，按 WCAG 校正对比度），注册为 QML 单例 `Theme`；令牌与预设见 [docs/theme.md](../docs/theme.md) |
 | `AppBridge.cpp` | 应用信息与页面导航、状态栏文本 |
 | `DeviceController.cpp` | 启停内置中转服务、配对链接与二维码、强度/波形/清除下发与回传转发 |
 | `HomeBridge.cpp` | 首页 A/B 通道强度、上限、启用状态、模块与规则摘要 |

@@ -427,7 +427,7 @@ void AppConfig::initialize_configs_unsafe() {
     main_config_obj_ = ConfigObject<MainConfig>(main_config_, "main",
         MainConfig{
             .app_name_ = get_value_unsafe<std::string>("app.name", "DG-LAB-Client"),
-            .app_version_ = get_value_unsafe<std::string>("app.version", "1.0.0"),
+            .app_version_ = get_value_unsafe<std::string>("app.version", "2.0.0"),
             .debug_mode_ = get_value_unsafe<bool>("app.debug", false),
             .console_level_ = get_value_unsafe<int>("app.log.console_level", 0),
             .is_only_type_info_ = get_value_unsafe<bool>("app.log.only_type_info", false),

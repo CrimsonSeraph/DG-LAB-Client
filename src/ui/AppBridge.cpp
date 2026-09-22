@@ -14,7 +14,7 @@ AppBridge::AppBridge(QObject* parent)
 void AppBridge::initialize() {
     const auto& config = AppConfig::instance();
     app_name_ = QString::fromStdString(config.get_value<std::string>("app.name", "DG-LAB-Client"));
-    app_version_ = QString::fromStdString(config.get_value<std::string>("app.version", "1.0.0"));
+    app_version_ = QString::fromStdString(config.get_value<std::string>("app.version", "2.0.0"));
     emit appInfoChanged();
 }
 

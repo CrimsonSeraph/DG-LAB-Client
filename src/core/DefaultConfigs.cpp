@@ -22,7 +22,7 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             {"__priority", 0},
             {"app", {
                 {"name", "DG-LAB-Client"},
-                {"version", "0.6.0"},
+                {"version", "2.0.0"},
                 {"debug", false},
                 {"log", {
                     {"console_level", 0},

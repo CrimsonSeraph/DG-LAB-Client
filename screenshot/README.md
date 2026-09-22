@@ -34,14 +34,14 @@ screenshot/
     └── prussian_blue_fog.png
 ```
 
-> **说明**：主题截图展示了同一界面（例如首页）在不同主题下的配色效果，完整主题共 14 种。
+> **说明**：主题截图展示了同一界面（例如首页）在不同主题下的配色效果。应用内置 16 套主题，本目录当前收录 14 套；新增的「午夜蓝」「森野绿」预览待补充。
 
 ---
 
 ## 🖼️ Others – 辅助功能/对话框
 
 | 截图 | 说明 |
-|------|------|
+| --- | --- |
 | ![Console](others/Console.png) | **Windows 调试控制台** <br>当 `app.debug = true` 时自动创建，显示详细日志输出。 |
 | ![IpSelector](others/IpSelector.png) | **IP 选择器对话框** <br>支持编辑黑白名单、手动选择可用 IP。 |
 | ![ThemeSelectorDialog](others/ThemeSelectorDialog.png) | **主题选择对话框** <br>网格卡片形式展示所有主题，点击即切换。 |
@@ -52,7 +52,7 @@ screenshot/
 ## 📄 Pages – 主界面页面
 
 | 截图 | 说明 |
-|------|------|
+| --- | --- |
 | ![main_page](pages/main_page.png) | **首页** <br>包含连接信息、A/B 通道强度控制、实时波形显示区域。 |
 | ![config_page](pages/config_page.png) | **配置页** <br>规则表格展示，支持添加/编辑/删除规则，修改规则文件。 |
 | ![rule_page](pages/rule_page.png) | **规则文件管理页** <br>切换/新建/删除/保存规则文件，管理规则文件列表。 |
@@ -64,7 +64,7 @@ screenshot/
 所有主题均以上述首页（main_page）为例，展示不同的配色方案。
 
 | 主题名称 | 英文模式名 | 预览图 |
-|---------|-----------|--------|
+| --- | --- | --- |
 | 浅色模式 | light | ![light](themes/light.png) |
 | 深色模式 | night | ![night](themes/night.png) |
 | 炭黑甜粉 | charcoal_pink | ![charcoal_pink](themes/charcoal_pink.png) |
@@ -80,7 +80,7 @@ screenshot/
 | 凡戴克棕卡其 | vandyke_brown_khaki | ![vandyke_brown_khaki](themes/vandyke_brown_khaki.png) |
 | 普鲁士雾灰 | prussian_blue_fog | ![prussian_blue_fog](themes/prussian_blue_fog.png) |
 
-> **注意**：如果部分主题截图尚未添加，对应位置将显示占位符。请确保 `themes/` 目录下包含全部 14 张图片，且文件名与上表一致。
+> **注意**：如果部分主题截图尚未添加，对应位置将显示占位符。上表对应 14 张已生成的图片；应用内置 16 套主题，新增预设的预览图补充后请同步加入上表。
 
 ---
 
@@ -95,11 +95,12 @@ screenshot/
 ## 🔧 维护
 
 如需更新截图，请保持以下约定：
+
 - 命名使用小写字母和下划线（snake_case）。
 - PNG 格式，建议无压缩或低压缩，保证文字清晰。
 - 同功能区域的新截图请放入对应的子目录（`others/`、`pages/`、`themes/`）。
 - 更新后请同步修改本 README 中的文件名和说明。
 
---- 
+---
 
-*最后更新：2026-05-03*
+_最后更新：2026-05-03_

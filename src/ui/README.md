@@ -8,14 +8,14 @@
 
 ## 依赖
 
-| 依赖 | 说明 |
-| --- | --- |
-| `Qt6::Quick` / `Qt6::Qml` | QML 运行时 |
-| `Qt6::QuickControls2` | 控件（应用统一样式设为 `Basic`，外观完全由样式令牌控制） |
-| `Qt6::QuickDialogs2` | `ColorDialog`（自定义主题取色）等 |
-| `AppConfig` / `DebugLog` | 核心基础设施 |
-| `ModuleManager` / `RuleManager` | 数据与规则来源 |
-| `PythonSubprocessManager` | 当前设备通信通道（阶段 7 将替换为应用内 WebSocket 服务） |
+| 依赖                            | 说明                                                     |
+| ------------------------------- | -------------------------------------------------------- |
+| `Qt6::Quick` / `Qt6::Qml`       | QML 运行时                                               |
+| `Qt6::QuickControls2`           | 控件（应用统一样式设为 `Basic`，外观完全由样式令牌控制） |
+| `Qt6::QuickDialogs2`            | `ColorDialog`（自定义主题取色）等                        |
+| `AppConfig` / `DebugLog`        | 核心基础设施                                             |
+| `ModuleManager` / `RuleManager` | 数据与规则来源                                           |
+| `PythonSubprocessManager`       | 当前设备通信通道（阶段 7 将替换为应用内 WebSocket 服务） |
 
 ## 目录结构
 
@@ -39,7 +39,12 @@ src/ui/
 │   ├── components/
 │   │   ├── GlassCard.qml       # 卡片容器
 │   │   ├── AppButton.qml       # 通用按钮
-│   │   └── NavButton.qml       # 左侧导航按钮
+│   │   ├── NavButton.qml       # 左侧导航按钮
+│   │   ├── AppSpinBox.qml      # 主题化 SpinBox
+│   │   ├── AppTextField.qml    # 主题化单行输入框
+│   │   ├── AppTextArea.qml     # 主题化多行输入框
+│   │   ├── AppComboBox.qml     # 主题化下拉框
+│   │   └── AppCheckBox.qml     # 主题化勾选框
 │   └── style/                  # 【QML 单例】设计令牌（页面只引用，不写字面量）
 │       ├── Metrics.qml         # 间距 / 圆角 / 描边 / 通用尺寸
 │       ├── Typography.qml      # 字号
@@ -61,7 +66,7 @@ src/ui/
 | `waveBridge` | `WaveBridge` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
-| `Theme` | `ThemeManager`（QML 单例） | 主题令牌（14 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom` |
+| `Theme` | `ThemeManager`（QML 单例） | 主题令牌（16 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
 
 ## objectName 契约表
 
@@ -75,12 +80,12 @@ src/ui/
 
 首页通道（`ChannelPanel`，`channel` 为 A/B）：
 
-| objectName | 行为 |
-| --- | --- |
-| `channel{A,B}StartButton` | 切换通道启用状态（同步规则引擎通道变量） |
-| `channel{A,B}StrengthSpin` | 设置目标强度（`valueModified`） |
-| `channel{A,B}StrengthIncrease` / `Decrease` | 强度 ±1 |
-| `channel{A,B}SelectWaveButton` | 选择波形（阶段 6） |
+| objectName                                  | 行为                                     |
+| ------------------------------------------- | ---------------------------------------- |
+| `channel{A,B}StartButton`                   | 切换通道启用状态（同步规则引擎通道变量） |
+| `channel{A,B}StrengthSpin`                  | 设置目标强度（`valueModified`）          |
+| `channel{A,B}StrengthIncrease` / `Decrease` | 强度 ±1                                  |
+| `channel{A,B}SelectWaveButton`              | 选择波形（阶段 6）                       |
 
 配置页：
 
@@ -100,17 +105,33 @@ src/ui/
 
 ## 样式令牌（style/ 单例）
 
-| 单例 | 职责 |
-| --- | --- |
-| `Metrics` | 间距刻度、圆角、描边、导航宽度、卡片内边距、按钮高度 |
-| `Typography` | `fontTiny` ~ `fontDisplay` |
-| `Responsive` | 窗口断点（`isCompactNav` / `isNarrow`）与最小窗口尺寸 |
+| 单例             | 职责                                                       |
+| ---------------- | ---------------------------------------------------------- |
+| `Metrics`        | 间距刻度、圆角、描边、导航宽度、卡片内边距、按钮高度       |
+| `Typography`     | `fontTiny` ~ `fontDisplay`                                 |
+| `Responsive`     | 窗口断点（`isCompactNav` / `isNarrow`）与最小窗口尺寸      |
 | `ComponentStyle` | 通道卡片、波形预览、规则节点编辑器、主题色块等组件专属度量 |
-| `Theme`（C++） | 全部颜色令牌 |
+| `Theme`（C++）   | 全部颜色令牌                                               |
 
 新增样式时：颜色补进 `ThemeManager`，字号补进 `Typography`，通用间距/圆角补进 `Metrics`，断点补进 `Responsive`，组件度量补进 `ComponentStyle`，**不要**在页面里留字面量。
 
 > `QT_QML_SINGLETON_TYPE` 是**逐文件**属性，一个 `set_source_files_properties()` 里写多组同名属性只有最后一组生效；因此 `CMakeLists.txt` 中一个单例一条调用。
+
+## 输入控件约定
+
+Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `components/` 下的封装：
+
+| 控件           | 基于        | 说明                                                   |
+| -------------- | ----------- | ------------------------------------------------------ |
+| `AppSpinBox`   | `SpinBox`   | 内容区 / 上下指示器 / 背景全部取 `Theme` 令牌          |
+| `AppTextField` | `TextField` | 文字 / 占位符 / 选区 / 背景主题化，聚焦描边转 `accent` |
+| `AppTextArea`  | `TextArea`  | 同 `AppTextField`，用于表达式等长文本                  |
+| `AppComboBox`  | `ComboBox`  | 内容区 / 指示器 / 弹层 / 委托全部主题化                |
+| `AppCheckBox`  | `CheckBox`  | 指示器与文字主题化，选中态用 `accent`                  |
+
+- 控件只读 `Theme` / `Metrics` / `Typography` / `ComponentStyle`，不写任何颜色字面量。
+- 新增输入控件先在此目录封装，尺寸常量补进 `ComponentStyle`，再替换页面中的原生控件。
+- 主题令牌、预设配色与对比度约束见 [docs/theme.md](../../docs/theme.md)。
 
 ## 信号连接约定
 
@@ -125,7 +146,7 @@ src/ui/
 
 | 例外位置 | 原因 | 约束 |
 | --- | --- | --- |
-| `dialogs/RuleEditorDialog.qml` 的规则图画布与节点（拖动、滚轮缩放、右键菜单、快捷键） | 手势与命中测试无法通过 `objectName` + C++ 连接表达 | 处理器内只调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型 |
+| `dialogs/RuleEditorDialog.qml` 的规则图画布与节点（拖动、滚轮缩放、右键菜单、快捷键） | 手势与命中测试无法通过 `objectName` + C++ 连接表达 | 处理器内只调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型。节点检查器（名称 / 模式 / 启用 / 表达式）沿用同一条例外，同样只调用 `ruleGraph`。本次控件主题化未新增或扩大例外 |
 | `Shape`/`Canvas` 的 `onPaint` 等绘制回调 | 渲染框架要求 | 只读取传入的 `points` 等属性，不写业务逻辑 |
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。

@@ -4,25 +4,28 @@
 
 版本号格式遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)
 
-> **注意**: 当前版本为 v1.0.0，已具备数据获取与处理能力（数值模块、插件化数据接入如 CS2 GSI、规则引擎等）。
+> **注意**: 当前版本为 v2.0.0，界面已整体迁移到 QML，并统一了控件主题与多主题配色。
 
 ---
 
-## [Unreleased]
+## [v2.0.0] - 2026-09-22
 
 ### Added
 
-- **QML 界面层（迁移中）**: 新增 `Dglab` QML 模块（`MainWindow` / 页面 / 组件 / `style` 单例），以 `qt_add_qml_module` 接入构建；界面采用左侧导航 + 页面栈 + 状态栏结构（原生标题栏）。
-- **主题令牌系统**: 新增 `ThemeManager`（注册为 QML 单例 `Theme`），提供 14 套预设主题与自定义主/副色的语义化颜色令牌，自定义色持久化到 `user.json`（`app.ui.custom.primary` / `app.ui.custom.secondary`）。
+- **QML 界面层**: 新增 `Dglab` QML 模块（`MainWindow` / 页面 / 组件 / `style` 单例），以 `qt_add_qml_module` 接入构建；界面采用左侧导航 + 页面栈 + 状态栏结构（原生标题栏）。
+- **主题令牌系统**: 新增 `ThemeManager`（注册为 QML 单例 `Theme`），提供 16 套预设主题与自定义主/副色的语义化颜色令牌，自定义色持久化到 `user.json`（`app.ui.custom.primary` / `app.ui.custom.secondary`）。
 - **界面桥接对象**: 新增 `AppBridge`（应用信息与页面导航）、`DeviceController`（连接状态、地址读写、二维码、强度/波形/清除指令与设备回传解析）、`HomeBridge`（A/B 通道强度、上限、启用状态、模块摘要与规则摘要）。
 - **首页 QML 通道面板**: A/B 通道面板包含强度（可编辑目标值、± 快捷、上限显示）、模块摘要、规则摘要（最近计算值）、波形入口与启停按钮。
 - **配置页连接与主题卡片**: 连接卡片（IP / 端口 / 连接断开 / 二维码）；主题卡片合并为单卡，展示当前主题名称、主色与副色，支持预设主题网格与 `ColorDialog` 自定义取色。
+- **配置页日志卡片**: 新增日志视图（`LogBridge` 级别过滤、自动滚动到底部）与导出 / 清空按钮，导出目录由 `LogExporter` 提供。
 - **集中式 QML↔C++ 连接**: `UiConnector` 按 `objectName` 统一建立交互连接；列表/中继器动态委托通过可视子树扫描连接。
 - **波形库与波形编辑器**: 新增 `Wave`/`WaveLibrary`（`config/waves/waves.json`，内置三种波形）与 `WaveBridge`；QML 提供 `WavePreview`（Shape 强度/频率双曲线）、`WaveSelectDialog`（"确定波形"改为"选择波形"）与 `WaveEditorDialog`（段落+关键帧、原始 V3 帧、实时预览、保存/发送）。
 - **应用内 WebSocket 中转服务**: 新增 `DglabRelayServer`，由应用直接托管 V3（9999）与 V4（9998）中转服务（配对、心跳、强度/波形/清除、V4 设备与 `device.op`），不再依赖 Node 官方后端与 Python `Bridge.py`/`WebSocketCore.py`。
 - **内置二维码**: 内嵌 Nayuki `qrcodegen`（MIT，`third_party/qrcodegen`）与 `QrImageProvider`，配对二维码由应用自身生成。
 - **规则可视化编辑器**: 新增 `RuleGraph`（规则/模块源/运算符/高级/通道输出节点与连线模型、规则 JSON 双向转换、侧车文件保存位置）与 `RuleGraphBridge`；QML 提供节点画布（平移/缩放、拖拽移动、拖拽连线、右键建节点、Ctrl+C/V、Delete）、模块数值面板与节点检查器；首页与配置页入口打开编辑器。
 - **蓝牙直连（郊狼 V3）**: 新增 `CoyoteBleController`，按官方 V3 蓝牙协议扫描设备（47L121000 / 47L120100）、连接、每 100ms 写 B0（强度 + 双通道波形）、写 BF 软上限与平衡参数、解析 B1 强度回传与电量；配置页新增蓝牙卡片（扫描/连接/设备列表/电量/强度增减）。
+- **主题化输入控件**: 新增 `AppSpinBox` / `AppTextField` / `AppTextArea` / `AppComboBox` / `AppCheckBox`（`src/ui/qml/components/`），输入控件的文字、占位符、选区、弹层与选中态全部改用 `Theme` 令牌；通道面板、配置页、模块页、规则编辑器与波形编辑器均已替换。
+- **多主题配色与对比度保障**: `ThemeManager` 预设扩展至 16 套（新增「午夜蓝」「森野绿」），并按 WCAG 逐主题校正文字、边框与语义色——`textPrimary` 对 `surface` ≥ 7:1，`textSecondary` / `textMuted` 对 `surface` / `surfaceAlt` ≥ 4.5:1；令牌清单、预设色值与扩展方式见 [docs/theme.md](docs/theme.md)。
 
 ### Changed
 
@@ -30,6 +33,7 @@
 - 数值模块与规则引擎改为在启动时初始化并加载默认规则文件。
 - 依赖调整：新增 Qt WebSockets / Bluetooth，移除 Qt Widgets；新增内嵌 `qrcodegen`；不再需要 Python `websockets` / `qrcode`。
 - CMake 在 Windows 构建后自动调用 `windeployqt` 把 Qt 运行时部署到输出目录（原先仅在打包阶段执行）。
+- QML 输入控件统一使用 `App*` 封装（`src/ui/qml/components/`），不再直接使用 Qt 原生控件；尺寸常量集中到 `ComponentStyle`。
 
 ### Deprecated
 
@@ -45,7 +49,10 @@
 
 ### Fixed
 
-- 无
+- 修复 QML 主界面加载失败与 `style/` 设计令牌单例失效的问题。
+- 修复浅色主题下 `textSecondary` / `textMuted` 因向白色混合导致文字几乎不可见的问题；背景与文字统一按 WCAG 对比度下限校正，`border` / `divider` 在 `surface` 与 `surfaceAlt` 上均可辨。
+- 修复原生 `SpinBox` / `TextField` / `TextArea` / `ComboBox` / `CheckBox` 未跟随主题（白底黑字或黑底白字）的问题。
+- 规则编辑器画布、节点卡片、端口、连线与检查器全面改用 `Theme` 令牌，对话框背景显式使用 `Theme.surface`。
 
 ### Security
 
@@ -363,6 +370,7 @@
 
 **变动**:
 
+- [v2.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v1.0.0...v2.0.0
 - [v1.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.6.0...v1.0.0
 - [v0.6.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0
 
