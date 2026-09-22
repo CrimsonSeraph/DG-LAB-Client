@@ -311,7 +311,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DG-LAB-Client-macos-universal
-          path: package/*
+          path: |
+            package/*.dmg
+            package/*.zip
+            package/SHA256SUMS*.txt
           if-no-files-found: error
           retention-days: 14
           compression-level: 0

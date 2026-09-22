@@ -122,7 +122,15 @@ jobs:
             echo "::error title=没有可用产物::未下载到任何 artifact"
             exit 1
           fi
-          find dist -type f -exec ls -lh {} \; | awk '{print $5"\t"$9}' | sort -k2
+
+          # 防回归：dist 下只应有文件，不应有子目录
+          if find dist -mindepth 1 -type d | grep -q .; then
+            echo "::error title=产物包含子目录::dist 下出现目录，artifact 路径可能又用了通配："
+            find dist -mindepth 1 -type d
+            exit 1
+          fi
+
+          find dist -maxdepth 1 -type f -exec ls -lh {} \; | awk '{print $5"\t"$9}' | sort -k2
           echo "---- 汇总大小 ----"
           du -sh dist
 
@@ -204,15 +212,27 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: DG-LAB-Client ${{ steps.tag.outputs.tag }}
-          # 用 CHANGELOG 抽出的正文；抽不到时回退到默认说明
           body: ${{ steps.notes.outputs.body }}
-          # 关闭自动生成
           generate_release_notes: false
+          # ★ 只发布最终产物，禁止 dist/**/* 这种递归通配
           files: |
-            dist/**/*
+            dist/*.zip
+            dist/*.7z
+            dist/*.tar.gz
+            dist/*.tgz
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
+            dist/*.exe
+            dist/*.dmg
+            dist/*.pkg
+            dist/*.msi
+            dist/SHA256SUMS*.txt
+            dist/*.asc
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
           fail_on_unmatched_files: false
+          overwrite_files: true
 
       - name: 发布摘要
         if: ${{ always() }}

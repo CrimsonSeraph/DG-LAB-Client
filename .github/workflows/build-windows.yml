@@ -227,6 +227,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "CPack 失败" }
           Get-ChildItem package
 
+      - name: 清理 CPack 临时目录
+        shell: pwsh
+        run: Remove-Item -Recurse -Force package/_CPack_Packages -ErrorAction SilentlyContinue
+
       - name: 生成不带 Python 运行时的精简包
         shell: pwsh
         run: |
@@ -297,7 +301,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DG-LAB-Client-windows-x64
-          path: package/*
+          path: |
+            package/*.zip
+            package/*.exe
+            package/SHA256SUMS*.txt
           if-no-files-found: error
           retention-days: 14
 

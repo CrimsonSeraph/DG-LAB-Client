@@ -196,6 +196,10 @@ jobs:
           cpack --config build/CPackConfig.cmake -B package
           ls -lh package/
 
+      - name: 清理 CPack 临时目录
+        shell: bash
+        run: rm -rf package/_CPack_Packages
+
       - name: 生成不带 Python 运行时的精简包
         shell: bash
         run: |
@@ -307,7 +311,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DG-LAB-Client-linux-x64
-          path: package/*
+          path: |
+            package/*.AppImage
+            package/*.deb
+            package/*.rpm
+            package/*.tar.gz
+            package/SHA256SUMS*.txt
+            package/*.asc
           if-no-files-found: error
           retention-days: 14
 
