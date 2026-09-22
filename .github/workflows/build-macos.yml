@@ -229,7 +229,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(awk '$1 == "VERSION" && $2 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ { print $2; exit }' CMakeLists.txt)"
+          VERSION="$(sed -n 's/^project([^)]*[[:space:]]VERSION[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' CMakeLists.txt | head -1)"
           VERSION="${VERSION:-1.0.0}"
           echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
           mkdir -p package
@@ -323,6 +323,7 @@ jobs:
           path: package/*
           if-no-files-found: error
           retention-days: 14
+          compression-level: 0
 
       - name: 清理钥匙串与临时证书
         if: ${{ always() }}

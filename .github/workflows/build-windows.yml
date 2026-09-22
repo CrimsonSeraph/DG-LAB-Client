@@ -170,7 +170,7 @@ jobs:
           Write-Host "已导入证书，指纹：$($cert.Thumbprint)"
 
           $signtool = Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/signtool.exe" |
-            Sort-Object { [version](Split-Path $_.DirectoryName -Leaf) } -Descending |
+            Sort-Object { [version](Split-Path (Split-Path $_.DirectoryName -Parent) -Leaf) } -Descending |
             Select-Object -First 1
           if (-not $signtool) { throw "未找到 signtool.exe" }
 
@@ -195,7 +195,7 @@ jobs:
       - name: 打包 zip（含 Python）
         shell: pwsh
         run: |
-          $version = (Select-String -Path CMakeLists.txt -Pattern '^\s*VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)' |
+          $version = (Select-String -Path CMakeLists.txt -Pattern '^\s*project\([^)]*\bVERSION\s+([0-9]+\.[0-9]+\.[0-9]+)' |
                       Select-Object -First 1).Matches.Groups[1].Value
           if (-not $version) { $version = '1.0.0' }
           "DG_LAB_VERSION=$version" >> $env:GITHUB_ENV
@@ -241,7 +241,7 @@ jobs:
           $signtool = $env:SIGNTOOL
           if (-not $signtool -or -not (Test-Path $signtool)) {
             $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/signtool.exe" |
-              Sort-Object { [version](Split-Path $_.DirectoryName -Leaf) } -Descending |
+              Sort-Object { [version](Split-Path (Split-Path $_.DirectoryName -Parent) -Leaf) } -Descending |
               Select-Object -First 1).FullName
           }
           Write-Host "签名安装包：$($setup.FullName)"

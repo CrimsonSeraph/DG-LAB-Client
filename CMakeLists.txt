@@ -1,6 +1,6 @@
 # 要求 CMake 最低版本 3.16
 cmake_minimum_required(VERSION 3.16)
-project(DG-LAB-Client LANGUAGES CXX)
+project(DG-LAB-Client VERSION 2.0.0 LANGUAGES CXX)
 
 # 引入 Qt 相关设置
 include(qt.cmake)
@@ -212,39 +212,48 @@ if(QT_VERSION_MAJOR EQUAL 6)
 
 	# style/ 下全部是 QML 单例（设计令牌）：QT_QML_SINGLETON_TYPE 是逐文件属性，
 	# 一次 set_source_files_properties 写多组同名属性只有最后一组生效，故一个文件一条。
-	set_source_files_properties(src/ui/qml/style/Metrics.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-	set_source_files_properties(src/ui/qml/style/Typography.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-	set_source_files_properties(src/ui/qml/style/Responsive.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
-	set_source_files_properties(src/ui/qml/style/ComponentStyle.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+	set_source_files_properties(src/ui/qml/style/Metrics.qml
+		PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+	)
+	set_source_files_properties(src/ui/qml/style/Typography.qml
+		PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+	)
+	set_source_files_properties(src/ui/qml/style/Responsive.qml
+		PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+	)
+	set_source_files_properties(src/ui/qml/style/ComponentStyle.qml
+		PROPERTIES QT_QML_SINGLETON_TYPE TRUE
+	)
 
-	qt_add_qml_module(${PROJECT_NAME}
+	qt_add_qml_module(
+		${PROJECT_NAME}
 		URI
 		Dglab
 		VERSION
 		1.0
 		QML_FILES
-			src/ui/qml/MainWindow.qml
-			src/ui/qml/pages/HomePage.qml
-			src/ui/qml/pages/ConfigPage.qml
-			src/ui/qml/pages/ModulePage.qml
-			src/ui/qml/pages/AboutPage.qml
-			src/ui/qml/home/ChannelPanel.qml
-			src/ui/qml/dialogs/WaveSelectDialog.qml
-			src/ui/qml/dialogs/WaveEditorDialog.qml
-			src/ui/qml/dialogs/RuleEditorDialog.qml
-			src/ui/qml/components/NavButton.qml
-			src/ui/qml/components/GlassCard.qml
-			src/ui/qml/components/AppButton.qml
-			src/ui/qml/components/AppSpinBox.qml
-			src/ui/qml/components/AppTextField.qml
-			src/ui/qml/components/AppTextArea.qml
-			src/ui/qml/components/AppComboBox.qml
-			src/ui/qml/components/AppCheckBox.qml
-			src/ui/qml/components/WavePreview.qml
-			src/ui/qml/style/Metrics.qml
-			src/ui/qml/style/Typography.qml
-			src/ui/qml/style/Responsive.qml
-			src/ui/qml/style/ComponentStyle.qml
+		src/ui/qml/MainWindow.qml
+		src/ui/qml/pages/HomePage.qml
+		src/ui/qml/pages/ConfigPage.qml
+		src/ui/qml/pages/ModulePage.qml
+		src/ui/qml/pages/AboutPage.qml
+		src/ui/qml/home/ChannelPanel.qml
+		src/ui/qml/dialogs/WaveSelectDialog.qml
+		src/ui/qml/dialogs/WaveEditorDialog.qml
+		src/ui/qml/dialogs/RuleEditorDialog.qml
+		src/ui/qml/components/NavButton.qml
+		src/ui/qml/components/GlassCard.qml
+		src/ui/qml/components/AppButton.qml
+		src/ui/qml/components/AppSpinBox.qml
+		src/ui/qml/components/AppTextField.qml
+		src/ui/qml/components/AppTextArea.qml
+		src/ui/qml/components/AppComboBox.qml
+		src/ui/qml/components/AppCheckBox.qml
+		src/ui/qml/components/WavePreview.qml
+		src/ui/qml/style/Metrics.qml
+		src/ui/qml/style/Typography.qml
+		src/ui/qml/style/Responsive.qml
+		src/ui/qml/style/ComponentStyle.qml
 	)
 endif()
 
@@ -258,8 +267,11 @@ if(WIN32)
 	)
 	get_filename_component(_qt_binary_dir "${_qt_qmake_location}" DIRECTORY)
 	find_program(WINDEPLOYQT_EXECUTABLE
-		NAMES windeployqt windeployqt6
-		HINTS "${_qt_binary_dir}"
+		NAMES
+		windeployqt
+		windeployqt6
+		HINTS
+		"${_qt_binary_dir}"
 	)
 	if(WINDEPLOYQT_EXECUTABLE)
 		# 自定义命令经 Windows cmd 执行，分隔符用逗号（不能用 ; 或 |）
@@ -267,20 +279,22 @@ if(WIN32)
 		add_custom_command(
 			TARGET ${PROJECT_NAME}
 			POST_BUILD
-			COMMAND
-				"${CMAKE_COMMAND}"
-				"-DWINDEPLOYQT=${WINDEPLOYQT_EXECUTABLE}"
+			COMMAND "${CMAKE_COMMAND}" "-DWINDEPLOYQT=${WINDEPLOYQT_EXECUTABLE}"
 				"-DTARGET_FILE=$<TARGET_FILE:${PROJECT_NAME}>"
 				"-DTARGET_DIR=$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 				"-DQML_DIR=${CMAKE_CURRENT_SOURCE_DIR}/src/ui/qml"
 				"-DDEPLOY_MODE=$<IF:$<CONFIG:Debug>,--debug,--release>"
-				"-DDEPLOY_MODULES=${_deploy_modules}"
-				-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_qt.cmake"
+				"-DDEPLOY_MODULES=${_deploy_modules}" -P
+				"${CMAKE_CURRENT_SOURCE_DIR}/cmake/deploy_qt.cmake"
 			COMMENT "Deploying Qt runtime to build output directory"
 		)
-		message(STATUS "windeployqt found: ${WINDEPLOYQT_EXECUTABLE} (build output deployment enabled)")
+		message(STATUS
+			"windeployqt found: ${WINDEPLOYQT_EXECUTABLE} (build output deployment enabled)"
+		)
 	else()
-		message(WARNING "windeployqt not found; Qt runtime will not be deployed to build output")
+		message(WARNING
+			"windeployqt not found; Qt runtime will not be deployed to build output"
+		)
 	endif()
 endif()
 
@@ -476,8 +490,7 @@ target_link_libraries(${PROJECT_NAME}
 		Qt::QuickDialogs2
 		Qt::WebSockets
 		Qt::Bluetooth
-	PRIVATE
-		nlohmann_json
+	PRIVATE nlohmann_json
 )
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
@@ -784,12 +797,10 @@ set(CPACK_PACKAGE_VENDOR "CrimsonSeraph")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
 	"Qt-based client for DG-lab with Python scripting"
 )
-set(CPACK_PACKAGE_VERSION_MAJOR "2")
-set(CPACK_PACKAGE_VERSION_MINOR "0")
-set(CPACK_PACKAGE_VERSION_PATCH "0")
-set(CPACK_PACKAGE_VERSION
-	"${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}"
-)
+set(CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
+set(CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}")
+set(CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_CONTACT "your-email@example.com")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 

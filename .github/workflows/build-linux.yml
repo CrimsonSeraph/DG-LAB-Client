@@ -155,18 +155,28 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$SCHEDULE_TMP" package
-          cd "$SCHEDULE_TMP"
-          curl -fsSL -o linuxdeployqt \
-            "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
-          chmod +x linuxdeployqt
-          export PATH="$SCHEDULE_TMP:$PATH"
-          # 无 FUSE 的容器/runner 上直接解包运行
-          export APPIMAGE_EXTRACT_AND_RUN=1
-          cd "$GITHUB_WORKSPACE"
-          # ★ 修复点：原脚本用 /usr/local/linuxdeployqt（缺 /bin），且未放入 PATH
-          ( cd install_root && linuxdeployqt DG-LAB-Client -appimage -verbose=2 )
-          mv install_root/*.AppImage package/ 2>/dev/null || true
-          ls -lh package/ || true
+
+          cat > install_root/DG-LAB-Client.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=DG-LAB-Client
+          Comment=DG-LAB Client
+          Exec=DG-LAB-Client
+          Icon=DG-LAB-Client
+          Categories=Utility;
+          Terminal=false
+          EOF
+
+              cd "$SCHEDULE_TMP"
+              curl -fsSL -o linuxdeployqt \
+                "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+                chmod +x linuxdeployqt
+              export PATH="$SCHEDULE_TMP:$PATH"
+              export APPIMAGE_EXTRACT_AND_RUN=1
+              cd "$GITHUB_WORKSPACE"
+              ( cd install_root && linuxdeployqt DG-LAB-Client -appimage -verbose=2 )
+              mv install_root/*.AppImage package/ 2>/dev/null || true
+              ls -lh package/ || true
 
       - name: CPack 打包（deb / rpm / tgz）
         shell: bash
@@ -180,7 +190,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          [ -n "$VERSION" ] || VERSION="$(awk '$1 == "VERSION" && $2 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ { print $2; exit }' CMakeLists.txt)"
+          [ -n "$VERSION" ] || VERSION="$(sed -n 's/^project([^)]*[[:space:]]VERSION[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' CMakeLists.txt | head -1)"
           VERSION="${VERSION:-1.0.0}"
           echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
 
