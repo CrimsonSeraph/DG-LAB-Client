@@ -204,6 +204,22 @@ jobs:
             -DestinationPath "package/DG-LAB-Client-$version-windows-x64.zip" -Force
           Get-ChildItem package
 
+      - name: 安装 NSIS（windows-2025 镜像已不再预装 makensis）
+        shell: pwsh
+        run: |
+          # windows-latest 已切到 windows-2025-vs2026 镜像，该镜像不再预装 NSIS，
+          # 否则 CPack 的 NSIS 生成器会报 "Cannot find NSIS compiler makensis" 并失败。
+          if (-not (Get-Command makensis.exe -ErrorAction SilentlyContinue)) {
+            choco install nsis -y --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "NSIS 安装失败" }
+          }
+          $makensis = Get-ChildItem -Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe", "$env:ProgramFiles\NSIS\makensis.exe" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if (-not $makensis) { throw "未找到 makensis.exe，NSIS 安装未完成" }
+          $makensis.DirectoryName >> $env:GITHUB_PATH
+          Write-Host "makensis：$($makensis.FullName)"
+          & $makensis.FullName /VERSION
+
       - name: CPack 打包（NSIS 安装包）
         shell: pwsh
         run: |

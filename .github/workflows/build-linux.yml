@@ -63,7 +63,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build ccache patchelf file zsync \
+            cmake ninja-build ccache patchelf file zsync imagemagick \
             libgl1 libglx-mesa0 libegl1 libopengl0 \
             libxkbcommon0 libxkbcommon-x11-0 \
             libxcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
@@ -105,9 +105,9 @@ jobs:
           echo "QTDIR=$QT_ROOT_DIR" >> "$GITHUB_ENV"
           echo "Qt 套件目录：$QT_ROOT_DIR"
           "$QT_ROOT_DIR/bin/qmake" -query QT_VERSION
-          # 缺 qtwebsockets 时配置期必失败，此处提前给出明确错误
-          test -f "$QT_ROOT_DIR/lib/cmake/Qt6Bluetooth/Qt6BluetoothConfig.cmake" \
-            || { echo "::error title=缺少 qtconnectivity::Qt6BluetoothConfig.cmake 不存在，检查 install-qt-action 的 modules 配置"; exit 1; }
+          # 缺 qtwebsockets / qtconnectivity 时配置期必失败，此处提前给出明确错误
+          test -f "$QT_ROOT_DIR/lib/cmake/Qt6WebSockets/Qt6WebSocketsConfig.cmake" \
+            || { echo "::error title=缺少 qtwebsockets::Qt6WebSocketsConfig.cmake 不存在，检查 install-qt-action 的 modules 配置"; exit 1; }
           test -f "$QT_ROOT_DIR/lib/cmake/Qt6Bluetooth/Qt6BluetoothConfig.cmake" \
             || { echo "::error title=缺少 qtconnectivity::Qt6BluetoothConfig.cmake 不存在，检查 install-qt-action 的 modules 配置"; exit 1; }
 
@@ -156,6 +156,15 @@ jobs:
           set -euo pipefail
           mkdir -p "$SCHEDULE_TMP" package
 
+          # linuxdeployqt / appimagetool 要求 AppDir 根目录存在与 .desktop 中 Icon= 同名的 256x256 PNG，
+          # 否则会以 "<name>{.png,.svg,.xpm} defined in desktop file but not found" 退出（exit 1）。
+          # 优先使用专用图标 assets/app_icon/app_icon.png，缺失时回退到主图。
+          ICON_SRC="assets/app_icon/app_icon.png"
+          [ -f "$ICON_SRC" ] || ICON_SRC="assets/normal_image/main_image.png"
+          convert "$ICON_SRC" -resize 256x256^ -gravity center -extent 256x256 \
+            install_root/DG-LAB-Client.png
+          file install_root/DG-LAB-Client.png
+
           cat > install_root/DG-LAB-Client.desktop <<'EOF'
           [Desktop Entry]
           Type=Application
@@ -167,16 +176,18 @@ jobs:
           Terminal=false
           EOF
 
-              cd "$SCHEDULE_TMP"
-              curl -fsSL -o linuxdeployqt \
-                "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
-                chmod +x linuxdeployqt
-              export PATH="$SCHEDULE_TMP:$PATH"
-              export APPIMAGE_EXTRACT_AND_RUN=1
-              cd "$GITHUB_WORKSPACE"
-              ( cd install_root && linuxdeployqt DG-LAB-Client -appimage -verbose=2 )
-              mv install_root/*.AppImage package/ 2>/dev/null || true
-              ls -lh package/ || true
+          cd "$SCHEDULE_TMP"
+          curl -fsSL -o linuxdeployqt \
+            "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+          chmod +x linuxdeployqt
+          export PATH="$SCHEDULE_TMP:$PATH"
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          cd "$GITHUB_WORKSPACE"
+          ( cd install_root && linuxdeployqt DG-LAB-Client -appimage -verbose=2 )
+          mv install_root/*.AppImage package/ 2>/dev/null || true
+          ls -lh package/
+          ls package/*.AppImage >/dev/null 2>&1 \
+            || { echo "::error title=未生成 AppImage::linuxdeployqt 未输出 .AppImage"; exit 1; }
 
       - name: CPack 打包（deb / rpm / tgz）
         shell: bash
