@@ -280,10 +280,13 @@ jobs:
       - name: 生成 SHA256 校验和
         shell: pwsh
         run: |
-          $lines = Get-ChildItem package -File ! -Filter 'SHA256SUMS*' | ForEach-Object {
-            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
-            "$h  $($_.Name)"
-          }
+          $lines = Get-ChildItem package -File |
+            Where-Object { $_.Name -notlike 'SHA256SUMS*' -and $_.Name -notlike '*.asc' } |
+            Sort-Object Name |
+            ForEach-Object {
+              $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+              "$h  $($_.Name)"
+            }
           [IO.File]::WriteAllLines(
             (Join-Path (Resolve-Path package).Path 'SHA256SUMS-windows-x64.txt'),
             $lines

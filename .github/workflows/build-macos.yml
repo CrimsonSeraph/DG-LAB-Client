@@ -11,6 +11,8 @@
 #   1) install-qt-action 显式 modules
 #   2) 通过 CMAKE_OSX_ARCHITECTURES="arm64;x86_64" 一次构建通用二进制
 #   3) 签名顺序：编译 → macdeployqt → 签名 → dmg/zip → 公证 → stapler
+#   4) 产物精简：只产出 dmg 与 zip（不再产出 without-Python / CPack 重复格式），
+#      以降低 upload-artifact 的内存峰值并缩短上传时间
 name: build-macos
 
 on:
@@ -239,26 +241,15 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$APP_REL" "$RUNNER_TEMP/notarize.zip"
           ls -lh package "$RUNNER_TEMP/notarize.zip"
 
-      - name: CPack 打包（macOS）
-        shell: bash
-        run: |
-          set -euo pipefail
-          cpack --config "$BUILD_DIR/CPackConfig.cmake" -C Release -B package || true
-          ls -lh package
+      # ★ 已删除：「CPack 打包（macOS）」步骤
+      #   原因：CMakeLists.txt 里 APPLE 的 CPACK_GENERATOR 是 "DragNDrop;TGZ"，
+      #   产出的 dmg 与手动 hdiutil 的 dmg 重复、TGZ 与最终 zip 重复；
+      #   且该步骤原本带 `|| true`，本质上是静默失败的空转，直接删除
 
-      - name: 生成不带 Python 运行时的精简包
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$DG_LAB_VERSION"
-          cp -r install_root install_root_no_python
-          # macOS: 删除 libpython 动态库、Python.framework、标准库与第三方包
-          find install_root_no_python -name 'libpython*.dylib' -delete || true
-          rm -rf install_root_no_python/Python.framework
-          rm -rf install_root_no_python/python/Lib
-          rm -rf install_root_no_python/python/Lib/site-packages
-          ( cd install_root_no_python && \
-            tar czf "../package/DG-LAB-Client-${VERSION}-macos-universal-without-Python.tar.gz" . )
+      # ★ 已删除：「生成不带 Python 运行时的精简包」步骤
+      #   原因：macOS 系统自带的 Python 早已被 Apple 弃用，用户不会依赖系统 Python；
+      #   删掉 libpython 后 Qt 里调 Python 子进程会直接失败，产物没有实际意义
+      #   同时这一步会额外产出 ~300 MB 的 tar.gz，是 macOS 上传 OOM 的主因之一
 
       - name: notarytool 公证
         if: ${{ steps.apple.outputs.notary_ready == 'true' && steps.apple.outputs.cert_ready == 'true' }}
@@ -334,7 +325,7 @@ jobs:
             security delete-keychain "$KEYCHAIN" 2>/dev/null || true
           fi
           rm -f "${CERT_PATH:-}" "${NOTARY_KEY_PATH:-}"
-          rm -rf _packages install_root install_root_no_python
+          rm -rf _packages install_root
           echo "清理完成"
 
       - name: 构建摘要
@@ -344,8 +335,9 @@ jobs:
           {
             echo "### macOS universal 构建结果"
             echo ""
-            echo "- Qt 版本：${QT_VERSION}（clang_64，arm64 + x86_64，含 qtwebsockets）"
+            echo "- Qt 版本：${QT_VERSION}（clang_64，arm64 + x86_64，含 qtwebsockets / qtconnectivity）"
             echo "- Python：${PYTHON_VERSION}（websockets 打入 PYTHON_PACKAGES_DIR）"
             echo "- 签名：${{ steps.apple.outputs.cert_ready == 'true' && '已执行' || '已跳过' }}"
             echo "- 公证：${{ steps.apple.outputs.notary_ready == 'true' && '已执行' || '已跳过' }}"
+            echo "- 产物：dmg / zip / SHA256SUMS（已裁剪 without-Python 与 CPack 重复格式）"
           } >> "$GITHUB_STEP_SUMMARY"
