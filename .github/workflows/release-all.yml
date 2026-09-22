@@ -1,0 +1,236 @@
+# DG-LAB-Client · 统一发布工作流
+# 触发方式：
+#   * workflow_dispatch —— 手动触发，可勾选平台、是否签名、是否发布 Release
+#   * push: tags v*     —— 打标签自动发布
+#
+# 结构：
+#   * 每个平台 job 通过 jobs.<id>.uses 调用同仓库可复用工作流，
+#     secrets: inherit 透传所需 secrets；
+#   * 平台 job 的 if 只用 inputs.* 判断（job 级 if 不支持 matrix / secrets 上下文）；
+#   * 全部构建结束后，release job 下载所有 artifact 并按需创建 GitHub Release
+#
+# 签名策略（各平台工作流内部一致）：
+#   sign=false（默认）→ 只要 secrets 齐全就签名，缺失则跳过并输出 warning；
+#   sign=true          → 强制签名/公证，缺少 secrets 直接失败
+#
+# 所需 secrets（按平台可选）：
+#   Apple    ：APPLE_CERT_P12_BASE64 / APPLE_CERT_PASSWORD / APPLE_TEAM_ID /
+#              APPLE_API_KEY_ID / APPLE_API_ISSUER_ID / APPLE_API_KEY_BASE64
+#   Windows  ：WINDOWS_PFX_BASE64 / WINDOWS_PFX_PASSWORD
+#   Linux    ：LINUX_GPG_PRIVATE_KEY / LINUX_GPG_PASSPHRASE
+name: release-all
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_linux:
+        description: "构建 Linux（x64）"
+        type: boolean
+        default: true
+      build_windows:
+        description: "构建 Windows（x64）"
+        type: boolean
+        default: true
+      build_macos:
+        description: "构建 macOS（universal）"
+        type: boolean
+        default: true
+      sign:
+        description: "强制签名与公证（true：缺少对应 secrets 直接失败）"
+        type: boolean
+        default: false
+      publish_release:
+        description: "创建 GitHub Release 并上传产物"
+        type: boolean
+        default: false
+      release_tag:
+        description: "Release 标签（如 v1.0.0）；留空且为 tag 触发时使用 tag 名"
+        type: string
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-all-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    name: Linux
+    if: ${{ github.event_name == 'push' || inputs.build_linux }}
+    uses: ./.github/workflows/build-linux.yml
+    with:
+      sign: ${{ inputs.sign || false }}
+    secrets: inherit
+
+  windows:
+    name: Windows
+    if: ${{ github.event_name == 'push' || inputs.build_windows }}
+    uses: ./.github/workflows/build-windows.yml
+    with:
+      sign: ${{ inputs.sign || false }}
+    secrets: inherit
+
+  macos:
+    name: macOS
+    if: ${{ github.event_name == 'push' || inputs.build_macos }}
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      sign: ${{ inputs.sign || false }}
+      # 公证与签名联动：强制签名时同样强制公证
+      notarize: ${{ inputs.sign || false }}
+    secrets: inherit
+
+  release:
+    name: 汇总产物并发布 Release
+    needs:
+      - linux
+      - windows
+      - macos
+    if: >-
+      ${{ always()
+          && (github.event_name == 'push' || inputs.publish_release)
+          && !contains(needs.*.result, 'failure')
+          && !contains(needs.*.result, 'cancelled') }}
+
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      # ★ 新增：release job 需要读 CHANGELOG.md
+      - name: 拉取源码（读取 CHANGELOG.md）
+        uses: actions/checkout@v4
+
+      - name: 下载全部构建产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 列出产物
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$(ls -A dist 2>/dev/null)" ]; then
+            echo "::error title=没有可用产物::未下载到任何 artifact"
+            exit 1
+          fi
+          find dist -type f -exec ls -lh {} \; | awk '{print $5"\t"$9}' | sort -k2
+          echo "---- 汇总大小 ----"
+          du -sh dist
+
+      - name: 汇总 SHA256 校验和
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          : > SHA256SUMS.txt
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS*' ! -name '*.asc' -exec basename {} \; | sort | while read -r f; do
+            sha256sum "$f" >> SHA256SUMS.txt
+          done
+          cat SHA256SUMS.txt
+
+      - name: 解析发布标签
+        id: tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ]; then
+            TAG="$REF_NAME"
+          else
+            TAG="$INPUT_TAG"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error title=缺少 release_tag::手动触发时必须填写 release_tag（例如 v1.0.0）"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "将发布标签：$TAG"
+
+      # 从 CHANGELOG.md 抽取目标 tag 的章节
+      - name: 从 CHANGELOG.md 提取发布说明
+        id: notes
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          FALLBACK='发布包由 CI 构建详见 [CHANGELOG.md](./CHANGELOG.md)'
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::warning title=缺少 CHANGELOG.md::回退到默认说明"
+            { echo 'found=false'; echo "body=$FALLBACK"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 简化版：找到 `## [<tag>]` 行后开始逐行输出，遇到下一个 `## ` 停止
+          # 与原 release.yml 的 awk 输出语义一致（只取目标版本块，不带文件顶部说明与 ---）
+          NOTES="$(awk -v tag="$TAG" '
+            /^## / {
+              if (printing) exit
+              if (index($0, "[" tag "]") > 0) { printing = 1; print; next }
+              next
+            }
+            printing { print }
+          ' CHANGELOG.md)"
+
+          if [ -z "$NOTES" ]; then
+            echo "::warning title=未在 CHANGELOG.md 找到 $TAG::回退到默认说明"
+            { echo 'found=false'; echo "body=$FALLBACK"; } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          {
+            echo 'body<<EOF'
+            printf '%s\n' "$NOTES"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "---- 提取到的发布说明预览 ----"
+          printf '%s\n' "$NOTES"
+
+      - name: 创建 GitHub Release 并上传产物
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: DG-LAB-Client ${{ steps.tag.outputs.tag }}
+          # 用 CHANGELOG 抽出的正文；抽不到时回退到默认说明
+          body: ${{ steps.notes.outputs.body }}
+          # 关闭自动生成
+          generate_release_notes: false
+          files: |
+            dist/**/*
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
+          fail_on_unmatched_files: false
+
+      - name: 发布摘要
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "### 统一发布结果"
+            echo ""
+            echo "- 触发方式：\`${{ github.event_name }}\`"
+            echo "- 发布标签：\`${{ steps.tag.outputs.tag }}\`"
+            echo "- CHANGELOG 命中：\`${{ steps.notes.outputs.found }}\`"
+            echo "- 各平台结果："
+            echo "  - Linux：\`${{ needs.linux.result }}\`"
+            echo "  - Windows：\`${{ needs.windows.result }}\`"
+            echo "  - macOS：\`${{ needs.macos.result }}\`"
+            echo ""
+            echo "产物清单："
+            echo '```'
+            ( cd dist && find . -maxdepth 1 -type f -exec basename {} \; | sort ) || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

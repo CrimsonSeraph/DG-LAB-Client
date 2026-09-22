@@ -1,0 +1,304 @@
+# DG-LAB-Client · Windows 桌面构建（x64 / MSVC）
+# 可选 secrets（缺失不报错，仅跳过签名并输出 warning）：
+#   WINDOWS_PFX_BASE64   —— PFX/P12 证书的 base64 内容（含私钥）
+#   WINDOWS_PFX_PASSWORD —— PFX 口令
+#
+# 约定：
+#   1) install-qt-action 显式 modules: qtwebsockets
+#   2) 生成器按 runner 上实际安装的 Visual Studio 动态选择（VS2026 / VS2022）
+#   3) 签名顺序：Schedule.exe → 打包 zip → 生成 NSIS 安装包 → 签名安装包
+name: build-windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: "强制代码签名（true：缺少 WINDOWS_PFX_* secrets 直接失败）"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      sign:
+        description: "强制代码签名"
+        type: boolean
+        default: false
+    secrets:
+      WINDOWS_PFX_BASE64:
+        required: false
+      WINDOWS_PFX_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: "6.9.3"
+  PYTHON_VERSION: "3.10"
+  TIMESTAMP_URL: "http://timestamp.digicert.com"
+
+jobs:
+  build:
+    name: Windows x64 (MSVC)
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 检测可用的 Visual Studio 生成器
+        id: vs
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw "找不到 vswhere.exe" }
+          $ver = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion | Select-Object -First 1)
+          Write-Host "Visual Studio 版本：$ver"
+          if ($ver -like '18.*') { $gen = 'Visual Studio 18 2026' }
+          elseif ($ver -like '17.*') { $gen = 'Visual Studio 17 2022' }
+          else { throw "不支持的 Visual Studio 版本：$ver" }
+          "generator=$gen" >> $env:GITHUB_OUTPUT
+
+      - name: 安装 Qt ${{ env.QT_VERSION }}（含 qtwebsockets）
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          dir: ${{ github.workspace }}/Qt
+          # ★ 关键修复
+          modules: qtwebsockets
+          cache: true
+          cache-key-prefix: qt-windows-win64_msvc2022_64
+
+      - name: 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 安装 Python 依赖到临时目录
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path _packages | Out-Null
+          pip install --target _packages websockets
+          if ($LASTEXITCODE -ne 0) { throw "pip install 失败" }
+
+      - name: 导出 Qt 环境变量并自检
+        shell: pwsh
+        run: |
+          "QTDIR=$env:QT_ROOT_DIR" >> $env:GITHUB_ENV
+          & "$env:QT_ROOT_DIR\bin\qmake.exe" -query QT_VERSION
+          $cmake = "$env:QT_ROOT_DIR/lib/cmake/Qt6WebSockets/Qt6WebSocketsConfig.cmake"
+          if (-not (Test-Path $cmake)) {
+            Write-Host "::error title=缺少 qtwebsockets::Qt6WebSocketsConfig.cmake 不存在"
+            exit 1
+          }
+
+      - name: 配置 CMake（Release，关闭测试与自检）
+        shell: pwsh
+        env:
+          VS_GENERATOR: ${{ steps.vs.outputs.generator }}
+        run: |
+          cmake -S . -B build -G "$env:VS_GENERATOR" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$env:QTDIR" `
+            -DPython_ROOT_DIR="$env:pythonLocation" `
+            -DPYTHON_PACKAGES_DIR="${{ github.workspace }}/_packages" `
+            -DBUILD_TESTS=OFF `
+            -DBUILD_SELFTEST=OFF
+          if ($LASTEXITCODE -ne 0) { throw "CMake 配置失败" }
+
+      - name: 编译
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel
+          if ($LASTEXITCODE -ne 0) { throw "编译失败" }
+
+      - name: 安装到 install_root
+        shell: pwsh
+        run: |
+          cmake --install build --prefix install_root --config Release
+          if (-not (Test-Path "install_root/DG-LAB-Client.exe")) {
+            Write-Host "::error title=缺少可执行文件::install_root/DG-LAB-Client.exe 不存在"
+            Get-ChildItem install_root -Recurse | Select-Object -First 50 FullName
+            exit 1
+          }
+
+      - name: 检查签名 secrets
+        id: signcheck
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+          PFX_PWD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
+          FORCE_SIGN: ${{ inputs.sign }}
+        run: |
+          if ($env:PFX_B64 -and $env:PFX_PWD) {
+            "ready=true" >> $env:GITHUB_OUTPUT
+            Write-Host "检测到 WINDOWS_PFX_* secrets，将签名"
+          } else {
+            "ready=false" >> $env:GITHUB_OUTPUT
+            Write-Host "::warning title=跳过代码签名::未配置 WINDOWS_PFX_*，产物保持未签名"
+            if ($env:FORCE_SIGN -eq 'true') {
+              Write-Host "::error title=缺少签名 secrets::inputs.sign=true 要求强制签名"
+              exit 1
+            }
+          }
+
+      - name: 导入证书并签名 DG-LAB-Client.exe
+        if: ${{ steps.signcheck.outputs.ready == 'true' }}
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.WINDOWS_PFX_BASE64 }}
+          PFX_PWD: ${{ secrets.WINDOWS_PFX_PASSWORD }}
+        run: |
+          $tmp = Join-Path $env:RUNNER_TEMP ("dglab-sign-" + [guid]::NewGuid().ToString())
+          New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+          "SIGN_TMP=$tmp" >> $env:GITHUB_ENV
+          $pfx = Join-Path $tmp 'dglab.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
+          $secure = ConvertTo-SecureString -String $env:PFX_PWD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $secure
+          "SIGN_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+          Write-Host "已导入证书，指纹：$($cert.Thumbprint)"
+
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/signtool.exe" |
+            Sort-Object { [version](Split-Path $_.DirectoryName -Leaf) } -Descending |
+            Select-Object -First 1
+          if (-not $signtool) { throw "未找到 signtool.exe" }
+
+          $target = "install_root/DG-LAB-Client.exe"
+          Write-Host "签名 $target"
+          & $signtool.FullName sign /sha1 $cert.Thumbprint /fd SHA256 `
+            /tr $env:TIMESTAMP_URL /td SHA256 /d "DG-LAB-Client" $target
+          if ($LASTEXITCODE -ne 0) { throw "signtool 签名失败" }
+
+          $selfSigned = ($cert.Subject -eq $cert.Issuer)
+          & $signtool.FullName verify /pa /v $target
+          if ($LASTEXITCODE -ne 0) {
+            if ($selfSigned) {
+              Write-Host "::warning title=签名校验未通过::证书为自签名，无法建立受信任链；正式发布请使用 CA 签发的证书"
+              $global:LASTEXITCODE = 0
+            } else {
+              throw "signtool 校验失败"
+            }
+          }
+          "SIGNTOOL=$($signtool.FullName)" >> $env:GITHUB_ENV
+
+      - name: 打包 zip（含 Python）
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path CMakeLists.txt -Pattern '^\s*VERSION\s+([0-9]+\.[0-9]+\.[0-9]+)' |
+                      Select-Object -First 1).Matches.Groups[1].Value
+          if (-not $version) { $version = '1.0.0' }
+          "DG_LAB_VERSION=$version" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Compress-Archive -Path "install_root/*" `
+            -DestinationPath "package/DG-LAB-Client-$version-windows-x64.zip" -Force
+          Get-ChildItem package
+
+      - name: CPack 打包（NSIS 安装包）
+        shell: pwsh
+        run: |
+          cpack --config build/CPackConfig.cmake -B package -C Release
+          if ($LASTEXITCODE -ne 0) { throw "CPack 失败" }
+          Get-ChildItem package
+
+      - name: 生成不带 Python 运行时的精简包
+        shell: pwsh
+        run: |
+          $version = $env:DG_LAB_VERSION
+          $src = "install_root"
+          $dst = "install_root_no_python"
+          if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
+          Copy-Item -Recurse $src $dst
+          # Windows: 删除 Python DLL、标准库压缩包、第三方包目录
+          Get-ChildItem $dst -Filter 'python3*.dll' -ErrorAction SilentlyContinue | Remove-Item -Force
+          Get-ChildItem $dst -Filter 'python*.zip' -ErrorAction SilentlyContinue | Remove-Item -Force
+          Remove-Item -Recurse -Force "$dst/DLLs" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$dst/python/Lib" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$dst/python/Lib/site-packages" -ErrorAction SilentlyContinue
+          Compress-Archive -Path "$dst/*" `
+            -DestinationPath "package/DG-LAB-Client-$version-windows-x64-without-Python.zip" -Force
+          Get-ChildItem package
+
+      - name: 签名安装包（可选）
+        if: ${{ steps.signcheck.outputs.ready == 'true' }}
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem package -Filter '*setup.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $setup) {
+            Write-Host "::warning title=未找到安装包::package 下没有 setup.exe，跳过安装包签名"
+            exit 0
+          }
+          $signtool = $env:SIGNTOOL
+          if (-not $signtool -or -not (Test-Path $signtool)) {
+            $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/signtool.exe" |
+              Sort-Object { [version](Split-Path $_.DirectoryName -Leaf) } -Descending |
+              Select-Object -First 1).FullName
+          }
+          Write-Host "签名安装包：$($setup.FullName)"
+          & $signtool sign /sha1 $env:SIGN_THUMBPRINT /fd SHA256 `
+            /tr $env:TIMESTAMP_URL /td SHA256 /d "DG-LAB-Client" $setup.FullName
+          if ($LASTEXITCODE -ne 0) { throw "signtool 签名安装包失败" }
+
+          $cert = Get-Item "Cert:\CurrentUser\My\$env:SIGN_THUMBPRINT" -ErrorAction SilentlyContinue
+          $selfSigned = ($cert -and ($cert.Subject -eq $cert.Issuer))
+          & $signtool verify /pa /v $setup.FullName
+          if ($LASTEXITCODE -ne 0) {
+            if ($selfSigned) {
+              Write-Host "::warning title=安装包签名校验未通过::自签名证书无法建立受信任链，签名已写入"
+              $global:LASTEXITCODE = 0
+            } else {
+              throw "signtool 校验安装包失败"
+            }
+          }
+
+      - name: 生成 SHA256 校验和
+        shell: pwsh
+        run: |
+          $lines = Get-ChildItem package -File ! -Filter 'SHA256SUMS*' | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)"
+          }
+          [IO.File]::WriteAllLines(
+            (Join-Path (Resolve-Path package).Path 'SHA256SUMS-windows-x64.txt'),
+            $lines
+          )
+          Get-Content "package/SHA256SUMS-windows-x64.txt"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: DG-LAB-Client-windows-x64
+          path: package/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 清理证书与临时文件
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          if ($env:SIGN_THUMBPRINT) {
+            Remove-Item -Path "Cert:\CurrentUser\My\$env:SIGN_THUMBPRINT" -Force -ErrorAction SilentlyContinue
+          }
+          if ($env:SIGN_TMP -and (Test-Path $env:SIGN_TMP)) {
+            Remove-Item -Recurse -Force $env:SIGN_TMP -ErrorAction SilentlyContinue
+          }
+          Remove-Item -Recurse -Force _packages, install_root, install_root_no_python -ErrorAction SilentlyContinue
+          Write-Host "清理完成"
+
+      - name: 构建摘要
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "### Windows x64 构建结果"
+            echo ""
+            echo "- Qt 版本：${QT_VERSION}（win64_msvc2022_64，含 qtwebsockets）"
+            echo "- Python：${PYTHON_VERSION}（websockets 打入 PYTHON_PACKAGES_DIR）"
+            echo "- 签名：${{ steps.signcheck.outputs.ready == 'true' && '已执行' || '已跳过' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

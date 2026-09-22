@@ -1,0 +1,315 @@
+# DG-LAB-Client · Linux 桌面构建（x64）
+# 触发方式：
+#   * workflow_dispatch —— 手动触发
+#   * workflow_call     —— 由 release-all.yml 统一调用
+#
+# 可选 secrets（缺失不报错，仅跳过对应步骤并输出 warning）：
+#   LINUX_GPG_PRIVATE_KEY —— ASCII-armored 私钥内容（或它的 base64），用于分离签名
+#   LINUX_GPG_PASSPHRASE  —— 私钥口令（无口令也请显式配置为空字符串）
+#
+# 约定：
+#   1) install-qt-action 显式 modules: qtwebsockets
+#   2) install-qt-action 导出的 QT_ROOT_DIR 落进 GITHUB_ENV 供后续步骤使用
+#   3) 项目通过 -DPYTHON_PACKAGES_DIR=... 把 Python websockets 包打进安装目录
+#   4) sign=true 表示"强制签名"：缺少 secrets 直接失败；
+#      sign=false 时只要 secrets 齐全依然会签名，缺失则跳过并输出 warning
+name: build-linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: "强制 GPG 签名（true：缺少 GPG secrets 直接失败）"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      sign:
+        description: "强制 GPG 签名"
+        type: boolean
+        default: false
+    secrets:
+      LINUX_GPG_PRIVATE_KEY:
+        required: false
+      LINUX_GPG_PASSPHRASE:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: "6.9.3"
+  PYTHON_VERSION: "3.10"
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_MAXSIZE: 500M
+  SCHEDULE_TMP: ${{ github.workspace }}/.ci-tmp
+
+jobs:
+  build:
+    name: Linux x64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 安装系统依赖
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build ccache patchelf file zsync \
+            libgl1 libglx-mesa0 libegl1 libopengl0 \
+            libxkbcommon0 libxkbcommon-x11-0 \
+            libxcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 \
+            libdbus-1-3 libfontconfig1 libfreetype6 libsqlite3-0 zlib1g
+          # Ubuntu 24.04 起 libfuse2 改名 libfuse2t64，这里做兼容处理
+          sudo apt-get install -y --no-install-recommends libfuse2t64 \
+            || sudo apt-get install -y --no-install-recommends libfuse2 \
+            || echo "::warning title=缺少 libfuse2::将使用 APPIMAGE_EXTRACT_AND_RUN=1 运行 AppImage 工具"
+
+      - name: 安装 Qt ${{ env.QT_VERSION }}（含 qtwebsockets）
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          dir: ${{ github.workspace }}/Qt
+          # ★ 关键修复：必须显式声明，否则 Qt6WebSockets 找不到
+          modules: qtwebsockets
+          cache: true
+          cache-key-prefix: qt-linux-x64
+
+      - name: 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 安装 Python 依赖到临时目录
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _packages
+          pip install --target _packages websockets
+
+      - name: 导出 Qt 环境变量并自检
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "QTDIR=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+          echo "Qt 套件目录：$QT_ROOT_DIR"
+          "$QT_ROOT_DIR/bin/qmake" -query QT_VERSION
+          # 缺 qtwebsockets 时配置期必失败，此处提前给出明确错误
+          test -f "$QT_ROOT_DIR/lib/cmake/Qt6WebSockets/Qt6WebSocketsConfig.cmake" \
+            || { echo "::error title=缺少 qtwebsockets::Qt6WebSocketsConfig.cmake 不存在，检查 install-qt-action 的 modules 配置"; exit 1; }
+
+      - name: 缓存 ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-linux-x64-${{ hashFiles('src/**', 'cmake/**', 'CMakeLists.txt', 'CMakePresets.json') }}
+          restore-keys: |
+            ccache-linux-x64-
+            ccache-linux-
+
+      - name: 配置 CMake（Release，关闭测试与自检）
+        shell: bash
+        run: |
+          set -euo pipefail
+          ccache --zero-stats || true
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QTDIR" \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DPython_ROOT_DIR="${{ env.pythonLocation }}" \
+            -DPYTHON_PACKAGES_DIR="${{ github.workspace }}/_packages" \
+            -DBUILD_TESTS=OFF \
+            -DBUILD_SELFTEST=OFF
+
+      - name: 编译
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build build --parallel "$(nproc)"
+          ccache --show-stats || true
+
+      - name: 安装到 install_root
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --install build --prefix install_root
+          test -x install_root/DG-LAB-Client \
+            || { echo "::error title=缺少可执行文件::install_root/DG-LAB-Client 不存在"; ls -R install_root | head -50; exit 1; }
+          file install_root/DG-LAB-Client
+
+      - name: 用 linuxdeployqt 生成 AppImage
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$SCHEDULE_TMP" package
+          cd "$SCHEDULE_TMP"
+          curl -fsSL -o linuxdeployqt \
+            "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+          chmod +x linuxdeployqt
+          export PATH="$SCHEDULE_TMP:$PATH"
+          # 无 FUSE 的容器/runner 上直接解包运行
+          export APPIMAGE_EXTRACT_AND_RUN=1
+          cd "$GITHUB_WORKSPACE"
+          # ★ 修复点：原脚本用 /usr/local/linuxdeployqt（缺 /bin），且未放入 PATH
+          ( cd install_root && linuxdeployqt DG-LAB-Client -appimage -verbose=2 )
+          mv install_root/*.AppImage package/ 2>/dev/null || true
+          ls -lh package/ || true
+
+      - name: CPack 打包（deb / rpm / tgz）
+        shell: bash
+        run: |
+          set -euo pipefail
+          cpack --config build/CPackConfig.cmake -B package
+          ls -lh package/
+
+      - name: 生成不带 Python 运行时的精简包
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          [ -n "$VERSION" ] || VERSION="$(awk '$1 == "VERSION" && $2 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ { print $2; exit }' CMakeLists.txt)"
+          VERSION="${VERSION:-1.0.0}"
+          echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+          cp -r install_root install_root_no_python
+          rm -rf install_root_no_python/lib/libpython*.so* \
+                 install_root_no_python/python/Lib \
+                 install_root_no_python/python/Lib/site-packages
+          mkdir -p package
+          ( cd install_root_no_python && \
+            tar czf "../package/DG-LAB-Client-${VERSION}-linux-x64-without-Python.tar.gz" . )
+
+      - name: 检查并解析 GPG 私钥
+        id: gpg
+        shell: bash
+        env:
+          GPG_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+          FORCE_SIGN: ${{ inputs.sign }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$SCHEDULE_TMP"
+          if [ -z "$GPG_KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=跳过 GPG 签名::未配置 secret LINUX_GPG_PRIVATE_KEY，本次仅提供 sha256 校验和"
+            if [ "$FORCE_SIGN" = "true" ]; then
+              echo "::error title=缺少签名 secrets::inputs.sign=true 要求强制签名，但 LINUX_GPG_PRIVATE_KEY 未配置"
+              exit 1
+            fi
+            exit 0
+          fi
+
+          # 兼容三种 secret 写法：armored 原文 / 其 base64 / 换行写成字面量 \n
+          RAW="$SCHEDULE_TMP/gpg-key.raw"
+          KEY_FILE="$SCHEDULE_TMP/gpg-key.asc"
+          printf '%s' "$GPG_KEY" | sed 's/\\n/\n/g' > "$RAW"
+          FORMAT=""
+          if grep -q -- '-----BEGIN PGP' "$RAW"; then
+            cp "$RAW" "$KEY_FILE"
+            FORMAT="armored"
+          elif tr -d '\n\r ' < "$RAW" | base64 -d > "$KEY_FILE" 2>/dev/null && grep -q -- '-----BEGIN PGP' "$KEY_FILE"; then
+            FORMAT="base64"
+          fi
+          if [ -z "$FORMAT" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=跳过 GPG 签名::LINUX_GPG_PRIVATE_KEY 无法解析为私钥，本次仅提供 sha256 校验和"
+            if [ "$FORCE_SIGN" = "true" ]; then
+              echo "::error title=GPG 私钥不可用::inputs.sign=true 要求强制签名，但无法解析 LINUX_GPG_PRIVATE_KEY"
+              exit 1
+            fi
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "GPG_KEY_FILE=$KEY_FILE" >> "$GITHUB_ENV"
+          echo "已解析 GPG 私钥（格式：$FORMAT）"
+
+      - name: 生成 SHA256 校验和
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUMS="$SCHEDULE_TMP/SHA256SUMS-linux-x64.txt"
+          ( cd package && sha256sum $(find . -maxdepth 1 -type f ! -name 'SHA256SUMS*' ! -name '*.asc' -exec basename {} \; | sort) ) > "$SUMS"
+          cp "$SUMS" "package/SHA256SUMS-linux-x64.txt"
+          cat "package/SHA256SUMS-linux-x64.txt"
+
+      - name: GPG 分离签名（可选）
+        if: ${{ steps.gpg.outputs.ready == 'true' }}
+        shell: bash
+        env:
+          GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+          FORCE_SIGN: ${{ inputs.sign }}
+        run: |
+          set -euo pipefail
+          GNUPGHOME="$(mktemp -d "$SCHEDULE_TMP/gnupg.XXXXXX")"
+          chmod 700 "$GNUPGHOME"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          export GNUPGHOME
+
+          IMPORT_OK=true
+          gpg --batch --quiet --import "$GPG_KEY_FILE" || IMPORT_OK=false
+          if [ "$IMPORT_OK" = "true" ] \
+            && ! gpg --batch --with-colons --list-secret-keys 2>/dev/null | grep -q '^sec:'; then
+            IMPORT_OK=false
+          fi
+          if [ "$IMPORT_OK" != "true" ]; then
+            if [ "$FORCE_SIGN" = "true" ]; then
+              echo "::error title=GPG 私钥导入失败::inputs.sign=true 要求强制签名，请确认私钥完整、未截断且非公钥"
+              exit 1
+            fi
+            echo "::warning title=跳过 GPG 签名::GPG 私钥无法导入，本次只提供 sha256 校验和"
+            gpgconf --kill all 2>/dev/null || true
+            rm -rf "$GNUPGHOME"
+            exit 0
+          fi
+
+          for f in package/*; do
+            case "$f" in *.asc) continue;; esac
+            [ -f "$f" ] || continue
+            gpg --batch --yes --armor --detach-sign \
+              --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE:-}" "$f"
+          done
+          ls -1 package
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: DG-LAB-Client-linux-x64
+          path: package/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 清理临时文件与 GPG 密钥环
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -n "${GNUPGHOME:-}" ] && [ -d "${GNUPGHOME:-}" ]; then
+            gpgconf --kill all 2>/dev/null || true
+            rm -rf "$GNUPGHOME"
+          fi
+          rm -rf "$SCHEDULE_TMP" _packages install_root install_root_no_python
+          echo "清理完成"
+
+      - name: 构建摘要
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "### Linux x64 构建结果"
+            echo ""
+            echo "- Qt 版本：${QT_VERSION}（linux_gcc_64，含 qtwebsockets）"
+            echo "- Python：${PYTHON_VERSION}（websockets 打入 PYTHON_PACKAGES_DIR）"
+            echo "- 构建类型：Release（BUILD_TESTS=OFF / BUILD_SELFTEST=OFF）"
+            echo "- 签名：${{ steps.gpg.outputs.ready == 'true' && '已执行（GPG 分离签名）' || '已跳过' }}"
+          } >> "$GITHUB_STEP_SUMMARY"

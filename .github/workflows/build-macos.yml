@@ -1,0 +1,349 @@
+# DG-LAB-Client · macOS 桌面构建（通用二进制 arm64 + x86_64）
+# 可选 secrets（缺失不报错，仅跳过签名/公证并输出 warning）：
+#   APPLE_CERT_P12_BASE64  —— Developer ID Application 证书（.p12）base64
+#   APPLE_CERT_PASSWORD    —— 上述 .p12 的口令
+#   APPLE_TEAM_ID          —— Apple Team ID（签名与公证都需要）
+#   APPLE_API_KEY_ID       —— App Store Connect API Key ID
+#   APPLE_API_ISSUER_ID    —— App Store Connect API Issuer ID
+#   APPLE_API_KEY_BASE64   —— App Store Connect API 私钥（AuthKey_XXX.p8）base64
+#
+# 约定：
+#   1) install-qt-action 显式 modules: qtwebsockets
+#   2) 通过 CMAKE_OSX_ARCHITECTURES="arm64;x86_64" 一次构建通用二进制
+#   3) 签名顺序：编译 → macdeployqt → 签名 → dmg/zip → 公证 → stapler
+name: build-macos
+
+on:
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: "强制代码签名（true：缺少 Apple 证书 secrets 直接失败）"
+        type: boolean
+        default: false
+      notarize:
+        description: "强制公证（true：缺少 Apple API Key secrets 直接失败）"
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      sign:
+        description: "强制代码签名"
+        type: boolean
+        default: false
+      notarize:
+        description: "强制公证"
+        type: boolean
+        default: false
+    secrets:
+      APPLE_CERT_P12_BASE64:
+        required: false
+      APPLE_CERT_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      APPLE_API_KEY_ID:
+        required: false
+      APPLE_API_ISSUER_ID:
+        required: false
+      APPLE_API_KEY_BASE64:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: "6.9.3"
+  PYTHON_VERSION: "3.10"
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_MAXSIZE: 500M
+  BUILD_DIR: build/macos
+
+jobs:
+  build:
+    name: macOS universal
+    runs-on: macos-latest
+    timeout-minutes: 120
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 安装 Qt ${{ env.QT_VERSION }}（含 qtwebsockets）
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: mac
+          target: desktop
+          arch: clang_64
+          dir: ${{ github.workspace }}/Qt
+          # ★ 关键修复
+          modules: qtwebsockets
+          cache: true
+          cache-key-prefix: qt-macos-clang_64
+
+      - name: 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 安装 Python 依赖到临时目录
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _packages
+          pip install --target _packages websockets
+
+      - name: 导出 Qt 环境变量并自检
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "QTDIR=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+          echo "Qt 套件目录：$QT_ROOT_DIR"
+          test -f "$QT_ROOT_DIR/lib/cmake/Qt6WebSockets/Qt6WebSocketsConfig.cmake" \
+            || { echo "::error title=缺少 qtwebsockets::Qt6WebSocketsConfig.cmake 不存在"; exit 1; }
+
+      - name: 配置 CMake（Xcode，通用二进制，Release）
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S . -B "$BUILD_DIR" -G Xcode \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QTDIR" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_MACOSX_BUNDLE=ON \
+            -DCMAKE_XCODE_GENERATE_SCHEME=ON \
+            -DCMAKE_XCODE_ATTRIBUTE_ENABLE_USER_SCRIPT_SANDBOXING=NO \
+            -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
+            -DPython_ROOT_DIR="${{ env.pythonLocation }}" \
+            -DPYTHON_PACKAGES_DIR="${{ github.workspace }}/_packages" \
+            -DBUILD_TESTS=OFF \
+            -DBUILD_SELFTEST=OFF
+
+      - name: 编译
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build "$BUILD_DIR" --config Release --parallel "$(sysctl -n hw.ncpu)"
+          ccache --show-stats || true
+
+      - name: 安装到 install_root
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --install "$BUILD_DIR" --prefix install_root --config Release
+          APP_REL="install_root/DG-LAB-Client.app"
+          test -d "$APP_REL" || { echo "::error title=未生成 .app::期望 $APP_REL"; ls -R install_root | head -50; exit 1; }
+          echo "APP_REL=$APP_REL" >> "$GITHUB_ENV"
+          du -sh "$APP_REL"
+
+      - name: macdeployqt 部署 Qt 框架与 QML 模块
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$QTDIR/bin/macdeployqt" "$APP_REL" \
+            -qmldir=src/ui/qml \
+            -appstore-compliant \
+            -verbose=1
+          du -sh "$APP_REL"
+
+      - name: 检查 Apple secrets
+        id: apple
+        shell: bash
+        env:
+          CERT_B64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          CERT_PWD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          API_KEY_B64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          FORCE_SIGN: ${{ inputs.sign }}
+          FORCE_NOTARIZE: ${{ inputs.notarize }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CERT_B64" ] && [ -n "$CERT_PWD" ] && [ -n "$TEAM_ID" ]; then
+            echo "cert_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cert_ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=跳过 macOS 签名::未配置 APPLE_CERT_P12_BASE64 / APPLE_CERT_PASSWORD / APPLE_TEAM_ID"
+            if [ "$FORCE_SIGN" = "true" ]; then
+              echo "::error title=缺少签名 secrets::inputs.sign=true 要求强制签名"
+              exit 1
+            fi
+          fi
+          if [ -n "$TEAM_ID" ] && [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$API_KEY_B64" ]; then
+            echo "notary_ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "notary_ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=跳过公证::未配置 Apple API Key secrets（或 TEAM_ID）"
+            if [ "$FORCE_NOTARIZE" = "true" ]; then
+              echo "::error title=缺少公证 secrets::inputs.notarize=true 要求强制公证"
+              exit 1
+            fi
+          fi
+
+      - name: 导入证书并签名 .app
+        if: ${{ steps.apple.outputs.cert_ready == 'true' }}
+        shell: bash
+        env:
+          CERT_B64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          CERT_PWD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/dglab-signing.keychain-db"
+          KEYCHAIN_PWD="$(openssl rand -base64 32)"
+          CERT_PATH="$RUNNER_TEMP/dglab-cert.p12"
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          echo "CERT_PATH=$CERT_PATH" >> "$GITHUB_ENV"
+
+          security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN"
+          printf '%s' "$CERT_B64" | openssl base64 -d -A > "$CERT_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN" -P "$CERT_PWD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PWD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | awk '/Developer ID Application/ {print $2; exit}')"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error title=未找到可用签名身份::钥匙串中没有 Developer ID Application 证书"
+            security find-identity -v -p codesigning "$KEYCHAIN"
+            exit 1
+          fi
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+          codesign --deep --force --options runtime --timestamp \
+            --sign "$IDENTITY" "$APP_REL"
+          codesign --verify --deep --strict --verbose=2 "$APP_REL"
+          echo "签名校验通过"
+          spctl -a -vvv -t exec "$APP_REL" || echo "::notice title=spctl::未通过 assist 评估（公证前属正常）"
+
+      - name: 生成 dmg 与公证用 zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(awk '$1 == "VERSION" && $2 ~ /^[0-9]+\.[0-9]+\.[0-9]+$/ { print $2; exit }' CMakeLists.txt)"
+          VERSION="${VERSION:-1.0.0}"
+          echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
+          mkdir -p package
+
+          hdiutil create -volname "DG-LAB-Client" -srcfolder "$APP_REL" \
+            -ov -format UDZO "package/DG-LAB-Client-${VERSION}-macos-universal.dmg"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_REL" "$RUNNER_TEMP/notarize.zip"
+          ls -lh package "$RUNNER_TEMP/notarize.zip"
+
+      - name: CPack 打包（macOS）
+        shell: bash
+        run: |
+          set -euo pipefail
+          cpack --config "$BUILD_DIR/CPackConfig.cmake" -C Release -B package || true
+          ls -lh package
+
+      - name: 生成不带 Python 运行时的精简包
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$DG_LAB_VERSION"
+          cp -r install_root install_root_no_python
+          # macOS: 删除 libpython 动态库、Python.framework、标准库与第三方包
+          find install_root_no_python -name 'libpython*.dylib' -delete || true
+          rm -rf install_root_no_python/Python.framework
+          rm -rf install_root_no_python/python/Lib
+          rm -rf install_root_no_python/python/Lib/site-packages
+          ( cd install_root_no_python && \
+            tar czf "../package/DG-LAB-Client-${VERSION}-macos-universal-without-Python.tar.gz" . )
+
+      - name: notarytool 公证
+        if: ${{ steps.apple.outputs.notary_ready == 'true' && steps.apple.outputs.cert_ready == 'true' }}
+        shell: bash
+        env:
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          API_KEY_B64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          echo "NOTARY_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+          printf '%s' "$API_KEY_B64" | openssl base64 -d -A > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+
+          for f in package/*.dmg "$RUNNER_TEMP/notarize.zip"; do
+            [ -e "$f" ] || continue
+            echo "提交公证：$f"
+            xcrun notarytool submit "$f" \
+              --key "$KEY_PATH" \
+              --key-id "$API_KEY_ID" \
+              --issuer "$API_ISSUER_ID" \
+              --wait
+          done
+
+      - name: stapler 装订公证票据
+        if: ${{ steps.apple.outputs.notary_ready == 'true' && steps.apple.outputs.cert_ready == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in package/*.dmg; do
+            [ -e "$f" ] || continue
+            xcrun stapler staple "$f"
+            xcrun stapler validate "$f"
+          done
+          xcrun stapler staple "$APP_REL"
+          xcrun stapler validate "$APP_REL"
+
+      - name: 生成最终分发 zip（签名/装订之后）
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$DG_LAB_VERSION"
+          rm -f "package/DG-LAB-Client-${VERSION}-macos-universal.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_REL" \
+            "package/DG-LAB-Client-${VERSION}-macos-universal.zip"
+          ls -lh package
+
+      - name: 生成 SHA256 校验和
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUMS="$RUNNER_TEMP/SHA256SUMS-macos-universal.txt"
+          ( cd package && shasum -a 256 $(find . -maxdepth 1 -type f ! -name 'SHA256SUMS*' -exec basename {} \; | sort) ) > "$SUMS"
+          cp "$SUMS" "package/SHA256SUMS-macos-universal.txt"
+          cat "package/SHA256SUMS-macos-universal.txt"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: DG-LAB-Client-macos-universal
+          path: package/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 清理钥匙串与临时证书
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ -n "${KEYCHAIN:-}" ] && security list-keychains -d user | grep -q "$KEYCHAIN"; then
+            security delete-keychain "$KEYCHAIN" 2>/dev/null || true
+          fi
+          rm -f "${CERT_PATH:-}" "${NOTARY_KEY_PATH:-}"
+          rm -rf _packages install_root install_root_no_python
+          echo "清理完成"
+
+      - name: 构建摘要
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "### macOS universal 构建结果"
+            echo ""
+            echo "- Qt 版本：${QT_VERSION}（clang_64，arm64 + x86_64，含 qtwebsockets）"
+            echo "- Python：${PYTHON_VERSION}（websockets 打入 PYTHON_PACKAGES_DIR）"
+            echo "- 签名：${{ steps.apple.outputs.cert_ready == 'true' && '已执行' || '已跳过' }}"
+            echo "- 公证：${{ steps.apple.outputs.notary_ready == 'true' && '已执行' || '已跳过' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
