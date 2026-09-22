@@ -4,7 +4,7 @@
 #   WINDOWS_PFX_PASSWORD —— PFX 口令
 #
 # 约定：
-#   1) install-qt-action 显式 modules: qtwebsockets
+#   1) install-qt-action 显式 modules
 #   2) 生成器按 runner 上实际安装的 Visual Studio 动态选择（VS2026 / VS2022）
 #   3) 签名顺序：Schedule.exe → 打包 zip → 生成 NSIS 安装包 → 签名安装包
 name: build-windows
@@ -70,8 +70,7 @@ jobs:
           target: desktop
           arch: win64_msvc2022_64
           dir: ${{ github.workspace }}/Qt
-          # ★ 关键修复
-          modules: qtwebsockets
+          modules: qtwebsockets qtconnectivity
           cache: true
           cache-key-prefix: qt-windows-win64_msvc2022_64
 
@@ -96,6 +95,11 @@ jobs:
           if (-not (Test-Path $cmake)) {
             Write-Host "::error title=缺少 qtwebsockets::Qt6WebSocketsConfig.cmake 不存在"
             exit 1
+          }
+          $bt = Join-Path $env:QT_ROOT_DIR 'lib/cmake/Qt6Bluetooth/Qt6BluetoothConfig.cmake'
+          if (-not (Test-Path $bt)) {
+          Write-Host "::error title=缺少 qtconnectivity::Qt6BluetoothConfig.cmake 不存在"
+          exit 1
           }
 
       - name: 配置 CMake（Release，关闭测试与自检）

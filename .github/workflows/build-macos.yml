@@ -8,7 +8,7 @@
 #   APPLE_API_KEY_BASE64   —— App Store Connect API 私钥（AuthKey_XXX.p8）base64
 #
 # 约定：
-#   1) install-qt-action 显式 modules: qtwebsockets
+#   1) install-qt-action 显式 modules
 #   2) 通过 CMAKE_OSX_ARCHITECTURES="arm64;x86_64" 一次构建通用二进制
 #   3) 签名顺序：编译 → macdeployqt → 签名 → dmg/zip → 公证 → stapler
 name: build-macos
@@ -79,8 +79,7 @@ jobs:
           target: desktop
           arch: clang_64
           dir: ${{ github.workspace }}/Qt
-          # ★ 关键修复
-          modules: qtwebsockets
+          modules: qtwebsockets qtconnectivity
           cache: true
           cache-key-prefix: qt-macos-clang_64
 
@@ -104,6 +103,8 @@ jobs:
           echo "Qt 套件目录：$QT_ROOT_DIR"
           test -f "$QT_ROOT_DIR/lib/cmake/Qt6WebSockets/Qt6WebSocketsConfig.cmake" \
             || { echo "::error title=缺少 qtwebsockets::Qt6WebSocketsConfig.cmake 不存在"; exit 1; }
+          test -f "$QT_ROOT_DIR/lib/cmake/Qt6Bluetooth/Qt6BluetoothConfig.cmake" \
+            || { echo "::error title=缺少 qtconnectivity::Qt6BluetoothConfig.cmake 不存在，检查 install-qt-action 的 modules 配置"; exit 1; }
 
       - name: 配置 CMake（Xcode，通用二进制，Release）
         shell: bash

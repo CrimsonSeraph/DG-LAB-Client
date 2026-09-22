@@ -8,7 +8,7 @@
 #   LINUX_GPG_PASSPHRASE  —— 私钥口令（无口令也请显式配置为空字符串）
 #
 # 约定：
-#   1) install-qt-action 显式 modules: qtwebsockets
+#   1) install-qt-action 显式 modules
 #   2) install-qt-action 导出的 QT_ROOT_DIR 落进 GITHUB_ENV 供后续步骤使用
 #   3) 项目通过 -DPYTHON_PACKAGES_DIR=... 把 Python websockets 包打进安装目录
 #   4) sign=true 表示"强制签名"：缺少 secrets 直接失败；
@@ -82,8 +82,7 @@ jobs:
           target: desktop
           arch: linux_gcc_64
           dir: ${{ github.workspace }}/Qt
-          # ★ 关键修复：必须显式声明，否则 Qt6WebSockets 找不到
-          modules: qtwebsockets
+          modules: qtwebsockets qtconnectivity
           cache: true
           cache-key-prefix: qt-linux-x64
 
@@ -107,8 +106,10 @@ jobs:
           echo "Qt 套件目录：$QT_ROOT_DIR"
           "$QT_ROOT_DIR/bin/qmake" -query QT_VERSION
           # 缺 qtwebsockets 时配置期必失败，此处提前给出明确错误
-          test -f "$QT_ROOT_DIR/lib/cmake/Qt6WebSockets/Qt6WebSocketsConfig.cmake" \
-            || { echo "::error title=缺少 qtwebsockets::Qt6WebSocketsConfig.cmake 不存在，检查 install-qt-action 的 modules 配置"; exit 1; }
+          test -f "$QT_ROOT_DIR/lib/cmake/Qt6Bluetooth/Qt6BluetoothConfig.cmake" \
+            || { echo "::error title=缺少 qtconnectivity::Qt6BluetoothConfig.cmake 不存在，检查 install-qt-action 的 modules 配置"; exit 1; }
+          test -f "$QT_ROOT_DIR/lib/cmake/Qt6Bluetooth/Qt6BluetoothConfig.cmake" \
+            || { echo "::error title=缺少 qtconnectivity::Qt6BluetoothConfig.cmake 不存在，检查 install-qt-action 的 modules 配置"; exit 1; }
 
       - name: 缓存 ccache
         uses: actions/cache@v4
