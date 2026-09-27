@@ -176,7 +176,7 @@ Dialog {
                 property int dragNodeId: -1
                 property real dragOffsetX: 0
                 property real dragOffsetY: 0
-                property int connectFrom: 0
+                property int connectFrom: -1
                 property real tempX: 0
                 property real tempY: 0
                 property bool panning: false
@@ -278,7 +278,7 @@ Dialog {
                     // 临时连线
                     Shape {
                         anchors.fill: parent
-                        visible: canvas.connectFrom > 0
+                        visible: canvas.connectFrom >= 0
                         antialiasing: true
 
                         ShapePath {
@@ -413,7 +413,6 @@ Dialog {
                             return;
                         }
 
-                        var node = canvas.nodeAt(wx, wy);
                         if (node !== null) {
                             ruleGraph.selectNode(node.id);
                             // 输出端口：开始连线
@@ -435,7 +434,7 @@ Dialog {
                     onPositionChanged: function (mouse) {
                         var wx = canvas.toWorldX(mouse.x);
                         var wy = canvas.toWorldY(mouse.y);
-                        if (canvas.connectFrom > 0) {
+                        if (canvas.connectFrom >= 0) {
                             canvas.tempX = wx;
                             canvas.tempY = wy;
                             return;
@@ -455,14 +454,14 @@ Dialog {
                     onReleased: function (mouse) {
                         var wx = canvas.toWorldX(mouse.x);
                         var wy = canvas.toWorldY(mouse.y);
-                        if (canvas.connectFrom > 0) {
+                        if (canvas.connectFrom >= 0) {
                             var port = canvas.inputPortAt(wx, wy);
                             if (port !== null) {
                                 ruleGraph.connectNodes(canvas.connectFrom, port.node, port.port);
                             }
                             canvas.connectFrom = 0;
                         }
-                        canvas.dragNodeId = 0;
+                        canvas.dragNodeId = -1;
                         canvas.panning = false;
                     }
 
