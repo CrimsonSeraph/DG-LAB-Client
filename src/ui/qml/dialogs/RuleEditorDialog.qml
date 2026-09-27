@@ -26,17 +26,16 @@ Dialog {
         border.color: Theme.border
     }
 
-    RowLayout {
+    SplitView {
         id: rootRow
         anchors.fill: parent
-        spacing: Metrics.spacingLg
+        orientation: Qt.Horizontal
 
         // ------------------------------------------------------ 模块 / 节点面板
         ColumnLayout {
             id: leftCol
-            Layout.preferredWidth: 210
-            Layout.maximumWidth: 240
-            Layout.minimumWidth: 180
+            SplitView.preferredWidth: 210
+            SplitView.minimumWidth: 180
             Layout.fillHeight: true
             spacing: Metrics.spacingMd
 
@@ -158,10 +157,8 @@ Dialog {
         // ------------------------------------------------------ 画布
         Rectangle {
             id: canvasRect
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumWidth: 400
-            Layout.preferredWidth: 640
+            SplitView.fillWidth: true
+            SplitView.minimumWidth: 300
             color: Theme.surface
             radius: Metrics.radiusMd
             border.width: Metrics.borderWidth
@@ -528,9 +525,8 @@ Dialog {
         // ------------------------------------------------------ 检查器
         ColumnLayout {
             id: rightCol
-            Layout.preferredWidth: 250
-            Layout.maximumWidth: 300
-            Layout.minimumWidth: 220
+            SplitView.preferredWidth: 250
+            SplitView.minimumWidth: 220
             Layout.fillHeight: true
             spacing: Metrics.spacingMd
 
