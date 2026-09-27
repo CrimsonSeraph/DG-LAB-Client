@@ -10,313 +10,279 @@ Item {
 
     objectName: "configPage"
 
-    ColumnLayout {
+    ScrollView {
+        id: scrollView
+
+        objectName: "configScrollView"
         anchors.fill: parent
-        anchors.margins: Metrics.pageMargin
-        spacing: Metrics.cardSpacing
+        clip: true
+        contentWidth: availableWidth
+        padding: Metrics.pageMargin
+        ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Metrics.spacingMd
-
-            Text {
-                text: qsTr("配置")
-                color: Theme.textPrimary
-                font.pixelSize: Typography.fontTitle
-                font.bold: true
-            }
-
-            Item {
-                Layout.fillWidth: true
-            }
-
-            AppButton {
-                objectName: "configRuleEditorButton"
-                text: qsTr("规则编辑器")
-            }
-        }
-
-        // ------------------------------------------------------------ 连接
-        GlassCard {
-            Layout.fillWidth: true
-            title: qsTr("连接")
+        ColumnLayout {
+            width: scrollView.availableWidth
+            spacing: Metrics.cardSpacing
 
             RowLayout {
-                width: parent.width
+                Layout.fillWidth: true
                 spacing: Metrics.spacingMd
 
                 Text {
-                    text: qsTr("地址")
-                    color: Theme.textSecondary
-                    font.pixelSize: Typography.fontBody
-                }
-
-                AppTextField {
-                    id: ipField
-
-                    objectName: "configIpField"
-                    text: device.ip
-                    Layout.preferredWidth: 180
-                }
-
-                Text {
-                    text: qsTr("端口")
-                    color: Theme.textSecondary
-                    font.pixelSize: Typography.fontBody
-                }
-
-                AppTextField {
-                    id: portField
-
-                    objectName: "configPortField"
-                    text: device.port
-                    Layout.preferredWidth: 100
-                    validator: IntValidator {
-                        bottom: 1
-                        top: 65535
-                    }
-                }
-
-                AppButton {
-                    objectName: "configConnectButton"
-                    text: device.connected ? qsTr("断开") : qsTr("连接")
-                    primary: !device.connected
-                    enabled: !device.connecting
+                    text: qsTr("配置")
+                    color: Theme.textPrimary
+                    font.pixelSize: Typography.fontTitle
+                    font.bold: true
                 }
 
                 Item {
                     Layout.fillWidth: true
                 }
-            }
 
-            Column {
-                visible: device.connected
-                spacing: Metrics.spacingSm
-
-                Image {
-                    objectName: "configQrImage"
-                    width: 200
-                    height: 200
-                    source: device.qrImageUrl
-                    sourceSize.width: 200
-                    sourceSize.height: 200
-                    fillMode: Image.PreserveAspectFit
-                }
-
-                Text {
-                    width: 420
-                    text: device.pairingUrl
-                    color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
-                    elide: Text.ElideMiddle
-                }
-
-                Text {
-                    text: device.v3Paired ? qsTr("APP 已配对") : (device.v4Attached ? qsTr("V4 已接入，等待设备上报") : qsTr("等待 APP 扫码配对"))
-                    color: (device.v3Paired || device.v4Attached) ? Theme.accent : Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
+                AppButton {
+                    objectName: "configRuleEditorButton"
+                    text: qsTr("规则编辑器")
                 }
             }
-        }
 
-        // ------------------------------------------------------------ 波形
-        GlassCard {
-            Layout.fillWidth: true
-            title: qsTr("波形")
-
-            Column {
-                width: parent.width
-                spacing: Metrics.spacingMd
+            // ------------------------------------------------------------ 连接
+            GlassCard {
+                Layout.fillWidth: true
+                title: qsTr("连接")
 
                 RowLayout {
                     width: parent.width
                     spacing: Metrics.spacingMd
 
                     Text {
-                        text: qsTr("目标通道")
+                        text: qsTr("地址")
                         color: Theme.textSecondary
                         font.pixelSize: Typography.fontBody
                     }
 
-                    AppButton {
-                        objectName: "configWaveChannelAButton"
-                        text: "A"
-                        primary: waveBridge.targetChannel === "A"
+                    AppTextField {
+                        id: ipField
+
+                        objectName: "configIpField"
+                        text: device.ip
+                        Layout.preferredWidth: 180
+                    }
+
+                    Text {
+                        text: qsTr("端口")
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.fontBody
+                    }
+
+                    AppTextField {
+                        id: portField
+
+                        objectName: "configPortField"
+                        text: device.port
+                        Layout.preferredWidth: 100
+                        validator: IntValidator {
+                            bottom: 1
+                            top: 65535
+                        }
                     }
 
                     AppButton {
-                        objectName: "configWaveChannelBButton"
-                        text: "B"
-                        primary: waveBridge.targetChannel === "B"
+                        objectName: "configConnectButton"
+                        text: device.connected ? qsTr("断开") : qsTr("连接")
+                        primary: !device.connected
+                        enabled: !device.connecting
                     }
 
                     Item {
                         Layout.fillWidth: true
                     }
+                }
+
+                Column {
+                    visible: device.connected
+                    spacing: Metrics.spacingSm
+
+                    Image {
+                        objectName: "configQrImage"
+                        width: 200
+                        height: 200
+                        source: device.qrImageUrl
+                        sourceSize.width: 200
+                        sourceSize.height: 200
+                        fillMode: Image.PreserveAspectFit
+                    }
 
                     Text {
-                        text: qsTr("当前：A = %1 ｜ B = %2").arg(waveBridge.currentA.length > 0 ? waveBridge.currentA : qsTr("未选择")).arg(waveBridge.currentB.length > 0 ? waveBridge.currentB : qsTr("未选择"))
+                        width: 420
+                        text: device.pairingUrl
                         color: Theme.textMuted
                         font.pixelSize: Typography.fontCaption
-                        elide: Text.ElideRight
+                        elide: Text.ElideMiddle
+                    }
+
+                    Text {
+                        text: device.v3Paired ? qsTr("APP 已配对") : (device.v4Attached ? qsTr("V4 已接入，等待设备上报") : qsTr("等待 APP 扫码配对"))
+                        color: (device.v3Paired || device.v4Attached) ? Theme.accent : Theme.textMuted
+                        font.pixelSize: Typography.fontCaption
                     }
                 }
+            }
+
+            // ------------------------------------------------------------ 波形
+            GlassCard {
+                Layout.fillWidth: true
+                title: qsTr("波形")
+
+                Column {
+                    width: parent.width
+                    spacing: Metrics.spacingMd
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: Metrics.spacingMd
+
+                        Text {
+                            text: qsTr("目标通道")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        AppButton {
+                            objectName: "configWaveChannelAButton"
+                            text: "A"
+                            primary: waveBridge.targetChannel === "A"
+                        }
+
+                        AppButton {
+                            objectName: "configWaveChannelBButton"
+                            text: "B"
+                            primary: waveBridge.targetChannel === "B"
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: qsTr("当前：A = %1 ｜ B = %2").arg(waveBridge.currentA.length > 0 ? waveBridge.currentA : qsTr("未选择")).arg(waveBridge.currentB.length > 0 ? waveBridge.currentB : qsTr("未选择"))
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontCaption
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: Metrics.spacingLg
+
+                        Column {
+                            Layout.fillWidth: true
+                            spacing: Metrics.spacingXs
+
+                            Text {
+                                text: qsTr("通道 A")
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontSmall
+                            }
+
+                            WavePreview {
+                                width: parent.width
+                                height: ComponentStyle.wavePreviewHeight
+                                points: waveBridge.pointsA
+                            }
+                        }
+
+                        Column {
+                            Layout.fillWidth: true
+                            spacing: Metrics.spacingXs
+
+                            Text {
+                                text: qsTr("通道 B")
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontSmall
+                            }
+
+                            WavePreview {
+                                width: parent.width
+                                height: ComponentStyle.wavePreviewHeight
+                                points: waveBridge.pointsB
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: Metrics.spacingMd
+
+                        AppButton {
+                            objectName: "configWaveSelectButton"
+                            text: qsTr("选择波形")
+                        }
+
+                        AppButton {
+                            objectName: "configWaveCreateButton"
+                            text: qsTr("创建波形")
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+                    }
+                }
+            }
+
+            // ------------------------------------------------------------ 主题
+            GlassCard {
+                Layout.fillWidth: true
+                title: qsTr("主题")
 
                 RowLayout {
                     width: parent.width
                     spacing: Metrics.spacingLg
 
-                    Column {
-                        Layout.fillWidth: true
-                        spacing: Metrics.spacingXs
-
-                        Text {
-                            text: qsTr("通道 A")
-                            color: Theme.textSecondary
-                            font.pixelSize: Typography.fontSmall
-                        }
-
-                        WavePreview {
-                            width: parent.width
-                            height: ComponentStyle.wavePreviewHeight
-                            points: waveBridge.pointsA
-                        }
-                    }
-
-                    Column {
-                        Layout.fillWidth: true
-                        spacing: Metrics.spacingXs
-
-                        Text {
-                            text: qsTr("通道 B")
-                            color: Theme.textSecondary
-                            font.pixelSize: Typography.fontSmall
-                        }
-
-                        WavePreview {
-                            width: parent.width
-                            height: ComponentStyle.wavePreviewHeight
-                            points: waveBridge.pointsB
-                        }
-                    }
-                }
-
-                RowLayout {
-                    width: parent.width
-                    spacing: Metrics.spacingMd
-
-                    AppButton {
-                        objectName: "configWaveSelectButton"
-                        text: qsTr("选择波形")
-                    }
-
-                    AppButton {
-                        objectName: "configWaveCreateButton"
-                        text: qsTr("创建波形")
-                    }
-
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                }
-            }
-        }
-
-        // ------------------------------------------------------------ 主题
-        GlassCard {
-            Layout.fillWidth: true
-            title: qsTr("主题")
-
-            RowLayout {
-                width: parent.width
-                spacing: Metrics.spacingLg
-
-                Text {
-                    text: Theme.displayName
-                    color: Theme.textPrimary
-                    font.pixelSize: Typography.fontBodyLarge
-                    font.bold: true
-                }
-
-                Rectangle {
-                    Layout.preferredWidth: ComponentStyle.swatchMinWidth
-                    Layout.preferredHeight: ComponentStyle.swatchHeight
-                    radius: Metrics.radiusSm
-                    color: Theme.primary
-                    border.width: Metrics.borderWidth
-                    border.color: Theme.border
-
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                    }
-                }
-
-                Text {
-                    text: qsTr("主色 %1").arg(Theme.primary)
-                    color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
-                }
-
-                Rectangle {
-                    Layout.preferredWidth: ComponentStyle.swatchMinWidth
-                    Layout.preferredHeight: ComponentStyle.swatchHeight
-                    radius: Metrics.radiusSm
-                    color: Theme.secondary
-                    border.width: Metrics.borderWidth
-                    border.color: Theme.border
-
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                    }
-                }
-
-                Text {
-                    text: qsTr("副色 %1").arg(Theme.secondary)
-                    color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                AppButton {
-                    objectName: "configThemeSelectButton"
-                    text: qsTr("选择主题")
-                }
-
-                AppButton {
-                    objectName: "configThemeCustomButton"
-                    text: qsTr("自定义主题")
-                    primary: Theme.custom
-                }
-            }
-        }
-
-        // ------------------------------------------------------------ 蓝牙直连
-        GlassCard {
-            Layout.fillWidth: true
-            title: qsTr("蓝牙直连（郊狼 V3）")
-
-            Column {
-                width: parent.width
-                spacing: Metrics.spacingMd
-
-                RowLayout {
-                    width: parent.width
-                    spacing: Metrics.spacingMd
-
                     Text {
-                        text: ble.connected ? qsTr("已连接 %1").arg(ble.deviceName) : qsTr("未连接")
-                        color: Theme.textSecondary
-                        font.pixelSize: Typography.fontBody
+                        text: Theme.displayName
+                        color: Theme.textPrimary
+                        font.pixelSize: Typography.fontBodyLarge
+                        font.bold: true
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: ComponentStyle.swatchMinWidth
+                        Layout.preferredHeight: ComponentStyle.swatchHeight
+                        radius: Metrics.radiusSm
+                        color: Theme.primary
+                        border.width: Metrics.borderWidth
+                        border.color: Theme.border
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                        }
                     }
 
                     Text {
-                        visible: ble.battery >= 0
-                        text: qsTr("电量 %1%").arg(ble.battery)
+                        text: qsTr("主色 %1").arg(Theme.primary)
+                        color: Theme.textMuted
+                        font.pixelSize: Typography.fontCaption
+                    }
+
+                    Rectangle {
+                        Layout.preferredWidth: ComponentStyle.swatchMinWidth
+                        Layout.preferredHeight: ComponentStyle.swatchHeight
+                        radius: Metrics.radiusSm
+                        color: Theme.secondary
+                        border.width: Metrics.borderWidth
+                        border.color: Theme.border
+
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                        }
+                    }
+
+                    Text {
+                        text: qsTr("副色 %1").arg(Theme.secondary)
                         color: Theme.textMuted
                         font.pixelSize: Typography.fontCaption
                     }
@@ -326,194 +292,238 @@ Item {
                     }
 
                     AppButton {
-                        objectName: "bleScanButton"
-                        text: ble.scanning ? qsTr("扫描中…") : qsTr("扫描设备")
-                        enabled: !ble.scanning
+                        objectName: "configThemeSelectButton"
+                        text: qsTr("选择主题")
                     }
 
                     AppButton {
-                        objectName: "bleDisconnectButton"
-                        text: qsTr("断开")
-                        danger: true
-                        enabled: ble.connected
+                        objectName: "configThemeCustomButton"
+                        text: qsTr("自定义主题")
+                        primary: Theme.custom
                     }
                 }
+            }
 
-                Text {
+            // ------------------------------------------------------------ 蓝牙直连
+            GlassCard {
+                Layout.fillWidth: true
+                title: qsTr("蓝牙直连（郊狼 V3）")
+
+                Column {
                     width: parent.width
-                    text: ble.status
-                    color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
-                    elide: Text.ElideRight
-                }
+                    spacing: Metrics.spacingMd
 
-                ListView {
-                    id: bleDeviceList
-
-                    objectName: "bleDeviceList"
-                    width: parent.width
-                    height: 96
-                    clip: true
-                    model: ble.devices
-                    spacing: Metrics.spacing2xs
-
-                    delegate: Rectangle {
-                        width: bleDeviceList.width
-                        height: 32
-                        radius: Metrics.radiusXs
-                        color: Theme.surfaceAlt
-                        border.width: Metrics.borderWidth
-                        border.color: Theme.divider
+                    RowLayout {
+                        width: parent.width
+                        spacing: Metrics.spacingMd
 
                         Text {
-                            anchors.left: parent.left
-                            anchors.leftMargin: Metrics.spacingMd
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: modelData.name + "   " + modelData.address
+                            text: ble.connected ? qsTr("已连接 %1").arg(ble.deviceName) : qsTr("未连接")
                             color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        Text {
+                            visible: ble.battery >= 0
+                            text: qsTr("电量 %1%").arg(ble.battery)
+                            color: Theme.textMuted
                             font.pixelSize: Typography.fontCaption
                         }
 
-                        MouseArea {
-                            objectName: "bleDeviceClick"
-                            anchors.fill: parent
-                            property string address: modelData.address
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        AppButton {
+                            objectName: "bleScanButton"
+                            text: ble.scanning ? qsTr("扫描中…") : qsTr("扫描设备")
+                            enabled: !ble.scanning
+                        }
+
+                        AppButton {
+                            objectName: "bleDisconnectButton"
+                            text: qsTr("断开")
+                            danger: true
+                            enabled: ble.connected
+                        }
+                    }
+
+                    Text {
+                        width: parent.width
+                        text: ble.status
+                        color: Theme.textMuted
+                        font.pixelSize: Typography.fontCaption
+                        elide: Text.ElideRight
+                    }
+
+                    ListView {
+                        id: bleDeviceList
+
+                        objectName: "bleDeviceList"
+                        width: parent.width
+                        height: 96
+                        clip: true
+                        model: ble.devices
+                        spacing: Metrics.spacing2xs
+
+                        delegate: Rectangle {
+                            width: bleDeviceList.width
+                            height: 32
+                            radius: Metrics.radiusXs
+                            color: Theme.surfaceAlt
+                            border.width: Metrics.borderWidth
+                            border.color: Theme.divider
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.leftMargin: Metrics.spacingMd
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: modelData.name + "   " + modelData.address
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontCaption
+                            }
+
+                            MouseArea {
+                                objectName: "bleDeviceClick"
+                                anchors.fill: parent
+                                property string address: modelData.address
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: Metrics.spacingMd
+
+                        Text {
+                            text: qsTr("强度")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        Text {
+                            text: "A " + ble.strengthA
+                            color: Theme.accent
+                            font.pixelSize: Typography.fontBody
+                            font.bold: true
+                        }
+
+                        AppButton {
+                            objectName: "bleStrengthADecrease"
+                            text: "A－"
+                        }
+
+                        AppButton {
+                            objectName: "bleStrengthAIncrease"
+                            text: "A＋"
+                        }
+
+                        Text {
+                            text: "B " + ble.strengthB
+                            color: Theme.accent
+                            font.pixelSize: Typography.fontBody
+                            font.bold: true
+                        }
+
+                        AppButton {
+                            objectName: "bleStrengthBDecrease"
+                            text: "B－"
+                        }
+
+                        AppButton {
+                            objectName: "bleStrengthBIncrease"
+                            text: "B＋"
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
                         }
                     }
                 }
+            }
+
+            // ------------------------------------------------------------ 日志
+            GlassCard {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 260
+                title: qsTr("日志")
 
                 RowLayout {
                     width: parent.width
                     spacing: Metrics.spacingMd
 
                     Text {
-                        text: qsTr("强度")
+                        text: qsTr("级别")
                         color: Theme.textSecondary
                         font.pixelSize: Typography.fontBody
                     }
 
-                    Text {
-                        text: "A " + ble.strengthA
-                        color: Theme.accent
-                        font.pixelSize: Typography.fontBody
-                        font.bold: true
-                    }
+                    AppComboBox {
+                        id: logLevelCombo
 
-                    AppButton {
-                        objectName: "bleStrengthADecrease"
-                        text: "A－"
-                    }
-
-                    AppButton {
-                        objectName: "bleStrengthAIncrease"
-                        text: "A＋"
-                    }
-
-                    Text {
-                        text: "B " + ble.strengthB
-                        color: Theme.accent
-                        font.pixelSize: Typography.fontBody
-                        font.bold: true
-                    }
-
-                    AppButton {
-                        objectName: "bleStrengthBDecrease"
-                        text: "B－"
-                    }
-
-                    AppButton {
-                        objectName: "bleStrengthBIncrease"
-                        text: "B＋"
+                        objectName: "logLevelCombo"
+                        Layout.preferredWidth: 120
+                        model: ["DEBUG", "INFO", "WARN", "ERROR"]
+                        currentIndex: logBridge.levelFilter
                     }
 
                     Item {
                         Layout.fillWidth: true
                     }
-                }
-            }
-        }
 
-        // ------------------------------------------------------------ 日志
-        GlassCard {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 260
-            title: qsTr("日志")
+                    AppButton {
+                        objectName: "logExportButton"
+                        text: qsTr("导出日志")
+                    }
 
-            RowLayout {
-                width: parent.width
-                spacing: Metrics.spacingMd
-
-                Text {
-                    text: qsTr("级别")
-                    color: Theme.textSecondary
-                    font.pixelSize: Typography.fontBody
-                }
-
-                AppComboBox {
-                    id: logLevelCombo
-
-                    objectName: "logLevelCombo"
-                    Layout.preferredWidth: 120
-                    model: ["DEBUG", "INFO", "WARN", "ERROR"]
-                    currentIndex: logBridge.levelFilter
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-
-                AppButton {
-                    objectName: "logExportButton"
-                    text: qsTr("导出日志")
-                }
-
-                AppButton {
-                    objectName: "logClearButton"
-                    text: qsTr("清空")
-                }
-            }
-
-            ListView {
-                id: logList
-
-                width: parent.width
-                height: 170
-                clip: true
-                model: logBridge.messages
-                spacing: 0
-
-                delegate: Rectangle {
-                    width: logList.width
-                    height: 18
-                    color: "transparent"
-
-                    Text {
-                        anchors.left: parent.left
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width
-                        text: modelData.text
-                        color: modelData.level >= 3 ? Theme.danger : (modelData.level === 2 ? Theme.warning : Theme.textSecondary)
-                        font.family: "Consolas"
-                        font.pixelSize: Typography.fontCaption
-                        elide: Text.ElideRight
+                    AppButton {
+                        objectName: "logClearButton"
+                        text: qsTr("清空")
                     }
                 }
 
-                // 无信号处理器：新日志到达时内容高度变化，绑定自动滚到底部
-                contentY: Math.max(0, contentHeight - height)
+                ListView {
+                    id: logList
+
+                    width: parent.width
+                    height: 170
+                    clip: true
+                    model: logBridge.messages
+                    spacing: 0
+
+                    delegate: Rectangle {
+                        width: logList.width
+                        height: 18
+                        color: "transparent"
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: parent.width
+                            text: modelData.text
+                            color: modelData.level >= 3 ? Theme.danger : (modelData.level === 2 ? Theme.warning : Theme.textSecondary)
+                            font.family: "Consolas"
+                            font.pixelSize: Typography.fontCaption
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    // 无信号处理器：新日志到达时内容高度变化，绑定自动滚到底部
+                    contentY: Math.max(0, contentHeight - height)
+                }
+
+                Text {
+                    width: parent.width
+                    text: qsTr("导出目录：%1").arg(logBridge.exportDir)
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontCaption
+                    elide: Text.ElideMiddle
+                }
             }
 
-            Text {
-                width: parent.width
-                text: qsTr("导出目录：%1").arg(logBridge.exportDir)
-                color: Theme.textMuted
-                font.pixelSize: Typography.fontCaption
-                elide: Text.ElideMiddle
+            Item {
+                Layout.preferredHeight: Metrics.pageMargin
             }
-        }
-
-        Item {
-            Layout.fillHeight: true
         }
     }
 
