@@ -27,12 +27,16 @@ Dialog {
     }
 
     RowLayout {
+        id: rootRow
         anchors.fill: parent
         spacing: Metrics.spacingLg
 
         // ------------------------------------------------------ 模块 / 节点面板
         ColumnLayout {
+            id: leftCol
             Layout.preferredWidth: 210
+            Layout.maximumWidth: 240
+            Layout.minimumWidth: 180
             Layout.fillHeight: true
             spacing: Metrics.spacingMd
 
@@ -89,17 +93,61 @@ Dialog {
                 columnSpacing: Metrics.spacingSm
                 rowSpacing: Metrics.spacingSm
 
-                AppButton { objectName: "ruleAddAdd"; text: "+"; onClicked: ruleGraph.addOperatorNode("+", 300, 120) }
-                AppButton { objectName: "ruleAddSub"; text: "−"; onClicked: ruleGraph.addOperatorNode("-", 300, 120) }
-                AppButton { objectName: "ruleAddMul"; text: "×"; onClicked: ruleGraph.addOperatorNode("*", 300, 120) }
-                AppButton { objectName: "ruleAddDiv"; text: "÷"; onClicked: ruleGraph.addOperatorNode("/", 300, 120) }
-                AppButton { objectName: "ruleAddAbs"; text: qsTr("绝对值"); onClicked: ruleGraph.addAdvancedNode("abs", 300, 260) }
-                AppButton { objectName: "ruleAddSquare"; text: qsTr("平方"); onClicked: ruleGraph.addAdvancedNode("square", 300, 260) }
-                AppButton { objectName: "ruleAddSqrt"; text: qsTr("开根号"); onClicked: ruleGraph.addAdvancedNode("sqrt", 300, 260) }
-                AppButton { objectName: "ruleAddExpr"; text: qsTr("表达式"); onClicked: ruleGraph.addAdvancedNode("expression", 300, 260) }
-                AppButton { objectName: "ruleAddRule"; text: qsTr("规则节点"); onClicked: ruleGraph.addRuleNode(520, 120) }
-                AppButton { objectName: "ruleAddChannelA"; text: qsTr("通道 A"); onClicked: ruleGraph.addChannelNode("A", 820, 80) }
-                AppButton { objectName: "ruleAddChannelB"; text: qsTr("通道 B"); onClicked: ruleGraph.addChannelNode("B", 820, 260) }
+                AppButton {
+                    objectName: "ruleAddAdd"
+                    text: "+"
+                    onClicked: ruleGraph.addOperatorNode("+", 300, 120)
+                }
+                AppButton {
+                    objectName: "ruleAddSub"
+                    text: "−"
+                    onClicked: ruleGraph.addOperatorNode("-", 300, 120)
+                }
+                AppButton {
+                    objectName: "ruleAddMul"
+                    text: "×"
+                    onClicked: ruleGraph.addOperatorNode("*", 300, 120)
+                }
+                AppButton {
+                    objectName: "ruleAddDiv"
+                    text: "÷"
+                    onClicked: ruleGraph.addOperatorNode("/", 300, 120)
+                }
+                AppButton {
+                    objectName: "ruleAddAbs"
+                    text: qsTr("绝对值")
+                    onClicked: ruleGraph.addAdvancedNode("abs", 300, 260)
+                }
+                AppButton {
+                    objectName: "ruleAddSquare"
+                    text: qsTr("平方")
+                    onClicked: ruleGraph.addAdvancedNode("square", 300, 260)
+                }
+                AppButton {
+                    objectName: "ruleAddSqrt"
+                    text: qsTr("开根号")
+                    onClicked: ruleGraph.addAdvancedNode("sqrt", 300, 260)
+                }
+                AppButton {
+                    objectName: "ruleAddExpr"
+                    text: qsTr("表达式")
+                    onClicked: ruleGraph.addAdvancedNode("expression", 300, 260)
+                }
+                AppButton {
+                    objectName: "ruleAddRule"
+                    text: qsTr("规则节点")
+                    onClicked: ruleGraph.addRuleNode(520, 120)
+                }
+                AppButton {
+                    objectName: "ruleAddChannelA"
+                    text: qsTr("通道 A")
+                    onClicked: ruleGraph.addChannelNode("A", 820, 80)
+                }
+                AppButton {
+                    objectName: "ruleAddChannelB"
+                    text: qsTr("通道 B")
+                    onClicked: ruleGraph.addChannelNode("B", 820, 260)
+                }
             }
 
             Item {
@@ -109,8 +157,11 @@ Dialog {
 
         // ------------------------------------------------------ 画布
         Rectangle {
+            id: canvasRect
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.minimumWidth: 400
+            Layout.preferredWidth: 640
             color: Theme.surface
             radius: Metrics.radiusMd
             border.width: Metrics.borderWidth
@@ -125,7 +176,7 @@ Dialog {
                 property real panX: 40
                 property real panY: 20
                 property real zoom: 1.0
-                property int dragNodeId: 0
+                property int dragNodeId: -1
                 property real dragOffsetX: 0
                 property real dragOffsetY: 0
                 property int connectFrom: 0
@@ -356,6 +407,7 @@ Dialog {
                         canvas.forceActiveFocus();
                         var wx = canvas.toWorldX(mouse.x);
                         var wy = canvas.toWorldY(mouse.y);
+                        var node = canvas.nodeAt(wx, wy);
                         canvas.lastMouseX = mouse.x;
                         canvas.lastMouseY = mouse.y;
 
@@ -391,7 +443,7 @@ Dialog {
                             canvas.tempY = wy;
                             return;
                         }
-                        if (canvas.dragNodeId > 0) {
+                        if (canvas.dragNodeId >= 0) {
                             ruleGraph.moveNode(canvas.dragNodeId, wx - canvas.dragOffsetX, wy - canvas.dragOffsetY);
                             return;
                         }
@@ -434,12 +486,10 @@ Dialog {
                                 ruleGraph.deleteNode(ruleGraph.selectedNodeId);
                             }
                             event.accepted = true;
-                        }
-                        else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_C) {
+                        } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_C) {
                             ruleGraph.copySelection();
                             event.accepted = true;
-                        }
-                        else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_V) {
+                        } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_V) {
                             ruleGraph.pasteClipboard(30, 30);
                             event.accepted = true;
                         }
@@ -449,19 +499,38 @@ Dialog {
                 Menu {
                     id: contextMenu
 
-                    MenuItem { text: qsTr("添加规则节点"); onTriggered: ruleGraph.addRuleNode(canvas.toWorldX(canvas.lastMouseX) - 80, canvas.toWorldY(canvas.lastMouseY) - 20) }
-                    MenuItem { text: qsTr("添加加法节点"); onTriggered: ruleGraph.addOperatorNode("+", canvas.toWorldX(canvas.lastMouseX), canvas.toWorldY(canvas.lastMouseY)) }
-                    MenuItem { text: qsTr("添加开根号节点"); onTriggered: ruleGraph.addAdvancedNode("sqrt", canvas.toWorldX(canvas.lastMouseX), canvas.toWorldY(canvas.lastMouseY)) }
-                    MenuItem { text: qsTr("添加自定义表达式"); onTriggered: ruleGraph.addAdvancedNode("expression", canvas.toWorldX(canvas.lastMouseX), canvas.toWorldY(canvas.lastMouseY)) }
+                    MenuItem {
+                        text: qsTr("添加规则节点")
+                        onTriggered: ruleGraph.addRuleNode(canvas.toWorldX(canvas.lastMouseX) - 80, canvas.toWorldY(canvas.lastMouseY) - 20)
+                    }
+                    MenuItem {
+                        text: qsTr("添加加法节点")
+                        onTriggered: ruleGraph.addOperatorNode("+", canvas.toWorldX(canvas.lastMouseX), canvas.toWorldY(canvas.lastMouseY))
+                    }
+                    MenuItem {
+                        text: qsTr("添加开根号节点")
+                        onTriggered: ruleGraph.addAdvancedNode("sqrt", canvas.toWorldX(canvas.lastMouseX), canvas.toWorldY(canvas.lastMouseY))
+                    }
+                    MenuItem {
+                        text: qsTr("添加自定义表达式")
+                        onTriggered: ruleGraph.addAdvancedNode("expression", canvas.toWorldX(canvas.lastMouseX), canvas.toWorldY(canvas.lastMouseY))
+                    }
                     MenuSeparator {}
-                    MenuItem { text: qsTr("删除选中节点"); enabled: ruleGraph.selectedNodeId > 0; onTriggered: ruleGraph.deleteNode(ruleGraph.selectedNodeId) }
+                    MenuItem {
+                        text: qsTr("删除选中节点")
+                        enabled: ruleGraph.selectedNodeId > 0
+                        onTriggered: ruleGraph.deleteNode(ruleGraph.selectedNodeId)
+                    }
                 }
             }
         }
 
         // ------------------------------------------------------ 检查器
         ColumnLayout {
+            id: rightCol
             Layout.preferredWidth: 250
+            Layout.maximumWidth: 300
+            Layout.minimumWidth: 220
             Layout.fillHeight: true
             spacing: Metrics.spacingMd
 
@@ -487,7 +556,8 @@ Dialog {
                 text: ruleGraph.selectedNode.type === "rule" ? ruleGraph.selectedNode.ruleName : ""
                 Layout.fillWidth: true
                 enabled: ruleGraph.selectedNode.type === "rule"
-                onEditingFinished: if (ruleGraph.selectedNode.type === "rule") ruleGraph.renameRuleNode(ruleGraph.selectedNode.id, text)
+                onEditingFinished: if (ruleGraph.selectedNode.type === "rule")
+                    ruleGraph.renameRuleNode(ruleGraph.selectedNode.id, text)
             }
 
             AppComboBox {

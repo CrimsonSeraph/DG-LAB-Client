@@ -380,8 +380,7 @@ void RuleGraphBridge::setRuleExpression(int id, const QString& expression) {
     if (node == nullptr) {
         return;
     }
-    if (node->type == GraphNodeType::Rule || (node->type == GraphNodeType::Advanced
-            && node->advanced == QStringLiteral("expression"))) {
+    if (node->type == GraphNodeType::Rule || (node->type == GraphNodeType::Advanced && node->advanced == QStringLiteral("expression"))) {
         node->expression = expression;
         mark_dirty();
         emit selectionChanged();
