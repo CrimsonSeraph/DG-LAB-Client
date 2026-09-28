@@ -206,7 +206,7 @@ public:
     nlohmann::json load_json_file(const std::string& filename) const;
 
 signals:
-    /// @brief 规则计算完成且父级为通道时发出（命令发送给 Python 端）
+    /// @brief 规则计算完成且父级为通道时发出（携带待下发的命令 JSON）
     /// @param cmd 完整的命令 JSON 对象
     void rule_command_ready(const QJsonObject& cmd);
 

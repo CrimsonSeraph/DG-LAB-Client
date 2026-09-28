@@ -110,4 +110,4 @@ add_custom_command(TARGET my_plugin POST_BUILD
 
 ## 详细说明
 
-完整的插件接口说明、导出约定、宿主能力表格、构建示例与加载流程，请参阅根目录 [README.md](../README.md) 的“六.12 插件开发指南”。
+完整的插件接口说明、导出约定、宿主能力表格、构建示例与加载流程，请参阅根目录 [README.md](../README.md) 的“六.10 插件开发指南”。

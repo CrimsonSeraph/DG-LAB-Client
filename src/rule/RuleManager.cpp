@@ -963,7 +963,7 @@ std::optional<int> RuleManager::compute_rule_locked(const std::string& rule_name
         }
     }
 
-    // 通道父级：通过调用函数将结果发送给 Python 端
+    // 通道父级：生成通道指令并交由上层下发
     for (const auto& parent : rule.get_parents()) {
         if (parent.type != ParentType::CHANNEL) {
             continue;

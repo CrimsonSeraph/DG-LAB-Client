@@ -6,17 +6,17 @@
 
 ## 配置文件优先级
 
-客户端支持多配置文件管理，按优先级从低到高依次为:
+客户端支持多配置文件管理，按优先级从低到高依次为：
 
-| 文件名        | 优先级 (`__priority`) | 作用说明                        |
-| ------------- | --------------------- | ------------------------------- |
-| `main.json`   | 0                     | 核心应用配置                    |
-| `system.json` | 1                     | 系统级配置（如 WebSocket 通信） |
-| `user.json`   | 2                     | 用户自定义配置（界面外观等）    |
+| 文件名 | 优先级 (`__priority`) | 作用说明 |
+| --- | --- | --- |
+| `main.json` | 0 | 核心应用配置 |
+| `system.json` | 1 | 系统级配置（如 WebSocket 通信） |
+| `user.json` | 2 | 用户自定义配置（界面外观等） |
 
-**覆盖规则**: 当多个文件中存在相同路径的配置项时，优先级高的文件中的值会覆盖优先级低的文件中的值。
+覆盖规则：当多个文件中存在相同路径的配置项时，优先级高的文件中的值会覆盖优先级低的文件中的值。
 
-所有配置文件必须包含以下固定字段:
+所有配置文件必须包含以下固定字段：
 
 - `"__priority"`: 用于定义优先级（不可删除，值需与文件名对应）。
 - `"version"`: 当前版本号为 `"1.0"`。
@@ -37,24 +37,27 @@
 | `app.name` | string | 应用名称（显示在窗口标题等位置） |
 | `app.version` | string | 应用版本号 |
 | `app.debug` | bool | 是否开启调试模式（Windows 下会创建调试控制台） |
-| `app.log.console_level` | int | 控制台日志输出等级: 0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE |
+| `app.log.console_level` | int | 控制台日志输出等级：0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE |
 | `app.log.only_type_info` | bool | 是否仅输出单个类型日志（用于精简输出） |
 | `app.log.ui_log_level` | int | UI 界面日志输出等级（同 console_level 枚举） |
-| `app.module.path` | string | 插件扫描目录（默认 `./module`，相对路径相对于可执行文件所在目录解析） |
-| `app.module.scan_load` | bool | 是否"扫描即加载"：扫描到插件后立即加载（默认 `false`，仅扫描并在界面显示"暂未加载"；开启用于调试或特定场景） |
+| `app.module.path` | string | 插件扫描目录（默认 `./module`，相对路径按可执行文件所在目录解析） |
+| `app.module.scan_load` | bool | 是否“扫描即加载”：扫描到插件后立即加载（默认 `false`，仅扫描并在界面显示“暂未加载”；开启用于调试或特定场景） |
 | `python.path` | string | Python 解释器路径或可执行文件名 |
-| `python.packages_path` | string | Python 第三方包安装目录的相对路径（相对于可执行文件所在目录） |
+| `python.bridge_path` | string | 保留字段：原先指向 Python WebSocket 桥接脚本，`Bridge.py` 已随内置中转服务上线而移除 |
 
 ---
 
 ### 2. `system.json` —— 系统级配置（WebSocket 通信）
 
-该文件用于配置与 DG-Lab 服务交互的 WebSocket 连接参数、消息收发规则等。目前该文件预留为空，用户可根据需要添加自定义配置项，例如:
+该文件用于配置与 DG-LAB 服务交互的 WebSocket 连接参数、消息收发规则等，默认内容如下：
 
 ```json
 {
-    "websocket": {
-        "port": 9999
+    "app": {
+        "websocket": {
+            "ip": "127.0.0.1",
+            "port": 9999
+        }
     }
 }
 ```
@@ -65,20 +68,22 @@
 
 ### 3. `user.json` —— 用户自定义配置（界面外观等）
 
-该文件用于存储用户的个性化设置，例如界面主题、字体大小、窗口位置等。例如:
+该文件用于存储用户的个性化设置，如界面主题、字号、日志导出设置等：
 
 ```json
 {
-    "ui": {
-        "is_light": true,
-        "font_size": 16
+    "app": {
+        "ui": {
+            "theme": "light",
+            "font_size": 16
+        }
     }
 }
 ```
 
 这些设置会覆盖 `main.json` 和 `system.json` 中的同名项（若存在）。
 
-运行时由插件/模块写入的配置项（经宿主配置接口持久化到本文件）:
+运行时由插件/模块写入的配置项（经宿主配置接口持久化到本文件）：
 
 | 路径 | 类型 | 说明 |
 | --- | --- | --- |

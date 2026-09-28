@@ -15,7 +15,7 @@
 | `Qt6::QuickDialogs2`            | `ColorDialog`（自定义主题取色）等                        |
 | `AppConfig` / `DebugLog`        | 核心基础设施                                             |
 | `ModuleManager` / `RuleManager` | 数据与规则来源                                           |
-| `PythonSubprocessManager`       | 当前设备通信通道（阶段 7 将替换为应用内 WebSocket 服务） |
+| `DeviceController` / `DglabRelayServer` / `CoyoteBleController` | 设备通信：应用内 V3 / V4 中转服务与郊狼 V3 蓝牙直连 |
 
 ## 目录结构
 
@@ -32,7 +32,7 @@ src/ui/
 │   ├── pages/
 │   │   ├── HomePage.qml        # 首页：A/B 通道面板
 │   │   ├── ConfigPage.qml      # 配置：连接 / 波形 / 主题 / 日志
-│   │   ├── ModulePage.qml      # 模块页（阶段 4）
+│   │   ├── ModulePage.qml      # 模块页
 │   │   └── AboutPage.qml       # 关于
 │   ├── home/
 │   │   └── ChannelPanel.qml    # 单通道面板（强度 / 模块 / 规则 / 波形 / 启停）
@@ -76,7 +76,7 @@ src/ui/
 | --- | --- |
 | `navHomeButton` / `navConfigButton` / `navModuleButton` / `navAboutButton` | 切换页面 |
 | `homeModuleEntryButton` | 跳转模块页 |
-| `homeRuleEditorButton` / `configRuleEditorButton` | 打开规则编辑器（阶段 9） |
+| `homeRuleEditorButton` / `configRuleEditorButton` | 打开规则编辑器 |
 
 首页通道（`ChannelPanel`，`channel` 为 A/B）：
 
@@ -85,7 +85,7 @@ src/ui/
 | `channel{A,B}StartButton`                   | 切换通道启用状态（同步规则引擎通道变量） |
 | `channel{A,B}StrengthSpin`                  | 设置目标强度（`valueModified`）          |
 | `channel{A,B}StrengthIncrease` / `Decrease` | 强度 ±1                                  |
-| `channel{A,B}SelectWaveButton`              | 选择波形（阶段 6）                       |
+| `channel{A,B}SelectWaveButton`              | 选择波形                                 |
 
 配置页：
 
@@ -156,4 +156,4 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 - **新增页面**：在 `qml/pages/` 新增文件 → 加入 `CMakeLists.txt` 的 `QML_FILES` → 在 `MainWindow.qml` 的页面栈中追加 → 在 `AppBridge::Page` 与 `UiConnector` 中登记。
 - **新增组件**：放入 `qml/components/`（通用）或对应页面目录（专属）；样式一律引用令牌。
 - **命名约定**：QML 内部 id / 属性用 `camelCase`；`objectName` 面向 C++ 连接，必须与 `UiConnector` 中的字符串一致。
-- **迁移状态**：界面正从 Qt Widgets（`DGLABClient` + `.ui` + `qcss`）逐页迁移到 QML，迁移完成后旧代码与样式表将整体移除。
+- **迁移状态**：界面已整体迁移到 QML；旧 Widgets 界面、`.ui` 文件与 `qcss` 样式表均已移除（见 [CHANGELOG.md](../../CHANGELOG.md)）。

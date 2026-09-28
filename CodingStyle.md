@@ -1,17 +1,20 @@
 # DG-LAB-Client CodingStyle
 
-基于 Qt 的应用程序，通过 Python 模块扩展功能。本项目遵循明确的编码风格规范，以保证代码的可读性与一致性。
+基于 Qt/QML 的桌面应用，通过动态库插件（`IPlugin`）扩展功能。本项目遵循明确的编码风格规范，以保证代码的可读性与一致性。
 
 ## 目录结构
 
 ```text
 .
 ├── include/      # C++ 头文件（.h, .hpp 等）
-├── src/          # C++ 源文件（.cpp）
+├── src/          # C++ 源文件（.cpp）与 QML 界面（src/ui/qml/）
+├── module/       # 动态库插件源码（example、gsi）
 ├── assets/       # 资源文件（图片、字体、音频等）
 ├── config/       # 配置文件（.json）
-├── qcss/         # Qt 样式表文件（.qss）
-└── python/       # Python 脚本及模块
+├── docs/         # 开发文档（主题令牌等）
+├── licenses/     # 第三方许可证文本
+├── python/       # Python 脚本（PathFinder.py，供 GSI 插件使用）
+└── third_party/  # 内嵌第三方源码（qrcodegen）
 ```
 
 ## 编码规范

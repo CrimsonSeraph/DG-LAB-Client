@@ -8,16 +8,15 @@
 > - [四、快速开始](#四快速开始)
 > - [五、自动化构建](#五自动化构建)
 > - [六、使用说明](#六使用说明)
-> - [七、本地 WebSocket 中转服务部署说明](#七本地-websocket-中转服务部署)
-> - [八、项目结构](#八项目结构)
-> - [九、截图](#九截图)
-> - [十、编码规范](#十编码规范)
-> - [十一、FAQ](#十一faq)
-> - [十二、贡献指南](#十二贡献指南)
-> - [十三、许可证](#十三许可证)
-> - [十四、联系方式](#十四联系方式)
+> - [七、项目结构](#七项目结构)
+> - [八、截图](#八截图)
+> - [九、编码规范](#九编码规范)
+> - [十、FAQ](#十faq)
+> - [十一、贡献指南](#十一贡献指南)
+> - [十二、许可证](#十二许可证)
+> - [十三、联系方式](#十三联系方式)
 
-一个基于 Qt/QML 的 DG-Lab 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v2.1.0`
+一个基于 Qt/QML 的 DG-LAB 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v2.1.0`
 
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
@@ -25,7 +24,7 @@
 
 ## 一、项目简介
 
-DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客户端工具，核心目标是从外部程序（如游戏、传感器等）获取数据，经过可配置的规则引擎计算后，向 DG-Lab 的 WebSocket 服务发送强度调节、波形输出等指令。
+DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客户端工具，核心目标是从外部程序（如游戏、传感器等）获取数据，经过可配置的规则引擎计算后，向 DG-LAB 的 WebSocket 服务发送强度调节、波形输出等指令。
 
 项目采用 **C++20 + Qt6/QML** 实现，分为 `core`（配置/日志）、`module`（数值与插件）、`rule`（规则与规则图）、`wave`（波形）、`ble`（蓝牙）、`net`（WebSocket 中转）与 `ui`（界面桥接 + QML）七层，依赖单向。整体架构如下:
 
@@ -44,25 +43,19 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 - **内置 WebSocket 中转服务** `DglabRelayServer` 基于 `Qt WebSockets` 在应用内托管 DG-LAB 中转服务（V3 / V4）：分配 clientId、处理 bind 配对与心跳、转发强度/波形/清除指令、解析 APP 回传；V4 额外维护被控方设备列表并下发 `device.op` / `device.op.clear`。配对二维码由内嵌 `qrcodegen`（MIT）经 `QrImageProvider` 提供给 QML。
 
-- **配置系统** 采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。规则表格高级编辑: 在“配置”页面的规则表格中，“通道”和“模式”列使用下拉框选择，“值模式”列使用可视化公式构建器。支持通过按钮快速插入 {}、+-*/()，并在保存时自动检查括号平衡合法性，极大提升了复杂计算式（如 {}+{}*2、({}\*2)+{}）的编辑体验。
+- **配置系统** 采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。
 
-- **规则引擎** 提供 `Rule` 类（支持 `{}`、`{id:xxx(名称)}`、`{rule:xx}` 占位符）和单例 `RuleManager`。可从指定目录下扫描 JSON 规则文件（含关键字 `rule`），加载规则集，并支持创建/删除/切换规则文件。规则支持启用状态（`enabled`）、多父级（通道 A/B 或规则引用）、唯一规则序号，值模式支持空值语义（任一引用为空时忽略该项计算），规则间可通过 `{rule:xx}` 引用结果并级联触发，父级为通道的规则结果自动发送给 Python 子进程。规则可用于动态生成发送给 Python 子进程的命令（如强度操作、波形参数），极大提升了操作的灵活性。
+- **规则引擎** 提供 `Rule` 类（支持 `{}`、`{id:xxx(名称)}`、`{rule:xx}` 占位符）和单例 `RuleManager`。可从指定目录下扫描 JSON 规则文件（含关键字 `rule`），加载规则集，并支持创建/删除/切换规则文件。规则支持启用状态（`enabled`）、多父级（通道 A/B 或规则引用）、唯一规则序号，值模式支持空值语义（任一引用为空时忽略该项计算），规则间可通过 `{rule:xx}` 引用结果并级联触发，父级为通道的规则结果会生成通道指令（`send_strength` 等）。
 
 - **进程检查 (ProcessChecker)** 提供 `ProcessChecker` 静态工具类，跨平台查询指定名称的进程是否在运行（Windows 使用 `tasklist`，macOS/Linux 使用 `ps`），支持大小写敏感开关。用于 CS2 GSI 配置更新时判断游戏是否运行（配置仅游戏启动时加载，运行中更新需提示重启游戏）。
 
 - **CS2 GSI 插件 (CS2GsiPlugin)** `CS2GsiPlugin`（`module/gsi/`）将原静态 `CS2GSIModule` 改造为符合 `IPlugin` 接口的动态库插件：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取监听端口，按模块最小查询周期计算 `buffer`/`throttle` 并生成 `gamestate_integration_dglab.cfg`（路径记录到 `user.json` 的 `app.gsi` 下，经宿主配置接口读写）。插件经宿主共享 `DataListener` 接收 GSI 数据（HTTP POST），注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项，参照官方 GSI 规范），并实现**自身/队友数据归属区分**：首次收到有效数据时记录 `player.steamid` 为本地玩家基准，之后比较——一致为自身（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），不一致为队友（个人数值**不更新**，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。周期变化时自动更新配置；若 `cs2.exe` 运行中，经宿主 `notify` 弹出重启游戏提示。
 
-- **首页通道面板** 首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式，`x_wave_card` 波形卡片保持现状。
+- **首页通道面板** 首页 A/B 通道卡片分为模块区域与规则区域：模块区域显示挂载在该通道上的模块名称与模块内数值的最小查询周期；规则区域显示父级为该通道的规则名称与最近一次计算的数值（规则计算完成时实时刷新）。卡片自适应布局、圆角样式。
 
 - **数值模块（Module）** 提供 `ModuleManager` 单例与 `ModuleValue`/`Module` 数据模型，管理可查询数值（参照 CS2 官方 GSI 规范，如 `health`、`armor`、`team_num`、`money` 等）。每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口；调度器以所有数值中最短的查询周期为基准进行轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费。数值支持可选最小/最大值配置（写入自动钳制到范围）。模块页点击模块卡片可弹出数值展示窗口（显示名称、当前值、最小/最大值及底层字段名）。
 
 - **插件系统（IPlugin）** 提供插件化模块接口 `IPlugin`（纯虚基类）：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明与错误码返回；统一跨平台导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性），约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 工厂导出，主程序加载时校验 API 版本（`PLUGIN_API_VERSION`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`，类名/方法名自动为插件自身名称与函数名）；内存隔离约定插件自行 `new`/`delete`（宿主仅调用 `destroy_plugin`）。`ModuleManager` 作为插件宿主：启动时扫描 `<程序目录>/module/`（路径由 `config/main.json` 的 `app.module.path` 配置，`app.module.scan_load` 控制"扫描即加载"），通过 `QLibrary` 动态加载、校验 API 版本与依赖、注入日志回调与宿主上下文（`IPluginHost`：数值注册/写入、共享 `DataListener`），并管理加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。示例空壳插件（`module/example/`）演示完整接口实现与数值注册，构建后自动复制到 `<程序目录>/module/` 供扫描加载。
-
-- **波形采样控件（多通道）** 提供 `SampledWaveformWidget`，可同时接收多个独立数据源（监听器）的归一化值（0~1），每个监听器以不同颜色的滚动波形图实时显示。支持动态添加/删除监听器、自定义波形颜色、调整采样间隔和最大振幅比例。适用于同时监控 A/B 通道强度、外部传感器数值等场景。
-
-- **可编辑标签控件 (EditableLabel)** 提供 `EditableLabel` 控件，继承自 `QLabel`，支持双击进入编辑模式，内嵌 `QLineEdit` 并支持输入验证器。编辑完成后发出 `text_edited` 信号，用于需要直接修改文本的场景（如规则名称、设备别名等），提升交互灵活性。
-
-- **IP 选择辅助 (IpSelector)** 提供 `IpSelector` 单例类，自动匹配可用 IP 地址（基于黑白名单关键词过滤网卡名称），支持弹出图形化对话框让用户编辑黑白名单并手动选择 IP。简化设备连接前的网络配置流程。
 
 - **主题系统（QML）** 颜色集中在 C++ 单例 `Theme`（`ThemeManager`）：16 套预设 + 自定义主/副色，运行时按主/副色派生 `surface` / `surfaceAlt` / `border` / `textPrimary` / `accent` 等语义令牌，并按 WCAG 对比度下限逐主题校正；配置页提供预设网格与取色对话框切换，即时生效。令牌清单、预设色值与扩展方式见 [docs/theme.md](docs/theme.md)。
 
@@ -70,7 +63,7 @@ DG-LAB-Client 是一个为 DG-Lab（地牢实验室）设备设计的桌面客�
 
 - **日志导出（自动 + 手动）** `LogExporter` 提供两类日志记录：**自动日志**在程序启动、配置系统加载完毕后自动开始记录运行日志（默认写入程序目录 `log/`，受导出级别/数量/大小限制，超限分片、退出或导出后自动清理多余日志）；**手动日志**在点击“导出日志”时写入手动目录（默认 `log/handle/`），仅应用级别过滤，不受数量与大小限制。自动与手动各有独立的级别过滤设置（导出级别、仅指定级别、范围、位置），可在“更多设置”弹窗中分别配置，持久化到 `user.json` 的 `app.log.auto` / `app.log.manual` 下。
 
-- **WebSocket 通信** Python 脚本 `Bridge.py` 内部使用 `WebSocketCore.py`（工具库）与 DG-Lab 服务进行 WebSocket 交互（连接、心跳、绑定、控制命令），并将结果通过 TCP 返回给 C++ 主程序。
+- **设备通信** 应用通过内置中转服务（`DglabRelayServer`）与 DG-LAB APP 扫码配对后直接下发强度/波形/清除指令；郊狼 V3 设备可经蓝牙直连。原先的 Python `Bridge.py` / `WebSocketCore.py` 通信层已移除。
 
 - **跨平台构建** 基于 CMake，支持 Windows、Linux、macOS 等平台，并通过 GitHub Actions 自动构建和打包。
 
@@ -105,13 +98,7 @@ git clone https://github.com/yourusername/DG-LAB-Client.git
 cd DG-LAB-Client
 ```
 
-### 2. 安装 Python 依赖
-
-```bash
-pip install websockets qrcode[pil]
-```
-
-### 3. 配置 CMake
+### 2. 配置 CMake
 
 ```bash
 mkdir build && cd build
@@ -123,13 +110,13 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/path/to/qt -DPython_ROO
 
 > 👉 配置或编译失败？请查看 [常见问题 - 编译与运行](#编译与运行)
 
-### 4. 编译
+### 3. 编译
 
 ```bash
 cmake --build . --config Release
 ```
 
-### 5. 运行
+### 4. 运行
 
 编译完成后，可执行文件位于 `build/Release`（Windows）或 `build`（Linux/macOS）目录下。运行时需要确保以下目录与可执行文件同级:
 
@@ -140,7 +127,7 @@ cmake --build . --config Release
 
 CMake 的 `POST_BUILD` 命令会自动复制这些目录到输出目录。
 
-### 6. 打包（生成安装包）
+### 5. 打包（生成安装包）
 
 ```bash
 cpack
@@ -331,78 +318,15 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 ### 7. 调试控制台
 
-在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示详细的日志输出。 **注意: ** 该控制台使用 `#include <windows.h>` 仅在 Windows 平台上可用，并且需要在配置文件中启用调试模式。当然，应用中首页也会输出日志到 Qt 界面，您可以根据需要选择查看。
+在 Windows 上，如果配置文件中的 `app.debug` 为 `true`，程序启动时会自动创建一个调试控制台，用于显示详细的日志输出。**注意**：该控制台依赖 `#include <windows.h>`，仅在 Windows 平台可用，并且需要在配置文件中启用调试模式。首页也会输出日志到 Qt 界面，可按需选择查看。
 
 ### 8. IP 自动选择与手动选择
 
-`IpSelector` 单例提供了便捷的 IP 地址获取方式：
+程序启动时读取配置中的 `app.websocket.ip`；当该值为空或为 `127.0.0.1` 时，自动挑选第一个「已启用且非回环」网卡的 IPv4 地址，没有可用网卡时回退到 `127.0.0.1`。
 
-```cpp
-#include "IpSelector.h"
+如需指定地址，在“配置”页面的“连接”卡片中直接填写 IP 与端口，连接时会读取并持久化。
 
-// 自动获取 IP（基于黑白名单匹配）
-QString ip = IpSelector::instance()->auto_select_ip();
-
-// 弹出对话框，让用户编辑黑白名单并手动选择 IP
-QString selected = IpSelector::instance()->show_selection_dialog(this);
-if (!selected.isEmpty()) {
-    // 使用 selected IP
-}
-```
-
-黑白名单默认包含常见虚拟网卡关键词（vmware, virtual, docker, vbox）和物理网卡关键词（以太网, wlan, en0, eth），可在对话框中随时修改。
-
-### 9. 可编辑标签控件 (EditableLabel)
-
-在 UI 中提升一个 QLabel 为 `EditableLabel`，即可获得双击编辑能力：
-
-```cpp
-EditableLabel* label = new EditableLabel(this);
-label->setText("双击我可编辑");
-label->set_validator(new QIntValidator(0, 100, this)); // 可选验证器
-
-connect(label, &EditableLabel::text_edited, [](const QString& newText){
-    // 处理编辑完成事件
-});
-```
-
-### 10. 波形采样控件（多监听器支持）
-
-`SampledWaveformWidget` 是一个支持多通道实时滚动波形的控件，使用方法如下:
-
-- **添加至 UI**: 在 Qt Designer 中提升一个 QWidget 为 `SampledWaveformWidget`，或直接在代码中创建。
-- **添加监听器**: 调用 `add_listener(name, color)` 为数据源命名并指定波形颜色。
-- **输入数据**: 调用 `input_data(listener_name, value)`，`value` 范围为 0.0 ~ 1.0，控件会按全局采样间隔采集并更新对应监听器的波形。
-- **移除监听器**: 调用 `remove_listener(name)`（不可删除默认的 `"default"` 监听器）。
-- **调整颜色**: 调用 `set_listener_color(name, color)` 动态修改波形颜色。
-- **全局配置**: 通过 `set_sample_interval_ms(ms)` 和 `set_max_amplitude(ratio)` 调整采样间隔和最大振幅比例。
-- **支持范围输入**: 提供 `set_input_range()` 方法，允许为每个监听器设置输入值的最小值和最大值，控件内部将输入值归一化到 0~1 后进行绘制，适应不同量级的数据输入。
-
-<details>
-<summary>示例代码</summary>
-
-```cpp
-SampledWaveformWidget* wave = ui_.wave_show;
-
-// 添加监听器，范围 0~200（例如强度值）
-wave->add_listener("strength_A", Qt::red, 0.0, 200.0);
-// 或者先添加后设置范围
-wave->add_listener("strength_B", Qt::blue);
-wave->set_input_range("strength_B", 0, 200);
-
-// 输入原始值 50 -> 归一化 0.25，波形显示在 1/4 高度
-wave->input_data("strength_A", 50);
-wave->input_data("strength_B", 150); // 归一化 0.75
-
-// 超出范围会被钳位: 输入 250 -> 钳位到 200 -> 归一化 1.0
-wave->input_data("strength_A", 250);
-```
-
-</details>
-
-> **注意**: 默认监听器 `"default"` 始终存在（绿色），若只需显示单条曲线可直接使用旧接口 `input_data(value)`。
-
-### 11. 主题切换
+### 9. 主题切换
 
 程序内置了 **16 套**预设主题，涵盖亮色、暗色及多种彩色风格（如炭黑甜粉、深海奶白、克莱因黄、午夜蓝、森野绿等）。颜色由 C++ 单例 `Theme` 提供，切换后 QML 属性绑定即时刷新，无需重启或重载样式表。用户可通过以下方式切换主题:
 
@@ -413,17 +337,17 @@ wave->input_data("strength_A", 250);
 
 > **注意**: 所有主题的令牌都会按 WCAG 对比度下限校正，浅色主题下也不会出现不可读文字；令牌清单、每套预设的主/副色与派生色值、扩展新主题的方法见 [docs/theme.md](docs/theme.md)。
 
-### 12. 插件开发指南
+### 10. 插件开发指南
 
-插件化模块系统允许将数值模块（如 CS2 GSI）实现为独立的动态库，由主程序动态扫描/加载/卸载，无需重新编译主程序。本节为插件开发者提供完整指南。
+插件化模块系统允许将数值模块（如 CS2 GSI）实现为独立的动态库，由主程序动态扫描/加载/卸载，无需重新编译主程序。
 
-#### 12.1 目录与现有插件
+#### 10.1 目录与现有插件
 
 - **源码目录**: `module/`（每个插件一个子目录，如 `module/example/`、`module/gsi/`）。
 - **运行时扫描目录**: 默认 `<程序目录>/module/`，构建后插件 DLL 自动复制至此；路径可由 `config/main.json` 的 `app.module.path` 更改。
 - **现有插件**: `module/example/`（示例空壳插件，演示接口与导出）、`module/gsi/`（CS2 GSI 插件，完整功能示例）。
 
-#### 12.2 接口（IPlugin，`include/plugin/IPlugin.h`）
+#### 10.2 接口（IPlugin，`include/plugin/IPlugin.h`）
 
 所有插件必须继承 `IPlugin` 并实现：
 
@@ -441,7 +365,7 @@ wave->input_data("strength_A", 250);
 
 数值通过 `ModuleValue` 构造可携带**可选最小/最大值**（如 `ModuleValue("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth", 0, 100)`，空表示无上下限）：弹窗显示 `当前值 \| 最小值/最大值`（无范围显示 `NULL`），写入时自动钳制到范围。
 
-#### 12.3 动态库导出约定
+#### 10.3 动态库导出约定
 
 插件动态库必须通过 `extern "C"` 导出以下三个符号（`include/plugin/plugin_export.h` 提供 `PLUGIN_EXPORT` 宏）：
 
@@ -454,7 +378,7 @@ PLUGIN_EXPORT void destroy_plugin(IPlugin*); // 销毁实例（插件内部 dele
 }
 ```
 
-#### 12.4 宿主能力（IPluginHost，`include/plugin/PluginHost.h`）
+#### 10.4 宿主能力（IPluginHost，`include/plugin/PluginHost.h`）
 
 宿主在加载插件后通过 `attach_host()` 注入宿主上下文，插件在生命周期方法中调用：
 
@@ -468,7 +392,7 @@ PLUGIN_EXPORT void destroy_plugin(IPlugin*); // 销毁实例（插件内部 dele
 
 数据包信封格式（自定义协议建议采用）: `{"source": "<模块名>", "type": "<信息类型>", "data": {...}}`；无信封数据（如 CS2 GSI）回退到监听器默认来源。
 
-#### 12.5 规范要求
+#### 10.5 规范要求
 
 - **日志转发**: 插件内部**不直接使用** `LOG_MODULE`，统一使用 `PLUGIN_LOG(this, level, ...)` 宏（类名/方法名自动为插件名称与函数名），由宿主统一记录。
 - **内存隔离**: 插件实例在插件内 `new`，宿主仅调用 `destroy_plugin` 销毁；**禁止跨模块 new/delete**、**禁止静态全局变量**。
@@ -477,7 +401,7 @@ PLUGIN_EXPORT void destroy_plugin(IPlugin*); // 销毁实例（插件内部 dele
 - **ABI 兼容**: 插件必须与主程序使用同一工具链构建（本项目 MinGW g++ + Qt 6.9.3），否则无法加载。
 - **API 版本**: 接口不兼容变更时递增 `PLUGIN_API_VERSION`，主程序加载时校验。
 
-#### 12.6 构建示例（CMake）
+#### 10.6 构建示例（CMake）
 
 ```cmake
 # 插件目标：SHARED + PLUGIN_BUILD + 接口头文件路径
@@ -502,277 +426,55 @@ add_custom_command(TARGET my_plugin POST_BUILD
 )
 ```
 
-#### 12.7 加载流程与状态
+#### 10.7 加载流程与状态
 
 1. 主程序启动时扫描插件目录（`*.dll`/`*.so`/`*.dylib`），**默认只扫描不加载**，模块页显示“暂未加载”与“启用”按钮；`app.module.scan_load=true` 时扫描即加载（调试用）。
 2. 加载流程: `QLibrary` 动态加载 → `get_plugin_api_version` 校验 → 依赖校验 → `create_plugin` → `attach_host` + `set_log_callback` → `initialize()`（插件在此注册数值与数据处理器）。
 3. 卸载流程: `can_unload()` 检查 → `uninitialize()` → `cleanup()` → `destroy_plugin()` → `QLibrary::unload`。
 4. 加载失败时记录原因，模块页显示“加载失败”。
 
-#### 12.8 GSI 插件数据归属规则（module/gsi/）
+#### 10.8 GSI 插件数据归属规则（module/gsi/）
 
 CS2 GSI 插件按 `player.steamid` 区分数据归属：首次收到有效数据时记录为本地玩家基准，之后比较——**一致为自身**（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），**不一致为队友**（个人数值不更新，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。字符串字段按固定集合映射为数字（如 `team` CT/T→3/2、`bomb.state`→1-4、`map.phase`→0-6），不固定的值放弃该字段。
 
 ---
 
-## 七、本地 WebSocket 中转服务部署
-
-### 1. 服务说明
-
-此 WebSocket 服务扮演中央中转站的角色，负责在电脑客户端（第三方终端）与 DG-Lab 手机 App 之间中继消息（如绑定指令、强度控制、心跳包等），使两者能通过 WebSocket 进行数据交换。该服务仅支持 **郊狼脉冲主机 3.0**。
-
-### 2. 环境准备
-
-- **安装 Node.js**: 建议版本 12.x 或更高。您可以在 [Node.js 官网](https://nodejs.org/) 下载并安装。
-- **获取服务脚本**: 从官方仓库获取后端代码，项目结构如下:
-
-<details>
-<summary> 官方仓库后端代码项目结构 </summary>
-
-```
-socket/
-└── v2/                          # ✅ 推荐使用
-    ├── backend/                 # WebSocket 后端 (Node.js)
-    │   ├── src/
-    │   │   ├── index.js         # 主入口，启动服务器 & 消息路由
-    │   │   ├── config.js        # 配置管理（支持 .env 环境变量）
-    │   │   ├── connection.js    # 连接管理（注册、配对、断开）
-    │   │   ├── message.js       # 消息处理（验证、转发、强度/波形）
-    │   │   ├── timer.js         # 定时器管理（波形消息队列发送）
-    │   │   └── logger.js        # 日志模块（winston）
-    │   └── package.json
-    └── frontend/                # 前端控制页面 (HTML+CSS+JS)
-```
-
-</details>
-
-### 3. 安装与启动
-
-打开终端，进入 `socket/v2/backend` 目录，执行以下步骤:
-
-**步骤一: 安装依赖**
-
-```bash
-cd socket/v2/backend
-npm install
-```
-
-**步骤二: 配置环境变量（可选）**
-
-在 `socket/v2/backend` 目录下创建 `.env` 文件，可配置以下参数:
-
-| 变量                          | 默认值 | 说明                     |
-| ----------------------------- | ------ | ------------------------ |
-| `PORT`                        | 9999   | WebSocket 服务端口       |
-| `HEARTBEAT_INTERVAL`          | 60000  | 心跳间隔（毫秒）         |
-| `DEFAULT_PUNISHMENT_TIME`     | 1      | 波形发送频率（每秒次数） |
-| `DEFAULT_PUNISHMENT_DURATION` | 5      | 波形默认持续时间（秒）   |
-| `LOG_LEVEL`                   | info   | 日志级别                 |
-
-**步骤三: 启动服务**
-
-```bash
-# 生产模式
-npm start
-
-# 开发模式（自动重启）
-npm run dev
-```
-
-服务默认监听端口 `9999`。
-
-### 4. 客户端配置与连接
-
-1. 保持 Node.js 服务在后台运行（终端窗口不要关闭）。
-2. 启动您的客户端程序（如 DG-LAB-Client 或其他第三方终端）。
-3. 客户端连接 WebSocket 服务后，服务端会分配 `clientId` 并返回给客户端。
-4. 客户端根据 WebSocket 地址和 `clientId` 生成二维码，格式如下:
-    ```
-    https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://你的服务器地址:端口/clientId
-    ```
-
-### 5. 手机 App 连接
-
-1. 确保手机与电脑连接在 **同一个局域网** 下。
-2. 打开 DG-Lab 官方手机 App（需要 3.x 及以上版本，支持 WebSocket）。
-3. 在 App 中打开 SOCKET 功能 → 点击连接服务器 → 扫描客户端生成的二维码。
-4. 扫描后，App 将自动连接到中转服务并完成配对。
-
-配对成功后，您即可进行强度调节、波形发送等操作。
-
-### 6. 注意事项
-
-1. **客户端 ID 必须唯一**: 服务端生成的 `clientId` 必须全局唯一，推荐使用 UUID v4。
-
-2. **消息格式要求**: 除初始连接时 `targetId` 可为空外，所有消息必须包含 `type`、`clientId`、`targetId`、`message` 四个字段且值不为空。
-
-3. **本地调试与正式使用**:
-    - 本地调试时可以使用 `ws://` 协议
-    - 若需公网访问，建议使用 `wss://` 协议以保证通信安全
-
-4. **保持服务运行**: 启动服务的终端窗口不要关闭，关闭后服务会终止。
-
-5. **检查防火墙**: 如果手机无法连接，检查电脑防火墙是否允许 WebSocket 端口（默认 9999）的入站连接。
-
-6. **默认端口确认**: 服务默认监听 `9999` 端口，具体请以您下载的脚本中实际定义的端口为准。
-
-7. **规则文件安全**: 不要删除默认的 `rules.json`，删除其他规则文件前请确保已保存重要规则。
-
-**相关资源**:
-
-- 官方仓库: [https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE](https://github.com/DG-LAB-OPENSOURCE/DG-LAB-OPENSOURCE)
-- 常见问题文档: `socket/QA/Websocket_open_source_QA_Chinese.txt`（位于仓库中）
-
-如有其他问题，请联系官方邮箱: service@dungeon-lab.com
-
-> 👉 部署或连接过程中遇到问题？请查看 [常见问题 - 本地 WebSocket 中转服务](#本地-websocket-中转服务)
-
----
-
-## 八、项目结构
+## 七、项目结构
 
 <details>
 <summary> 目录树 </summary>
 
 ```
 DG-LAB-Client/
-├── .github/                         # GitHub 配置目录
-│   └── workflows/                   # CI/CD 工作流
-│       ├── build.yml                # 构建与测试工作流
-│       └── release.yml              # 发布工作流
-├── assets/                          # 静态资源（图片等）
-│   └── normal_image/
-│       ├── main_image.png           # 主界面图片
-│       ├── check_white.svg          # 勾选框白色勾号（深色强调色主题）
-│       └── check_dark.svg           # 勾选框深色勾号（浅色强调色主题）
-├── config/                          # 默认配置文件目录
-│   ├── main.json                    # 主配置
-│   ├── system.json                  # 系统配置
-│   ├── user.json                    # 用户配置
-│   └── rules/                       # 规则文件目录
-│       └── rules.json               # 规则定义
-├── module/                             # 插件源码目录（运行时扫描目录为可执行文件旁 module/）
-│   ├── example/                        # 示例空壳插件（验证插件接口与导出约定）
-│   └── gsi/                            # CS2 GSI 插件（路径查找、配置生成、SteamID 归属区分）
-├── include/                             # 公共头文件（按分类子目录存放，含 UI 文件）
-│   ├── core/                            # 核心基础设施：配置系统 + 日志系统
-│   │   ├── AppConfig.h                  # 应用配置接口
-│   │   ├── AppConfig_impl.hpp           # 配置实现模板
-│   │   ├── AppConfig_utils.hpp          # 配置包装器工具类
-│   │   ├── ConfigManager.h              # 配置管理器
-│   │   ├── ConfigManager_impl.hpp       # 配置管理器模板实现
-│   │   ├── MultiConfigManager.h         # 多配置管理器
-│   │   ├── MultiConfigManager_impl.hpp  # 多配置管理实现模板
-│   │   ├── ConfigStructs.h              # 配置数据结构
-│   │   ├── DefaultConfigs.h             # 默认配置生成
-│   │   ├── DebugLog.h                   # 调试日志接口
-│   │   ├── DebugLog_utils.hpp           # 日志工具函数
-│   │   ├── Console.h                    # 控制台输出
-│   │   ├── LogExporter.h                # 日志导出器（导出设置与清理）
-│   │   ├── LogExportSettingsDialog.h    # 日志导出设置对话框
-│   │   └── ProcessChecker.h             # 进程运行状态检查
-│   ├── bridge/                          # Python 子进程通信
-│   │   └── PythonSubprocessManager.h    # Python 子进程管理
-│   ├── rule/                            # 规则引擎（含规则编辑 UI）
-│   │   ├── Rule.h                       # 规则实体
-│   │   ├── RuleManager.h                # 规则管理器
-│   │   ├── RuleManager_impl.hpp         # 规则管理实现模板
-│   │   ├── FormulaBuilderDialog.h       # 公式构建对话框
-│   │   ├── ParentEditDialog.h           # 规则父级编辑对话框
-│   │   ├── ComboBoxDelegate.h           # 下拉框委托
-│   │   └── ValueModeDelegate.h          # 值模式委托
-│   ├── module/                          # 数值模块
-│   │   ├── ModuleValue.h                # 数值模型与查询周期枚举
-│   │   ├── Module.h                     # 数据模块（一组数值）
-│   │   ├── ModuleManager.h              # 数值模块管理器（周期调度）
-│   │   ├── ModuleValuesDialog.h         # 模块数值展示对话框
-│   │   └── DataListener.h              # 通用数据接收器（多模块注册分发）
-│   ├── plugin/                          # 插件接口
-│   │   ├── IPlugin.h                    # 插件纯虚基类（生命周期、自描述、日志回调）
-│   │   └── plugin_export.h              # 导出宏与 API 版本定义
-│   ├── ui/                              # 界面层（主窗口 + 通用控件）
-│   │   ├── DGLABClient.h                # 主窗口类定义
-│   │   ├── DGLABClient.ui               # Qt Designer 界面文件
-│   │   ├── DGLABClient_impl.hpp         # 主窗口模板实现
-│   │   ├── DGLABClient_utils.hpp        # 主窗口工具函数
-│   │   ├── EditableLabel.h              # 可编辑标签控件
-│   │   ├── StyledComboBox.h             # 统一下拉框控件（弹出样式与圆角）
-│   │   ├── SampledWaveformWidget.h      # 波形采样控件
-│   │   ├── ThemeSelectorDialog.h        # 主题选择对话框
-│   │   └── IpSelector.h                 # IP 选择器单例
-│   └── README.md                        # 头文件分类说明
-├── licenses/                           # 第三方许可证文件
-│   ├── LICENSE.GPLv2.txt               # QT 的 GPLv2 许可证
-│   ├── LICENSE.LGPLv3.txt              # QT 的 LGPLv3 许可证
-│   └── LICENSE.MIT.txt                 # nlohmann/json 的 MIT 许可证
-├── python/                             # Python 后端脚本
-│   ├── Bridge.py                       # 桥接模块（与 C++ 交互）
-│   ├── WebSocketCore.py                # WebSocket 核心逻辑
-│   ├── PathFinder.py                   # 跨平台路径查找工具（Steam 游戏目录等）
-│   └── README.md                       # Python 脚本说明
-├── docs/                               # 开发文档
-│   └── theme.md                        # 主题令牌、预设配色与对比度说明
-├── screenshot/                         # 截屏资源文件
-│   ├── others/                         # 其他截屏
-│   ├── pages/                          # 页面截屏
-│   └── themes/                         # 主题截屏
-├── src/                                 # C++ 源文件（按分类子目录存放）
-│   ├── core/                            # 核心基础设施：配置系统 + 日志系统
-│   │   ├── AppConfig.cpp                # 应用配置实现
-│   │   ├── ConfigManager.cpp            # 配置管理器实现
-│   │   ├── MultiConfigManager.cpp       # 多配置管理器实现
-│   │   ├── ConfigStructs.cpp            # 配置数据结构实现
-│   │   ├── DefaultConfigs.cpp           # 默认配置生成实现
-│   │   ├── DebugLog.cpp                 # 调试日志实现
-│   │   ├── Console.cpp                  # 控制台输出实现
-│   │   ├── LogExporter.cpp              # 日志导出器实现
-│   │   ├── LogExportSettingsDialog.cpp  # 日志导出设置对话框实现
-│   │   └── ProcessChecker.cpp           # 进程运行状态检查实现
-│   ├── bridge/                          # Python 子进程通信
-│   │   └── PythonSubprocessManager.cpp  # Python 子进程管理实现
-│   ├── rule/                            # 规则引擎（含规则编辑 UI）
-│   │   ├── Rule.cpp                     # 规则实体实现
-│   │   ├── RuleManager.cpp              # 规则管理器实现
-│   │   ├── FormulaBuilderDialog.cpp     # 公式构建对话框实现
-│   │   ├── ParentEditDialog.cpp         # 规则父级编辑对话框实现
-│   │   ├── ComboBoxDelegate.cpp         # 下拉框委托实现
-│   │   └── ValueModeDelegate.cpp        # 值模式委托实现
-│   ├── module/                          # 数值模块
-│   │   ├── ModuleValue.cpp              # 数值模型实现
-│   │   ├── Module.cpp                   # 数据模块实现
-│   │   ├── ModuleManager.cpp            # 数值模块管理器实现
-│   │   ├── ModuleValuesDialog.cpp       # 模块数值展示对话框实现
-│   │   └── DataListener.cpp              # 通用数据接收器实现
-│   ├── ui/                              # 界面层（主窗口 + 通用控件）
-│   │   ├── DGLABClient.cpp              # 主窗口实现
-│   │   ├── EditableLabel.cpp            # 可编辑标签实现
-│   │   ├── StyledComboBox.cpp           # 统一下拉框控件实现
-│   │   ├── SampledWaveformWidget.cpp    # 波形采样控件实现
-│   │   ├── ThemeSelectorDialog.cpp      # 主题选择对话框实现
-│   │   └── IpSelector.cpp               # IP 选择器实现
-│   └── README.md                        # 源码分类说明
-├── .editorconfig                       # 编辑器代码风格配置
-├── .gitattributes                      # Git 属性配置（换行符等）
-├── .gitignore                          # Git 忽略文件规则
-├── CHANGELOG.md                        # 更新日志
-├── CMakeLists.txt                      # CMake 主构建脚本
-├── CMakePresets.json                   # CMake 预设配置
-├── CONTRIBUTING.md                     # 贡献指南
-├── CodingStyle.md                      # 代码规范文档
-├── DGLABClient.qrc                     # Qt 资源收集文件
-├── LICENSE.txt                         # MIT 许可证
-├── NOTICE.txt                          # 声明
-├── NextStep.md                         # 项目未来计划方向
-├── README.md                           # 项目说明文档
-├── main.cpp                            # 程序入口
-└── qt.cmake                            # Qt 相关 CMake 配置片段
+├── .github/workflows/          # CI/CD：Windows / Linux / macOS 构建与发布
+├── assets/                     # 界面静态资源（图片、图标）
+├── cmake/                      # CMake 辅助脚本（Qt 部署）
+├── config/                     # 默认配置：main / system / user 与 rules/（见 config/README.md）
+├── docs/                       # 开发文档（主题令牌、预设配色与对比度）
+├── include/                    # C++ 公共头文件，按 core / rule / module / wave / ble / net / plugin / ui 分层（见 include/README.md）
+├── licenses/                   # 第三方许可证文本（GPLv2 / LGPLv3 / MIT）
+├── module/                     # 动态库插件源码：example、gsi（见 module/README.md）
+├── python/                     # PathFinder.py：供 CS2 GSI 插件查找游戏目录
+├── screenshot/                 # 文档用截图（others / pages / themes）
+├── src/                        # C++ 源文件，与 include/ 一一对应（见 src/README.md）
+│   └── ui/qml/                 # QML 界面：MainWindow、pages/、home/、dialogs/、components/、style/
+├── third_party/qrcodegen/      # 内嵌二维码生成库（MIT）
+├── CHANGELOG.md                # 更新日志
+├── CMakeLists.txt              # 主构建脚本（配套 CMakePresets.json、qt.cmake、cmake/）
+├── CONTRIBUTING.md             # 贡献指南（配套 CodingStyle.md、CODE_OF_CONDUCT.md）
+├── DGLABClient.qrc             # Qt 资源清单
+├── LICENSE                     # 许可证（GPL-3.0-only）
+├── NextStep.md                 # 后续计划
+├── NOTICE                      # 第三方组件声明
+├── README.md                   # 本文件
+└── main.cpp                    # 程序入口
 ```
 
 </details>
 
 ---
 
-## 九、截图
+## 八、截图
 
 <details>
 <summary>点击展开查看界面截图（共 6 张）</summary>
@@ -795,7 +497,7 @@ DG-LAB-Client/
 
 ---
 
-## 十、编码规范
+## 九、编码规范
 
 - **文件编码与换行**: UTF-8 without BOM，换行符使用 CRLF（Windows 风格），文件末尾保留一个空行。
 - **缩进与空白**: 使用 4 个空格缩进（不使用 Tab），左括号采用 K&R 风格（与语句同行）。
@@ -809,7 +511,7 @@ DG-LAB-Client/
 
 ---
 
-## 十一、FAQ
+## 十、FAQ
 
 ### 编译与运行
 
@@ -831,16 +533,14 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 </details>
 
 <details>
-<summary><b>Q2: Python 子进程启动失败，提示找不到模块</b></summary>
+<summary><b>Q2: 提示找不到 Python 解释器或模块</b></summary>
 
-**现象**: 程序启动后日志显示 `Bridge.py` 报错 `ModuleNotFoundError: No module named 'websockets'` 或 `qrcode`。
+**现象**: 启动后日志提示找不到 Python 解释器或模块。
 
 **解决方案**:
 
-- 确认已执行 `pip install websockets qrcode[pil]`。
-- 检查 Python 环境: 确保运行客户端时使用的 Python 解释器与安装依赖的是同一个。可以在命令行执行 `pip show websockets` 查看安装位置。
-- 若使用虚拟环境，需要在 CMake 配置时指定 `-DPython_ROOT_DIR` 指向虚拟环境的路径。
-
+- 主程序自身不再运行 Python：WebSocket 通信与二维码生成均已改为应用内实现，`Bridge.py` / `WebSocketCore.py` 已移除，因此不再需要 `pip install websockets qrcode[pil]`。
+- 只有 CS2 GSI 插件需要系统 Python：确认 `python`（Linux/macOS 下为 `python3`）在 PATH 中，或通过配置项 `python.path` 指定解释器路径。`python/PathFinder.py` 只依赖标准库，无需安装第三方包。
 </details>
 
 <details>
@@ -951,116 +651,13 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 
 - 启用 DEBUG 日志级别（`app.log.console_level = 0`），查看 `RuleManager` 和 `Rule` 模块输出的详细日志，包括加载的规则参数、表达式求值过程和结果。
 - 使用 `RuleManager::get_rule_value_pattern("rule_name")` 获取原始表达式，手动验证计算逻辑。
-- 若使用 Qt 界面中的公式构建器，注意保存前检查括号平衡性。
 
 </details>
+
+### 中转服务与配对问题
 
 <details>
-<summary><b>Q10: 公式构建器中的合法性检查报错</b></summary>
-
-**现象**: 在“配置”页面的“值模式”列双击打开公式构建器，无法保存。
-
-**可能原因及解决方案**:
-
-| 原因 | 解决方法 |
-| --- | --- |
-| 表达式中包含空格（如 `a + b`） | 移除所有空格，或使用花括号包裹变量名（如 `{a}+{b}`） |
-| 变量名未用花括号包裹（如直接写 `a`、`price`） | 所有变量必须写成 `{变量名}` 形式，例如 `{a}+{b}` |
-| 使用了非法字符（如字母、小数点、等号等未在 `+ - * / ( ) { }` 中的符号） | 只允许运算符、括号和花括号；变量必须放入 `{}` 内 |
-| 表达式为空 | 输入有效的公式表达式 |
-| 括号不匹配（缺少右括号或有多余右括号） | 检查左右括号数量是否一致，确保 `(` 后有对应的 `)` |
-| 运算符连续出现（如 `a++b`）或出现在开头/结尾（如 `+a` 或 `a+`） | 检查运算符是否成对出现在操作数之间，不能以运算符开头或结尾 |
-| 缺少闭合的 `}`（如 `{a`） | 确保每个 `{` 都有对应的 `}` |
-| 左括号位置不正确（如 `a(` 或 `{a}(` 等连续操作数后紧跟左括号） | 左括号前必须是运算符或表达式开头，不能直接跟在操作数后 |
-| 右括号前缺少操作数（如 `()` 或 `a+()`） | 括号内必须有有效的表达式，不能为空 |
-| 表达式以运算符结尾（如 `a+`） | 最后一个字符不能是运算符 |
-
-</details>
-
-### Python 子进程通信问题
-
-<details>
-<summary><b>Q11: 主程序无法连接到 Python 子进程（TCP 连接失败）</b></summary>
-
-**现象**: 日志显示 `Failed to connect to Python bridge: Connection refused`。
-
-**解决方案**:
-
-- 确认 `Bridge.py` 是否正常启动。查看控制台输出（如果开启了调试控制台）。
-- 检查端口是否被占用。`Bridge.py` 默认使用第一个可用的端口（从 5000 开始递增），主程序会从子进程的 stdout 解析端口号。
-- 防火墙可能阻止了本地回环连接，尝试暂时关闭防火墙测试。
-
-</details>
-
-<details>
-<summary><b>Q12: Python 子进程启动后立即退出</b></summary>
-
-**现象**: 主程序启动后日志显示 `Python process exited with code X`。
-
-**解决方案**:
-
-- 手动运行 `python Bridge.py` 查看错误输出。常见原因: 缺少依赖（`websockets`）、Python 版本过低（需要 3.9+）、文件路径错误。
-- 确保 `WebSocketCore.py` 与 `Bridge.py` 在同一目录下。
-- 检查配置文件中的 `python.bridge_path` 是否正确指向 `Bridge.py`。
-
-> 如: "bridge_path": "./python/Bridge.py"
-
-</details>
-
-### 波形控件问题
-
-<details> <summary><b>Q13: 波形控件不显示或波形无变化</b></summary>
-现象: 添加了 SampledWaveformWidget 但界面显示空白或波形静止。
-
-解决方案:
-
-确认已正确调用 input_data() 传入有效数值（0~1）。
-
-检查采样定时器是否启动: 默认在构造函数中自动启动，若手动停止需重新调用 sample*timer*.start()。
-
-确认控件大小不为 0，否则 paintEvent 可能无法正常绘制。
-
-查看日志是否有 SampledWaveformWidget 模块的错误输出。
-
-</details>
-
-<details>
-<summary><b>Q14: 如何同时显示多条波形曲线？</b></summary>
-
-**解决方案**: 使用多监听器功能。
-
-1. 调用 `add_listener(name, color)` 添加监听器，每个监听器对应一条曲线。
-2. 为每个监听器分别调用 `input_data(listener_name, value)` 输入数据。
-3. 控件会自动为每个监听器维护独立的采样缓冲区，并以各自颜色绘制波形。
-4. 可通过 `set_listener_color(name, color)` 动态修改曲线颜色。
-
-</details>
-
-<details>
-<summary><b>Q15: 如何移除不再需要的曲线？</b></summary>
-
-**解决方案**: 调用 `remove_listener(name)`，注意不能移除默认的 `"default"` 监听器。移除后该监听器的数据会被清除，不再绘制。
-
-</details>
-
-### 本地 WebSocket 中转服务
-
-<details>
-<summary><b>Q16: 端口被占用，无法启动服务</b></summary>
-
-**现象**: 启动 Node.js 服务时报错 `Error: listen EADDRINUSE: address already in use :::9999`。
-
-**解决方案**:
-
-- 检查是否有其他程序占用了 9999 端口，可以通过 `lsof -i :9999`（Linux/macOS）或 `netstat -ano | findstr :9999`（Windows）命令查看。
-- 更换其他端口，在 `.env` 文件中修改 `PORT` 配置。
-
-> 若更换端口，请修改客户端所使用的端口，详细请参考 [常见问题 - 配置问题](#配置问题)
-
-</details>
-
-<details>
-<summary><b>Q17: 手机 App 无法连接到 WebSocket 服务</b></summary>
+<summary><b>Q10: 手机 App 无法连接到 WebSocket 服务</b></summary>
 
 **可能原因及解决**:
 
@@ -1068,21 +665,14 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 | --- | --- |
 | 手机与电脑不在同一局域网 | 确保手机连接与电脑相同的 Wi-Fi 网络 |
 | 防火墙拦截了端口 | 在防火墙中放行 WebSocket 服务使用的端口（默认 9999） |
-| 二维码中的地址错误 | 检查二维码中的 IP 地址是否为电脑的正确局域网 IP，不要使用 `127.0.0.1` 或 `localhost` |
-| 服务未正常启动 | 检查终端窗口是否有错误输出，确保服务正在运行 |
+| 二维码中的地址错误 | 检查二维码中的 IP 是否为电脑的正确局域网 IP，不要使用 `127.0.0.1` 或 `localhost` |
+| 服务未正常启动 | 查看页面状态栏与日志输出，确认中转服务已启动 |
 | 某些 VPN 会拦截非代理流量 | 关闭 VPN |
 
 </details>
 
 <details>
-<summary><b>Q18: 服务启动后控制台没有输出信息</b></summary>
-
-这是正常现象。根据官方仓库说明，服务启动后控制台不会输出任何内容。如需查看调试信息，可参考官方仓库提供的调试信息开关方式。
-
-</details>
-
-<details>
-<summary><b>Q19: 配对失败，提示 400 或 401</b></summary>
+<summary><b>Q11: 配对失败，提示 400 或 401</b></summary>
 
 **错误码说明**:
 
@@ -1098,7 +688,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 </details>
 
 <details>
-<summary><b>Q20: 消息发送失败，提示 405</b></summary>
+<summary><b>Q12: 消息发送失败，提示 405</b></summary>
 
 **原因**: JSON 消息长度超过了 1950 字符，APP 会丢弃该消息。
 
@@ -1109,7 +699,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 ### 通用问题
 
 <details>
-<summary><b>Q21: 日志在 Qt 界面不显示或显示等级不对</b></summary>
+<summary><b>Q13: 日志在 Qt 界面不显示或显示等级不对</b></summary>
 
 **现象**: 程序运行时，首页的日志窗口没有输出，或者只显示 ERROR 级别，而配置中设置了 INFO。
 
@@ -1122,7 +712,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 </details>
 
 <details>
-<summary><b>Q22: Windows 调试控制台不出现</b></summary>
+<summary><b>Q14: Windows 调试控制台不出现</b></summary>
 
 **现象**: 在配置文件中设置了 `"debug": true`，但程序启动时没有弹出黑色控制台窗口。
 
@@ -1135,38 +725,24 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 </details>
 
 <details>
-<summary><b>Q23: EditableLabel 编辑后文本未保存或验证不通过</b></summary>
+<summary><b>Q15: IP 自动选择得到 127.0.0.1，但明明有真实网卡</b></summary>
 
-**现象**: 双击可编辑标签，修改文本后按回车或失去焦点，文本恢复原值或显示验证失败。
-
-**解决方案**:
-
-- 检查是否设置了验证器（`set_validator`），且输入内容不符合验证规则（例如 `QIntValidator` 限定了范围）。
-- 确保没有在 `text_edited` 信号的槽函数中拒绝修改（如恢复旧值）。
-- 可编辑标签默认允许所有输入，若需要限制输入格式，请正确配置验证器。
-
-</details>
-
-<details>
-<summary><b>Q24: IP 自动选择得到 127.0.0.1，但明明有真实网卡</b></summary>
-
-**现象**: `IpSelector::auto_select_ip()` 返回 `127.0.0.1`，而电脑实际有有效的局域网 IP。
+**现象**: 自动选择的 IP 是 `127.0.0.1`，而电脑实际有有效的局域网 IP。
 
 **解决方案**:
 
-- 检查黑白名单是否误将真实网卡过滤。默认黑名单包含 `vmware`, `virtual`, `docker`, `vbox`，如果您的真实网卡名称包含这些关键词（例如虚拟机网卡），请通过 `show_selection_dialog()` 移除相关关键词或手动选择 IP。
-- 也可以通过代码动态修改黑白名单：`IpSelector::instance()->set_blacklist(您的列表)`。
-- 如果所有网卡都被过滤，或没有找到任何非回环 IP，函数会返回 `127.0.0.1` 作为保底。
+- 自动选择只取第一个「已启用且非回环」网卡的 IPv4 地址，不区分虚拟网卡（VMware / VirtualBox / Docker 等）与物理网卡。若选到的地址手机访问不到，请在“配置”页面的“连接”卡片中手动填写局域网 IP。
+- 如果没有任何可用网卡，自动选择会回退到 `127.0.0.1`，此时手机无法扫码连接。
 
 </details>
 
 ---
 
-## 十二、贡献指南
+## 十一、贡献指南
 
 欢迎提交 Issue 和 Pull Request。在贡献前请确保:
 
-- 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`，命名规范）。更多细节请参考 [编码规范](#十编码规范) 及 **[CONTRIBUTING.md](CONTRIBUTING.md)**。
+- 代码遵循现有风格（缩进 4 空格，使用 `#pragma once`，命名规范）。更多细节请参考 [编码规范](#九编码规范) 及 **[CONTRIBUTING.md](CONTRIBUTING.md)**。
 - 请务必使用 UTF-8 without BOM 编码提交代码。
 - 添加或修改功能时更新相关文档（如 README.md）。
 - 确保本地测试通过（编译通过，功能正常）。
@@ -1176,9 +752,9 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 
 ---
 
-## 十三、许可证
+## 十二、许可证
 
-本项目自身源代码采用 **GNU General Public License v3.0 only**（GPL-3.0-only）开源。详情请参阅项目根目录下的 [LICENSE](LICENSE.txt) 文件。
+本项目自身源代码采用 **GNU General Public License v3.0 only**（GPL-3.0-only）开源。详情请参阅项目根目录下的 [LICENSE](LICENSE) 文件。
 
 本项目依赖的第三方组件适用不同的许可证:
 
@@ -1186,11 +762,11 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 - **nlohmann/json**: MIT 许可证
 - **Nayuki qrcodegen**（`third_party/qrcodegen`）: MIT 许可证
 
-有关第三方许可证的完整声明和文本，请查看 [NOTICE.txt](NOTICE.txt) 及 `licenses/` 目录。
+有关第三方许可证的完整声明和文本，请查看 [NOTICE](NOTICE) 及 `licenses/` 目录。
 
 ---
 
-## 十四、联系方式
+## 十三、联系方式
 
 - 作者: [CrimsonSeraph]
 - BiliBili: [浪天幽影(UID: 1741002917)](https://space.bilibili.com/1741002917?spm_id_from=333.1007.0.0)

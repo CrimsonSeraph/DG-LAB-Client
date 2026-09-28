@@ -4,7 +4,7 @@
 
 ---
 
-## 📁 目录结构
+## 目录结构
 
 ```
 screenshot/
@@ -34,32 +34,32 @@ screenshot/
     └── prussian_blue_fog.png
 ```
 
-> **说明**：主题截图展示了同一界面（例如首页）在不同主题下的配色效果。应用内置 16 套主题，本目录当前收录 14 套；新增的「午夜蓝」「森野绿」预览待补充。
+> 说明：主题截图展示了同一界面（例如首页）在不同主题下的配色效果。应用内置 16 套主题，本目录当前收录 14 套；新增的「午夜蓝」「森野绿」预览待补充。
 
 ---
 
-## 🖼️ Others – 辅助功能/对话框
+## Others（辅助功能/对话框）
 
 | 截图 | 说明 |
 | --- | --- |
-| ![Console](others/Console.png) | **Windows 调试控制台** <br>当 `app.debug = true` 时自动创建，显示详细日志输出。 |
-| ![IpSelector](others/IpSelector.png) | **IP 选择器对话框** <br>支持编辑黑白名单、手动选择可用 IP。 |
-| ![ThemeSelectorDialog](others/ThemeSelectorDialog.png) | **主题选择对话框** <br>网格卡片形式展示所有主题，点击即切换。 |
-| ![ValueModeDelegate](others/ValueModeDelegate.png) | **规则值模式公式构建器** <br>双击表格“值模式”单元格弹出，支持 `{}` 占位符和 `+-*/()` 表达式。 |
+| ![Console](others/Console.png) | Windows 调试控制台<br>当 `app.debug = true` 时自动创建，显示详细日志输出。 |
+| ![IpSelector](others/IpSelector.png) | IP 选择器对话框<br>支持编辑黑白名单、手动选择可用 IP。 |
+| ![ThemeSelectorDialog](others/ThemeSelectorDialog.png) | 主题选择对话框<br>网格卡片形式展示所有主题，点击即切换。 |
+| ![ValueModeDelegate](others/ValueModeDelegate.png) | 规则值模式公式构建器<br>双击表格“值模式”单元格弹出，支持 `{}` 占位符和 `+-*/()` 表达式。 |
 
 ---
 
-## 📄 Pages – 主界面页面
+## Pages（主界面页面）
 
 | 截图 | 说明 |
 | --- | --- |
-| ![main_page](pages/main_page.png) | **首页** <br>包含连接信息、A/B 通道强度控制、实时波形显示区域。 |
-| ![config_page](pages/config_page.png) | **配置页** <br>规则表格展示，支持添加/编辑/删除规则，修改规则文件。 |
-| ![rule_page](pages/rule_page.png) | **规则文件管理页** <br>切换/新建/删除/保存规则文件，管理规则文件列表。 |
+| ![main_page](pages/main_page.png) | 首页<br>包含连接信息、A/B 通道强度控制、实时波形显示区域。 |
+| ![config_page](pages/config_page.png) | 配置页<br>规则表格展示，支持添加/编辑/删除规则，修改规则文件。 |
+| ![rule_page](pages/rule_page.png) | 规则文件管理页<br>切换/新建/删除/保存规则文件，管理规则文件列表。 |
 
 ---
 
-## 🎨 Themes – 主题预览
+## Themes（主题预览）
 
 所有主题均以上述首页（main_page）为例，展示不同的配色方案。
 
@@ -80,11 +80,11 @@ screenshot/
 | 凡戴克棕卡其 | vandyke_brown_khaki | ![vandyke_brown_khaki](themes/vandyke_brown_khaki.png) |
 | 普鲁士雾灰 | prussian_blue_fog | ![prussian_blue_fog](themes/prussian_blue_fog.png) |
 
-> **注意**：如果部分主题截图尚未添加，对应位置将显示占位符。上表对应 14 张已生成的图片；应用内置 16 套主题，新增预设的预览图补充后请同步加入上表。
+> 注意：如果部分主题截图尚未添加，对应位置将显示占位符。上表对应 14 张已生成的图片；应用内置 16 套主题，新增预设的预览图补充后请同步加入上表。
 
 ---
 
-## 📝 使用说明
+## 使用说明
 
 - 您可以在项目主 `README.md` 的“截图”章节中引用本文件，或直接在此目录下浏览图片。
 - 截图基于 Windows 11 + Qt 6.5.0 默认字体（微软雅黑 9pt）生成，实际显示可能因操作系统和 Qt 版本略有差异。
@@ -92,7 +92,7 @@ screenshot/
 
 ---
 
-## 🔧 维护
+## 维护
 
 如需更新截图，请保持以下约定：
 
