@@ -4,7 +4,29 @@
 
 版本号格式遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)
 
-> **注意**: 当前版本为 v2.0.0，界面已整体迁移到 QML，并统一了控件主题与多主题配色。
+> **注意**: 当前版本为 v2.1.0，正在逐步修复、完善功能。
+
+---
+
+## [v2.1.0] - 2026-09-29
+
+### Added
+
+- **配置页滚动支持**: 配置页长度超出窗口时，自动启用向下滚动，避免内容被截断。
+- **蓝牙扫描列表优化**: 蓝牙扫描结果列表改为动态高度——无设备时收起，有设备时自动增加高度，设备较多时在最大高度（约 10 个设备）内内部滚动，避免撑爆页面。
+
+### Changed
+
+- **蓝牙连接稳定性**: 缓存完整的 `QBluetoothDeviceInfo`，防止 Android 平台丢失 LE 标志导致无法连接。
+- **蓝牙设备发现**: 移除硬编码的 `47L` 名称过滤，改为按服务 UUID（`0x180C`）扫描或让用户手动选择设备，解决 Android 13+ 设备名称为空导致搜索不到的问题。
+- **蓝牙调试日志**: 增加扫描、连接、服务发现过程中的详细日志与错误提示，便于排查连接问题。
+- **规则编辑器布局**: 改用 `SplitView` 布局，优化界面空间分配。
+
+### Fixed
+
+- **蓝牙权限问题**: 修复 Qt 6.9 中 `requestPermission` 非静态调用及权限状态枚举（`Qt::PermissionStatus`）的编译错误。
+- **蓝牙扫描崩溃**: 修复权限授予后递归调用 `startScan` 导致栈溢出的问题。
+- **规则编辑器交互**: 修复无法拖动节点画布及节点无法拖拽的问题。
 
 ---
 
@@ -370,6 +392,7 @@
 
 **变动**:
 
+- [v2.1.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.0.0...v2.1.0
 - [v2.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v1.0.0...v2.0.0
 - [v1.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.6.0...v1.0.0
 - [v0.6.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0
