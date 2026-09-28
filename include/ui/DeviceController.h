@@ -11,14 +11,17 @@
 #include <QStringList>
 #include <QVariantList>
 
+class CoyoteBleController;
 class DglabRelayServer;
 class QrImageProvider;
 class QQuickImageProvider;
+class QTimer;
 
 // DeviceController - 设备控制桥接（QML 上下文属性 device）
 // 职责：启停应用内中转服务、生成配对二维码、向已配对的 DG-LAB APP 下发
 //      强度 / 波形 / 清除指令，并把 APP 回传（强度、反馈按钮）转成信号。
-// 传输由 DglabRelayServer 实现（V3 优先，V4 作为补充），不再依赖 Python / Node。
+// 传输由 DglabRelayServer 实现（V3 优先，V4 作为补充）；郊狼 V3 蓝牙已连接时
+// 优先经 CoyoteBleController 直连输出，避免同一台设备被两条链路重复驱动。
 class DeviceController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
@@ -38,8 +41,14 @@ public:
     /// @brief 创建中转服务与二维码提供者（不自动启动监听）
     void initialize();
 
+    /// @brief 绑定蓝牙控制器（由 main 注入；蓝牙已连接时优先走蓝牙输出）
+    void attach_ble(CoyoteBleController* ble);
+
     bool connected() const { return connected_; }
     bool connecting() const { return connecting_; }
+
+    /// @brief 是否存在可用输出通道（中转服务已启动或蓝牙已连接）
+    bool output_available() const;
     QString ip() const { return ip_; }
     int port() const { return port_; }
     QString pairing_url() const { return pairing_url_; }
@@ -81,9 +90,14 @@ signals:
 
 private:
     void update_pairing_url();
+    /// @brief 蓝牙是否可作为输出通道
+    bool ble_ready() const;
 
     DglabRelayServer* relay_ = nullptr;
     QrImageProvider* qr_provider_ = nullptr;
+    CoyoteBleController* ble_ = nullptr; ///< 蓝牙控制器（main 注入，可为空）
+    QTimer* ble_wave_timer_a_ = nullptr; ///< A 通道蓝牙波形停止定时器
+    QTimer* ble_wave_timer_b_ = nullptr; ///< B 通道蓝牙波形停止定时器
     QString ip_ = QStringLiteral("127.0.0.1");
     int port_ = 9999;
     QString pairing_url_;

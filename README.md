@@ -63,7 +63,7 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 - **日志导出（自动 + 手动）** `LogExporter` 提供两类日志记录：**自动日志**在程序启动、配置系统加载完毕后自动开始记录运行日志（默认写入程序目录 `log/`，受导出级别/数量/大小限制，超限分片、退出或导出后自动清理多余日志）；**手动日志**在点击“导出日志”时写入手动目录（默认 `log/handle/`），仅应用级别过滤，不受数量与大小限制。自动与手动各有独立的级别过滤设置（导出级别、仅指定级别、范围、位置），可在“更多设置”弹窗中分别配置，持久化到 `user.json` 的 `app.log.auto` / `app.log.manual` 下。
 
-- **设备通信** 应用通过内置中转服务（`DglabRelayServer`）与 DG-LAB APP 扫码配对后直接下发强度/波形/清除指令；郊狼 V3 设备可经蓝牙直连。原先的 Python `Bridge.py` / `WebSocketCore.py` 通信层已移除。
+- **设备通信** 应用通过内置中转服务（`DglabRelayServer`）与 DG-LAB APP 扫码配对后直接下发强度/波形/清除指令；郊狼 V3 设备可经蓝牙直连，蓝牙已连接时规则输出与波形发送优先走蓝牙。原先的 Python `Bridge.py` / `WebSocketCore.py` 通信层已移除。
 
 - **跨平台构建** 基于 CMake，支持 Windows、Linux、macOS 等平台，并通过 GitHub Actions 自动构建和打包。
 
@@ -183,8 +183,7 @@ cpack
         }
     },
     "python": {
-        "path": "python",
-        "bridge_path": "./python/Bridge.py"
+        "path": "python"
     },
     "rule": {
         "path": "./config/rules",

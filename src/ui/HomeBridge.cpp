@@ -111,7 +111,7 @@ void HomeBridge::apply_strength(const QString& channel, int value) {
     else {
         strength_b_ = clamped;
     }
-    if (device_ != nullptr && device_->connected()) {
+    if (device_ != nullptr && device_->output_available()) {
         device_->sendStrength(channel_index(channel), 2, clamped);
     }
     emit dataChanged();

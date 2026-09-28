@@ -6,13 +6,16 @@
 #include "DeviceController.h"
 
 #include "AppConfig.h"
+#include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DglabRelayServer.h"
 #include "QrImageProvider.h"
+#include "RuleManager.h"
 
 #include <QHostAddress>
 #include <QJsonArray>
 #include <QNetworkInterface>
+#include <QTimer>
 
 #include <algorithm>
 
@@ -68,12 +71,36 @@ void DeviceController::initialize() {
     LOG_MODULE("DeviceController", "initialize", LOG_INFO,
         "设备控制已就绪，配对地址: " << ip_.toStdString() << ":" << port_);
 
+    // 蓝牙波形停止定时器：playWave 为循环播放，到持续时长后静音
+    ble_wave_timer_a_ = new QTimer(this);
+    ble_wave_timer_a_->setSingleShot(true);
+    connect(ble_wave_timer_a_, &QTimer::timeout, this, [this]() {
+        if (ble_ != nullptr) {
+            ble_->stopWave(1);
+        }
+    });
+    ble_wave_timer_b_ = new QTimer(this);
+    ble_wave_timer_b_->setSingleShot(true);
+    connect(ble_wave_timer_b_, &QTimer::timeout, this, [this]() {
+        if (ble_ != nullptr) {
+            ble_->stopWave(2);
+        }
+    });
+
+    // 规则引擎命令统一经本类下发（规则层只依赖本类接口）
+    connect(&RuleManager::instance(), &RuleManager::rule_command_ready,
+        this, [this](const QJsonObject& cmd) { send_command(cmd); });
+
     // 内置中转服务随应用启动，配置页可立即展示配对二维码
     connectDevice();
 }
 
-QQuickImageProvider* DeviceController::qr_image_provider() const {
-    return qr_provider_;
+void DeviceController::attach_ble(CoyoteBleController* ble) {
+    ble_ = ble;
+}
+
+bool DeviceController::output_available() const {
+    return connected_ || ble_ready();
 }
 
 QString DeviceController::qr_image_url() const {
@@ -90,6 +117,10 @@ bool DeviceController::v4_attached() const {
 
 QVariantList DeviceController::v4_devices() const {
     return relay_ == nullptr ? QVariantList() : relay_->v4_devices();
+}
+
+QQuickImageProvider* DeviceController::qr_image_provider() const {
+    return qr_provider_;
 }
 
 void DeviceController::setEndpoint(const QString& ip, int port) {
@@ -142,39 +173,48 @@ void DeviceController::disconnectDevice() {
     emit pairingChanged();
 }
 
-void DeviceController::update_pairing_url() {
-    if (relay_ == nullptr) {
+void DeviceController::sendStrength(int channel, int mode, int value) {
+    // 蓝牙直连优先：同一台设备若同时被 APP 与蓝牙驱动会重复施加指令
+    if (ble_ready()) {
+        ble_->setStrength(channel, mode, value);
         return;
     }
-    pairing_url_ = relay_->pairing_url(ip_);
-    ++qr_revision_;
-    if (qr_provider_ != nullptr) {
-        qr_provider_->set_text(pairing_url_);
-    }
-    emit qrUrlChanged();
-}
-
-void DeviceController::sendStrength(int channel, int mode, int value) {
     if (relay_ != nullptr) {
         relay_->send_strength(channel, mode, value);
     }
 }
 
 void DeviceController::sendWave(int channel, const QStringList& pulses, int seconds) {
+    if (ble_ready()) {
+        ble_->playWave(channel, pulses);
+        QTimer* timer = (channel == 1) ? ble_wave_timer_a_ : ble_wave_timer_b_;
+        if (timer != nullptr) {
+            timer->start(std::max(seconds, 1) * 1000);
+        }
+        return;
+    }
     if (relay_ != nullptr) {
         relay_->send_pulse(channel, pulses, seconds);
     }
 }
 
 void DeviceController::clearQueue(int channel) {
+    if (ble_ready()) {
+        QTimer* timer = (channel == 1) ? ble_wave_timer_a_ : ble_wave_timer_b_;
+        if (timer != nullptr) {
+            timer->stop();
+        }
+        ble_->stopWave(channel);
+        return;
+    }
     if (relay_ != nullptr) {
         relay_->send_clear(channel);
     }
 }
 
 void DeviceController::send_command(const QJsonObject& cmd) {
-    if (!connected_) {
-        emit statusMessage(QStringLiteral("中转服务未启动，命令未发送"));
+    if (!output_available()) {
+        emit statusMessage(QStringLiteral("中转服务未启动且蓝牙未连接，命令未发送"));
         return;
     }
     const QString type = cmd.value("cmd").toString();
@@ -200,4 +240,20 @@ void DeviceController::send_command(const QJsonObject& cmd) {
         LOG_MODULE("DeviceController", "send_command", LOG_WARN,
             "未知命令: " << type.toStdString());
     }
+}
+
+void DeviceController::update_pairing_url() {
+    if (relay_ == nullptr) {
+        return;
+    }
+    pairing_url_ = relay_->pairing_url(ip_);
+    ++qr_revision_;
+    if (qr_provider_ != nullptr) {
+        qr_provider_->set_text(pairing_url_);
+    }
+    emit qrUrlChanged();
+}
+
+bool DeviceController::ble_ready() const {
+    return ble_ != nullptr && ble_->connected();
 }
