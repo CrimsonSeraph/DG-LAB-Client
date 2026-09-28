@@ -3,14 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // 主窗口：左侧导航 + 中央页面栈 + 底部状态栏。
-//
-// 交互约定（项目硬性规范）：
-//  - 本文件没有任何 onClicked / Connections / onXxx 处理器；
-//  - 每个交互控件都有稳定的 objectName，由 C++（UiConnector）在 engine.load 后
-//    显式建立连接；界面只通过属性绑定读取 app / Theme 的状态。
-//
-// 样式约定：颜色取 Theme（C++ 单例），间距/圆角取 Metrics，字号取 Typography，
-//          断点取 Responsive，组件度量取 ComponentStyle，页面内不写颜色字面量。
+// 本文件不写任何信号处理器，交互与样式约定见 src/ui/README.md。
 ApplicationWindow {
     id: root
 

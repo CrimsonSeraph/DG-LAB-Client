@@ -11,13 +11,11 @@
 #include <string>
 #include <vector>
 
-// ============================================
 // Module - 数据模块
 // 一个模块包含一组可查询的数值（如 CS2 GSI 模块）
-// ============================================
 class Module {
 public:
-    // -------------------- 构造/析构 --------------------
+    // 构造/析构
     Module() = default;
 
     /// @brief 构造函数
@@ -25,7 +23,7 @@ public:
     /// @param channels 挂载到的通道列表（"A"/"B"）
     explicit Module(const std::string& name, const std::vector<std::string>& channels = {});
 
-    // -------------------- 公共接口（属性获取）--------------------
+    // 公共接口（属性获取）
     /// @brief 获取模块名称
     /// @return 模块名称
     inline const std::string& get_name() const { return name_; }
@@ -63,7 +61,7 @@ public:
     /// @return 最小周期毫秒数，无数值时返回 1000
     int get_min_period_ms() const;
 
-    // -------------------- 公共接口（属性设置）--------------------
+    // 公共接口（属性设置）
     /// @brief 添加一个数值到模块
     /// @param value 数值对象
     void add_value(const ModuleValue& value);
@@ -73,7 +71,7 @@ public:
     void set_all_values_period(QueryPeriod period);
 
 private:
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     std::string name_;                  ///< 模块名称
     std::vector<std::string> channels_; ///< 挂载的通道列表（"A"/"B"）
     std::vector<ModuleValue> values_;   ///< 数值列表

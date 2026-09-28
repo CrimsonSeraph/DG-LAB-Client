@@ -8,9 +8,7 @@
 #include <QObject>
 #include <QString>
 
-// ============================================
 // AppBridge - 应用级状态桥接（QML 上下文属性 app）
-// ============================================
 // 职责：向 QML 暴露只读应用信息（名称/版本）与页面导航状态，
 //      并提供底部状态栏文本。界面只做属性绑定，交互由 UiConnector 在 C++ 侧连接。
 class AppBridge : public QObject {

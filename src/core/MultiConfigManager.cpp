@@ -18,9 +18,7 @@
 
 namespace fs = std::filesystem;
 
-// ============================================
 // 公共接口实现（public）
-// ============================================
 
 void MultiConfigManager::register_config(const std::string& name,
     const std::string& file_path,
@@ -219,9 +217,7 @@ MultiConfigManager::~MultiConfigManager() {
     save_all();
 }
 
-// ============================================
 // 私有辅助函数实现（private）
-// ============================================
 
 void MultiConfigManager::start_file_watcher() {
     LOG_MODULE("MultiConfigManager", "start_file_watcher", LOG_INFO, "启动文件监控线程");

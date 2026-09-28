@@ -22,12 +22,10 @@
 class MultiConfigManager;
 class ConfigManager;
 
-// ============================================
 // AppConfig - 应用配置主类（单例）
-// ============================================
 class AppConfig {
 public:
-    // -------------------- 单例 --------------------
+    // 单例
     /// @brief 获取单例实例
     static AppConfig& instance();
 
@@ -35,7 +33,7 @@ public:
     AppConfig(const AppConfig&) = delete;
     AppConfig& operator=(const AppConfig&) = delete;
 
-    // -------------------- 初始化与关闭 --------------------
+    // 初始化与关闭
     /// @brief 初始化配置系统
     /// @param config_dir 配置目录路径，默认为 "./config"
     /// @return 成功返回 true，失败返回 false（将使用内存默认配置）
@@ -56,7 +54,7 @@ public:
     /// @brief 线程安全的初始化状态检查（内联）
     inline bool is_initialized_thread_safe() const { return initialized_; }
 
-    // -------------------- 模板方法（取值/设值） --------------------
+    // 模板方法（取值/设值）
     /// @brief 设置配置值（写入最高优先级配置）
     /// @tparam T 值类型
     /// @param key_path 键路径，如 "app.name"
@@ -119,7 +117,7 @@ public:
     template<typename T>
     void set_value_with_name_unsafe(const std::string& key_path, const T& value, const std::string& key_name);
 
-    // -------------------- 批量操作 --------------------
+    // 批量操作
     /// @brief 保存所有配置到文件
     /// @return 全部保存成功返回 true
     bool save_all();
@@ -127,7 +125,7 @@ public:
     /// @brief 重新加载所有配置文件
     void reload_all();
 
-    // -------------------- 配置监听 --------------------
+    // 配置监听
     /// @brief 添加配置变更监听器
     /// @param config_name 配置名称（"main"/"user"/"system"/"all"）
     /// @param listener 回调函数
@@ -138,7 +136,7 @@ public:
     /// @param listener 要移除的回调函数
     void remove_config_listener(const std::string& config_name, std::function<void()> listener);
 
-    // -------------------- 配置验证 --------------------
+    // 配置验证
     /// @brief 验证所有配置项
     /// @param errors 输出错误列表
     /// @return 全部有效返回 true
@@ -150,7 +148,7 @@ public:
     /// @return 有效返回 true
     bool validate_config(const std::string& config_name, std::vector<std::string>& errors) const;
 
-    // -------------------- 高级操作 --------------------
+    // 高级操作
     /// @brief 获取原始配置管理器
     /// @param name 配置名称
     /// @return 配置管理器指针，可能为空
@@ -175,17 +173,17 @@ public:
     /// @return 成功返回 true
     bool import_config(const std::string& name, const std::string& file_path);
 
-    // -------------------- 配置对象访问器 --------------------
+    // 配置对象访问器
     inline const ConfigObject<MainConfig>& main_config() const { return main_config_obj_; }
     inline const ConfigObject<SystemConfig>& system_config() const { return system_config_obj_; }
     inline const ConfigObject<UserConfig>& user_config() const { return user_config_obj_; }
 
 private:
-    // -------------------- 构造/析构（单例私有）--------------------
+    // 构造/析构（单例私有）
     AppConfig();
     ~AppConfig();
 
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     MultiConfigManager* multi_config_;             ///< 多配置管理器指针
     std::shared_ptr<ConfigManager> main_config_;   ///< 主配置管理器
     std::shared_ptr<ConfigManager> user_config_;   ///< 用户配置管理器
@@ -199,7 +197,7 @@ private:
     mutable std::mutex mutex_;                                                   ///< 互斥锁
     std::atomic<bool> initialized_{false};                                       ///< 初始化标志
 
-    // -------------------- 私有辅助函数 --------------------
+    // 私有辅助函数
     /// @brief 初始化配置项（加锁版本）
     void initialize_configs();
     /// @brief 初始化配置项（不加锁，需外部同步）

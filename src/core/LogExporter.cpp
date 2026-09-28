@@ -37,9 +37,7 @@ bool should_export_line(const QString& line, int filter_level, bool only_level, 
 }
 } // namespace
 
-// ============================================
 // 构造/析构（public）
-// ============================================
 
 LogExporter::LogExporter() = default;
 
@@ -48,9 +46,7 @@ LogExporter::~LogExporter() {
     stop_auto_log();
 }
 
-// ============================================
 // 设置管理（public）
-// ============================================
 
 void LogExporter::load_settings() {
     auto& config = AppConfig::instance();
@@ -103,9 +99,7 @@ void LogExporter::save_settings() const {
     LOG_MODULE("LogExporter", "save_settings", LOG_INFO, "日志设置已保存到 user.json");
 }
 
-// ============================================
 // 自动日志（public）
-// ============================================
 
 void LogExporter::start_auto_log() {
     std::lock_guard<std::recursive_mutex> lock(mutex_);
@@ -156,9 +150,7 @@ void LogExporter::stop_auto_log() {
     LOG_MODULE("LogExporter", "stop_auto_log", LOG_INFO, "自动日志已停止");
 }
 
-// ============================================
 // 手动导出与清理（public）
-// ============================================
 
 bool LogExporter::export_log(const QString& content, QString* error) {
     // 手动日志目录（默认程序目录下 log/handle/）
@@ -252,9 +244,7 @@ QString LogExporter::manual_dir_absolute() const {
     return QDir::cleanPath(QCoreApplication::applicationDirPath() + "/" + dir);
 }
 
-// ============================================
 // 私有辅助函数实现（private）
-// ============================================
 
 bool LogExporter::should_log_level(LogLevel level, int filter_level, bool only_level,
     bool level_above) {

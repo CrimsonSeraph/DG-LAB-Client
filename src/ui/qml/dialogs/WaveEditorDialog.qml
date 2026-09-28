@@ -25,7 +25,7 @@ Dialog {
         anchors.fill: parent
         spacing: Metrics.spacingLg
 
-        // ---------------------------------------------------------- 左：段落
+        // 左：段落
         ColumnLayout {
             Layout.preferredWidth: 350
             Layout.fillHeight: true
@@ -233,7 +233,7 @@ Dialog {
             }
         }
 
-        // ---------------------------------------------------- 右：预览与帧
+        // 右：预览与帧
         ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true

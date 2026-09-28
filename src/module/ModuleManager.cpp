@@ -23,18 +23,14 @@ using PluginApiVersionFn = int (*)();
 using PluginCreateFn = IPlugin* (*)();
 using PluginDestroyFn = void (*)(IPlugin*);
 
-// ============================================
 // 单例（public）
-// ============================================
 
 ModuleManager& ModuleManager::instance() {
     static ModuleManager manager;
     return manager;
 }
 
-// ============================================
 // 构造/析构（private）
-// ============================================
 
 ModuleManager::ModuleManager()
     : QObject(nullptr) {
@@ -57,9 +53,7 @@ ModuleManager::~ModuleManager() {
     plugins_.clear();
 }
 
-// ============================================
 // 初始化（public）
-// ============================================
 
 void ModuleManager::init() {
     {
@@ -91,9 +85,7 @@ void ModuleManager::init() {
         "数值模块初始化完成，基准周期: " << base_period_ms_ << "ms，插件候选: " << plugins_.size());
 }
 
-// ============================================
 // 模块查询（public）
-// ============================================
 
 std::vector<std::string> ModuleManager::get_module_names() const {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -164,9 +156,7 @@ std::string ModuleManager::find_module_by_value_id(const std::string& value_id) 
     return "";
 }
 
-// ============================================
 // 周期设置（public）
-// ============================================
 
 void ModuleManager::set_value_period(const std::string& module_name, const std::string& value_id,
     QueryPeriod period) {
@@ -230,18 +220,14 @@ void ModuleManager::set_all_period(QueryPeriod period) {
         "已统一设置所有数值查询周期: " << query_period_to_text(period));
 }
 
-// ============================================
 // 数据源（public）
-// ============================================
 
 void ModuleManager::set_data_source(DataSource source) {
     std::lock_guard<std::mutex> lock(mutex_);
     data_source_ = std::move(source);
 }
 
-// ============================================
 // 查询（public）
-// ============================================
 
 int ModuleManager::query_value(const std::string& module_name, const std::string& value_id) {
     int new_value = 0;
@@ -309,9 +295,7 @@ int ModuleManager::get_base_period_ms() const {
     return base_period_ms_;
 }
 
-// ============================================
 // 插件管理（public）
-// ============================================
 
 std::string ModuleManager::get_plugin_dir() const {
     return plugin_dir_;
@@ -369,9 +353,7 @@ bool ModuleManager::is_plugin_loaded(const std::string& file_name) const {
     return entry && entry->state == PluginLoadState::Loaded;
 }
 
-// ============================================
 // 宿主能力（public，IPluginHost 实现）
-// ============================================
 
 bool ModuleManager::register_module_values(const std::string& module_name,
     const std::vector<ModuleValue>& values,
@@ -499,9 +481,7 @@ void ModuleManager::notify(const std::string& title, const std::string& message)
     emit plugin_notification(QString::fromStdString(title), QString::fromStdString(message));
 }
 
-// ============================================
 // private slots 实现
-// ============================================
 
 void ModuleManager::on_timer_tick() {
     ++tick_count_;
@@ -534,9 +514,7 @@ void ModuleManager::on_timer_tick() {
     }
 }
 
-// ============================================
 // 私有辅助函数实现（private）
-// ============================================
 
 void ModuleManager::rebuild_scheduler() {
     base_period_ms_ = query_period_to_ms(QueryPeriod::SECOND);
@@ -574,7 +552,7 @@ void ModuleManager::emit_period_changed() {
     emit period_changed();
 }
 
-// -------------------- 插件扫描与加载（private） --------------------
+// 插件扫描与加载（private）
 
 std::string ModuleManager::resolve_plugin_dir() const {
     auto& config = AppConfig::instance();

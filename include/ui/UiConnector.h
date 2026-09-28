@@ -22,12 +22,10 @@ class ThemeManager;
 class WaveBridge;
 class QQuickItem;
 
-// ============================================
 // UiConnector - QML 与 C++ 的连接集中点
-// ============================================
-// 约定：QML 不写任何信号处理器（onClicked/Connections），每个交互控件都有稳定的
-//      objectName；加载完成后由本类按 objectName 显式建立连接。
-//      列表 / 中继器 / 布局动态生成的委托由 watch_items() 沿可视子树扫描热区连接。
+// QML 不写信号处理器（onClicked / Connections），每个交互控件都有稳定的 objectName，
+// 加载后由本类按 objectName 显式建立连接；列表 / 中继器 / 布局动态生成的委托由
+// watch_items() 沿可视子树扫描热区。约定与例外见 src/ui/README.md。
 class UiConnector : public QObject {
     Q_OBJECT
 

@@ -13,9 +13,7 @@
 #include <string>
 #include <vector>
 
-// ============================================
 // PluginLogLevel - 插件日志级别（与主程序 DebugLog 等级对应，加载时由宿主映射）
-// ============================================
 enum class PluginLogLevel {
     Debug = 0, ///< 调试
     Info = 1,  ///< 信息
@@ -24,10 +22,8 @@ enum class PluginLogLevel {
     None = 4   ///< 不输出
 };
 
-// ============================================
 // PluginError - 插件错误码
 // 健壮性约定：所有可能失败的操作返回错误码而非抛出异常
-// ============================================
 enum class PluginError {
     Ok = 0,             ///< 成功
     InvalidArgument,    ///< 参数无效
@@ -39,9 +35,7 @@ enum class PluginError {
     Unknown             ///< 未知错误
 };
 
-// ============================================
 // PluginCapability - 插件能力标志（自描述：声明插件提供的能力）
-// ============================================
 enum class PluginCapability : std::uint32_t {
     None = 0,                 ///< 无特殊能力
     ProvidesValues = 1u << 0, ///< 提供可查询数值（挂载到 ModuleManager）
@@ -65,9 +59,7 @@ inline bool has_capability(PluginCapability flags, PluginCapability cap) {
     return (static_cast<std::uint32_t>(flags) & static_cast<std::uint32_t>(cap)) != 0;
 }
 
-// ============================================
 // PluginThreadSafety - 插件线程安全声明（宿主据此决定调用方式）
-// ============================================
 enum class PluginThreadSafety {
     SingleThreaded = 0, ///< 仅可在主线程调用
     Reentrant,          ///< 可多线程调用，但不同实例之间不共享状态
@@ -87,18 +79,15 @@ using PluginLogCallback = std::function<void(PluginLogLevel level,
     const std::string& plugin_name, const std::string& function,
     const std::string& message)>;
 
-// ============================================
 // IPlugin - 插件纯虚基类
 // 所有可动态加载的模块必须实现本接口，并通过 extern "C" 的
 // create_plugin / destroy_plugin / get_plugin_api_version 导出。
-// 内存隔离约定：插件实例由插件内部 new，宿主仅调用 destroy_plugin 销毁，
-// 禁止跨模块 new/delete，插件内禁止使用静态全局变量。
-// ============================================
+// 内存隔离与错误处理约定见 include/README.md 与 module/README.md。
 class PLUGIN_API IPlugin {
 public:
     virtual ~IPlugin() = default;
 
-    // -------------------- 自描述 --------------------
+    // 自描述
     /// @brief 获取插件名称（用于 UI 显示与日志类名）
     /// @return 插件名称
     virtual std::string name() const = 0;
@@ -119,14 +108,14 @@ public:
     /// @return 依赖插件名称列表
     virtual std::vector<std::string> dependencies() const { return {}; }
 
-    // -------------------- 线程安全声明 --------------------
+    // 线程安全声明
     /// @brief 声明插件的线程安全级别（宿主据此决定调用方式）
     /// @return 线程安全级别
     virtual PluginThreadSafety thread_safety() const {
         return PluginThreadSafety::SingleThreaded;
     }
 
-    // -------------------- 生命周期 --------------------
+    // 生命周期
     /// @brief 初始化：分配资源、启动服务、注册数值与数据处理器
     /// @return 成功返回 PluginError::Ok，失败返回对应错误码
     virtual PluginError initialize() = 0;
@@ -144,12 +133,12 @@ public:
     /// @brief 宿主查询周期变化通知（可选实现；插件可据此更新外部配置，如 GSI throttle）
     virtual void on_host_period_changed() {}
 
-    // -------------------- 宿主上下文 --------------------
+    // 宿主上下文
     /// @brief 注入宿主上下文（宿主加载插件后调用；插件在 initialize 中通过 host_ 使用宿主能力）
     /// @param host 宿主上下文接口
     virtual void attach_host(IPluginHost* host) { host_ = host; }
 
-    // -------------------- 日志转发 --------------------
+    // 日志转发
     /// @brief 设置日志回调（宿主加载插件后调用；未设置时 log 静默丢弃）
     /// @param callback 日志回调
     void set_log_callback(PluginLogCallback callback) { log_callback_ = std::move(callback); }
@@ -169,10 +158,8 @@ protected:
     IPluginHost* host_ = nullptr;    ///< 宿主上下文（宿主注入）
 };
 
-// ============================================
 // PLUGIN_LOG - 插件日志宏（插件内部使用，不直接使用主程序 LOG_MODULE）
 // 用法: PLUGIN_LOG(this, PluginLogLevel::Info, "消息" << 变量);
-// ============================================
 #define PLUGIN_LOG(plugin, level, ...)             \
     do {                                           \
         std::ostringstream oss;                    \
@@ -180,9 +167,7 @@ protected:
         (plugin)->log(level, __func__, oss.str()); \
     } while (0)
 
-// ============================================
 // 插件导出函数（仅在构建插件动态库时声明，宿主通过 QLibrary 解析）
-// ============================================
 #if defined(PLUGIN_BUILD)
 extern "C" {
 /// @brief 获取插件 API 版本（宿主加载时校验）

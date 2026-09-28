@@ -12,19 +12,8 @@
 
 #include <vector>
 
-// ============================================
 // 规则图模型（可视化规则编辑器）
-// ============================================
-// 节点类型：
-//   Rule          规则节点：输入端数量 = valuePattern 中 {} 的个数，带内容的 {} 显示名称
-//   Module        模块源节点：来自某个已启用模块的数值
-//   Operator      基础运算节点：+ - * /（结果向下取整）
-//   Advanced      高级节点：abs / square / sqrt / expression（自定义表达式）
-//   Channel       通道输出节点：A / B（单输入；同一通道只允许一个来源）
-//
-// 连线方向：源（输出） -> 消费端（输入端口）。规则节点被其它节点引用时写为 {rule:序号}，
-// 模块源节点写为 {id:值ID(名称)}，运算符/高级节点生成 JS 子表达式（valuePattern 由
-// QJSEngine 求值，天然支持 Math.*）。
+// 节点类型与连线规则见 include/README.md 的「关键协议与约定」。
 enum class GraphNodeType {
     Rule,
     Module,
@@ -62,7 +51,7 @@ struct GraphEdge {
 
 class RuleGraph {
 public:
-    // -------------------- 访问 --------------------
+    // 访问
     const std::vector<GraphNode>& nodes() const { return nodes_; }
     const std::vector<GraphEdge>& edges() const { return edges_; }
 
@@ -74,7 +63,7 @@ public:
     /// @brief 输入端口显示名（占位符内容 / A / B / 输入）
     QString input_label(int id, int port) const;
 
-    // -------------------- 编辑 --------------------
+    // 编辑
     int add_node(const GraphNode& node);
     bool remove_node(int id);
     bool move_node(int id, double x, double y);
@@ -86,7 +75,7 @@ public:
     int edge_at_port(int to, int port) const;
     int source_at_port(int to, int port) const;
 
-    // -------------------- 导入 / 写回 --------------------
+    // 导入 / 写回
     /// @brief 从当前 RuleManager 规则集导入（无侧车文件时使用）
     void import_from_rules();
     /// @brief 生成规则 JSON（rules 对象）

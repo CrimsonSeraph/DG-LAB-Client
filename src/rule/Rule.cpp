@@ -15,9 +15,7 @@
 #include <cstdlib>
 #include <stdexcept>
 
-// ============================================
 // 构造/析构（public）
-// ============================================
 
 Rule::Rule(const std::string& name, const std::string& channel, int mode,
     const std::string& value_pattern, bool enabled, const std::vector<RuleParent>& parents,
@@ -39,9 +37,7 @@ Rule::Rule(const std::string& name, const std::string& channel, int mode,
     parse_pattern();
 }
 
-// ============================================
 // 公共接口实现（public）
-// ============================================
 
 bool Rule::has_parent_channel(const std::string& channel) const {
     std::string norm = normalize_channel(channel);
@@ -112,7 +108,7 @@ size_t Rule::get_placeholder_count() const {
     return placeholder_count_;
 }
 
-// -------------------- 计算 --------------------
+// 计算
 
 int Rule::compute_value(const std::vector<int>& params) const {
     std::vector<std::optional<int>> optional_params;
@@ -127,14 +123,15 @@ int Rule::compute_value(const std::vector<int>& params) const {
 std::optional<int> Rule::compute_value(const std::vector<std::optional<int>>& values) const {
     // 空值模式：调用计算时忽略该项
     if (is_value_pattern_empty()) {
-        LOG_MODULE("Rule", "computeValue", LOG_WARN, "规则 " << name_ << " 值模式为空，忽略计算");
+        // 数值变化即触发计算，同一规则只上报一次，避免刷屏
+        if (DebugLogUtil::should_log_once("rule-empty-pattern:" + name_)) {
+            LOG_MODULE("Rule", "compute_value", LOG_WARN, "规则 " << name_ << " 值模式为空，忽略计算");
+        }
         return std::nullopt;
     }
     std::string expr = evaluate_value_pattern(values);
     if (expr.empty()) {
         // 任一占位符为空值，该项被忽略（返回空，由调用方决定是否跳过）
-        LOG_MODULE("Rule", "computeValue", LOG_DEBUG,
-            "规则 " << name_ << " 存在空值占位符，本次计算被忽略");
         return std::nullopt;
     }
     return evaluate_expression(expr);
@@ -200,9 +197,7 @@ std::string Rule::get_display_string() const {
         + "模式:" + mode_str + " 值模式:" + display_pattern;
 }
 
-// ============================================
 // 私有辅助函数实现（private）
-// ============================================
 
 void Rule::parse_pattern() {
     placeholders_.clear();
@@ -260,7 +255,7 @@ void Rule::parse_pattern() {
 
 std::string Rule::evaluate_value_pattern(const std::vector<std::optional<int>>& values) const {
     if (values.size() != placeholder_count_) {
-        LOG_MODULE("Rule", "evaluateValuePattern", LOG_ERROR,
+        LOG_MODULE("Rule", "evaluate_value_pattern", LOG_ERROR,
             "规则 " << name_ << " 需要 " << placeholder_count_ << " 个参数，实际收到 " << values.size());
         return "";
     }
@@ -281,8 +276,11 @@ int Rule::evaluate_expression(const std::string& expr) const {
     static thread_local QJSEngine engine;
     QJSValue result = engine.evaluate(QString::fromStdString(expr));
     if (result.isError()) {
-        LOG_MODULE("Rule", "evaluateExpression", LOG_ERROR,
-            "表达式求值失败: " << expr << ", 错误: " << result.toString().toStdString());
+        // 表达式按次求值，同一表达式的错误只上报一次，避免刷屏
+        if (DebugLogUtil::should_log_once("rule-expression-error:" + expr)) {
+            LOG_MODULE("Rule", "evaluate_expression", LOG_ERROR,
+                "表达式求值失败: " << expr << ", 错误: " << result.toString().toStdString());
+        }
         return 0;
     }
     int raw_value = result.toInt();
@@ -290,13 +288,9 @@ int Rule::evaluate_expression(const std::string& expr) const {
     // 根据模式对结果进行范围钳位
     if (mode_ == 2) {
         raw_value = std::clamp(raw_value, 0, 200);
-        LOG_MODULE("Rule", "evaluateExpression", LOG_DEBUG,
-            "设为模式: 原始值 = " << raw_value << "（已钳位到 [0, 200]）");
     }
     else if (mode_ == 3 || mode_ == 4) {
         raw_value = std::clamp(raw_value, 1, 100);
-        LOG_MODULE("Rule", "evaluateExpression", LOG_DEBUG,
-            "连续模式: 重复次数 = " << raw_value << "（已钳位到 [1, 100]）");
     }
     return raw_value;
 }

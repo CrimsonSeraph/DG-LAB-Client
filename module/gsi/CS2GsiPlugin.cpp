@@ -15,9 +15,7 @@
 #include <cstdlib>
 #include <map>
 
-// ============================================
 // 数值定义（public）
-// ============================================
 
 std::vector<ModuleValue> CS2GsiPlugin::create_default_values() {
     // 完整数值列表（参照官方 GSI 规范）：个人状态类数值队友数据不更新，团队/地图类始终更新
@@ -52,9 +50,7 @@ std::vector<ModuleValue> CS2GsiPlugin::create_default_values() {
     return values;
 }
 
-// ============================================
 // 生命周期（public）
-// ============================================
 
 PluginError CS2GsiPlugin::initialize() {
     if (initialized_) {
@@ -131,9 +127,7 @@ void CS2GsiPlugin::on_host_period_changed() {
     }
 }
 
-// ============================================
 // GSI 数据处理（private）
-// ============================================
 
 void CS2GsiPlugin::on_gsi_data(const QJsonObject& data) {
     if (!host_) {
@@ -231,9 +225,7 @@ void CS2GsiPlugin::update_team_values(const QJsonObject& data) {
     }
 }
 
-// ============================================
 // 路径与配置（private）
-// ============================================
 
 QString CS2GsiPlugin::find_cs_directory() {
     // 通过 PathFinder.py 查找 CS 目录（Steam 模式，非交互，返回第一个匹配）
@@ -454,9 +446,7 @@ bool CS2GsiPlugin::is_process_running(const QString& process_name) {
     return false;
 }
 
-// ============================================
 // 解析工具（private，静态）
-// ============================================
 
 QJsonValue CS2GsiPlugin::extract_gsi_value(const QJsonObject& data, const QString& group,
     const QString& sub, const QString& field) {
@@ -508,9 +498,7 @@ QString CS2GsiPlugin::extract_string(const QJsonObject& data, const QString& gro
     return value.isString() ? value.toString() : QString();
 }
 
-// ============================================
 // 动态库导出（extern "C" 工厂函数）
-// ============================================
 extern "C" {
 PLUGIN_EXPORT int get_plugin_api_version() {
     return PLUGIN_API_VERSION;

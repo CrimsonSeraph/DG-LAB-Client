@@ -10,9 +10,7 @@
 #include <stdexcept>
 #include <vector>
 
-// ============================================
 // 模板方法实现
-// ============================================
 
 template<typename... Args>
 inline QJsonObject RuleManager::evaluate_command(const std::string& rule_name, Args... args) {

@@ -8,18 +8,14 @@
 #include <algorithm>
 #include <cctype>
 
-// ============================================
 // 构造/析构（public）
-// ============================================
 
 Module::Module(const std::string& name, const std::vector<std::string>& channels)
     : name_(name)
     , channels_(channels) {
 }
 
-// ============================================
 // 公共接口实现（public）
-// ============================================
 
 int Module::get_min_period_ms() const {
     if (values_.empty()) {

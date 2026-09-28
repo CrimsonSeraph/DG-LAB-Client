@@ -5,7 +5,7 @@ import QtQuick
 // 分工：颜色 -> Theme（C++ 单例）；字号 -> Typography；断点与派生 -> Responsive；
 //      组件专属度量 -> ComponentStyle。页面里不要再写字面量。
 QtObject {
-    // ---------------------------------------------------------------- 间距刻度
+    // 间距刻度
     readonly property int spacing2xs: 2
     readonly property int spacingXs: 4
     readonly property int spacingSm: 6
@@ -15,19 +15,19 @@ QtObject {
     readonly property int spacing2xl: 20
     readonly property int spacing3xl: 28
 
-    // ------------------------------------------------------------ 圆角 / 描边
+    // 圆角 / 描边
     readonly property int radiusXs: 3
     readonly property int radiusSm: 5
     readonly property int radiusMd: 8
     readonly property int radiusLg: 12
     readonly property int borderWidth: 1
 
-    // ---------------------------------------------------------------- 导航栏
+    // 导航栏
     readonly property int navWidth: 190
     readonly property int navButtonHeight: 42
     readonly property int navHeaderHeight: 96
 
-    // ------------------------------------------------------------ 页面 / 卡片
+    // 页面 / 卡片
     readonly property int pageMargin: 16
     readonly property int cardPadding: 14
     readonly property int cardRadius: 12

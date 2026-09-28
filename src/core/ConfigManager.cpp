@@ -11,9 +11,7 @@
 #include <algorithm>
 #include <fstream>
 
-// ============================================
 // 内部辅助函数（非成员，用于复用写入逻辑）
-// ============================================
 static void write_default_config_to_file(const nlohmann::json& config, const std::string& path) {
     try {
         std::ofstream out_file(path);
@@ -34,18 +32,14 @@ static void write_default_config_to_file(const nlohmann::json& config, const std
     }
 }
 
-// ============================================
 // 构造/析构（public）
-// ============================================
 
 ConfigManager::ConfigManager(const std::string& path)
     : config_path_(path) {
     DebugLog::instance().set_log_level("ConfigManager", LOG_DEBUG);
 }
 
-// ============================================
 // 加载与保存（public）
-// ============================================
 
 bool ConfigManager::load() {
     LOG_MODULE("ConfigManager", "load", LOG_INFO, "开始加载配置文件: " << config_path_);
@@ -118,9 +112,7 @@ bool ConfigManager::save() const {
     }
 }
 
-// ============================================
 // 批量操作（public）
-// ============================================
 
 bool ConfigManager::update(const nlohmann::json& patch) {
     LOG_MODULE("ConfigManager", "update", LOG_DEBUG, "开始批量更新配置，补丁内容: " << patch.dump());
@@ -176,9 +168,7 @@ void ConfigManager::add_listener(std::function<void(const nlohmann::json&)> list
     LOG_MODULE("ConfigManager", "add_listener", LOG_DEBUG, "监听器添加完成，现在共 " << observers_.size() << " 个");
 }
 
-// ============================================
 // 验证（public）
-// ============================================
 
 bool ConfigManager::validate() const {
     LOG_MODULE("ConfigManager", "validate", LOG_DEBUG, "开始验证配置");
@@ -201,17 +191,13 @@ bool ConfigManager::validate() const {
     return true;
 }
 
-// ============================================
 // 保护方法（protected）
-// ============================================
 
 nlohmann::json ConfigManager::get_default_config() const {
     return DefaultConfigs::get_default_config("");
 }
 
-// ============================================
 // 私有辅助函数实现（private）
-// ============================================
 
 std::vector<std::string> ConfigManager::split_key_path(const std::string& key_path) const {
     // 注意: 调用此函数前必须已持有 mutex_，因此内部不再加锁

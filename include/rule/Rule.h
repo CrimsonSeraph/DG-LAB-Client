@@ -14,9 +14,7 @@
 #include <string>
 #include <vector>
 
-// ============================================
 // 父级类型与父级结构
-// ============================================
 enum class ParentType {
     NONE = 0,   ///< 无父级
     CHANNEL = 1, ///< 通道父级（A/B）
@@ -30,9 +28,7 @@ struct RuleParent {
     int rule_index = -1;                ///< RULE 类型时的规则序号
 };
 
-// ============================================
 // 值模式占位符类型与结构
-// ============================================
 enum class PlaceholderType {
     EXTERNAL = 0, ///< 外部参数占位符（{}）
     ID_REF = 1,   ///< 模块数值引用（{id:xxx(名称)}）
@@ -48,12 +44,10 @@ struct Placeholder {
     size_t len = 0;                                   ///< 占位符长度（含括号注释）
 };
 
-// ============================================
 // Rule - 规则类，表示一条强度控制规则
-// ============================================
 class Rule {
 public:
-    // -------------------- 构造/析构 --------------------
+    // 构造/析构
     Rule() = default;
 
     /// @brief 构造函数
@@ -72,7 +66,7 @@ public:
         const std::vector<RuleParent>& parents = {},
         int index = 0);
 
-    // -------------------- 公共接口（属性获取）--------------------
+    // 公共接口（属性获取）
     inline const std::string& get_name() const { return name_; }
     inline const std::string& get_channel() const { return channel_; }
     inline int get_mode() const { return mode_; }
@@ -81,7 +75,7 @@ public:
     inline int get_index() const { return index_; }
     inline const std::vector<RuleParent>& get_parents() const { return parents_; }
 
-    // -------------------- 公共接口（属性设置）--------------------
+    // 公共接口（属性设置）
     /// @brief 设置启用状态
     /// @param enabled 是否启用
     inline void set_enabled(bool enabled) { enabled_ = enabled; }
@@ -94,7 +88,7 @@ public:
     /// @param parents 父级列表
     inline void set_parents(const std::vector<RuleParent>& parents) { parents_ = parents; }
 
-    // -------------------- 公共接口（父级查询）--------------------
+    // 公共接口（父级查询）
     /// @brief 判断父级列表是否包含指定通道
     /// @param channel 通道（"A"/"B"）
     /// @return 包含返回 true
@@ -113,11 +107,11 @@ public:
     /// @return 父级中同时存在通道与规则返回 true
     bool is_parents_partial_channel() const;
 
-    // -------------------- 公共接口（静态工具）--------------------
+    // 公共接口（静态工具）
     /// @brief 规范化通道输入，接受 "A"/"a"/"B"/"b"，返回 "A"/"B" 或空字符串（无效）
     static std::string normalize_channel(const std::string& channel);
 
-    // -------------------- 公共接口（值模式）--------------------
+    // 公共接口（值模式）
     /// @brief 判断值模式是否为空（空值模式调用计算时忽略该项）
     /// @return 值模式为空字符串返回 true
     bool is_value_pattern_empty() const;
@@ -129,7 +123,7 @@ public:
     /// @brief 获取占位符数量
     size_t get_placeholder_count() const;
 
-    // -------------------- 公共接口（计算）--------------------
+    // 公共接口（计算）
     /// @brief 计算值: 将参数填入表达式并求值，根据模式钳位（旧式 {} 占位符）
     /// @param values 参数列表（数量必须匹配占位符）
     /// @return 计算结果（已钳位）
@@ -154,7 +148,7 @@ public:
     std::string get_display_string() const;
 
 private:
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     std::string name_;                          ///< 规则名称
     std::string channel_;                       ///< 通道 "A"/"B"/""（兼容旧格式）
     int mode_;                                  ///< 模式 0-4
@@ -166,7 +160,7 @@ private:
     std::vector<size_t> placeholder_positions_; ///< 各外部占位符位置（旧式 {}）
     size_t placeholder_count_ = 0;              ///< 占位符数量
 
-    // -------------------- 私有辅助函数 --------------------
+    // 私有辅助函数
     /// @brief 解析 value_pattern_ 中的占位符（{id:xxx}/{rule:xx}/{}），记录位置与类型
     void parse_pattern();
 

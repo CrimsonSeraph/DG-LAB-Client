@@ -9,9 +9,7 @@
 
 #include <vector>
 
-// ============================================
 // 生命周期实现（public）
-// ============================================
 
 PluginError ExamplePlugin::initialize() {
     // 通过宿主上下文注册示例数值（模块名使用插件名称，挂载到 A/B 通道）
@@ -39,9 +37,7 @@ bool ExamplePlugin::can_unload() const {
     return true;
 }
 
-// ============================================
 // 动态库导出（extern "C" 工厂函数）
-// ============================================
 extern "C" {
 PLUGIN_EXPORT int get_plugin_api_version() {
     // 宿主加载时校验：返回值必须等于 PLUGIN_API_VERSION

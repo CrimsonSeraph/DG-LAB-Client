@@ -10,9 +10,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-// ============================================
 // MainConfig 方法实现
-// ============================================
 
 void MainConfig::to_json(nlohmann::json& j, const MainConfig& config) {
     j = nlohmann::json{
@@ -51,9 +49,7 @@ bool MainConfig::validate() const {
     return true;
 }
 
-// ============================================
 // SystemConfig 方法实现
-// ============================================
 
 void SystemConfig::to_json(nlohmann::json& j, const SystemConfig& config) {
     j = nlohmann::json{
@@ -68,9 +64,7 @@ bool SystemConfig::validate() const {
     return (websocket_port_ > 0 && websocket_port_ < 65536);
 }
 
-// ============================================
 // UserConfig 方法实现
-// ============================================
 
 void UserConfig::to_json(nlohmann::json& j, const UserConfig& config) {
     j = nlohmann::json{

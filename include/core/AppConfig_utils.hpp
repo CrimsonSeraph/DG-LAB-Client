@@ -19,9 +19,7 @@
 #include <optional>
 #include <string>
 
-// ============================================
 // ConfigValue - 简单类型配置包装器
-// ============================================
 template<typename T>
 class ConfigValue {
 public:
@@ -142,9 +140,7 @@ private:
     mutable std::mutex change_mutex_;
 };
 
-// ============================================
 // ConfigObject - 复杂类型配置包装器
-// ============================================
 template<typename T>
 concept ConfigSerializable = requires(T t, nlohmann::json& j) {
     { T::to_json(j, t) } -> std::same_as<void>;
@@ -284,9 +280,7 @@ private:
     mutable std::mutex change_mutex_;
 };
 
-// ============================================
 // 自动注册字段（宏辅助）
-// ============================================
 template<typename T>
 struct FieldMap {
     static_assert(!std::is_same_v<T, T>, "FieldMap 未针对此类型进行专门化");
@@ -310,9 +304,7 @@ struct FieldMap {
     }                                                   \
     ;
 
-// ============================================
 // 配置构建器
-// ============================================
 template<typename T>
 class ConfigBuilder {
 public:
@@ -340,9 +332,7 @@ private:
     T config_;
 };
 
-// ============================================
 // 配置验证器
-// ============================================
 template<typename T>
 class ConfigValidator {
 public:
@@ -368,9 +358,7 @@ private:
     std::map<std::string, ValidatorFunc> validators_;
 };
 
-// ============================================
 // 配置监听器接口
-// ============================================
 template<typename T>
 class ConfigListener {
 public:
@@ -380,9 +368,7 @@ public:
     virtual void on_config_saved() = 0;
 };
 
-// ============================================
 // 配置更新器（批量更新）
-// ============================================
 template<typename T>
 class ConfigUpdater {
 public:

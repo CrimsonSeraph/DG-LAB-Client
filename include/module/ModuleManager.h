@@ -23,17 +23,15 @@ class QLibrary;
 class IPlugin;
 class DataListener;
 
-// ============================================
 // ModuleManager - 数值模块管理器（单例）
 // 负责模块注册、周期设置、以最短周期为基准的调度查询与数值变化推送；
 // 同时作为插件宿主：扫描/加载/卸载动态库插件（IPlugin），
 // 注入日志回调与宿主上下文（IPluginHost），管理插件加载状态
-// ============================================
 class ModuleManager : public QObject, public IPluginHost {
     Q_OBJECT
 
 public:
-    // -------------------- 插件加载状态 --------------------
+    // 插件加载状态
     enum class PluginLoadState {
         NotLoaded = 0, ///< 已扫描、未加载
         Loaded,        ///< 已加载（initialize 成功）
@@ -50,15 +48,15 @@ public:
         std::string error;                                  ///< 加载失败原因（成功为空）
     };
 
-    // -------------------- 单例 --------------------
+    // 单例
     /// @brief 获取单例实例
     static ModuleManager& instance();
 
-    // -------------------- 初始化 --------------------
+    // 初始化
     /// @brief 初始化：注册默认模块、扫描插件目录（可选扫描即加载）并启动周期调度器
     void init();
 
-    // -------------------- 模块查询 --------------------
+    // 模块查询
     /// @brief 获取所有模块名称
     /// @return 模块名称列表
     std::vector<std::string> get_module_names() const;
@@ -89,7 +87,7 @@ public:
     /// @return 模块名称列表
     std::vector<std::string> get_modules_for_channel(const std::string& channel) const;
 
-    // -------------------- 周期设置 --------------------
+    // 周期设置
     /// @brief 设置单个数值的查询周期（设置后自动重建调度器）
     /// @param module_name 模块名称
     /// @param value_id 数值 ID
@@ -106,7 +104,7 @@ public:
     /// @param period 新的查询周期
     void set_all_period(QueryPeriod period);
 
-    // -------------------- 数据源 --------------------
+    // 数据源
     /// @brief 数据源回调类型（通过数值 ID 获取最新值）
     using DataSource = std::function<int(const std::string& value_id)>;
 
@@ -114,7 +112,7 @@ public:
     /// @param source 数据源回调
     void set_data_source(DataSource source);
 
-    // -------------------- 查询 --------------------
+    // 查询
     /// @brief 手动查询指定数值（立即查询，若变化则推送）
     /// @param module_name 模块名称
     /// @param value_id 数值 ID
@@ -131,7 +129,7 @@ public:
     /// @return 基准周期毫秒数
     int get_base_period_ms() const;
 
-    // -------------------- 插件管理 --------------------
+    // 插件管理
     /// @brief 获取插件扫描目录（config app.module.path，默认 <程序目录>/module）
     /// @return 插件目录绝对路径
     std::string get_plugin_dir() const;
@@ -159,7 +157,7 @@ public:
     /// @return 已加载返回 true
     bool is_plugin_loaded(const std::string& file_name) const;
 
-    // -------------------- 宿主能力（IPluginHost 实现）--------------------
+    // 宿主能力（IPluginHost 实现）
     /// @brief 注册插件数值到模块管理器（插件通过 IPluginHost 调用）
     /// @param module_name 模块名称
     /// @param values 数值列表
@@ -250,11 +248,11 @@ private:
         std::string version;                                ///< 插件版本
     };
 
-    // -------------------- 构造/析构（单例私有）--------------------
+    // 构造/析构（单例私有）
     ModuleManager();
     ~ModuleManager() override;
 
-    // -------------------- 私有辅助函数 --------------------
+    // 私有辅助函数
     /// @brief 重建调度器（以所有数值中最短查询周期为基准）
     void rebuild_scheduler();
     /// @brief 周期变化通知：通知已加载插件（on_host_period_changed）并发出 period_changed 信号
@@ -286,7 +284,7 @@ private:
     /// @return 插件条目指针，不存在返回 nullptr
     const PluginEntry* find_plugin_entry(const std::string& file_name) const;
 
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     std::vector<Module> modules_; ///< 模块列表
     mutable std::mutex mutex_;    ///< 保护模块数据（plugins_ 仅主线程访问）
     bool initialized_ = false;    ///< 初始化标志（幂等）

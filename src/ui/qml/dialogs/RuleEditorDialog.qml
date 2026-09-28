@@ -31,7 +31,7 @@ Dialog {
         anchors.fill: parent
         orientation: Qt.Horizontal
 
-        // ------------------------------------------------------ 模块 / 节点面板
+        // 模块 / 节点面板
         ColumnLayout {
             id: leftCol
             SplitView.preferredWidth: 210
@@ -154,7 +154,7 @@ Dialog {
             }
         }
 
-        // ------------------------------------------------------ 画布
+        // 画布
         Rectangle {
             id: canvasRect
             SplitView.fillWidth: true
@@ -521,7 +521,7 @@ Dialog {
             }
         }
 
-        // ------------------------------------------------------ 检查器
+        // 检查器
         ColumnLayout {
             id: rightCol
             SplitView.preferredWidth: 250

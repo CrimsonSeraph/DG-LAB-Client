@@ -14,14 +14,12 @@
 #include <mutex>
 #include <string>
 
-// ============================================
 // LogExporter - 日志导出器
 // 自动日志：程序启动后持续记录运行日志到自动目录（受数量/大小限制，分片轮转）
 // 手动日志：点击导出时导出界面日志到手动目录（不受数量/大小限制）
-// ============================================
 class LogExporter {
 public:
-    // -------------------- 自动日志设置结构 --------------------
+    // 自动日志设置结构
     /// @brief 自动日志设置（持久化到 user.json 的 app.log.auto 下）
     struct AutoSettings {
         int level = 0;                     ///< 导出日志级别（LOG_DEBUG=0/INFO=1/WARN=2/ERROR=3）
@@ -32,7 +30,7 @@ public:
         qint64 max_size = 5 * 1024 * 1024; ///< 单个日志大小上限（字节），超出分片写入多个文件
     };
 
-    // -------------------- 手动日志设置结构 --------------------
+    // 手动日志设置结构
     /// @brief 手动日志设置（持久化到 user.json 的 app.log.manual 下）
     struct ManualSettings {
         int level = 0;                     ///< 导出日志级别（LOG_DEBUG=0/INFO=1/WARN=2/ERROR=3）
@@ -41,11 +39,11 @@ public:
         std::string dir = "./log/handle";  ///< 手动日志目录（相对程序目录）
     };
 
-    // -------------------- 构造/析构 --------------------
+    // 构造/析构
     LogExporter();
     ~LogExporter();
 
-    // -------------------- 设置管理 --------------------
+    // 设置管理
     /// @brief 从配置（user.json 的 app.log）加载自动/手动日志设置
     void load_settings();
 
@@ -68,7 +66,7 @@ public:
     /// @return 手动日志设置引用
     inline const ManualSettings& manual_settings() const { return manual_settings_; }
 
-    // -------------------- 自动日志 --------------------
+    // 自动日志
     /// @brief 启动自动日志（注册日志输出通道，程序配置加载完成后调用）
     void start_auto_log();
 
@@ -79,7 +77,7 @@ public:
     /// @return 运行中返回 true
     inline bool is_auto_logging() const { return auto_log_active_; }
 
-    // -------------------- 手动导出与清理 --------------------
+    // 手动导出与清理
     /// @brief 手动导出日志内容到手动目录（按手动设置过滤，不受数量/大小限制）
     /// @param content 日志全文（如界面日志控件内容）
     /// @param error 输出错误信息（可选）
@@ -98,7 +96,7 @@ public:
     QString manual_dir_absolute() const;
 
 private:
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     AutoSettings auto_settings_;   ///< 自动日志设置
     ManualSettings manual_settings_; ///< 手动日志设置
     mutable std::recursive_mutex mutex_; ///< 保护自动日志文件写入（持锁内 LOG_MODULE 递归进入 sink 需可重入）
@@ -109,7 +107,7 @@ private:
     qint64 auto_log_size_ = 0;     ///< 自动日志当前文件大小
     bool auto_log_active_ = false; ///< 自动日志运行标志
 
-    // -------------------- 私有辅助函数 --------------------
+    // 私有辅助函数
     /// @brief 判断日志级别是否满足过滤条件
     /// @param level 日志级别
     /// @param filter_level 过滤级别

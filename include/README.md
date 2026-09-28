@@ -99,6 +99,64 @@ include/
 
 ---
 
+## 关键协议与约定
+
+以下内容原先是各头文件里的长注释，现集中在此，代码中只保留简短说明。
+
+### 中转服务消息（`net/DglabRelayServer.h`）
+
+| 版本 | 默认端口 | 配对模型 | 消息 |
+| --- | --- | --- | --- |
+| V3 | 9999 | 单控制方 ↔ 单被控方 | `bind` / `heartbeat` / `break` / `msg`（`strength-通道+模式+值`、`pulse-通道:[...]`、`clear-通道`） |
+| V4 | 9998 | 控制方（clientId）+ 多个被控方（tid） | `hello` / `client_attached` / `controller_attached` / `message`（RPC，如 `device.op`） |
+
+服务由应用自身托管，取代原先「Python Bridge + Node 官方 V2 后端」的链路：DG-LAB APP 扫码接入后，应用直接与 APP 配对并下发强度/波形指令。外部协议参考 `DG-LAB-OPENSOURCE/socket/v2/README.md` 与 `dglab-kit/README.md`。
+
+### 郊狼 V3 蓝牙（`ble/CoyoteBleController.h`）
+
+- GATT：服务 `0x180C`（写 `0x150A`、通知 `0x150B`）；电量服务 `0x180A`（读/通知 `0x1500`）。
+- `B0`：每 100ms 写入 —— 序列号 + 强度解读方式 + 双通道强度 + 双通道各 4 组频率/强度。
+- `BF`：软上限与频率/强度平衡参数，**重连后必须重写**。
+- `B1`：主机回传序列号 + 双通道实际强度。
+
+外部协议参考 `DG-LAB-OPENSOURCE/coyote/v3/README_V3.md`。
+
+### V3 波形帧（`wave/Wave.h`）
+
+一条 V3 数据为 8 字节 HEX，代表 100ms：
+
+```text
+[频率1][频率2][频率3][频率4][强度1][强度2][强度3][强度4]
+```
+
+前 4 字节为 4 个 25ms 子单元的频率（10~240），后 4 字节为对应强度（0~100）。
+
+### 数据接收信封（`module/DataListener.h`）
+
+数据包信封格式为 `{"source": "<模块名>", "type": "<信息类型>", "data": {...}}`；缺少信封字段时回退到默认来源（`set_default_source` / `set_default_type`）。本类单实例监听单个端口（TCP HTTP POST 或 UDP），解析为 JSON 后按 `source + type` 分发。面向单线程事件循环使用，处理器注册表不做线程安全保护。
+
+### 规则图节点与连线（`rule/RuleGraph.h`）
+
+| 节点类型 | 语义 |
+| --- | --- |
+| `Rule` | 规则节点：输入端口数量 = `valuePattern` 中 `{}` 的个数，带内容的 `{}` 显示名称 |
+| `Module` | 模块源节点：来自某个已启用模块的数值 |
+| `Operator` | 基础运算节点：`+ - * /`（结果向下取整） |
+| `Advanced` | 高级节点：`abs` / `square` / `sqrt` / `expression`（自定义表达式） |
+| `Channel` | 通道输出节点：`A` / `B`（单输入，同一通道只允许一个来源） |
+
+连线方向为「源（输出）→ 消费端（输入端口）」。规则节点被其它节点引用时写为 `{rule:序号}`，模块源节点写为 `{id:值ID(名称)}`，运算符/高级节点生成 JS 子表达式（`valuePattern` 由 QJSEngine 求值，天然支持 `Math.*`）。
+
+### 界面连接约定（`ui/UiConnector.h`）
+
+QML 不写信号处理器（`onClicked` / `Connections`），每个交互控件都有稳定的 `objectName`，加载完成后由 `UiConnector` 按 `objectName` 显式建立连接。详见 [src/ui/README.md](../src/ui/README.md)。
+
+### 插件约定（`plugin/IPlugin.h`）
+
+插件实例由插件内部 `new`，宿主仅调用 `destroy_plugin` 销毁；禁止跨模块 `new` / `delete`，插件内禁止使用静态全局变量。所有可能失败的操作返回错误码而非抛出异常。详见 [module/README.md](../module/README.md)。
+
+---
+
 ## 依赖关系
 
 - **Qt 6**：Core / Gui / Network / Qml / Quick / QuickControls2 / QuickDialogs2 / WebSockets / Bluetooth

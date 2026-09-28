@@ -11,11 +11,11 @@
 #include <QJsonValue>
 
 #include <algorithm>
+#include <cstddef>
+#include <set>
 #include <string>
 
-// ============================================
 // DebugLogUtil - 日志辅助工具命名空间
-// ============================================
 namespace DebugLogUtil {
 
     /// @brief 将 QJsonValue 转换为可读字符串
@@ -57,6 +57,19 @@ namespace DebugLogUtil {
             }
         }
         return result;
+    }
+
+    /// @brief 判断某个问题是否为首次出现（用于按次/按包触发的高频路径，避免同一问题刷屏）
+    /// @param key 问题标识（如表达式文本、来源 + 类型）
+    /// @return 首次出现返回 true
+    /// @note 最多记录 kMaxKeys 个标识，达到上限后不再上报，避免标识无限增长
+    inline bool should_log_once(const std::string& key) {
+        static thread_local std::set<std::string> reported;
+        constexpr std::size_t kMaxKeys = 64;
+        if (reported.size() >= kMaxKeys) {
+            return false;
+        }
+        return reported.insert(key).second;
     }
 
 } // namespace DebugLogUtil

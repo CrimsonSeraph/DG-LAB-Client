@@ -238,6 +238,7 @@ void CoyoteBleController::on_controller_connected() {
 }
 
 void CoyoteBleController::on_controller_disconnected() {
+    LOG_MODULE("CoyoteBleController", "on_controller_disconnected", LOG_INFO, "蓝牙连接已断开");
     connected_ = false;
     ready_ = false;
     strength_a_ = 0;

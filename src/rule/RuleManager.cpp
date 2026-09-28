@@ -20,18 +20,14 @@
 
 namespace fs = std::filesystem;
 
-// ============================================
 // 单例（public）
-// ============================================
 
 RuleManager& RuleManager::instance() {
     static RuleManager manager;
     return manager;
 }
 
-// ============================================
 // 构造/析构（private）
-// ============================================
 
 RuleManager::RuleManager()
     : QObject(nullptr) {
@@ -42,9 +38,7 @@ RuleManager::RuleManager()
 
 RuleManager::~RuleManager() = default;
 
-// ============================================
 // 初始化（public）
-// ============================================
 
 void RuleManager::init() {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -63,9 +57,7 @@ void RuleManager::init() {
     scan_directory();
 }
 
-// ============================================
 // 文件管理（public）
-// ============================================
 
 std::vector<std::string> RuleManager::get_available_rule_files() const {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -184,9 +176,7 @@ bool RuleManager::save_current_rule_file() {
     return modify_rule_file(current_file_, rules_json);
 }
 
-// ============================================
 // 规则加载（从配置管理器）（public）
-// ============================================
 
 void RuleManager::load_rules(std::shared_ptr<ConfigManager> config_manager) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -212,9 +202,7 @@ void RuleManager::reload_rules() {
     parse_config(rules_json.value());
 }
 
-// ============================================
 // 规则查询（public）
-// ============================================
 
 std::vector<std::string> RuleManager::get_rule_names() const {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -393,9 +381,7 @@ std::optional<int> RuleManager::get_rule_last_result(const std::string& rule_nam
     return lit != last_results_.end() ? lit->second : std::nullopt;
 }
 
-// ============================================
 // 规则修改（public）
-// ============================================
 
 void RuleManager::set_rule_enabled(const std::string& rule_name, bool enabled) {
     {
@@ -535,9 +521,7 @@ bool RuleManager::remove_rule_reference(const std::string& rule_name, int refere
     return true;
 }
 
-// ============================================
 // 通道启用状态（public）
-// ============================================
 
 void RuleManager::set_channel_enabled(const std::string& channel, bool enabled) {
     std::vector<QJsonObject> pending_commands;
@@ -579,9 +563,7 @@ bool RuleManager::get_channel_enabled(const std::string& channel) const {
     return it != channel_enabled_.end() && it->second;
 }
 
-// ============================================
 // 计算（public）
-// ============================================
 
 std::optional<int> RuleManager::compute_rule(const std::string& rule_name) {
     std::vector<QJsonObject> pending_commands;
@@ -640,9 +622,7 @@ std::optional<int> RuleManager::trigger_rule(const std::string& rule_name) {
     return result;
 }
 
-// ============================================
 // 辅助（JSON 文件读写）（public）
-// ============================================
 
 nlohmann::json RuleManager::load_json_file(const std::string& filename) const {
     std::string full_path = get_full_path(filename);
@@ -655,9 +635,7 @@ nlohmann::json RuleManager::load_json_file(const std::string& filename) const {
     return j;
 }
 
-// ============================================
 // private slots 实现
-// ============================================
 
 void RuleManager::on_module_value_changed(const QString& module_name, const QString& value_id,
     int new_value) {
@@ -694,9 +672,7 @@ void RuleManager::on_module_value_changed(const QString& module_name, const QStr
     }
 }
 
-// ============================================
 // 私有辅助函数实现（private）
-// ============================================
 
 void RuleManager::scan_directory() {
     available_files_.clear();
@@ -945,8 +921,6 @@ std::optional<int> RuleManager::compute_rule_locked(const std::string& rule_name
     // 有效启用检查（父级可用才参与计算）
     std::vector<std::string> visiting;
     if (!is_rule_effectively_enabled_locked(rule_name, visiting)) {
-        LOG_MODULE("RuleManager", "compute_rule_locked", LOG_DEBUG,
-            "规则 " << rule_name << " 未启用，跳过计算");
         return std::nullopt;
     }
     // 级联深度保护（防循环引用导致无限递归）
@@ -967,15 +941,11 @@ std::optional<int> RuleManager::compute_rule_locked(const std::string& rule_name
 
     if (!result.has_value()) {
         // 存在空值占位符：本次计算被忽略（不推送、不发送）
-        LOG_MODULE("RuleManager", "compute_rule_locked", LOG_DEBUG,
-            "规则 " << rule_name << " 存在空值，本次计算被忽略");
         return std::nullopt;
     }
 
     // 缓存计算结果
     last_results_[rule.get_index()] = result.value();
-    LOG_MODULE("RuleManager", "compute_rule_locked", LOG_DEBUG,
-        "规则 " << rule_name << " 计算结果: " << result.value());
 
     // 级联推送：结果推送给所有引用本规则的规则（其父级包含本规则）
     auto ref_it = referrers_.find(rule.get_index());
@@ -1024,8 +994,6 @@ std::optional<int> RuleManager::resolve_placeholder_locked(const Placeholder& pl
         // 数值尚未获取到（无数据源/未接入真实数据）时视为空值，忽略该项
         const ModuleValue* value = module_manager.get_value(module_name, placeholder.id);
         if (!value || !value->get_has_value()) {
-            LOG_MODULE("RuleManager", "resolve_placeholder_locked", LOG_DEBUG,
-                "数值 " << placeholder.id << " 无数据，按空值处理");
             return std::nullopt;
         }
         return module_manager.query_value(module_name, placeholder.id);

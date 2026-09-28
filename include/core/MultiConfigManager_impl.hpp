@@ -11,9 +11,7 @@
 #include <optional>
 #include <sstream>
 
-// ============================================
 // 模板方法实现（顺序与头文件 public 区一致）
-// ============================================
 
 template<typename T>
 inline std::optional<T> MultiConfigManager::get(const std::string& key_path) const {
@@ -38,9 +36,12 @@ inline std::optional<T> MultiConfigManager::get_unsafe(const std::string& key_pa
                 }
             }
             catch (const nlohmann::json::type_error& e) {
-                LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_WARN,
-                    "配置 [" << key_path << "] 类型不匹配（优先级 "
-                             << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
+                // 读取按次触发，同一键的类型不匹配只上报一次，避免刷屏
+                if (DebugLogUtil::should_log_once("config-type-mismatch:" + key_path)) {
+                    LOG_MODULE("MultiConfigManager", "get_unsafe", LOG_WARN,
+                        "配置 [" << key_path << "] 类型不匹配（优先级 "
+                                 << config->template get<int>("__priority").value_or(0) << "）: " << e.what());
+                }
             }
             catch (const nlohmann::json::out_of_range&) {
                 // 键不存在 - 正常情况，不记录日志
@@ -117,8 +118,6 @@ inline bool MultiConfigManager::set_with_priority_unsafe(const std::string& key_
             bool success = it->second.manager->set(key_path, value);
             if (success) {
                 it->second.manager->save();
-                LOG_MODULE("MultiConfigManager", "set_with_priority_unsafe", LOG_DEBUG,
-                    "成功设置 [" << key_path << "] 到最高优先级管理器 (" << it->first << ")");
                 return true;
             }
         }
@@ -150,8 +149,6 @@ inline bool MultiConfigManager::set_with_name(const std::string& key_path,
 template<typename T>
 inline bool MultiConfigManager::set_with_name_unsafe(const std::string& key_path,
     const T& value, const std::string& key_name) {
-    LOG_MODULE("MultiConfigManager", "set_with_name_unsafe", LOG_DEBUG,
-        "尝试设置 [" << key_path << "] 到配置 [" << key_name << "]");
     for (auto& [name, info] : config_registry_) {
         if (info.manager && name == key_name) {
             bool success = info.manager->set(key_path, value);

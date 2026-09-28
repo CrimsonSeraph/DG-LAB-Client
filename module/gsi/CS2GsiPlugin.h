@@ -15,14 +15,12 @@
 #include <string>
 #include <vector>
 
-// ============================================
 // CS2GsiPlugin - CS2 Game State Integration 插件
 // 通过 PathFinder 查找 CS 游戏目录、生成 GSI 配置文件（gamestate_integration_dglab.cfg）、
 // 监听 GSI 数据并区分自身/队友数据归属后写入数值模块（完整数值列表参照官方 GSI 规范）
-// ============================================
 class CS2GsiPlugin : public IPlugin {
 public:
-    // -------------------- 自描述 --------------------
+    // 自描述
     /// @brief 获取插件名称（模块名，规则引用沿用原名称）
     /// @return 插件名称
     std::string name() const override { return "CS2 GSI 模块"; }
@@ -41,7 +39,7 @@ public:
         return PluginCapability::ProvidesValues | PluginCapability::ConsumesData;
     }
 
-    // -------------------- 生命周期 --------------------
+    // 生命周期
     /// @brief 初始化：注册数值、加载/生成 GSI 配置、注册数据处理器并启动监听
     /// @return 成功返回 PluginError::Ok
     PluginError initialize() override;
@@ -57,12 +55,12 @@ public:
     void on_host_period_changed() override;
 
 private:
-    // -------------------- 数值定义 --------------------
+    // 数值定义
     /// @brief 完整数值列表（参照官方 GSI 规范；个人状态类 + 团队/地图类）
     /// @return 数值列表
     static std::vector<ModuleValue> create_default_values();
 
-    // -------------------- GSI 数据处理 --------------------
+    // GSI 数据处理
     /// @brief 收到 GSI 数据：判断自身/队友归属并写入数值
     /// @param data GSI 完整数据
     void on_gsi_data(const QJsonObject& data);
@@ -75,7 +73,7 @@ private:
     /// @param data GSI 完整数据
     void update_team_values(const QJsonObject& data);
 
-    // -------------------- 路径与配置 --------------------
+    // 路径与配置
     /// @brief 通过 PathFinder.py 查找 CS 游戏目录
     /// @return CS 目录绝对路径，未找到返回空字符串
     QString find_cs_directory();
@@ -117,7 +115,7 @@ private:
     /// @return 运行中返回 true
     static bool is_process_running(const QString& process_name);
 
-    // -------------------- 解析工具 --------------------
+    // 解析工具
     /// @brief 从 GSI JSON 中按候选结构提取字段值（支持标准/变体/直接三种结构）
     /// @param data GSI 完整数据
     /// @param group 分组名（如 "player"）
@@ -146,7 +144,7 @@ private:
     static QString extract_string(const QJsonObject& data, const QString& group,
         const QString& sub, const QString& field);
 
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     bool initialized_ = false;        ///< 初始化标志
     std::string cs_dir_;              ///< CS 游戏目录
     std::string config_path_;         ///< GSI 配置文件路径

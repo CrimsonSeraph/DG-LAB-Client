@@ -5,16 +5,12 @@
 
 #pragma once
 
-// ============================================
 // 插件 API 版本：主程序加载插件时校验（get_plugin_api_version 返回值需等于本值）
 // 接口不兼容变更时递增；插件与主程序必须使用同一 API 版本
-// ============================================
 #define PLUGIN_API_VERSION 1
 
-// ============================================
 // PLUGIN_EXPORT - 动态库导出宏（统一跨平台符号导出）
 // 编译插件动态库时定义 PLUGIN_BUILD，类接口自动标记导出
-// ============================================
 #if defined(_WIN32)
 // Windows：__declspec(dllexport)
 #define PLUGIN_EXPORT __declspec(dllexport)

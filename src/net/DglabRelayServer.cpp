@@ -475,6 +475,10 @@ QVariantList DglabRelayServer::v4_devices() const {
 void DglabRelayServer::send_v3_msg(const QString& inner_message) {
     QWebSocket* ws = paired_v3_socket();
     if (ws == nullptr) {
+        // 规则命令按次下发，仅首次提示缺少配对目标，避免刷屏
+        if (DebugLogUtil::should_log_once("relay-no-target-v3")) {
+            LOG_MODULE("DglabRelayServer", "send_v3_msg", LOG_WARN, "没有已配对的 APP，V3 指令已丢弃");
+        }
         return;
     }
     QJsonObject message;
@@ -602,6 +606,10 @@ void DglabRelayServer::send_pulse(int channel, const QStringList& frames, int du
 bool DglabRelayServer::send_v4_request(const QString& method, const QJsonObject& data) {
     V4Connection* connection = first_v4_connection();
     if (connection == nullptr || connection->ws == nullptr) {
+        // 规则命令按次下发，仅首次提示缺少被控方，避免刷屏
+        if (DebugLogUtil::should_log_once("relay-no-target-v4")) {
+            LOG_MODULE("DglabRelayServer", "send_v4_request", LOG_WARN, "没有已接入的被控方，V4 指令已丢弃");
+        }
         return false;
     }
 

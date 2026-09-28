@@ -26,7 +26,7 @@ GlassCard {
         width: parent.width
         spacing: Metrics.spacingMd
 
-        // ---------------------------------------------------------- 强度
+        // 强度
         Rectangle {
             id: strengthBlock
 
@@ -91,7 +91,7 @@ GlassCard {
             }
         }
 
-        // ---------------------------------------------------------- 模块
+        // 模块
         Rectangle {
             id: moduleBlock
 
@@ -150,7 +150,7 @@ GlassCard {
             }
         }
 
-        // ---------------------------------------------------------- 规则
+        // 规则
         Rectangle {
             id: ruleBlock
 
@@ -210,7 +210,7 @@ GlassCard {
             }
         }
 
-        // ---------------------------------------------------------- 波形
+        // 波形
         Rectangle {
             id: waveBlock
 
@@ -263,7 +263,7 @@ GlassCard {
             }
         }
 
-        // ---------------------------------------------------------- 启停
+        // 启停
         AppButton {
             objectName: "channel" + root.channel + "StartButton"
             width: parent.width

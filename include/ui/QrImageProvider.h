@@ -8,9 +8,7 @@
 #include <QQuickImageProvider>
 #include <QString>
 
-// ============================================
 // QrImageProvider - 应用内二维码图像提供者
-// ============================================
 // 通过 image://dglabqr/<rev> 向 QML 提供配对链接的二维码（Nayuki qrcodegen，MIT）。
 class QrImageProvider : public QQuickImageProvider {
 public:

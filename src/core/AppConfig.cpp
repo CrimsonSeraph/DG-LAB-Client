@@ -21,18 +21,14 @@
 
 namespace fs = std::filesystem;
 
-// ============================================
 // 单例实例
-// ============================================
 
 AppConfig& AppConfig::instance() {
     static AppConfig instance;
     return instance;
 }
 
-// ============================================
 // 构造与析构（private）
-// ============================================
 
 AppConfig::AppConfig()
     : multi_config_(nullptr)
@@ -49,9 +45,7 @@ AppConfig::~AppConfig() {
     LOG_MODULE("AppConfig", "~AppConfig", LOG_DEBUG, "AppConfig 析构函数被调用");
 }
 
-// ============================================
 // 初始化与关闭（public）
-// ============================================
 
 bool AppConfig::initialize(const std::string& config_dir) {
     LOG_MODULE("AppConfig", "initialize", LOG_INFO, "开始初始化配置系统，配置目录: " << config_dir);
@@ -234,9 +228,7 @@ bool AppConfig::check_priority_conflict(std::string& error_msg) const {
     return false;
 }
 
-// ============================================
 // 批量操作（public）
-// ============================================
 
 bool AppConfig::save_all() {
     LOG_MODULE("AppConfig", "save_all", LOG_INFO, "开始保存所有配置");
@@ -280,9 +272,7 @@ void AppConfig::reload_all() {
     }
 }
 
-// ============================================
 // 配置监听（public）
-// ============================================
 
 void AppConfig::add_config_listener(const std::string& config_name, std::function<void()> listener) {
     LOG_MODULE("AppConfig", "add_config_listener", LOG_INFO, "添加配置监听器: " << config_name);
@@ -314,9 +304,7 @@ void AppConfig::remove_config_listener(const std::string& config_name, std::func
     }
 }
 
-// ============================================
 // 配置验证（public）
-// ============================================
 
 bool AppConfig::validate_all(std::vector<std::string>& errors) const {
     LOG_MODULE("AppConfig", "validate_all", LOG_DEBUG, "执行全面验证");
@@ -351,9 +339,7 @@ bool AppConfig::validate_config(const std::string& config_name, std::vector<std:
     return true;
 }
 
-// ============================================
 // 高级操作（public）
-// ============================================
 
 std::shared_ptr<ConfigManager> AppConfig::get_config_manager(const std::string& name) {
     LOG_MODULE("AppConfig", "get_config_manager", LOG_DEBUG, "获取配置管理器: " << name);
@@ -408,9 +394,7 @@ bool AppConfig::import_config(const std::string& name, const std::string& file_p
     return false;
 }
 
-// ============================================
 // 私有辅助函数实现（private）
-// ============================================
 
 void AppConfig::initialize_configs() {
     LOG_MODULE("AppConfig", "initialize_configs", LOG_DEBUG, "调用 initialize_configs");

@@ -10,9 +10,7 @@
 
 #include <mutex>
 
-// ============================================
 // 模板函数实现（顺序与头文件 public 区一致）
-// ============================================
 
 template<typename T>
 inline std::optional<T> ConfigManager::get(const std::string& key_path) const {
@@ -30,8 +28,6 @@ inline std::optional<T> ConfigManager::get(const std::string& key_path) const {
         }
 
         T val = current.get<T>();
-        LOG_MODULE("ConfigManager", "get", LOG_DEBUG,
-            "获取配置成功 [" << key_path << "] = " << nlohmann::json(val).dump());
         return val;
     }
     catch (const std::exception& e) {
@@ -64,8 +60,6 @@ inline bool ConfigManager::set(const std::string& key_path, const T& value) {
 
         (*current)[keys.back()] = value;
         std::swap(config_, new_config);
-        LOG_MODULE("ConfigManager", "set", LOG_DEBUG,
-            "设置配置成功 [" << key_path << "] = " << nlohmann::json(value).dump());
         return true;
     }
     catch (const std::exception& e) {

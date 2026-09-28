@@ -13,13 +13,11 @@
 #include <string>
 #include <vector>
 
-// ============================================
 // ConfigTemplate - 通用配置模板结构体
-// ============================================
 
 template<typename Tag>
 struct ConfigTemplate {
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     // 基础字段
     std::string name;
     int value;
@@ -37,7 +35,7 @@ struct ConfigTemplate {
     std::optional<std::string> description;
     std::optional<int> max_count;
 
-    // -------------------- 静态方法 --------------------
+    // 静态方法
     /// @brief JSON 序列化
     inline static void to_json(nlohmann::json& j, const ConfigTemplate& config) {
         j = nlohmann::json{
@@ -82,12 +80,10 @@ struct ConfigTemplate {
     }
 };
 
-// ============================================
 // MainConfig - 主配置结构体
-// ============================================
 
 struct MainConfig {
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     std::string app_name_;
     std::string app_version_;
     bool debug_mode_ = false;
@@ -97,36 +93,32 @@ struct MainConfig {
     std::string python_path_;
     std::string bridge_path_;
 
-    // -------------------- 静态方法 --------------------
+    // 静态方法
     static void to_json(nlohmann::json& j, const MainConfig& config);
     static void from_json(const nlohmann::json& j, MainConfig& config);
     bool validate() const;
 };
 
-// ============================================
 // SystemConfig - 系统配置结构体
-// ============================================
 
 struct SystemConfig {
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     int websocket_port_ = 9999;
 
-    // -------------------- 静态方法 --------------------
+    // 静态方法
     static void to_json(nlohmann::json& j, const SystemConfig& config);
     static void from_json(const nlohmann::json& j, SystemConfig& config);
     bool validate() const;
 };
 
-// ============================================
 // UserConfig - 用户配置结构体
-// ============================================
 
 struct UserConfig {
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     std::string theme_ = "light";
     int ui_font_size_ = 16;
 
-    // -------------------- 静态方法 --------------------
+    // 静态方法
     static void to_json(nlohmann::json& j, const UserConfig& config);
     static void from_json(const nlohmann::json& j, UserConfig& config);
     bool validate() const;

@@ -24,23 +24,21 @@
 class ConfigManager;
 class AppConfig;
 
-// ============================================
 // RuleManager - 规则管理器（单例）
 // 负责规则加载、启用判定、周期触发、规则间引用与级联计算
-// ============================================
 class RuleManager : public QObject {
     Q_OBJECT
 
 public:
-    // -------------------- 单例 --------------------
+    // 单例
     /// @brief 获取单例实例
     static RuleManager& instance();
 
-    // -------------------- 初始化 --------------------
+    // 初始化
     /// @brief 初始化规则目录和关键字（从 AppConfig 读取）
     void init();
 
-    // -------------------- 文件管理 --------------------
+    // 文件管理
     /// @brief 获取所有可用的规则文件（不含默认的 rules.json）
     std::vector<std::string> get_available_rule_files() const;
 
@@ -63,14 +61,14 @@ public:
     /// @brief 获取当前加载的规则文件名
     inline std::string get_current_rule_file() const { return current_file_; }
 
-    // -------------------- 规则加载（从配置管理器）--------------------
+    // 规则加载（从配置管理器）
     /// @brief 从指定的配置管理器加载规则
     void load_rules(std::shared_ptr<ConfigManager> config_manager);
 
     /// @brief 重新加载规则（从当前配置管理器）
     void reload_rules();
 
-    // -------------------- 规则查询 --------------------
+    // 规则查询
     /// @brief 获取所有规则名称（按规则序号排序）
     /// @return 规则名称列表
     std::vector<std::string> get_rule_names() const;
@@ -139,7 +137,7 @@ public:
     /// @return 0=父级全部为通道（正常显示）；1=父级无通道（不适用）；2=父级混合（部分不适用）
     int get_rule_mode_applicability(const std::string& rule_name) const;
 
-    // -------------------- 规则修改 --------------------
+    // 规则修改
     /// @brief 设置规则启用状态
     /// @param rule_name 规则名称
     /// @param enabled 是否启用
@@ -172,7 +170,7 @@ public:
     /// @return 成功返回 true，引用不存在或规则不存在返回 false
     bool remove_rule_reference(const std::string& rule_name, int referenced_index);
 
-    // -------------------- 通道启用状态 --------------------
+    // 通道启用状态
     /// @brief 设置通道启用状态（通道启用时触发直连规则计算）
     /// @param channel 通道（"A"/"B"）
     /// @param enabled 是否启用
@@ -183,7 +181,7 @@ public:
     /// @return 启用返回 true
     bool get_channel_enabled(const std::string& channel) const;
 
-    // -------------------- 计算 --------------------
+    // 计算
     /// @brief 计算指定规则（检查启用 → 解析占位符 → 求值 → 缓存 → 级联推送）
     /// @param rule_name 规则名称
     /// @return 计算结果（可选），未启用或存在空值时返回空
@@ -194,7 +192,7 @@ public:
     /// @return 计算结果（可选）
     std::optional<int> trigger_rule(const std::string& rule_name);
 
-    // -------------------- 模板方法（命令生成）--------------------
+    // 模板方法（命令生成）
     /// @brief 根据规则名称和参数生成命令（旧式 {} 占位符传参）
     /// @tparam Args 参数类型（int）
     /// @param rule_name 规则名称
@@ -203,7 +201,7 @@ public:
     template<typename... Args>
     QJsonObject evaluate_command(const std::string& rule_name, Args... args);
 
-    // -------------------- 辅助（JSON 文件读写）--------------------
+    // 辅助（JSON 文件读写）
     /// @brief 从文件加载 JSON
     nlohmann::json load_json_file(const std::string& filename) const;
 
@@ -222,11 +220,11 @@ signals:
     void rule_result_changed(const QString& rule_name, const QString& channel, int value);
 
 private:
-    // -------------------- 构造/析构（单例私有）--------------------
+    // 构造/析构（单例私有）
     RuleManager();
     ~RuleManager() override;
 
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     std::map<int, std::string> index_to_name_;         ///< 规则序号 → 名称（有序）
     std::unordered_map<std::string, Rule> rules_;      ///< 规则映射
     mutable std::mutex mutex_;                         ///< 保护规则映射
@@ -246,7 +244,7 @@ private:
     int compute_depth_ = 0;                            ///< 级联计算深度（防循环引用）
     static constexpr int MAX_COMPUTE_DEPTH = 16;       ///< 最大级联深度
 
-    // -------------------- 私有辅助函数 --------------------
+    // 私有辅助函数
     void scan_directory();                                                                 ///< 扫描目录获取可用文件
     std::string get_full_path(const std::string& filename) const;                          ///< 获取完整路径
     bool save_json_file(const std::string& filename, const nlohmann::json& content) const; ///< 保存 JSON 文件

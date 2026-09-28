@@ -18,18 +18,8 @@ class QWebSocket;
 class QWebSocketServer;
 class QTimer;
 
-// ============================================
-// DglabRelayServer - 应用内 DG-LAB WebSocket 中转服务
-// ============================================
-// 取代原先「Python Bridge + Node 官方 V2 后端」的链路：应用自己托管中转服务，
-// 由 DG-LAB APP 扫码接入，应用直接与 APP 配对并下发强度/波形指令。
-//
-//  - V3（默认 9999）：单控制方单被控方配对，消息为
-//      bind / heartbeat / break / msg(strength-通道+模式+值 | pulse-通道:[...] | clear-通道)
-//  - V4（默认 9998）：控制方(clientId) + 多个被控方(tid)，消息为
-//      hello / client_attached / controller_attached / message(RPC: device.op 等)
-//
-// 详见 DG-LAB-OPENSOURCE/socket/v2/README.md 与 dglab-kit/README.md。
+// DglabRelayServer - 应用内 DG-LAB WebSocket 中转服务（V3 / V4）
+// 端口、配对模型与消息集合见 include/README.md 的「关键协议与约定」。
 class DglabRelayServer : public QObject {
     Q_OBJECT
 

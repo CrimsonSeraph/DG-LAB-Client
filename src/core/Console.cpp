@@ -14,9 +14,7 @@
 #include <iostream>
 #endif
 
-// ============================================
 // 构造/析构（private）
-// ============================================
 
 Console::Console()
     : is_created_(false) {
@@ -27,18 +25,14 @@ Console::~Console() {
     destroy();
 }
 
-// ============================================
 // 单例（public）
-// ============================================
 
 Console& Console::get_instance() {
     static Console instance;
     return instance;
 }
 
-// ============================================
 // 公共接口（public）
-// ============================================
 
 bool Console::create() {
     if (is_created_) {
@@ -65,9 +59,7 @@ void Console::destroy() {
 #endif
 }
 
-// ============================================
 // 私有辅助函数（private）
-// ============================================
 
 #ifdef _WIN32
 bool Console::create_debug_console() {

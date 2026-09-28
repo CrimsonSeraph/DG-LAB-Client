@@ -21,14 +21,8 @@ class QLowEnergyController;
 class QBluetoothDeviceDiscoveryAgent;
 class QTimer;
 
-// ============================================
 // CoyoteBleController - 郊狼 V3 蓝牙直连（QML 上下文属性 ble）
-// ============================================
-// 按官方 V3 蓝牙协议（DG-LAB-OPENSOURCE/coyote/v3/README_V3.md）直接控制脉冲主机：
-//   服务 0x180C：写 0x150A、通知 0x150B；电量服务 0x180A：读/通知 0x1500
-//   B0：每 100ms 写入 序列号+强度解读方式+双通道强度+双通道各 4 组频率/强度
-//   BF：软上限 + 频率/强度平衡参数（重连后必须重写）
-//   B1：主机回传 序列号 + 双通道实际强度
+// GATT 服务与 B0 / BF / B1 指令格式见 include/README.md 的「关键协议与约定」。
 class CoyoteBleController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool scanning READ scanning NOTIFY stateChanged)

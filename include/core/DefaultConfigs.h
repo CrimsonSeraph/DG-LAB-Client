@@ -8,9 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-// ============================================
 // DefaultConfigs - 默认配置工厂命名空间
-// ============================================
 namespace DefaultConfigs {
 
     /// @brief 根据配置名称获取对应的默认配置 JSON

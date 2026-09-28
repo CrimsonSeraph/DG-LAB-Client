@@ -5,9 +5,7 @@
 
 #include "ModuleValue.h"
 
-// ============================================
 // 构造/析构（public）
-// ============================================
 
 ModuleValue::ModuleValue(const std::string& id, const std::string& name, QueryPeriod period,
     const std::string& field, std::optional<int> min_value, std::optional<int> max_value)

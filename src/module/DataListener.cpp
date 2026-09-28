@@ -16,9 +16,7 @@
 
 #include <memory>
 
-// ============================================
 // HttpJsonParser - HTTP POST JSON 解析器（public）
-// ============================================
 
 QJsonObject HttpJsonParser::parse(const QByteArray& raw, bool* ok) const {
     if (ok) {
@@ -59,9 +57,7 @@ QJsonObject HttpJsonParser::parse(const QByteArray& raw, bool* ok) const {
     return QJsonObject();
 }
 
-// ============================================
 // JsonBodyParser - 直接 JSON 解析器（public）
-// ============================================
 
 QJsonObject JsonBodyParser::parse(const QByteArray& raw, bool* ok) const {
     if (ok) {
@@ -81,17 +77,13 @@ QJsonObject JsonBodyParser::parse(const QByteArray& raw, bool* ok) const {
     return QJsonObject();
 }
 
-// ============================================
 // 构造/析构（public）
-// ============================================
 
 DataListener::DataListener(QObject* parent)
     : QTcpServer(parent) {
 }
 
-// ============================================
 // 监听控制（public）
-// ============================================
 
 bool DataListener::start_listening(int port, Protocol protocol) {
     stop_listening();
@@ -150,9 +142,7 @@ void DataListener::stop_listening() {
     LOG_MODULE("DataListener", "stop_listening", LOG_DEBUG, "数据监听已停止");
 }
 
-// ============================================
 // 来源默认值（public）
-// ============================================
 
 void DataListener::set_default_source(const QString& source) {
     default_source_ = source;
@@ -162,9 +152,7 @@ void DataListener::set_default_type(const QString& type) {
     default_type_ = type;
 }
 
-// ============================================
 // 处理器注册（public）
-// ============================================
 
 void DataListener::register_handler(const QString& source, const QString& type,
     DataHandler handler) {
@@ -185,9 +173,7 @@ void DataListener::unregister_handler(const QString& source, const QString& type
     }
 }
 
-// ============================================
 // 重写事件（protected）
-// ============================================
 
 void DataListener::incomingConnection(qintptr socketDescriptor) {
     QTcpSocket* socket = new QTcpSocket(this);
@@ -238,9 +224,7 @@ void DataListener::finish_http_request(QTcpSocket* socket, const QByteArray& req
     socket->deleteLater();
 }
 
-// ============================================
 // private slots 实现
-// ============================================
 
 void DataListener::on_udp_ready_read() {
     // 逐包读取 UDP 数据报（每包一个 JSON 对象）
@@ -252,9 +236,7 @@ void DataListener::on_udp_ready_read() {
     }
 }
 
-// ============================================
 // 私有辅助函数实现（private）
-// ============================================
 
 void DataListener::handle_raw_data(const QByteArray& raw) {
     if (raw.isEmpty()) {
@@ -263,8 +245,11 @@ void DataListener::handle_raw_data(const QByteArray& raw) {
     bool ok = false;
     QJsonObject obj = parser_ ? parser_->parse(raw, &ok) : QJsonObject();
     if (!ok) {
-        LOG_MODULE("DataListener", "handle_raw_data", LOG_WARN,
-            "数据解析失败: " << raw.left(200).constData());
+        // 按包触发，同一份异常数据只上报一次，避免刷屏
+        const std::string sample(raw.left(200).constData());
+        if (DebugLogUtil::should_log_once("packet-parse:" + sample)) {
+            LOG_MODULE("DataListener", "handle_raw_data", LOG_WARN, "数据解析失败: " << sample);
+        }
         return;
     }
     // 识别数据包来源：优先信封格式 {"source","type","data"}，否则使用默认来源
@@ -285,9 +270,12 @@ void DataListener::dispatch(const QString& source, const QString& type,
     const QJsonObject& data) {
     auto it = handlers_.find(std::make_pair(source, type));
     if (it == handlers_.end()) {
-        LOG_MODULE("DataListener", "dispatch", LOG_WARN,
-            "无匹配的数据处理器，来源: " << source.toStdString()
-                                         << "，类型: " << type.toStdString());
+        // 按包触发，同一来源/类型只上报一次，避免刷屏
+        if (DebugLogUtil::should_log_once("packet-no-handler:" + source.toStdString() + "|" + type.toStdString())) {
+            LOG_MODULE("DataListener", "dispatch", LOG_WARN,
+                "无匹配的数据处理器，来源: " << source.toStdString()
+                                             << "，类型: " << type.toStdString());
+        }
         return;
     }
     it->second(data);

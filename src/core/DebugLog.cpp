@@ -18,9 +18,7 @@
 #include <windows.h>
 #endif
 
-// ============================================
 // 单例（public）
-// ============================================
 
 DebugLog& DebugLog::instance() {
     static DebugLog instance;
@@ -66,9 +64,7 @@ DebugLog& DebugLog::instance() {
     return instance;
 }
 
-// ============================================
 // 日志等级控制（public）
-// ============================================
 
 void DebugLog::set_all_log_level(LogLevel level) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -113,9 +109,7 @@ void DebugLog::set_default_log_level(LogLevel level) {
     default_log_level_ = level;
 }
 
-// ============================================
 // 日志输出（public）
-// ============================================
 
 void DebugLog::log(const std::string& module, const std::string& method,
     LogLevel level, const std::string& message) {
@@ -128,9 +122,7 @@ void DebugLog::log(const std::string& module, const std::string& method,
     }
 }
 
-// ============================================
 // Sink 管理（public）
-// ============================================
 
 void DebugLog::register_log_sink(const std::string& name, const LogSink& sink) {
     std::lock_guard<std::mutex> lock(sinks_mutex_);
@@ -155,9 +147,7 @@ bool DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
     return true;
 }
 
-// ============================================
 // 工具函数（public）
-// ============================================
 
 const char* DebugLog::level_to_string(LogLevel level) {
     switch (level) {

@@ -15,9 +15,7 @@
 #include <string>
 #include <vector>
 
-// ============================================
 // WaveLibrary - 波形库（单例）
-// ============================================
 // 负责波形库的加载/保存（默认 config/waves/waves.json）与 A/B 通道当前波形记录；
 // 首次运行且库为空时写入内置波形。
 class WaveLibrary : public QObject {

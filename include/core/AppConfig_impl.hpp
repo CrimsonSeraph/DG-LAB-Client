@@ -10,9 +10,7 @@
 
 #include <mutex>
 
-// ============================================
 // 模板方法实现（public）
-// ============================================
 
 template<typename... Args>
 inline void AppConfig::batch_update(Args&&... updates) {
@@ -107,6 +105,5 @@ inline void AppConfig::set_value_with_name_unsafe(const std::string& key_path,
 
 template<typename T>
 inline void AppConfig::set_value(const std::string& key_path, const T& value) {
-    LOG_MODULE("AppConfig", "set_value", LOG_DEBUG, "设置配置值: " << key_path << " = " << value);
     set_value_with_priority<T>(key_path, value, -1);
 }

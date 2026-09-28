@@ -14,12 +14,10 @@
 #include <string>
 #include <vector>
 
-// ============================================
 // IPluginHost - 宿主上下文接口
 // 宿主在加载插件后通过 IPlugin::attach_host 注入；
 // 插件在 initialize / uninitialize 中调用宿主能力：
 // 数值注册/写入、数据接收（监听与分发）、配置读写、基础周期与通知
-// ============================================
 class IPluginHost {
 public:
     virtual ~IPluginHost() = default;
@@ -44,7 +42,7 @@ public:
     virtual void set_value(const std::string& module_name, const std::string& value_id,
         int value) = 0;
 
-    // -------------------- 数据接收（解耦插件与宿主 DataListener 实现） --------------------
+    // 数据接收（解耦插件与宿主 DataListener 实现）
     /// @brief 在宿主共享监听器上开始监听端口（HTTP 协议）
     /// @param port 监听端口
     /// @return 成功返回 true（端口被占用返回 false）
@@ -74,7 +72,7 @@ public:
         (void)type;
     }
 
-    // -------------------- 配置访问 --------------------
+    // 配置访问
     /// @brief 读取宿主配置值（多配置合并后的最终值）
     /// @param key 点分隔配置路径（如 "python.path"）
     /// @param default_value 默认值
@@ -92,7 +90,7 @@ public:
         (void)value;
     }
 
-    // -------------------- 基础信息与通知 --------------------
+    // 基础信息与通知
     /// @brief 获取当前调度基准周期（毫秒，供 throttle 等计算）
     /// @return 基准周期毫秒数
     virtual int base_period_ms() { return 1000; }

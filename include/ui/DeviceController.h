@@ -15,9 +15,7 @@ class DglabRelayServer;
 class QrImageProvider;
 class QQuickImageProvider;
 
-// ============================================
 // DeviceController - 设备控制桥接（QML 上下文属性 device）
-// ============================================
 // 职责：启停应用内中转服务、生成配对二维码、向已配对的 DG-LAB APP 下发
 //      强度 / 波形 / 清除指令，并把 APP 回传（强度、反馈按钮）转成信号。
 // 传输由 DglabRelayServer 实现（V3 优先，V4 作为补充），不再依赖 Python / Node。

@@ -8,9 +8,7 @@
 #include <optional>
 #include <string>
 
-// ============================================
 // 查询周期枚举
-// ============================================
 enum class QueryPeriod {
     QUARTER_SECOND = 250, ///< 四分之一秒
     HALF_SECOND = 500,    ///< 每半秒
@@ -64,13 +62,11 @@ inline QueryPeriod query_period_from_text(const std::string& text) {
     return QueryPeriod::SECOND;
 }
 
-// ============================================
 // ModuleValue - 单个可查询数值
 // 描述一个数值的名称、ID、查询周期与上次查询结果
-// ============================================
 class ModuleValue {
 public:
-    // -------------------- 构造/析构 --------------------
+    // 构造/析构
     ModuleValue() = default;
 
     /// @brief 构造函数
@@ -84,7 +80,7 @@ public:
         const std::string& field, std::optional<int> min_value = std::nullopt,
         std::optional<int> max_value = std::nullopt);
 
-    // -------------------- 公共接口（属性获取）--------------------
+    // 公共接口（属性获取）
     /// @brief 获取数值 ID（用于规则引用，如 {id:health}）
     /// @return 数值 ID
     inline const std::string& get_id() const { return id_; }
@@ -121,7 +117,7 @@ public:
     /// @return 配置返回 true
     inline bool has_range() const { return min_value_.has_value() || max_value_.has_value(); }
 
-    // -------------------- 公共接口（属性设置）--------------------
+    // 公共接口（属性设置）
     /// @brief 设置查询周期
     /// @param period 新的查询周期
     inline void set_query_period(QueryPeriod period) { query_period_ = period; }
@@ -155,7 +151,7 @@ public:
     }
 
 private:
-    // -------------------- 成员变量 --------------------
+    // 成员变量
     std::string id_;                                 ///< 数值 ID（如 "health"）
     std::string name_;                               ///< 数值中文名称（如 "当前血量"）
     QueryPeriod query_period_ = QueryPeriod::SECOND; ///< 查询周期

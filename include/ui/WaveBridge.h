@@ -16,9 +16,7 @@
 
 class DeviceController;
 
-// ============================================
 // WaveBridge - 波形库与波形编辑器桥接（QML 上下文属性 waveBridge）
-// ============================================
 // 职责：波形库列表、A/B 通道当前波形与预览、目标通道选择，
 //      以及波形编辑器草稿（段落列表 -> V3 帧生成 -> 原始帧微调 -> 保存/发送）。
 class WaveBridge : public QObject {
@@ -75,7 +73,7 @@ public:
     /// @brief 发送库中波形到指定通道
     Q_INVOKABLE void sendWave(const QString& name, const QString& channel);
 
-    // -------------------- 编辑器草稿 --------------------
+    // 编辑器草稿
     Q_INVOKABLE void beginCreate();
     Q_INVOKABLE void addSection();
     Q_INVOKABLE void removeSelectedSection();
