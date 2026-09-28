@@ -51,51 +51,12 @@ void RuleGraphBridge::initialize() {
     LOG_MODULE("RuleGraphBridge", "initialize", LOG_INFO, "规则图编辑器桥接已就绪");
 }
 
-QVariantMap RuleGraphBridge::node_to_map(const GraphNode& node) const {
-    QVariantMap item;
-    item.insert(QStringLiteral("id"), node.id);
-    item.insert(QStringLiteral("type"), graph_node_type_to_string(node.type));
-    item.insert(QStringLiteral("name"), node.name);
-    item.insert(QStringLiteral("ruleName"), node.rule_name);
-    item.insert(QStringLiteral("valueId"), node.value_id);
-    item.insert(QStringLiteral("label"), node.label);
-    item.insert(QStringLiteral("op"), node.op);
-    item.insert(QStringLiteral("advanced"), node.advanced);
-    item.insert(QStringLiteral("expression"), node.expression);
-    item.insert(QStringLiteral("channel"), node.channel);
-    item.insert(QStringLiteral("mode"), node.mode);
-    item.insert(QStringLiteral("enabled"), node.enabled);
-    item.insert(QStringLiteral("x"), node.x);
-    item.insert(QStringLiteral("y"), node.y);
-    item.insert(QStringLiteral("inputCount"), graph_.input_count(node.id));
-
-    QStringList labels;
-    const int inputs = graph_.input_count(node.id);
-    for (int i = 0; i < inputs; ++i) {
-        labels.append(graph_.input_label(node.id, i));
-    }
-    item.insert(QStringLiteral("inputLabels"), labels);
-    item.insert(QStringLiteral("width"), kNodeWidth);
-    item.insert(QStringLiteral("headerHeight"), kHeaderHeight);
-    item.insert(QStringLiteral("portSpacing"), kPortSpacing);
-    item.insert(QStringLiteral("portInset"), kPortInset);
-    return item;
-}
-
 QVariantList RuleGraphBridge::nodes() const {
     QVariantList list;
     for (const auto& node : graph_.nodes()) {
         list.append(node_to_map(node));
     }
     return list;
-}
-
-QPointF RuleGraphBridge::input_port_position(const GraphNode& node, int port) const {
-    return QPointF(node.x, node.y + kHeaderHeight + kPortInset + port * kPortSpacing);
-}
-
-QPointF RuleGraphBridge::output_port_position(const GraphNode& node) const {
-    return QPointF(node.x + kNodeWidth, node.y + kHeaderHeight / 2.0);
 }
 
 QVariantList RuleGraphBridge::edges() const {
@@ -130,43 +91,13 @@ QVariantList RuleGraphBridge::rule_files() const {
     return list;
 }
 
-void RuleGraphBridge::rebuild_module_values() {
-    module_values_.clear();
-    auto& modules = ModuleManager::instance();
-    for (const auto& module_name : modules.get_module_names()) {
-        const Module* module = modules.get_module(module_name);
-        if (module == nullptr) {
-            continue;
-        }
-        for (const auto& value : module->get_values()) {
-            QVariantMap item;
-            item.insert(QStringLiteral("valueId"), QString::fromStdString(value.get_id()));
-            item.insert(QStringLiteral("label"), QString::fromStdString(value.get_name()));
-            item.insert(QStringLiteral("moduleName"), QString::fromStdString(module_name));
-            module_values_.append(item);
-        }
-    }
-    emit moduleValuesChanged();
-}
-
 QVariantList RuleGraphBridge::module_values() const {
     return module_values_;
-}
-
-void RuleGraphBridge::refreshModuleValues() {
-    rebuild_module_values();
 }
 
 QVariantMap RuleGraphBridge::selected_node() const {
     const GraphNode* node = graph_.find_node(selected_node_id_);
     return node == nullptr ? QVariantMap() : node_to_map(*node);
-}
-
-void RuleGraphBridge::mark_dirty() {
-    if (!dirty_) {
-        dirty_ = true;
-        emit dirtyChanged();
-    }
 }
 
 void RuleGraphBridge::loadRuleFile(const QString& file_name) {
@@ -200,6 +131,10 @@ bool RuleGraphBridge::save() {
     emit graphChanged();
     emit statusMessage(ok ? QStringLiteral("规则图已保存") : QStringLiteral("规则图保存失败"));
     return ok;
+}
+
+void RuleGraphBridge::refreshModuleValues() {
+    rebuild_module_values();
 }
 
 int RuleGraphBridge::addRuleNode(double x, double y) {
@@ -429,3 +364,68 @@ void RuleGraphBridge::pasteClipboard(double offset_x, double offset_y) {
         emit graphChanged();
     }
 }
+void RuleGraphBridge::rebuild_module_values() {
+    module_values_.clear();
+    auto& modules = ModuleManager::instance();
+    for (const auto& module_name : modules.get_module_names()) {
+        const Module* module = modules.get_module(module_name);
+        if (module == nullptr) {
+            continue;
+        }
+        for (const auto& value : module->get_values()) {
+            QVariantMap item;
+            item.insert(QStringLiteral("valueId"), QString::fromStdString(value.get_id()));
+            item.insert(QStringLiteral("label"), QString::fromStdString(value.get_name()));
+            item.insert(QStringLiteral("moduleName"), QString::fromStdString(module_name));
+            module_values_.append(item);
+        }
+    }
+    emit moduleValuesChanged();
+}
+
+void RuleGraphBridge::mark_dirty() {
+    if (!dirty_) {
+        dirty_ = true;
+        emit dirtyChanged();
+    }
+}
+
+QVariantMap RuleGraphBridge::node_to_map(const GraphNode& node) const {
+    QVariantMap item;
+    item.insert(QStringLiteral("id"), node.id);
+    item.insert(QStringLiteral("type"), graph_node_type_to_string(node.type));
+    item.insert(QStringLiteral("name"), node.name);
+    item.insert(QStringLiteral("ruleName"), node.rule_name);
+    item.insert(QStringLiteral("valueId"), node.value_id);
+    item.insert(QStringLiteral("label"), node.label);
+    item.insert(QStringLiteral("op"), node.op);
+    item.insert(QStringLiteral("advanced"), node.advanced);
+    item.insert(QStringLiteral("expression"), node.expression);
+    item.insert(QStringLiteral("channel"), node.channel);
+    item.insert(QStringLiteral("mode"), node.mode);
+    item.insert(QStringLiteral("enabled"), node.enabled);
+    item.insert(QStringLiteral("x"), node.x);
+    item.insert(QStringLiteral("y"), node.y);
+    item.insert(QStringLiteral("inputCount"), graph_.input_count(node.id));
+
+    QStringList labels;
+    const int inputs = graph_.input_count(node.id);
+    for (int i = 0; i < inputs; ++i) {
+        labels.append(graph_.input_label(node.id, i));
+    }
+    item.insert(QStringLiteral("inputLabels"), labels);
+    item.insert(QStringLiteral("width"), kNodeWidth);
+    item.insert(QStringLiteral("headerHeight"), kHeaderHeight);
+    item.insert(QStringLiteral("portSpacing"), kPortSpacing);
+    item.insert(QStringLiteral("portInset"), kPortInset);
+    return item;
+}
+
+QPointF RuleGraphBridge::input_port_position(const GraphNode& node, int port) const {
+    return QPointF(node.x, node.y + kHeaderHeight + kPortInset + port * kPortSpacing);
+}
+
+QPointF RuleGraphBridge::output_port_position(const GraphNode& node) const {
+    return QPointF(node.x + kNodeWidth, node.y + kHeaderHeight / 2.0);
+}
+

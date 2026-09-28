@@ -19,10 +19,6 @@ WaveLibrary& WaveLibrary::instance() {
     return library;
 }
 
-std::string WaveLibrary::file_path() const {
-    return dir_ + "/waves.json";
-}
-
 void WaveLibrary::initialize() {
     if (initialized_) {
         return;
@@ -38,78 +34,6 @@ void WaveLibrary::initialize() {
     initialized_ = true;
     LOG_MODULE("WaveLibrary", "initialize", LOG_INFO,
         "波形库已加载，共 " << waves_.size() << " 个波形");
-}
-
-void WaveLibrary::load() {
-    waves_.clear();
-    current_a_.clear();
-    current_b_.clear();
-
-    std::ifstream input(file_path());
-    if (!input.is_open()) {
-        ensure_builtin_presets();
-        persist();
-        return;
-    }
-
-    try {
-        nlohmann::json json;
-        input >> json;
-        if (json.contains("waves") && json["waves"].is_object()) {
-            for (auto it = json["waves"].begin(); it != json["waves"].end(); ++it) {
-                waves_[it.key()] = Wave::from_json(it.key(), it.value());
-            }
-        }
-        if (json.contains("current") && json["current"].is_object()) {
-            current_a_ = json["current"].value("A", "");
-            current_b_ = json["current"].value("B", "");
-        }
-    }
-    catch (const std::exception& e) {
-        LOG_MODULE("WaveLibrary", "load", LOG_ERROR, "波形库解析失败: " << e.what());
-        ensure_builtin_presets();
-    }
-
-    if (waves_.empty()) {
-        ensure_builtin_presets();
-        persist();
-    }
-}
-
-void WaveLibrary::persist() const {
-    nlohmann::json json;
-    json["version"] = "1.0";
-    json["current"] = { { "A", current_a_ }, { "B", current_b_ } };
-
-    nlohmann::json waves = nlohmann::json::object();
-    for (const auto& [name, wave] : waves_) {
-        waves[name] = wave.to_json();
-    }
-    json["waves"] = waves;
-
-    std::ofstream output(file_path(), std::ios::trunc);
-    if (!output.is_open()) {
-        LOG_MODULE("WaveLibrary", "persist", LOG_ERROR, "无法写入波形库文件");
-        return;
-    }
-    output << json.dump(4);
-}
-
-void WaveLibrary::ensure_builtin_presets() {
-    auto add = [this](const std::string& name, const std::vector<WaveSection>& sections) {
-        Wave wave;
-        wave.name = name;
-        wave.sections = sections;
-        wave.frames = Wave::generate_frames(sections);
-        waves_[name] = wave;
-    };
-
-    // 雨水冲刷：轻雨渐强 -> 密集重雨 -> 静音间隙（参照 out/波形说明.md 案例）
-    add("雨水冲刷", { { 3900, 14, 14, 33, 100 }, { 3600, 58, 58, 100, 100 }, { 300, 10, 10, 0, 0 } });
-    // 渐强脉冲：低频渐强后回落
-    add("渐强脉冲", { { 2000, 20, 20, 0, 60 }, { 1500, 40, 40, 60, 100 }, { 500, 10, 10, 0, 0 } });
-    // 低频涌动：频率与强度缓慢起伏
-    add("低频涌动", { { 4000, 12, 24, 20, 80 }, { 1000, 12, 12, 0, 0 } });
 }
 
 std::vector<std::string> WaveLibrary::names() const {
@@ -193,3 +117,79 @@ int WaveLibrary::duration_ms(const std::string& name) const {
     const Wave* wave = get(name);
     return wave == nullptr ? 0 : wave->duration_ms();
 }
+void WaveLibrary::load() {
+    waves_.clear();
+    current_a_.clear();
+    current_b_.clear();
+
+    std::ifstream input(file_path());
+    if (!input.is_open()) {
+        ensure_builtin_presets();
+        persist();
+        return;
+    }
+
+    try {
+        nlohmann::json json;
+        input >> json;
+        if (json.contains("waves") && json["waves"].is_object()) {
+            for (auto it = json["waves"].begin(); it != json["waves"].end(); ++it) {
+                waves_[it.key()] = Wave::from_json(it.key(), it.value());
+            }
+        }
+        if (json.contains("current") && json["current"].is_object()) {
+            current_a_ = json["current"].value("A", "");
+            current_b_ = json["current"].value("B", "");
+        }
+    }
+    catch (const std::exception& e) {
+        LOG_MODULE("WaveLibrary", "load", LOG_ERROR, "波形库解析失败: " << e.what());
+        ensure_builtin_presets();
+    }
+
+    if (waves_.empty()) {
+        ensure_builtin_presets();
+        persist();
+    }
+}
+
+void WaveLibrary::persist() const {
+    nlohmann::json json;
+    json["version"] = "1.0";
+    json["current"] = { { "A", current_a_ }, { "B", current_b_ } };
+
+    nlohmann::json waves = nlohmann::json::object();
+    for (const auto& [name, wave] : waves_) {
+        waves[name] = wave.to_json();
+    }
+    json["waves"] = waves;
+
+    std::ofstream output(file_path(), std::ios::trunc);
+    if (!output.is_open()) {
+        LOG_MODULE("WaveLibrary", "persist", LOG_ERROR, "无法写入波形库文件");
+        return;
+    }
+    output << json.dump(4);
+}
+
+void WaveLibrary::ensure_builtin_presets() {
+    auto add = [this](const std::string& name, const std::vector<WaveSection>& sections) {
+        Wave wave;
+        wave.name = name;
+        wave.sections = sections;
+        wave.frames = Wave::generate_frames(sections);
+        waves_[name] = wave;
+    };
+
+    // 雨水冲刷：轻雨渐强 -> 密集重雨 -> 静音间隙（参照 out/波形说明.md 案例）
+    add("雨水冲刷", { { 3900, 14, 14, 33, 100 }, { 3600, 58, 58, 100, 100 }, { 300, 10, 10, 0, 0 } });
+    // 渐强脉冲：低频渐强后回落
+    add("渐强脉冲", { { 2000, 20, 20, 0, 60 }, { 1500, 40, 40, 60, 100 }, { 500, 10, 10, 0, 0 } });
+    // 低频涌动：频率与强度缓慢起伏
+    add("低频涌动", { { 4000, 12, 24, 20, 80 }, { 1000, 12, 12, 0, 0 } });
+}
+
+std::string WaveLibrary::file_path() const {
+    return dir_ + "/waves.json";
+}
+

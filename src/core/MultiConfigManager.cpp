@@ -65,35 +65,6 @@ std::shared_ptr<ConfigManager> MultiConfigManager::get_config(const std::string&
     return it->second.manager;
 }
 
-bool MultiConfigManager::has_priority_conflict_unsafe(std::string& error_msg) const {
-    LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_DEBUG, "检查优先级冲突");
-    std::set<int> priorities;
-    std::map<int, std::string> priority_to_name;
-
-    for (const auto& [name, info] : config_registry_) {
-        if (info.manager) {
-            int priority = info.priority;
-            if (priorities.find(priority) != priorities.end()) {
-                std::stringstream ss;
-                ss << "优先级冲突: 配置 '" << name << "' 和 '" << priority_to_name[priority]
-                   << "' 有相同的优先级 " << priority;
-                error_msg = ss.str();
-                LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_WARN, error_msg);
-                return true;
-            }
-            priorities.insert(priority);
-            priority_to_name[priority] = name;
-        }
-    }
-    LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_DEBUG, "未检测到优先级冲突");
-    return false;
-}
-
-bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
-    std::lock_guard<std::mutex> lock(registry_mutex_);
-    return has_priority_conflict_unsafe(error_msg);
-}
-
 bool MultiConfigManager::load_all() {
     LOG_MODULE("MultiConfigManager", "load_all", LOG_INFO, "开始加载所有配置");
     std::lock_guard<std::mutex> lock(registry_mutex_);
@@ -185,6 +156,11 @@ std::vector<std::string> MultiConfigManager::get_config_names() const {
     return names;
 }
 
+std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs() const {
+    std::lock_guard<std::mutex> lock(registry_mutex_);
+    return get_sorted_configs_unsafe();
+}
+
 std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs_unsafe() const {
     if (!cache_dirty_ && !sorted_configs_cache_.empty()) {
         return sorted_configs_cache_;
@@ -208,9 +184,33 @@ std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_confi
     return sorted_configs_cache_;
 }
 
-std::vector<std::shared_ptr<ConfigManager>> MultiConfigManager::get_sorted_configs() const {
+bool MultiConfigManager::has_priority_conflict(std::string& error_msg) const {
     std::lock_guard<std::mutex> lock(registry_mutex_);
-    return get_sorted_configs_unsafe();
+    return has_priority_conflict_unsafe(error_msg);
+}
+
+bool MultiConfigManager::has_priority_conflict_unsafe(std::string& error_msg) const {
+    LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_DEBUG, "检查优先级冲突");
+    std::set<int> priorities;
+    std::map<int, std::string> priority_to_name;
+
+    for (const auto& [name, info] : config_registry_) {
+        if (info.manager) {
+            int priority = info.priority;
+            if (priorities.find(priority) != priorities.end()) {
+                std::stringstream ss;
+                ss << "优先级冲突: 配置 '" << name << "' 和 '" << priority_to_name[priority]
+                   << "' 有相同的优先级 " << priority;
+                error_msg = ss.str();
+                LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_WARN, error_msg);
+                return true;
+            }
+            priorities.insert(priority);
+            priority_to_name[priority] = name;
+        }
+    }
+    LOG_MODULE("MultiConfigManager", "has_priority_conflict_unsafe", LOG_DEBUG, "未检测到优先级冲突");
+    return false;
 }
 
 MultiConfigManager::~MultiConfigManager() {

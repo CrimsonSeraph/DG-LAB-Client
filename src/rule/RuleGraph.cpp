@@ -114,18 +114,6 @@ const GraphNode* RuleGraph::find_node(int id) const {
     return nullptr;
 }
 
-QString RuleGraph::placeholder_text(int node_id, int port) const {
-    const GraphNode* node = find_node(node_id);
-    if (node == nullptr || node->type != GraphNodeType::Rule) {
-        return QString();
-    }
-    const auto placeholders = parse_placeholders(node->expression);
-    if (port < 0 || port >= placeholders.size()) {
-        return QString();
-    }
-    return placeholders.at(port).inner;
-}
-
 int RuleGraph::input_count(int id) const {
     const GraphNode* node = find_node(id);
     if (node == nullptr) {
@@ -197,51 +185,6 @@ bool RuleGraph::move_node(int id, double x, double y) {
     return true;
 }
 
-int RuleGraph::edge_at_port(int to, int port) const {
-    for (const auto& edge : edges_) {
-        if (edge.to == to && edge.port == port) {
-            return edge.id;
-        }
-    }
-    return -1;
-}
-
-int RuleGraph::source_at_port(int to, int port) const {
-    for (const auto& edge : edges_) {
-        if (edge.to == to && edge.port == port) {
-            return edge.from;
-        }
-    }
-    return -1;
-}
-
-bool RuleGraph::has_edge(int from, int to, int port) const {
-    return source_at_port(to, port) == from;
-}
-
-bool RuleGraph::would_create_cycle(int from, int to) const {
-    // 从 from 沿反向边向上游回溯，若遇到 to 则成环
-    QSet<int> visited;
-    QList<int> stack;
-    stack.append(from);
-    while (!stack.isEmpty()) {
-        const int current = stack.takeLast();
-        if (current == to) {
-            return true;
-        }
-        if (visited.contains(current)) {
-            continue;
-        }
-        visited.insert(current);
-        for (const auto& edge : edges_) {
-            if (edge.to == current) {
-                stack.append(edge.from);
-            }
-        }
-    }
-    return false;
-}
-
 int RuleGraph::connect_nodes(int from, int to, int port) {
     if (from == to || find_node(from) == nullptr || find_node(to) == nullptr) {
         return -1;
@@ -284,69 +227,26 @@ bool RuleGraph::disconnect_port(int to, int port) {
     return edge_id >= 0 ? disconnect_edge(edge_id) : false;
 }
 
-int RuleGraph::rule_index_of(const QString& rule_name) const {
-    QStringList names;
-    for (const auto& node : nodes_) {
-        if (node.type == GraphNodeType::Rule) {
-            names.append(node.rule_name);
-        }
-    }
-    names.sort();
-    const int index = names.indexOf(rule_name);
-    return index < 0 ? -1 : index + 1;
+bool RuleGraph::has_edge(int from, int to, int port) const {
+    return source_at_port(to, port) == from;
 }
 
-QString RuleGraph::source_formula(int node_id, int port, int depth) const {
-    const int source = source_at_port(node_id, port);
-    if (source <= 0) {
-        return QStringLiteral("{}");
+int RuleGraph::edge_at_port(int to, int port) const {
+    for (const auto& edge : edges_) {
+        if (edge.to == to && edge.port == port) {
+            return edge.id;
+        }
     }
-    return formula_of(source, depth + 1);
+    return -1;
 }
 
-QString RuleGraph::formula_of(int node_id, int depth) const {
-    if (depth > 32) {
-        return QStringLiteral("{}");
-    }
-    const GraphNode* node = find_node(node_id);
-    if (node == nullptr) {
-        return QStringLiteral("{}");
-    }
-    switch (node->type) {
-    case GraphNodeType::Module:
-        return QStringLiteral("{id:%1(%2)}")
-            .arg(node->value_id, node->label.isEmpty() ? node->value_id : node->label);
-    case GraphNodeType::Rule: {
-        const int index = rule_index_of(node->rule_name);
-        return index > 0 ? QStringLiteral("{rule:%1}").arg(index) : QStringLiteral("{}");
-    }
-    case GraphNodeType::Operator: {
-        const QString a = source_formula(node_id, 0, depth);
-        const QString b = source_formula(node_id, 1, depth);
-        return QStringLiteral("Math.floor((%1) %2 (%3))").arg(a, node->op, b);
-    }
-    case GraphNodeType::Advanced: {
-        const QString a = source_formula(node_id, 0, depth);
-        if (node->advanced == QStringLiteral("abs")) {
-            return QStringLiteral("Math.floor(Math.abs(%1))").arg(a);
+int RuleGraph::source_at_port(int to, int port) const {
+    for (const auto& edge : edges_) {
+        if (edge.to == to && edge.port == port) {
+            return edge.from;
         }
-        if (node->advanced == QStringLiteral("square")) {
-            return QStringLiteral("Math.floor((%1) * (%1))").arg(a);
-        }
-        if (node->advanced == QStringLiteral("sqrt")) {
-            return QStringLiteral("Math.floor(Math.sqrt(%1))").arg(a);
-        }
-        QString expression = node->expression;
-        const auto placeholders = parse_placeholders(expression);
-        for (int i = placeholders.size() - 1; i >= 0; --i) {
-            expression.replace(placeholders.at(i).pos, placeholders.at(i).len,
-                source_formula(node_id, i, depth));
-        }
-        return QStringLiteral("Math.floor(%1)").arg(expression);
     }
-    default:
-        return QStringLiteral("{}");
-    }
+    return -1;
 }
 
 void RuleGraph::import_from_rules() {
@@ -634,3 +534,103 @@ bool RuleGraph::save(const QString& rule_file) {
         ok ? "规则图已写回规则文件" : "规则图写回失败");
     return ok;
 }
+QString RuleGraph::formula_of(int node_id, int depth) const {
+    if (depth > 32) {
+        return QStringLiteral("{}");
+    }
+    const GraphNode* node = find_node(node_id);
+    if (node == nullptr) {
+        return QStringLiteral("{}");
+    }
+    switch (node->type) {
+    case GraphNodeType::Module:
+        return QStringLiteral("{id:%1(%2)}")
+            .arg(node->value_id, node->label.isEmpty() ? node->value_id : node->label);
+    case GraphNodeType::Rule: {
+        const int index = rule_index_of(node->rule_name);
+        return index > 0 ? QStringLiteral("{rule:%1}").arg(index) : QStringLiteral("{}");
+    }
+    case GraphNodeType::Operator: {
+        const QString a = source_formula(node_id, 0, depth);
+        const QString b = source_formula(node_id, 1, depth);
+        return QStringLiteral("Math.floor((%1) %2 (%3))").arg(a, node->op, b);
+    }
+    case GraphNodeType::Advanced: {
+        const QString a = source_formula(node_id, 0, depth);
+        if (node->advanced == QStringLiteral("abs")) {
+            return QStringLiteral("Math.floor(Math.abs(%1))").arg(a);
+        }
+        if (node->advanced == QStringLiteral("square")) {
+            return QStringLiteral("Math.floor((%1) * (%1))").arg(a);
+        }
+        if (node->advanced == QStringLiteral("sqrt")) {
+            return QStringLiteral("Math.floor(Math.sqrt(%1))").arg(a);
+        }
+        QString expression = node->expression;
+        const auto placeholders = parse_placeholders(expression);
+        for (int i = placeholders.size() - 1; i >= 0; --i) {
+            expression.replace(placeholders.at(i).pos, placeholders.at(i).len,
+                source_formula(node_id, i, depth));
+        }
+        return QStringLiteral("Math.floor(%1)").arg(expression);
+    }
+    default:
+        return QStringLiteral("{}");
+    }
+}
+
+QString RuleGraph::source_formula(int node_id, int port, int depth) const {
+    const int source = source_at_port(node_id, port);
+    if (source <= 0) {
+        return QStringLiteral("{}");
+    }
+    return formula_of(source, depth + 1);
+}
+
+QString RuleGraph::placeholder_text(int node_id, int port) const {
+    const GraphNode* node = find_node(node_id);
+    if (node == nullptr || node->type != GraphNodeType::Rule) {
+        return QString();
+    }
+    const auto placeholders = parse_placeholders(node->expression);
+    if (port < 0 || port >= placeholders.size()) {
+        return QString();
+    }
+    return placeholders.at(port).inner;
+}
+
+bool RuleGraph::would_create_cycle(int from, int to) const {
+    // 从 from 沿反向边向上游回溯，若遇到 to 则成环
+    QSet<int> visited;
+    QList<int> stack;
+    stack.append(from);
+    while (!stack.isEmpty()) {
+        const int current = stack.takeLast();
+        if (current == to) {
+            return true;
+        }
+        if (visited.contains(current)) {
+            continue;
+        }
+        visited.insert(current);
+        for (const auto& edge : edges_) {
+            if (edge.to == current) {
+                stack.append(edge.from);
+            }
+        }
+    }
+    return false;
+}
+
+int RuleGraph::rule_index_of(const QString& rule_name) const {
+    QStringList names;
+    for (const auto& node : nodes_) {
+        if (node.type == GraphNodeType::Rule) {
+            names.append(node.rule_name);
+        }
+    }
+    names.sort();
+    const int index = names.indexOf(rule_name);
+    return index < 0 ? -1 : index + 1;
+}
+
