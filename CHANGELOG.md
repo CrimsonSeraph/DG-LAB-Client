@@ -8,6 +8,27 @@
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **蓝牙直连输出与波形单次静音**: 蓝牙已连接时，规则输出与波形发送优先经 `CoyoteBleController` 直连下发，否则回落内置中转服务；新增按通道的单次定时器，在持续时长到达后静音。相关文档已更新。
+
+### Changed
+
+- **规则命令输出链路**: 恢复 `RuleManager::rule_command_ready` 到 `DeviceController::send_command` 的连接，确保规则计算出的通道指令能够正常下发。
+- **代码整理**: 统一源文件函数定义顺序与头文件声明顺序；优化代码注释与日志输出；清理过期文档与注释。
+
+### Fixed
+
+- **规则命令无接收方**: 修复自 `58528b3` 起规则计算出的通道指令被丢弃的问题。
+
+### Removed
+
+- **无用配置字段**: 移除 `python.bridge_path` 字段，该键已无任何消费者；同步更新配置示例与文档。
+
+---
+
 ## [v2.1.0] - 2026-09-29
 
 ### Added
@@ -392,6 +413,7 @@
 
 **变动**:
 
+- [Unreleased]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.1.0...HEAD
 - [v2.1.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.0.0...v2.1.0
 - [v2.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v1.0.0...v2.0.0
 - [v1.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.6.0...v1.0.0
