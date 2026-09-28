@@ -17,7 +17,7 @@
 > - [十三、许可证](#十三许可证)
 > - [十四、联系方式](#十四联系方式)
 
-一个基于 Qt/QML 的 DG-Lab 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v2.0.0`
+一个基于 Qt/QML 的 DG-Lab 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v2.1.0`
 
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
@@ -184,7 +184,7 @@ cpack
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "debug": false,
         "log": {
             "console_level": 0,

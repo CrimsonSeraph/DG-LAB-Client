@@ -1,6 +1,6 @@
 # 要求 CMake 最低版本 3.16
 cmake_minimum_required(VERSION 3.16)
-project(DG-LAB-Client VERSION 2.0.0 LANGUAGES CXX)
+project(DG-LAB-Client VERSION 2.1.0 LANGUAGES CXX)
 
 # 引入 Qt 相关设置
 include(qt.cmake)
