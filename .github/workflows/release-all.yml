@@ -104,7 +104,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      # ★ 新增：release job 需要读 CHANGELOG.md
+      # release job 需要读 CHANGELOG.md
       - name: 拉取源码（读取 CHANGELOG.md）
         uses: actions/checkout@v4
 
@@ -181,15 +181,30 @@ jobs:
             exit 0
           fi
 
-          # 简化版：找到 `## [<tag>]` 行后开始逐行输出，遇到下一个 `## ` 停止
-          # 与原 release.yml 的 awk 输出语义一致（只取目标版本块，不带文件顶部说明与 ---）
+          # 匹配底部的 "变动" 链接，并在 END 块中追加输出
           NOTES="$(awk -v tag="$TAG" '
-            /^## / {
-              if (printing) exit
-              if (index($0, "[" tag "]") > 0) { printing = 1; print; next }
+            # 匹配底部的“变动”链接（例如 - [v2.1.0]: https://...）
+            index($0, "- [" tag "]:") > 0 {
+              links = $0
               next
             }
+            # 遇到二级标题
+            /^## / {
+              if (index($0, "[" tag "]") > 0) {
+                printing = 1
+              } else if (printing) {
+                printing = 0
+              }
+            }
+            # 只打印目标版本块的内容
             printing { print }
+            # 4. 在最后追加链接
+            END {
+              if (links) {
+                print ""
+                print links
+              }
+            }
           ' CHANGELOG.md)"
 
           if [ -z "$NOTES" ]; then
@@ -214,7 +229,7 @@ jobs:
           name: DG-LAB-Client ${{ steps.tag.outputs.tag }}
           body: ${{ steps.notes.outputs.body }}
           generate_release_notes: false
-          # ★ 只发布最终产物，禁止 dist/**/* 这种递归通配
+          # 只发布最终产物，禁止 dist/**/* 这种递归通配
           files: |
             dist/*.zip
             dist/*.7z
