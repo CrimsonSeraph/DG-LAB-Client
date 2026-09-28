@@ -7,6 +7,7 @@
 
 #include <QBluetoothDeviceInfo>
 #include <QBluetoothUuid>
+#include <QHash>
 #include <QLowEnergyCharacteristic>
 #include <QLowEnergyService>
 #include <QObject>
@@ -86,6 +87,7 @@ private:
     void write_bf();
     void ensure_characteristics();
     void set_status(const QString& text);
+    void do_start_scan();
     QByteArray build_b0();
     QByteArray frame_for_channel(const QStringList& frames, int index) const;
 
@@ -120,4 +122,6 @@ private:
     QString status_;
     ChannelState channel_a_;
     ChannelState channel_b_;
+    QHash<QString, QBluetoothDeviceInfo> device_cache_;
+    bool is_discovering_battery_ = false;
 };

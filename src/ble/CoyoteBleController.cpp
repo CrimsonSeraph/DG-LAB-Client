@@ -8,9 +8,12 @@
 #include "DebugLog.h"
 
 #include <QBluetoothDeviceDiscoveryAgent>
+#include <QCoreApplication>
+#include <QGuiApplication>
 #include <QLowEnergyCharacteristic>
 #include <QLowEnergyController>
 #include <QLowEnergyService>
+#include <QPermissions>
 #include <QTimer>
 #include <QVariantMap>
 
@@ -60,6 +63,36 @@ void CoyoteBleController::set_status(const QString& text) {
     emit statusChanged();
 }
 
+void CoyoteBleController::do_start_scan() {
+    if (scanning_) return;
+
+    // 清理旧数据
+    devices_.clear();
+    device_cache_.clear();
+    emit devicesChanged();
+
+    // 创建发现代理
+    discovery_ = new QBluetoothDeviceDiscoveryAgent(this);
+    discovery_->setLowEnergyDiscoveryTimeout(15000);
+
+    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::deviceDiscovered,
+        this, &CoyoteBleController::on_device_discovered);
+    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::finished,
+        this, &CoyoteBleController::on_scan_finished);
+    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::errorOccurred, this,
+        [this](QBluetoothDeviceDiscoveryAgent::Error error) {
+            scanning_ = false;
+            emit stateChanged();
+            set_status(QStringLiteral("蓝牙扫描失败，错误码: %1").arg(static_cast<int>(error)));
+            emit errorOccurred(QStringLiteral("蓝牙扫描失败，请检查权限和蓝牙开关"));
+        });
+
+    scanning_ = true;
+    emit stateChanged();
+    set_status(QStringLiteral("正在扫描附近的郊狼设备…"));
+    discovery_->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
+}
+
 QByteArray CoyoteBleController::frame_for_channel(const QStringList& frames, int index) const {
     if (frames.isEmpty()) {
         return QByteArray::fromHex(kSilentFrame);
@@ -69,49 +102,44 @@ QByteArray CoyoteBleController::frame_for_channel(const QStringList& frames, int
 }
 
 void CoyoteBleController::startScan() {
-    if (scanning_) {
-        return;
-    }
-    devices_.clear();
-    emit devicesChanged();
+    if (scanning_) return;
 
-    discovery_ = new QBluetoothDeviceDiscoveryAgent(this);
-    discovery_->setLowEnergyDiscoveryTimeout(15000);
-    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::deviceDiscovered,
-        this, &CoyoteBleController::on_device_discovered);
-    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::finished,
-        this, &CoyoteBleController::on_scan_finished);
-    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::errorOccurred, this,
-        [this](QBluetoothDeviceDiscoveryAgent::Error) {
-            scanning_ = false;
-            emit stateChanged();
-            set_status(QStringLiteral("蓝牙扫描失败"));
-            emit errorOccurred(QStringLiteral("蓝牙扫描失败，请确认蓝牙已开启"));
-        });
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    QBluetoothPermission permission;
+    permission.setCommunicationModes(QBluetoothPermission::Access);
 
-    scanning_ = true;
-    emit stateChanged();
-    set_status(QStringLiteral("正在扫描附近的郊狼设备…"));
-    discovery_->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
+    qApp->requestPermission(permission, [this](const QPermission& perm) {
+        if (perm.status() == Qt::PermissionStatus::Granted) {
+            do_start_scan();
+        }
+        else {
+            set_status(QStringLiteral("蓝牙权限被拒绝"));
+        }
+    });
+    return;
+#else
+    do_start_scan();
+#endif
 }
 
 void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info) {
     if (!(info.coreConfigurations() & QBluetoothDeviceInfo::LowEnergyCoreConfiguration)) {
         return;
     }
-    const QString name = info.name();
-    // 郊狼脉冲主机 47L121000 / 无线传感器 47L120100
-    if (!name.startsWith(QStringLiteral("47L"))) {
+    // 使用地址作为唯一标识去重
+    QString address = info.address().toString();
+    if (device_cache_.contains(address)) {
         return;
     }
-    for (const auto& existing : devices_) {
-        if (existing.toMap().value(QStringLiteral("address")).toString() == info.address().toString()) {
-            return;
-        }
-    }
+
+    // 缓存完整的 QBluetoothDeviceInfo
+    device_cache_.insert(address, info);
+
+    // 加入 UI 列表
     QVariantMap item;
-    item.insert(QStringLiteral("name"), name);
-    item.insert(QStringLiteral("address"), info.address().toString());
+    QString displayName = info.name().isEmpty() ? QStringLiteral("郊狼设备(未知名称)") : info.name();
+    item.insert(QStringLiteral("name"), displayName);
+    item.insert(QStringLiteral("address"), address);
     devices_.append(item);
     emit devicesChanged();
 }
@@ -126,23 +154,17 @@ void CoyoteBleController::connectDevice(const QString& address) {
     if (address.isEmpty()) {
         return;
     }
-    QBluetoothDeviceInfo target;
-    bool found = false;
-    for (const auto& existing : devices_) {
-        const QVariantMap item = existing.toMap();
-        if (item.value(QStringLiteral("address")).toString() == address) {
-            target = QBluetoothDeviceInfo(QBluetoothAddress(address), item.value(QStringLiteral("name")).toString(), 0);
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
-        set_status(QStringLiteral("未找到所选设备，请重新扫描"));
+    QBluetoothDeviceInfo target = device_cache_.value(address);
+
+    if (!target.isValid()) {
+        set_status(QStringLiteral("设备信息已过期，请重新扫描"));
         return;
     }
 
     pending_address_ = address;
-    device_name_ = target.name();
+    device_name_ = target.name().isEmpty() ? QStringLiteral("郊狼设备") : target.name();
+
+    // 用完整的 target 对象创建控制器
     controller_ = QLowEnergyController::createCentral(target, this);
 
     connect(controller_, &QLowEnergyController::connected, this, &CoyoteBleController::on_controller_connected);
@@ -160,6 +182,16 @@ void CoyoteBleController::connectDevice(const QString& address) {
                 this, &CoyoteBleController::on_characteristic_changed);
             coyote_service_->discoverDetails();
         }
+        connect(coyote_service_, QOverload<QLowEnergyService::ServiceError>::of(&QLowEnergyService::errorOccurred),
+            this, [this](QLowEnergyService::ServiceError error) {
+                LOG_MODULE("CoyoteBleController", "connectDevice", LOG_ERROR, "服务错误:" << error);
+                set_status(QStringLiteral("蓝牙服务错误: %1").arg(error));
+            });
+        connect(coyote_service_, &QLowEnergyService::characteristicWritten,
+            this, [](const QLowEnergyCharacteristic& c, const QByteArray& value) {
+                LOG_MODULE("CoyoteBleController", "connectDevice", LOG_INFO,
+                    "写入成功:" << c.uuid().toString().toStdString() << " " << value.toHex().toStdString());
+            });
         battery_service_ = controller_->createServiceObject(kBatteryService, this);
         if (battery_service_ != nullptr) {
             connect(battery_service_, &QLowEnergyService::stateChanged, this,
@@ -194,7 +226,7 @@ void CoyoteBleController::on_controller_connected() {
     connected_ = true;
     emit stateChanged();
     set_status(QStringLiteral("已连接 %1，正在发现服务…").arg(device_name_));
-    for (auto& channel : { &channel_a_, &channel_b_ }) {
+    for (auto& channel : {&channel_a_, &channel_b_}) {
         channel->frames.clear();
         channel->frame_index = 0;
         channel->pending_mode = 0;
@@ -234,6 +266,10 @@ void CoyoteBleController::ensure_characteristics() {
     }
     const auto write_char = coyote_service_->characteristic(write_char_uuid_);
     const auto notify_char = coyote_service_->characteristic(notify_char_uuid_);
+
+    LOG_MODULE("CoyoteBleController", "ensure_characteristics", LOG_DEBUG, "写特征是否有效:" << write_char.isValid());
+    LOG_MODULE("CoyoteBleController", "ensure_characteristics", LOG_DEBUG, "通知特征是否有效:" << notify_char.isValid());
+
     if (!write_char.isValid() || !notify_char.isValid()) {
         set_status(QStringLiteral("未找到郊狼写入/通知特征"));
         return;
