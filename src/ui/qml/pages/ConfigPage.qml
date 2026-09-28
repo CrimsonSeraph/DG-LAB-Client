@@ -361,7 +361,8 @@ Item {
 
                         objectName: "bleDeviceList"
                         width: parent.width
-                        height: 96
+                        height: Math.min(contentHeight, 360)
+                        visible: ble.devices.length > 0
                         clip: true
                         model: ble.devices
                         spacing: Metrics.spacing2xs
