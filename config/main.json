@@ -15,8 +15,7 @@
         }
     },
     "python": {
-        "path": "python",
-        "bridge_path": "./python/Bridge.py"
+        "path": "python"
     },
     "rule": {
         "path": "./config/rules",

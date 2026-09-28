@@ -43,7 +43,6 @@
 | `app.module.path` | string | 插件扫描目录（默认 `./module`，相对路径按可执行文件所在目录解析） |
 | `app.module.scan_load` | bool | 是否“扫描即加载”：扫描到插件后立即加载（默认 `false`，仅扫描并在界面显示“暂未加载”；开启用于调试或特定场景） |
 | `python.path` | string | Python 解释器路径或可执行文件名 |
-| `python.bridge_path` | string | 保留字段：原先指向 Python WebSocket 桥接脚本，`Bridge.py` 已随内置中转服务上线而移除 |
 
 ---
 

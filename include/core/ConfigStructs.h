@@ -91,7 +91,6 @@ struct MainConfig {
     bool is_only_type_info_ = false;
     int ui_log_level_ = -1;
     std::string python_path_;
-    std::string bridge_path_;
 
     // 静态方法
     static void to_json(nlohmann::json& j, const MainConfig& config);
