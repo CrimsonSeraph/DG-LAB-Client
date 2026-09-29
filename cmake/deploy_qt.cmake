@@ -29,13 +29,32 @@ foreach(_module IN LISTS _deploy_modules)
 	endif()
 endforeach()
 
+set(_qml_plugin_dir "${TARGET_DIR}/qml/QtQuick/Controls")
+if(NOT
+	EXISTS
+	"${_qml_plugin_dir}"
+	OR
+	NOT
+	EXISTS
+	"${_qml_plugin_dir}/qtquickcontrols2plugin.dll"
+)
+	list(APPEND _missing "QtQuick.Controls (QML Plugin)")
+endif()
+
 if(NOT _missing)
 	message(STATUS "Qt runtime complete in ${TARGET_DIR}, skip deployment")
 	return()
 endif()
 
-message(STATUS "Deploying Qt runtime to ${TARGET_DIR} (missing: ${_missing}) ...")
-set(_args ${DEPLOY_MODE} --no-translations --no-system-d3d-compiler --no-compiler-runtime)
+message(STATUS
+	"Deploying Qt runtime to ${TARGET_DIR} (missing: ${_missing}) ..."
+)
+set(_args
+	${DEPLOY_MODE}
+	--no-translations
+	--no-system-d3d-compiler
+	--no-compiler-runtime
+)
 if(EXISTS "${QML_DIR}")
 	list(APPEND _args --qmldir "${QML_DIR}")
 endif()

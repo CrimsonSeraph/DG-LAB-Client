@@ -600,6 +600,7 @@ if(WIN32)
         set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
         execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
             --release --no-translations --no-system-d3d-compiler --no-compiler-runtime
+            --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/qml"
             "${DEPLOY_TARGET}"
             RESULT_VARIABLE _deploy_result
         )
