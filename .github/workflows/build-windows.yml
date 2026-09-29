@@ -49,6 +49,20 @@ jobs:
       - name: 拉取源码
         uses: actions/checkout@v4
 
+      - name: 清理 QML 文件 BOM
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Filter *.qml src/ui/qml | ForEach-Object {
+            $bytes = [IO.File]::ReadAllBytes($_.FullName)
+            if ($bytes.Length -ge 3 -and
+                $bytes[0] -eq 0xEF -and
+                $bytes[1] -eq 0xBB -and
+                $bytes[2] -eq 0xBF) {
+              [IO.File]::WriteAllBytes($_.FullName, $bytes[3..($bytes.Length - 1)])
+              Write-Host "Removed BOM: $($_.FullName)"
+            }
+          }
+
       - name: 检测可用的 Visual Studio 生成器
         id: vs
         shell: pwsh
@@ -125,9 +139,9 @@ jobs:
       - name: 安装到 install_root
         shell: pwsh
         run: |
-          cmake --install build --prefix install_root --config Release
-          if (-not (Test-Path "install_root/DG-LAB-Client.exe")) {
-            Write-Host "::error title=缺少可执行文件::install_root/DG-LAB-Client.exe 不存在"
+          cmake --install build --prefix "$PWD/install_root" --config Release
+          if (-not (Test-Path "install_root/bin/DG-LAB-Client.exe")) {
+            Write-Host "::error title=缺少可执行文件::install_root/bin/DG-LAB-Client.exe 不存在"
             Get-ChildItem install_root -Recurse | Select-Object -First 50 FullName
             exit 1
           }
@@ -174,7 +188,7 @@ jobs:
             Select-Object -First 1
           if (-not $signtool) { throw "未找到 signtool.exe" }
 
-          $target = "install_root/DG-LAB-Client.exe"
+          $target = "install_root/bin/DG-LAB-Client.exe"
           Write-Host "签名 $target"
           & $signtool.FullName sign /sha1 $cert.Thumbprint /fd SHA256 `
             /tr $env:TIMESTAMP_URL /td SHA256 /d "DG-LAB-Client" $target
@@ -223,9 +237,9 @@ jobs:
       - name: CPack 打包（NSIS 安装包）
         shell: pwsh
         run: |
+          Remove-Item -Recurse -Force package/_CPack_Packages -ErrorAction SilentlyContinue
           cpack --config build/CPackConfig.cmake -B package -C Release
           if ($LASTEXITCODE -ne 0) { throw "CPack 失败" }
-          Get-ChildItem package
 
       - name: 清理 CPack 临时目录
         shell: pwsh
@@ -239,12 +253,11 @@ jobs:
           $dst = "install_root_no_python"
           if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
           Copy-Item -Recurse $src $dst
-          # Windows: 删除 Python DLL、标准库压缩包、第三方包目录
-          Get-ChildItem $dst -Filter 'python3*.dll' -ErrorAction SilentlyContinue | Remove-Item -Force
-          Get-ChildItem $dst -Filter 'python*.zip' -ErrorAction SilentlyContinue | Remove-Item -Force
-          Remove-Item -Recurse -Force "$dst/DLLs" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "$dst/python/Lib" -ErrorAction SilentlyContinue
-          Remove-Item -Recurse -Force "$dst/python/Lib/site-packages" -ErrorAction SilentlyContinue
+          # Windows: 删除 Python DLL、标准库压缩包、第三方包目录（均与 exe 同在 bin/）
+          Get-ChildItem "$dst/bin" -Filter 'python3*.dll' -ErrorAction SilentlyContinue | Remove-Item -Force
+          Get-ChildItem "$dst/bin" -Filter 'python*.zip' -ErrorAction SilentlyContinue | Remove-Item -Force
+          Remove-Item -Recurse -Force "$dst/bin/DLLs" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$dst/bin/python/Lib" -ErrorAction SilentlyContinue
           Compress-Archive -Path "$dst/*" `
             -DestinationPath "package/DG-LAB-Client-$version-windows-x64-without-Python.zip" -Force
           Get-ChildItem package

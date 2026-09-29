@@ -569,46 +569,49 @@ add_custom_command(
 )
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
+# Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；
+# 因此 Windows 把可执行文件连同它运行所需的数据（config / python / assets 等）
+# 一起装进 bin/。部署脚本会在 exe 旁写 qt.conf，其中的 Prefix = .. 指回安装根，
+# plugins / qml / translations 仍留在安装根。Linux/macOS 的安装布局由
+# linuxdeployqt / macdeployqt 决定，保持在安装根不动。
+if(WIN32)
+	set(DGLAB_APP_DIR "${CMAKE_INSTALL_BINDIR}")
+else()
+	set(DGLAB_APP_DIR ".")
+endif()
+
 install(
 	TARGETS ${PROJECT_NAME}
-	RUNTIME DESTINATION .
+	RUNTIME DESTINATION ${DGLAB_APP_DIR}
 	BUNDLE DESTINATION .
-	LIBRARY DESTINATION .
+	LIBRARY DESTINATION ${DGLAB_APP_DIR}
 )
-install(DIRECTORY python/ DESTINATION python FILES_MATCHING PATTERN "*.py")
-install(DIRECTORY config/ DESTINATION config FILES_MATCHING PATTERN "*.json")
+install(DIRECTORY python/
+	DESTINATION "${DGLAB_APP_DIR}/python"
+	FILES_MATCHING PATTERN "*.py"
+)
+install(DIRECTORY config/
+	DESTINATION "${DGLAB_APP_DIR}/config"
+	FILES_MATCHING PATTERN "*.json"
+)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
-	install(DIRECTORY assets/ DESTINATION assets)
+	install(DIRECTORY assets/ DESTINATION "${DGLAB_APP_DIR}/assets")
 endif()
 
 # -------------------- Qt 部署工具 --------------------
 if(WIN32)
-	get_target_property(_qt_qmake_location
-		Qt${QT_VERSION_MAJOR}::qmake
-		IMPORTED_LOCATION
+	# 生成 CPack 兼容的 Qt 部署脚本。QML 应用必须用 qml 变体：普通的
+	# qt_generate_deploy_app_script 不做 QML 导入扫描，QtQuick.Controls 等
+	# Qt 自带的 QML 模块不会被复制到安装目录，安装版加载界面会直接失败。
+	# 该脚本同时负责运行 windeployqt 部署 Qt 库与平台插件。
+	qt_generate_deploy_qml_app_script(
+		TARGET
+		${PROJECT_NAME}
+		OUTPUT_SCRIPT
+		deploy_script
+		NO_UNSUPPORTED_PLATFORM_ERROR
 	)
-	get_filename_component(QT_BINARY_DIR "${_qt_qmake_location}" DIRECTORY)
-	set(QT_BINARY_DIR "${QT_BINARY_DIR}" CACHE INTERNAL "Qt binary directory")
-
-	install(CODE [[
-        message(STATUS "Running windeployqt for ${PROJECT_NAME}...")
-        find_program(WINDEPLOYQT_EXECUTABLE
-            NAMES windeployqt windeployqt6
-            HINTS "${QT_BINARY_DIR}"
-            REQUIRED
-        )
-        set(DEPLOY_TARGET "${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}${CMAKE_EXECUTABLE_SUFFIX}")
-        execute_process(COMMAND "${WINDEPLOYQT_EXECUTABLE}"
-            --release --no-translations --no-system-d3d-compiler --no-compiler-runtime
-            --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/src/ui/qml"
-            "${DEPLOY_TARGET}"
-            RESULT_VARIABLE _deploy_result
-        )
-        if(NOT _deploy_result EQUAL 0)
-            message(FATAL_ERROR "windeployqt failed")
-        endif()
-    ]]
-	)
+	install(SCRIPT ${deploy_script})
 elseif(APPLE)
 	# macdeployqt 在 CI 中手动执行
 	message(STATUS "macOS: Qt deployment will be done by macdeployqt in CI")
@@ -636,7 +639,7 @@ if(WIN32)
 			REQUIRED
 		)
 		if(PYTHON_DLL_PATH)
-			install(FILES "${PYTHON_DLL_PATH}" DESTINATION .)
+			install(FILES "${PYTHON_DLL_PATH}" DESTINATION ${DGLAB_APP_DIR})
 			message(STATUS "Found Python DLL: ${PYTHON_DLL_PATH}")
 		else()
 			message(WARNING "Could not find ${DLL_NAME}, Python subprocess may fail")
@@ -709,15 +712,17 @@ if(WIN32)
 		endif()
 
 		# 安装生成的 zip 文件
-		install(FILES "${PYTHON_ZIP_PATH}" DESTINATION .)
+		install(FILES "${PYTHON_ZIP_PATH}" DESTINATION ${DGLAB_APP_DIR})
 	endif()
 
 	# 复制 Python 二进制扩展模块（DLLs）
 	get_filename_component(PYTHON_ROOT "${Python_EXECUTABLE}" DIRECTORY)
 	set(PYTHON_DLLS_DIR "${PYTHON_ROOT}/DLLs")
 	if(EXISTS "${PYTHON_DLLS_DIR}")
-		install(DIRECTORY "${PYTHON_DLLS_DIR}/" DESTINATION "DLLs")
-		message(STATUS "Python DLLs directory will be installed to DLLs/")
+		install(DIRECTORY "${PYTHON_DLLS_DIR}/" DESTINATION "${DGLAB_APP_DIR}/DLLs")
+		message(STATUS
+			"Python DLLs directory will be installed to ${DGLAB_APP_DIR}/DLLs"
+		)
 	else()
 		message(WARNING
 			"Python DLLs directory not found, binary extensions may be missing"
@@ -768,7 +773,7 @@ endif()
 # 复制自定义 Python 脚本
 install(
 	DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/python/
-	DESTINATION python
+	DESTINATION "${DGLAB_APP_DIR}/python"
 	FILES_MATCHING PATTERN "*.py"
 )
 
@@ -783,7 +788,7 @@ set(
 if(PYTHON_PACKAGES_DIR AND EXISTS "${PYTHON_PACKAGES_DIR}")
 	install(
 		DIRECTORY "${PYTHON_PACKAGES_DIR}/"
-		DESTINATION "python/Lib/site-packages"
+		DESTINATION "${DGLAB_APP_DIR}/python/Lib/site-packages"
 		PATTERN "__pycache__"
 		EXCLUDE
 	)
