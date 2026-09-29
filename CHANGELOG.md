@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+> **变动**: [v2.1.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.1.0...HEAD)
+
 ### Added
 
 - **蓝牙直连输出与波形单次静音**: 蓝牙已连接时，规则输出与波形发送优先经 `CoyoteBleController` 直连下发，否则回落内置中转服务；新增按通道的单次定时器，在持续时长到达后静音。相关文档已更新。
@@ -32,6 +34,8 @@
 
 ## [v2.1.0] - 2026-09-29
 
+> **变动**: [v2.0.0...v2.1.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.0.0...v2.1.0)
+
 ### Added
 
 - **配置页滚动支持**: 配置页长度超出窗口时，自动启用向下滚动，避免内容被截断。
@@ -53,6 +57,8 @@
 ---
 
 ## [v2.0.0] - 2026-09-22
+
+> **变动**: [v1.0.0...v2.0.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v1.0.0...v2.0.0)
 
 ### Added
 
@@ -79,10 +85,6 @@
 - CMake 在 Windows 构建后自动调用 `windeployqt` 把 Qt 运行时部署到输出目录（原先仅在打包阶段执行）。
 - QML 输入控件统一使用 `App*` 封装（`src/ui/qml/components/`），不再直接使用 Qt 原生控件；尺寸常量集中到 `ComponentStyle`。
 
-### Deprecated
-
-- 无
-
 ### Removed
 
 - **Qt Widgets 旧界面**: 移除 `DGLABClient`（含 `.ui`、`_impl`、`_utils`）与配套控件 `ThemeSelectorDialog`、`EditableLabel`、`StyledComboBox`、`SampledWaveformWidget`、`IpSelector`。
@@ -98,13 +100,11 @@
 - 修复原生 `SpinBox` / `TextField` / `TextArea` / `ComboBox` / `CheckBox` 未跟随主题（白底黑字或黑底白字）的问题。
 - 规则编辑器画布、节点卡片、端口、连线与检查器全面改用 `Theme` 令牌，对话框背景显式使用 `Theme.surface`。
 
-### Security
-
-- 无
-
 ---
 
 ## [v1.0.0] - 2026-08-26
+
+> **变动**: [v0.6.0...v1.0.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.6.0...v1.0.0)
 
 ### Added
 
@@ -125,14 +125,6 @@
 - 源码按功能分类整理（`include/`、`src/` 子目录），统一 Doxygen 中文注释与 Prettier/clang-format 格式规范。
 - Windows 构建优化 Python 标准库 zip 打包（configure 耗时由数十分钟降至数秒）。
 
-### Deprecated
-
-- 无
-
-### Removed
-
-- 无
-
 ### Fixed
 
 - 修复新版 macOS SDK 缺失 AGL.framework 导致的链接失败。
@@ -140,13 +132,11 @@
 - 修复日志清理分组、规则值模式编辑未应用、Python 日志换行与 `WebSocketCore.py` 导入缺失等问题。
 - 修复数据源为空时查询返回 0 导致的显示失真、首次写入不推送 `value_changed` 等问题。
 
-### Security
-
-- 无
-
 ---
 
 ## [v0.6.0] - 2026-05-03
+
+> **变动**: [v0.5.1...v0.6.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0)
 
 ### Added
 
@@ -163,21 +153,15 @@
 
 - 计划移除使用 Python 模块 `WebSocketCore.py` 实现 WebSocket 相关功能，转向使用 Qt 提供的 Qt WebSocket 库（该计划尚未完成，仍处于过渡阶段）。
 
-### Removed
-
-- 无
-
 ### Fixed
 
 - 修复 `IpSelector` 无法自定义选择 IP 问题。
 
-### Security
-
-- 无
-
 ---
 
 ## [v0.5.1] - 2026-04-19
+
+> **变动**: [v0.5.0...v0.5.1](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.0...v0.5.1)
 
 ### Added
 
@@ -200,49 +184,29 @@
 
 - 计划移除使用 Python 模块 `WebSocketCore.py` 实现 websocket 相关功能，转向使用 Qt 提供的 Qt WebSocket 库。
 
-### Removed
-
-- 无
-
-### Fixed
-
-- 无
-
-### Security
-
-- 无
-
 ---
 
 ## [v0.5.0] - 2026-04-19
+
+> **变动**: [v0.4.0...v0.5.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.4.0...v0.5.0)
 
 ### Added
 
 - 新增实时显示强度，提供手动调节、锁定调节按键。
 
-### Changed
-
-- 无
-
 ### Deprecated
 
 - 计划移除使用 Python 模块 `WebSocketCore.py` 实现 websocket 相关功能，转向使用 Qt 提供的 Qt WebSocket 库。
-
-### Removed
-
-- 无
 
 ### Fixed
 
 - 修复 Python 模块日志格式错误。
 
-### Security
-
-- 无
-
 ---
 
 ## [v0.4.0] - 2026-04-17
+
+> **变动**: [v0.3.0...v0.4.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.3.0...v0.4.0)
 
 ### Added
 
@@ -263,17 +227,11 @@
 
 - 移除原本的主题切换按键。
 
-### Fixed
-
-- 无
-
-### Security
-
-- 无
-
 ---
 
 ## [v0.3.0] - 2026-04-16
+
+> **变动**: [v0.2.1...v0.3.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.2.1...v0.3.0)
 
 ### Added
 
@@ -291,55 +249,31 @@
 - 样式表文件 `style_light.qcss` 和 `style_night.qcss` 完全重写，视觉效果现代化。
 - 项目协议从 `MIT` 更换为 `GPL-v3.0`，完善第三方的开源信息。
 
-### Deprecated
-
-- 无
-
-### Removed
-
-- 无
-
 ### Fixed
 
 - 修复 Linux 系统下 Python 子进程启动时路径解析错误的问题（改用 `QCoreApplication::applicationDirPath()` 拼接绝对路径）。
-
-### Security
-
-- 无
 
 ---
 
 ## [v0.2.1] - 2026-04-12
 
-### Added
-
-- 无
+> **变动**: [v0.2.0...v0.2.1](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.2.0...v0.2.1)
 
 ### Changed
 
 - 创建规则添加反馈信息。
 - 减少值模式编辑下过多的调试信息输出。
 
-### Deprecated
-
-- 无
-
-### Removed
-
-- 无
-
 ### Fixed
 
 - 统一规则编辑窗口（`添加规则` 和 `编辑规则` 触发的值模式编辑统一使用新编辑窗口）。
 - 创建规则文件时检查是否包含关键字，未包含则强制包含关键字。
 
-### Security
-
-- 无
-
 ---
 
 ## [v0.2.0] - 2026-04-08
+
+> **变动**: [v0.1.0...v0.2.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.1.0...v0.2.0)
 
 ### Added
 
@@ -357,10 +291,6 @@
 - 控制台显示格式优化。
 - 从 `build.yml` 移除上传构建产物到 GitHub Releases 的步骤，改为单独的 `release.yml` 处理发布流程。
 
-### Deprecated
-
-- 无
-
 ### Removed
 
 - 移除旧版内嵌 Python 解释器。
@@ -368,10 +298,6 @@
 ### Fixed
 
 - 修复配置系统的加载、覆盖等问题。
-
-### Security
-
-- 无
 
 ---
 
@@ -388,37 +314,13 @@
 - 用于与 DG-LAB 官方提供的 websocket 服务通讯的 Python 模块: `WebSocketCore.py`。
 - GitHub Actions 自动化构建（Windows / Linux / macOS）。
 
-### Changed
-
-- 无
-
 ### Deprecated
 
 - 将不再使用内嵌 Python 解释器，转用 Qt 提供的方式调用 Python 子进程并通过 TCP 本地通讯。
 
-### Removed
-
-- 无
-
-### Fixed
-
-- 无
-
-### Security
-
-- 无
-
 ---
 
 ## 其他
-
-**变动**:
-
-- [Unreleased]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.1.0...HEAD
-- [v2.1.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.0.0...v2.1.0
-- [v2.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v1.0.0...v2.0.0
-- [v1.0.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.6.0...v1.0.0
-- [v0.6.0]: https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0
 
 **变更分类**:
 

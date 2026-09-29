@@ -181,14 +181,8 @@ jobs:
             exit 0
           fi
 
-          # 匹配底部的 "变动" 链接，并在 END 块中追加输出
           NOTES="$(awk -v tag="$TAG" '
-            # 匹配底部的“变动”链接（例如 - [v2.1.0]: https://...）
-            index($0, "- [" tag "]:") > 0 {
-              links = $0
-              next
-            }
-            # 遇到二级标题
+            # 命中目标版本标题 -> 开始打印；遇到下一个 ## 标题 -> 停止
             /^## / {
               if (index($0, "[" tag "]") > 0) {
                 printing = 1
@@ -196,15 +190,7 @@ jobs:
                 printing = 0
               }
             }
-            # 只打印目标版本块的内容
             printing { print }
-            # 4. 在最后追加链接
-            END {
-              if (links) {
-                print ""
-                print links
-              }
-            }
           ' CHANGELOG.md)"
 
           if [ -z "$NOTES" ]; then
