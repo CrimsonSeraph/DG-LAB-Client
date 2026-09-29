@@ -4,13 +4,17 @@
 
 版本号格式遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)
 
-> **注意**: 当前版本为 v2.1.0，正在逐步修复、完善功能。
-
----
+> **注意**: 当前版本为 v2.2.0，正在逐步修复、完善功能。
 
 ## [Unreleased]
 
-> **变动**: [v2.1.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.1.0...HEAD)
+> **变动**: [v2.2.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.2.0...HEAD)
+
+---
+
+## [v2.2.0] - 2026-09-30
+
+> **变动**: [v2.1.0...v2.2.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.1.0...v2.2.0)
 
 ### Added
 

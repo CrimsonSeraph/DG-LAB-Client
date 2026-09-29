@@ -16,7 +16,7 @@
 > - [十二、许可证](#十二许可证)
 > - [十三、联系方式](#十三联系方式)
 
-一个基于 Qt/QML 的 DG-LAB 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v2.1.0`
+一个基于 Qt/QML 的 DG-LAB 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v2.2.0`
 
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
@@ -171,7 +171,7 @@ cpack
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "2.1.0",
+        "version": "2.2.0",
         "debug": false,
         "log": {
             "console_level": 0,
@@ -476,7 +476,7 @@ DG-LAB-Client/
 ## 八、截图
 
 <details>
-<summary>点击展开查看界面截图（共 6 张）</summary>
+<summary>点击展开查看 6 张界面截图 - 最后更新：2026-05-03</summary>
 
 ### 主界面
 
@@ -539,8 +539,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 **解决方案**:
 
 - 主程序自身不再运行 Python：WebSocket 通信与二维码生成均已改为应用内实现，`Bridge.py` / `WebSocketCore.py` 已移除，因此不再需要 `pip install websockets qrcode[pil]`。
-- 只有 CS2 GSI 插件需要系统 Python：确认 `python`（Linux/macOS 下为 `python3`）在 PATH 中，或通过配置项 `python.path` 指定解释器路径。`python/PathFinder.py` 只依赖标准库，无需安装第三方包。
-</details>
+- 只有 CS2 GSI 插件需要系统 Python：确认 `python`（Linux/macOS 下为 `python3`）在 PATH 中，或通过配置项 `python.path` 指定解释器路径。`python/PathFinder.py` 只依赖标准库，无需安装第三方包。 </details>
 
 <details>
 <summary><b>Q3: nlohmann/json 下载失败</b></summary>
