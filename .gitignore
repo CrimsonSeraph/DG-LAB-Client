@@ -381,3 +381,7 @@ doc/
 
 # 共享 VS Code 工作区设置（允许随仓库提交）
 !.vscode/settings.json
+
+# 打包
+install_root/
+package/
