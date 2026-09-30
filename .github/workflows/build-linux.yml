@@ -57,6 +57,24 @@ jobs:
       - name: 拉取源码
         uses: actions/checkout@v4
 
+      - name: 清理 QML 文件 BOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 用字节字面量匹配 BOM：grep -P 在非 UTF-8 locale 下会直接报错退出，
+          # 而这里必须保证"没有 BOM"和"清理失败"不会被混为一谈
+          export LC_ALL=C
+          files=$(grep -rl $'^\xef\xbb\xbf' --include='*.qml' src/ui/qml || true)
+          count=0
+          if [ -n "$files" ]; then
+            while IFS= read -r f; do
+              sed -i '1s/^\xEF\xBB\xBF//' "$f"
+              echo "Removed BOM: $f"
+              count=$((count + 1))
+            done <<< "$files"
+          fi
+          echo "清理 QML BOM 完成，共处理 $count 个文件"
+
       - name: 安装系统依赖
         shell: bash
         run: |
