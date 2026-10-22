@@ -21,6 +21,7 @@
 #include "WaveLibrary.h"
 
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickImageProvider>
@@ -30,6 +31,15 @@
 
 int main(int argc, char* argv[]) {
     QGuiApplication app(argc, argv);
+
+    // 窗口图标：以 256 为基准，再补 64/32/16，任务栏与 Alt-Tab 在不同 DPI 下都有合适尺寸
+    QIcon app_icon;
+    app_icon.addFile(QStringLiteral(":/icon/assets/icon/dglab-client-256.png"));
+    app_icon.addFile(QStringLiteral(":/icon/assets/icon/dglab-client-64.png"));
+    app_icon.addFile(QStringLiteral(":/icon/assets/icon/dglab-client-32.png"));
+    app_icon.addFile(QStringLiteral(":/icon/assets/icon/dglab-client-16.png"));
+    QGuiApplication::setWindowIcon(app_icon);
+
     // 统一使用 Basic 样式：界面外观完全由 QML 的样式令牌控制（不叠加平台样式）
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 

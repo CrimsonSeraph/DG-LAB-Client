@@ -187,6 +187,14 @@ set(PROJECT_SOURCES
 	config/rules/rules.json
 )
 
+# Windows 可执行文件图标：app.rc 只描述 exe 的图标资源（资源管理器里显示的那个），
+# 仅在 Windows 下加入目标源，Linux / macOS（CI 的 linux、macos 工作流）不受影响。
+if(WIN32)
+	list(APPEND PROJECT_SOURCES
+		app.rc
+	)
+endif()
+
 # -------------------- 创建可执行文件 --------------------
 if(QT_VERSION_MAJOR EQUAL 6)
 	qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})

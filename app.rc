@@ -1,0 +1,3 @@
+// Windows resource script: only the executable file icon (the one Explorer shows).
+// ASCII-only on purpose, so rc.exe never depends on the active code page.
+IDI_ICON1 ICON "assets/icon/dglab-client.ico"

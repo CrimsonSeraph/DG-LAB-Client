@@ -4,4 +4,11 @@
         <file>assets/normal_image/check_white.svg</file>
         <file>assets/normal_image/check_dark.svg</file>
     </qresource>
+    <!-- 应用图标：多尺寸 PNG 供 QIcon 组合使用（ico 只嵌入 Windows exe 文件图标，不进资源） -->
+    <qresource prefix="/icon">
+        <file>assets/icon/dglab-client-256.png</file>
+        <file>assets/icon/dglab-client-64.png</file>
+        <file>assets/icon/dglab-client-32.png</file>
+        <file>assets/icon/dglab-client-16.png</file>
+    </qresource>
 </RCC>
