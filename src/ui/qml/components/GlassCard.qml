@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 
 // 玻璃拟态卡片容器：统一背景 / 圆角 / 描边 / 内边距，内容通过默认属性注入。
+// 常态视觉固定；仅在禁用（enabled=false）或获得焦点时改变描边与透明度。
 Rectangle {
     id: root
 
@@ -10,10 +11,16 @@ Rectangle {
 
     default property alias contentData: body.data
 
+    opacity: root.enabled ? 1.0 : Metrics.disabledOpacity
     color: Theme.surface
     radius: Metrics.cardRadius
-    border.width: Metrics.borderWidth
-    border.color: Theme.border
+    border.width: (root.enabled && root.activeFocus) ? Metrics.focusRingWidth : Metrics.borderWidth
+    border.color: {
+        if (!root.enabled) {
+            return Theme.borderDisabled;
+        }
+        return root.activeFocus ? Theme.focusRing : Theme.border;
+    }
     implicitWidth: layout.implicitWidth + Metrics.cardPadding * 2
     implicitHeight: layout.implicitHeight + Metrics.cardPadding * 2
 
@@ -31,7 +38,7 @@ Rectangle {
             visible: root.titleVisible
             text: root.title
             color: Theme.textPrimary
-            font.pixelSize: Typography.fontSubheading
+            font.pixelSize: Typography.fontSubtitle
             font.bold: true
             elide: Text.ElideRight
         }

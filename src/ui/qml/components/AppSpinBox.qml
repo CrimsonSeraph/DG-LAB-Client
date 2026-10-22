@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 // 主题化 SpinBox：内容区 / 上下指示器 / 背景全部取自 Theme 令牌。
 // 交互约定：QML 不写信号处理器，数值变化由 C++（UiConnector）按 objectName 连接。
+// 状态：enabled / activeFocus / visualFocus / 指示器 pressed 全部取令牌。
 SpinBox {
     id: control
 
@@ -13,9 +14,9 @@ SpinBox {
         padding: ComponentStyle.spinContentPadding
 
         font: control.font
-        color: control.enabled ? Theme.textPrimary : Theme.textMuted
+        color: control.enabled ? Theme.textPrimary : Theme.textDisabled
         selectionColor: Theme.selectionBg
-        selectedTextColor: Theme.textPrimary
+        selectedTextColor: control.enabled ? Theme.textPrimary : Theme.textDisabled
         horizontalAlignment: Qt.AlignHCenter
         verticalAlignment: Qt.AlignVCenter
 
@@ -30,14 +31,14 @@ SpinBox {
         implicitWidth: ComponentStyle.spinIndicatorWidth
         implicitHeight: ComponentStyle.spinIndicatorWidth
         radius: Metrics.radiusSm
-        color: control.up.pressed ? Theme.pressed : Theme.surface
+        color: !control.enabled ? Theme.surfaceDisabled : (control.up.pressed ? Theme.pressed : Theme.surface)
         border.width: Metrics.borderWidth
-        border.color: Theme.border
+        border.color: control.enabled ? Theme.border : Theme.borderDisabled
 
         Text {
             anchors.centerIn: parent
             text: "+"
-            color: control.enabled ? Theme.textPrimary : Theme.textMuted
+            color: control.enabled ? Theme.textPrimary : Theme.textDisabled
             font.pixelSize: Typography.fontBody
         }
     }
@@ -48,14 +49,14 @@ SpinBox {
         implicitWidth: ComponentStyle.spinIndicatorWidth
         implicitHeight: ComponentStyle.spinIndicatorWidth
         radius: Metrics.radiusSm
-        color: control.down.pressed ? Theme.pressed : Theme.surface
+        color: !control.enabled ? Theme.surfaceDisabled : (control.down.pressed ? Theme.pressed : Theme.surface)
         border.width: Metrics.borderWidth
-        border.color: Theme.border
+        border.color: control.enabled ? Theme.border : Theme.borderDisabled
 
         Text {
             anchors.centerIn: parent
             text: "−"
-            color: control.enabled ? Theme.textPrimary : Theme.textMuted
+            color: control.enabled ? Theme.textPrimary : Theme.textDisabled
             font.pixelSize: Typography.fontBody
         }
     }
@@ -64,8 +65,13 @@ SpinBox {
         implicitWidth: ComponentStyle.inputMinWidth
         implicitHeight: ComponentStyle.inputHeight
         radius: Metrics.radiusSm
-        color: Theme.surfaceAlt
-        border.width: control.activeFocus ? 2 : Metrics.borderWidth
-        border.color: control.activeFocus ? Theme.accent : Theme.border
+        color: control.enabled ? Theme.surfaceAlt : Theme.surfaceDisabled
+        border.width: (control.enabled && (control.activeFocus || control.visualFocus)) ? Metrics.focusRingWidth : Metrics.borderWidth
+        border.color: {
+            if (!control.enabled) {
+                return Theme.borderDisabled;
+            }
+            return (control.activeFocus || control.visualFocus) ? Theme.focusRing : Theme.border;
+        }
     }
 }

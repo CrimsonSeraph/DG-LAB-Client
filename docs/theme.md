@@ -33,9 +33,20 @@
 | `textMuted` | color | 弱化文字（对 `surface` / `surfaceAlt` 达 AA） |
 | `accent` | color | 强调色：选中态、焦点描边、连线、数值高亮 |
 | `accentText` | color | 画在 `accent` 之上的对比文字 |
-| `hover` / `pressed` | color | 强调色控件悬停 / 按下态 |
-| `selectionBg` | color | 选中项背景（导航选中、节点选中、下拉高亮） |
+| `hover` / `pressed` | color | 强调色控件悬停 / 按下态（按下朝背离 `accentText` 的方向多走 0.42，比悬停更明显一档且文字对比度随按压上升） |
+| `selectionBg` | color | 选中项背景：`surface` 与 `accent` 调出的着色带（对 `surface` ≥1.20:1，可读成一条带） |
+| `selectionText` | color | 选中项文字（对 `selectionBg` ≥4.5:1）；与 `selectionBg` 成对使用 |
 | `success` / `warning` / `danger` | color | 语义色，逐主题校正到在 `surface` 上可读 |
+| `focusRing` | color | 焦点环（对 `surface` / `surfaceAlt` 均 ≥3:1），由 `accent` 派生 |
+| `textDisabled` | color | 禁用态文字，由 `textMuted` 派生（对 `surfaceDisabled` ≥3:1） |
+| `surfaceDisabled` | color | 禁用态底色，由 `surface` 与 `surfaceSubtle` 各半混合 |
+| `borderDisabled` | color | 禁用态描边，由 `border` 派生（对 `surfaceDisabled` ≥1.35:1） |
+| `surfacePressed` | color | 中性控件按下底色：`surfaceAlt` 压暗 8%，其上 `textPrimary` ≥4.5:1 |
+| `transparentFill` | color | 完全透明（供 `Shape` 填充、无描边按钮等使用，替代 QML 里的 `"transparent"`） |
+| `dangerText` | color | 危险态填充文字，对 `danger` / `dangerHover` / `dangerPressed` 均 ≥4.5:1 |
+| `dangerHover` | color | 危险态悬停底色，由 `danger` 朝远离 `surface` 方向混 10% |
+| `dangerPressed` | color | 危险态按下底色：`danger` 向 `surface` 混 12%，再按填充文字侧校正到 AA |
+| `dangerOnAlt` / `warningOnAlt` / `successOnAlt` | color | 语义色在 `surfaceAlt` 上的校正版本（≥4.5:1） |
 | `presets` | list | 预设主题数组：`{ mode, name, primary, secondary, dark }` |
 
 ---
@@ -75,6 +86,10 @@
 2. 先校正背景：浅色主题保证纯黑文字可达 7.05:1，深色主题保证纯白文字可达 7.05:1（`ensure_background`），必要时把底色压暗/提亮。
 3. 再校正文字：`textPrimary` 在 `surface` 上达 7:1；`textSecondary` / `textMuted` 在 `surface` 与 `surfaceAlt` 上达 4.5:1（`ensure_contrast`）。
 4. 校正 `accent`、`accentText`、`border`、`divider` 与 `success` / `warning` / `danger`。
+5. 派生强调态交互色：`hover` = `accent` 朝背离底色方向混 14%（文字对比度只升不降）；`pressed` = `accent` 朝**背离 `accentText`** 的方向混 42%（`accentText` 浅则压暗、深则提亮），因此按下比悬停更明显一档，且 `accentText` 在按下态对比度单调上升，无需搜索。
+6. 派生选中态：`selectionBg` = `surface` 与 `accent` 的着色带（深色 0.30 / 浅色 0.16），先加大系数保证对 `surface` ≥1.20:1；若其上 `textPrimary` 不足 4.5:1，再朝背离文字的方向推移到两条同时成立。`selectionText` = `accent` 对 `selectionBg` 校正到 4.5:1（着色带会压低 `accent` 的对比度，故选中等文字单独一档）。
+7. 派生焦点与禁用令牌：`focusRing` = 校正后的 `accent`（对两个表面 ≥3:1）；`surfaceDisabled`、`textDisabled`、`borderDisabled` 依次派生并在底色上校验。
+8. 派生危险态填充：`dangerText` 取黑/白中在 `danger` 上达标者（任意底色至少一端可达标）；`dangerHover` 混 10%；`dangerPressed` 先向 `surface` 混 12%，若不达 AA 再朝远离文字的方向推移。
 
 下表为 16 套预设计算后的关键令牌（近似整数值，实际以运行时 `QColor` 为准）：
 
@@ -110,9 +125,53 @@
 | `border` / `surface`、`surfaceAlt`         | 1.35:1 | 描边可辨（非文字，按可感知下限） |
 | `divider` / `surface`、`surfaceAlt`        | 1.15:1 | 分隔线/网格可辨                  |
 | `danger`、`warning`、`success` / `surface` | 4.5:1  | 语义色作为文字/描边时可读        |
-| `accentText` / `accent`                    | 4.5:1  | 强调色按钮上的文字               |
+| `accentText` / `accent`、`hover`、`pressed` | 4.5:1  | 强调色按钮三种状态的填充文字     |
+| `selectionBg` / `surface`                 | 1.20:1 | 选中带相对底色可辨               |
+| `textPrimary` / `selectionBg`             | 4.5:1  | 下拉委托等画在选中带上的主文字   |
+| `selectionText` / `selectionBg`           | 4.5:1  | 导航选中态文字与其背景           |
+| `dangerText` / `danger`、`dangerPressed` | 4.5:1  | 危险按钮填充文字与其底色         |
+| `dangerOnAlt` / `warningOnAlt` / `successOnAlt` / `surfaceAlt` | 4.5:1 | 语义色画在次级表面上 |
+| `focusRing` / `surface`、`surfaceAlt`     | 3.0:1  | 焦点环（WCAG 非文本）            |
+| `textDisabled` / `surfaceDisabled`        | 3.0:1  | 禁用态文字（WCAG 非文本下限）    |
+| `borderDisabled` / `surfaceDisabled`      | 1.35:1 | 禁用态描边可辨                   |
+| `surfacePressed` / `textPrimary`           | 4.5:1  | 中性控件按下态文字               |
 
-约束由 `ThemeManager.cpp` 中的 `relative_luminance` / `contrast_ratio` / `ensure_contrast` / `ensure_background` 保证：对不达标的前景/背景按 1% 步进向黑或白逼近，直到达标；由于黑白极值通常足以满足上述下限，结果确定且与主题数量无关。
+约束由 `ThemeManager.cpp` 中的 `relative_luminance` / `contrast_ratio` / `ensure_contrast` / `ensure_background` / `selection_band` 保证：对不达标的前景/背景按 1% 步进向黑或白逼近，直到达标；由于黑白极值通常足以满足上述下限，结果确定且与主题数量无关。`selectionText` 的搜索目标取 4.55:1，留出 16 位通道量化余量。
+
+### 5.1 实测达成值
+
+按 `recompute()` 复现计算后的关键组合（16 套预设全部 ≥ 下限，下表取三套代表）：
+
+| 组合 | 下限 | 浅色模式 | 深色模式 | 炭黑甜粉 |
+| --- | --- | --- | --- | --- |
+| `accentText` / `accent` | 4.5 | 4.91 | 5.26 | 4.67 |
+| `accentText` / `hover` | 4.5 | 6.21 | 6.19 | 5.44 |
+| `accentText` / `pressed` | 4.5 | 10.16 | 8.36 | 7.51 |
+| `selectionBg` / `surface` | 1.20 | 1.22 | 1.70 | 1.60 |
+| `textPrimary` / `selectionBg` | 4.5 | 5.84 | 7.42 | 9.23 |
+| `selectionText` / `selectionBg` | 4.5 | 4.60 | 4.58 | 4.59 |
+| `hover` / `pressed`（按下可见性） | — | 1.64 | 1.35 | 1.38 |
+| `dangerText` / `danger` | 4.5 | 5.44 | 6.15 | 5.51 |
+| `dangerText` / `dangerHover` | 4.5 | 6.40 | 7.03 | 6.36 |
+| `dangerText` / `dangerPressed` | 4.5 | 4.52 | 5.16 | 4.61 |
+| `dangerOnAlt` / `surfaceAlt` | 4.5 | 5.05 | 4.55 | 4.52 |
+| `warningOnAlt` / `surfaceAlt` | 4.5 | 4.55 | 4.51 | 4.54 |
+| `successOnAlt` / `surfaceAlt` | 4.5 | 4.64 | 4.55 | 4.51 |
+| `textDisabled` / `surfaceDisabled` | 3.0 | 4.77 | 5.53 | 6.86 |
+| `focusRing` / `surface` | 3.0 | 4.66 | 5.74 | 5.68 |
+| `borderDisabled` / `surfaceDisabled` | 1.35 | 1.43 | 1.97 | 1.97 |
+
+16 套预设扫描结论：上述组合**全部达标**；主文字令牌（`textPrimary` / `textSecondary` / `textMuted` / `accent` 对 `surface`）的派生未改动，浅色模式 7.10 / 4.71 / 4.71 / 4.66、深色模式 12.65 / 6.93 / 5.76 / 5.74 与改造前一致。
+
+选中态由**两个令牌成对**承担：`selectionBg`（着色带）+`selectionText`（选中文字）。`selectionBg` 上只画 `textPrimary`（下拉委托）或 `selectionText`（导航选中），不再出现 `accentText`，因此无需让同一个背景同时对两极达标。三套代表主题的取值：
+
+| mode | `selectionBg` | `selectionText` | `textPrimary` | `accent` | `pressed` |
+| --- | --- | --- | --- | --- | --- |
+| `light` | `#E0E4E9` | `#5E656A` | `#4F565A` | `#697277` | `#3D4245` |
+| `night` | `#3F4953` | `#B2B8BF` | `#E6E8EA` | `#959EA7` | `#C2C7CC` |
+| `charcoal_pink` | `#593142` | `#F088B1` | `#FCE7EF` | `#EC6599` | `#F4A6C4` |
+
+按下态：`pressed` 朝背离 `accentText` 的方向混 42%，`accentText` 在按下态的对比度随之升到 7.5:1 以上，且按下比悬停明显更深/更亮一档（三套代表主题 `hover`/`pressed` 对比度 1.64 / 1.35 / 1.38）。16 套中最紧的是克莱因黄、藤紫钛绿、马尔斯玫瑰（1.06–1.10）：它们的 `accent` 本就接近白色，`accentText` 为深色，「背离文字」的方向很快撞到白色上限；再往深处走会跌破 4.5:1，故取物理可达的最大步进。
 
 ---
 
@@ -149,10 +208,19 @@
 | 控件           | 基于        | 说明                                          |
 | -------------- | ----------- | --------------------------------------------- |
 | `AppSpinBox`   | `SpinBox`   | 内容区、上下指示器、背景全部主题化            |
-| `AppTextField` | `TextField` | 文字/占位符/选区/背景主题化，聚焦描边转强调色 |
+| `AppTextField` | `TextField` | 文字/占位符/选区/背景主题化，聚焦描边转焦点环 |
 | `AppTextArea`  | `TextArea`  | 同上，用于表达式等长文本                      |
 | `AppComboBox`  | `ComboBox`  | 内容区、指示器、弹层、委托全部主题化          |
 | `AppCheckBox`  | `CheckBox`  | 指示器与文字主题化，选中态用强调色            |
+| `AppButton` / `NavButton` | `Button` | 强调/危险/中性三态，按下用 `pressed` / `dangerPressed` / `surfacePressed`；导航选中态为 `selectionBg` + `selectionText` |
+
+组件状态约定（尺寸与透明度取 `Metrics.focusRingWidth` / `focusRingOffset` / `disabledOpacity`）：
+
+| 状态 | 表现 |
+| --- | --- |
+| 焦点 | `activeFocus` 或 `visualFocus` 时画 `focusRing` 描边，宽 `Metrics.focusRingWidth` |
+| 禁用 | `enabled === false`：底色 `surfaceDisabled`、文字 `textDisabled`、描边 `borderDisabled`，透明度 `Metrics.disabledOpacity` |
+| 只读 | 输入框保留正常底色与描边，文字降为 `textSecondary`（与禁用态可区分） |
 
 新增输入控件时复用这些封装，不要直接使用 Qt 原生控件；尺寸常量放在 `ComponentStyle`。
 

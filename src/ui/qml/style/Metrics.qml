@@ -22,6 +22,11 @@ QtObject {
     readonly property int radiusLg: 12
     readonly property int borderWidth: 1
 
+    // 焦点与禁用态
+    readonly property int focusRingWidth: 2
+    readonly property int focusRingOffset: 1
+    readonly property real disabledOpacity: 0.45
+
     // 导航栏
     readonly property int navWidth: 190
     readonly property int navButtonHeight: 42

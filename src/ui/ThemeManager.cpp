@@ -91,6 +91,53 @@ namespace {
         return contrast_ratio(light, background) >= contrast_ratio(dark, background) ? light : dark;
     }
 
+    /// @brief 一组背景中的最小对比度（用于「同一前景在多个底色上都要达标」的判断）
+    qreal worst_contrast(const QColor& foreground, std::initializer_list<QColor> backgrounds) {
+        qreal worst = 21.0;
+        for (const QColor& background : backgrounds) {
+            worst = std::min(worst, contrast_ratio(foreground, background));
+        }
+        return worst;
+    }
+
+    /// @brief 在全部背景上都达到 target 的填充文字色：先试项目惯用色，必要时退到纯黑/纯白（任意底色至少有一端可达标）
+    QColor fill_text(std::initializer_list<QColor> backgrounds, qreal target) {
+        const std::initializer_list<QColor> candidates = { contrast_text(*backgrounds.begin()), QColor(Qt::white), QColor(Qt::black) };
+        QColor best = QColor(Qt::white);
+        qreal best_score = -1.0;
+        for (const QColor& candidate : candidates) {
+            const qreal score = worst_contrast(candidate, backgrounds);
+            if (score >= target) {
+                return candidate;
+            }
+            if (score > best_score) {
+                best_score = score;
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    /// @brief 选中带：由 surface 与 accent 调出的着色带，需同时「与 surface 可辨」且「承载 text 达 target」
+    /// 先加大 accent 着色系数保证可辨；文字仍不达标时朝背离文字的方向加深/提亮，直到两条同时成立。
+    QColor selection_band(const QColor& surface, const QColor& accent, const QColor& text, qreal preferred, qreal visibility, qreal target) {
+        qreal tint = preferred;
+        QColor band = mix(surface, accent, tint);
+        while (tint < 1.0 && contrast_ratio(band, surface) < visibility) {
+            tint += 0.01;
+            band = mix(surface, accent, tint);
+        }
+        const QColor base = band;
+        const QColor limit = relative_luminance(text) < 0.5 ? QColor(Qt::white) : QColor(Qt::black);
+        for (qreal push = 0.0; push <= 1.0; push += 0.01) {
+            band = mix(base, limit, push);
+            if (contrast_ratio(text, band) >= target && contrast_ratio(band, surface) >= visibility) {
+                return band;
+            }
+        }
+        return limit;
+    }
+
     // 语义色基准值：每个主题都从基准色重新校正，避免主题间反复调整产生漂移
     const QColor kSuccess(0x2E, 0x7D, 0x5B);
     const QColor kWarning(0xB7, 0x79, 0x1F);
@@ -255,9 +302,8 @@ void ThemeManager::recompute() {
     // 文字需同时在 surface / surfaceAlt / windowBg 上可读：surface 上达 WCAG AAA（7:1），其余至少达 AA（4.5:1）
     text_primary_ = ensure_contrast_on(text_primary_, { surface_alt_, window_bg_ }, 4.5);
 
-    // 强调色作为文字/图标需在表面上可读，其上的对比文字也需可读
+    // 强调色作为文字/图标需在表面上可读
     accent_ = ensure_contrast_on(accent_, { surface_, surface_alt_ }, 4.5);
-    accent_text_ = ensure_contrast(contrast_text(accent_), accent_, 4.5);
 
     // 边框与分隔线在 surface 与 surfaceAlt 上都需可见
     border_ = ensure_contrast_on(border_, { surface_, surface_alt_ }, 1.35);
@@ -268,9 +314,35 @@ void ThemeManager::recompute() {
     warning_ = ensure_contrast(kWarning, surface_, 4.5);
     danger_ = ensure_contrast(kDanger, surface_, 4.5);
 
+    // 强调态交互：悬停恒使文字对比度升高；填充文字在 accent 与 hover 上取同一色
     hover_ = mix(accent_, dark_ ? Qt::white : Qt::black, 0.14);
-    pressed_ = mix(accent_, dark_ ? Qt::black : Qt::white, 0.14);
-    selection_bg_ = mix(accent_, dark_ ? Qt::black : Qt::white, dark_ ? 0.62 : 0.74);
+    accent_text_ = fill_text({ accent_, hover_ }, 4.5);
+    // 按下态朝背离填充文字的方向多走一档（accentText 浅则压暗、深则提亮），对比度随按压单调上升
+    pressed_ = mix(accent_, accent_text_.lightness() > 127 ? Qt::black : Qt::white, 0.42);
+    // 选中带：accent 着色成一条可辨的带（对 surface ≥1.20:1），其上 textPrimary 达 AA；选中态文字单独一档
+    selection_bg_ = selection_band(surface_, accent_, text_primary_, dark_ ? 0.30 : 0.16, 1.20, 4.5);
+    selection_text_ = ensure_contrast(accent_, selection_bg_, 4.55);
+
+    // 焦点环：对 surface / surfaceAlt 均达 WCAG 非文本下限 3:1
+    focus_ring_ = ensure_contrast_on(accent_, { surface_, surface_alt_ }, 3.0);
+
+    // 禁用三件套：底色由 surfaceSubtle 撑平，文字按 WCAG 非文本下限 3:1 校正
+    surface_disabled_ = mix(surface_, surface_subtle_, 0.5);
+    text_disabled_ = ensure_contrast(text_muted_, surface_disabled_, 3.0);
+    border_disabled_ = ensure_contrast(border_, surface_disabled_, 1.35);
+
+    // 中性控件按下底色：略暗于 surfaceAlt，且承载 textPrimary 仍达 AA
+    surface_pressed_ = ensure_background(mix(surface_alt_, Qt::black, 0.08), text_primary_, 4.5);
+
+    // 危险按钮：填充文字对 danger / hover / pressed 均达 AA（填充文字与底色同源派生，避免魔法值）
+    danger_text_ = fill_text({ danger_ }, 4.5);
+    danger_hover_ = mix(danger_, dark_ ? Qt::white : Qt::black, 0.10);
+    danger_pressed_ = ensure_background(mix(danger_, surface_, 0.12), danger_text_, 4.5);
+
+    // 语义色在次级表面上的校正版本
+    danger_on_alt_ = ensure_contrast(danger_, surface_alt_, 4.5);
+    warning_on_alt_ = ensure_contrast(warning_, surface_alt_, 4.5);
+    success_on_alt_ = ensure_contrast(success_, surface_alt_, 4.5);
 
     emit themeChanged();
 }
@@ -282,4 +354,3 @@ void ThemeManager::persist(const QString& mode, const QColor& primary, const QCo
     config.set_value<std::string>("app.ui.custom.secondary", secondary.name(QColor::HexRgb).toStdString());
     config.save_all();
 }
-

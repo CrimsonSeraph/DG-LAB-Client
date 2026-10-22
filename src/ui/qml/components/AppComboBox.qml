@@ -5,15 +5,18 @@ import QtQuick.Controls
 
 // 主题化下拉框：内容区 / 指示器 / 弹层 / 委托全部取自 Theme 令牌。
 // 交互约定：QML 不写信号处理器，选项切换由 C++（UiConnector）按 objectName 连接。
+// 状态：enabled / hovered / activeFocus / visualFocus 的底色与描边宽度统一从令牌取。
 ComboBox {
     id: control
+
+    opacity: control.enabled ? 1.0 : Metrics.disabledOpacity
 
     contentItem: Text {
         leftPadding: ComponentStyle.inputPadding
         rightPadding: control.indicator ? control.indicator.width + control.spacing : 0
         text: control.displayText
         font: control.font
-        color: control.enabled ? Theme.textPrimary : Theme.textMuted
+        color: control.enabled ? Theme.textPrimary : Theme.textDisabled
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
     }
@@ -22,9 +25,8 @@ ComboBox {
         x: control.mirrored ? control.padding : control.width - width - control.padding
         y: control.topPadding + (control.availableHeight - height) / 2
         text: "▾"
-        color: control.enabled ? Theme.textSecondary : Theme.textMuted
+        color: control.enabled ? Theme.textSecondary : Theme.textDisabled
         font.pixelSize: Typography.fontBody
-        opacity: control.enabled ? 1.0 : 0.5
     }
 
     delegate: ItemDelegate {
@@ -47,7 +49,7 @@ ComboBox {
             rightPadding: ComponentStyle.inputPadding
             text: optionDelegate.text
             font: optionDelegate.font
-            color: Theme.textPrimary
+            color: control.enabled ? Theme.textPrimary : Theme.textDisabled
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
@@ -79,8 +81,18 @@ ComboBox {
         implicitWidth: ComponentStyle.inputMinWidth
         implicitHeight: ComponentStyle.inputHeight
         radius: Metrics.radiusSm
-        color: Theme.surfaceAlt
-        border.width: Metrics.borderWidth
-        border.color: control.activeFocus ? Theme.accent : Theme.border
+        color: {
+            if (!control.enabled) {
+                return Theme.surfaceDisabled;
+            }
+            return control.hovered ? Theme.surface : Theme.surfaceAlt;
+        }
+        border.width: (control.enabled && (control.activeFocus || control.visualFocus)) ? Metrics.focusRingWidth : Metrics.borderWidth
+        border.color: {
+            if (!control.enabled) {
+                return Theme.borderDisabled;
+            }
+            return (control.activeFocus || control.visualFocus) ? Theme.focusRing : Theme.border;
+        }
     }
 }

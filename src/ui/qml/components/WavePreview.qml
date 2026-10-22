@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Shapes
 
 // 波形预览：强度曲线（主色）与频率曲线（副色）。
+// 常态视觉固定；仅在禁用（enabled=false）或获得焦点时改变外框描边与透明度。
 // 使用 Shape/PathPolyline（保留模式），不写任何信号处理器。
 Item {
     id: root
@@ -11,24 +12,30 @@ Item {
 
     implicitWidth: ComponentStyle.wavePreviewMinWidth
     implicitHeight: ComponentStyle.wavePreviewHeight
+    opacity: root.enabled ? 1.0 : Metrics.disabledOpacity
     clip: true
 
     Rectangle {
         anchors.fill: parent
         radius: Metrics.radiusSm
         color: Theme.surface
-        border.width: Metrics.borderWidth
-        border.color: Theme.divider
+        border.width: (root.enabled && root.activeFocus) ? Metrics.focusRingWidth : Metrics.borderWidth
+        border.color: {
+            if (!root.enabled) {
+                return Theme.borderDisabled;
+            }
+            return root.activeFocus ? Theme.focusRing : Theme.divider;
+        }
     }
 
     Shape {
         anchors.fill: parent
-        anchors.margins: 3
+        anchors.margins: ComponentStyle.waveInset
 
         ShapePath {
             strokeColor: Theme.accent
-            strokeWidth: 2
-            fillColor: "transparent"
+            strokeWidth: ComponentStyle.waveStrokeWidth
+            fillColor: Theme.transparentFill
             capStyle: ShapePath.RoundCap
             joinStyle: ShapePath.RoundJoin
             PathPolyline {
@@ -39,13 +46,13 @@ Item {
 
     Shape {
         anchors.fill: parent
-        anchors.margins: 3
+        anchors.margins: ComponentStyle.waveInset
         visible: root.showFrequency && root.points.length > 0
 
         ShapePath {
             strokeColor: Theme.secondary
-            strokeWidth: 1
-            fillColor: "transparent"
+            strokeWidth: ComponentStyle.waveFrequencyStrokeWidth
+            fillColor: Theme.transparentFill
             PathPolyline {
                 path: root.buildPath(true)
             }
@@ -57,7 +64,7 @@ Item {
         visible: root.points.length === 0
         text: qsTr("无波形")
         color: Theme.textMuted
-        font.pixelSize: Typography.fontCaption
+        font.pixelSize: Typography.fontBody
     }
 
     /// @brief 生成曲线路径；freq 为 true 时生成频率曲线（0~240 归一化）
@@ -67,8 +74,8 @@ Item {
         if (!pts || pts.length === 0) {
             return result;
         }
-        var w = root.width - 6;
-        var h = root.height - 6;
+        var w = root.width - 2 * ComponentStyle.waveInset;
+        var h = root.height - 2 * ComponentStyle.waveInset;
         if (w <= 0 || h <= 0) {
             return result;
         }

@@ -37,9 +37,22 @@ class ThemeManager : public QObject {
     Q_PROPERTY(QColor hover READ hover NOTIFY themeChanged)
     Q_PROPERTY(QColor pressed READ pressed NOTIFY themeChanged)
     Q_PROPERTY(QColor selectionBg READ selection_bg NOTIFY themeChanged)
+    Q_PROPERTY(QColor selectionText READ selection_text NOTIFY themeChanged)
     Q_PROPERTY(QColor success READ success NOTIFY themeChanged)
     Q_PROPERTY(QColor warning READ warning NOTIFY themeChanged)
     Q_PROPERTY(QColor danger READ danger NOTIFY themeChanged)
+    Q_PROPERTY(QColor focusRing READ focus_ring NOTIFY themeChanged)
+    Q_PROPERTY(QColor textDisabled READ text_disabled NOTIFY themeChanged)
+    Q_PROPERTY(QColor surfaceDisabled READ surface_disabled NOTIFY themeChanged)
+    Q_PROPERTY(QColor borderDisabled READ border_disabled NOTIFY themeChanged)
+    Q_PROPERTY(QColor surfacePressed READ surface_pressed NOTIFY themeChanged)
+    Q_PROPERTY(QColor transparentFill READ transparent_fill NOTIFY themeChanged)
+    Q_PROPERTY(QColor dangerText READ danger_text NOTIFY themeChanged)
+    Q_PROPERTY(QColor dangerHover READ danger_hover NOTIFY themeChanged)
+    Q_PROPERTY(QColor dangerPressed READ danger_pressed NOTIFY themeChanged)
+    Q_PROPERTY(QColor dangerOnAlt READ danger_on_alt NOTIFY themeChanged)
+    Q_PROPERTY(QColor warningOnAlt READ warning_on_alt NOTIFY themeChanged)
+    Q_PROPERTY(QColor successOnAlt READ success_on_alt NOTIFY themeChanged)
     Q_PROPERTY(QVariantList presets READ presets CONSTANT)
 
 public:
@@ -68,9 +81,22 @@ public:
     QColor hover() const { return hover_; }
     QColor pressed() const { return pressed_; }
     QColor selection_bg() const { return selection_bg_; }
+    QColor selection_text() const { return selection_text_; }
     QColor success() const { return success_; }
     QColor warning() const { return warning_; }
     QColor danger() const { return danger_; }
+    QColor focus_ring() const { return focus_ring_; }
+    QColor text_disabled() const { return text_disabled_; }
+    QColor surface_disabled() const { return surface_disabled_; }
+    QColor border_disabled() const { return border_disabled_; }
+    QColor surface_pressed() const { return surface_pressed_; }
+    QColor transparent_fill() const { return transparent_fill_; }
+    QColor danger_text() const { return danger_text_; }
+    QColor danger_hover() const { return danger_hover_; }
+    QColor danger_pressed() const { return danger_pressed_; }
+    QColor danger_on_alt() const { return danger_on_alt_; }
+    QColor warning_on_alt() const { return warning_on_alt_; }
+    QColor success_on_alt() const { return success_on_alt_; }
     QVariantList presets() const;
 
     /// @brief 应用预设主题（mode 为预设英文名，如 "light"/"night"）
@@ -116,7 +142,20 @@ private:
     QColor hover_;
     QColor pressed_;
     QColor selection_bg_;
+    QColor selection_text_;
     QColor success_ = QColor(0x2E, 0x7D, 0x5B);
     QColor warning_ = QColor(0xB7, 0x79, 0x1F);
     QColor danger_ = QColor(0xC0, 0x39, 0x2B);
+    QColor focus_ring_;
+    QColor text_disabled_;
+    QColor surface_disabled_;
+    QColor border_disabled_;
+    QColor surface_pressed_;
+    QColor transparent_fill_ = QColor(Qt::transparent);
+    QColor danger_text_;
+    QColor danger_hover_;
+    QColor danger_pressed_;
+    QColor danger_on_alt_;
+    QColor warning_on_alt_;
+    QColor success_on_alt_;
 };
