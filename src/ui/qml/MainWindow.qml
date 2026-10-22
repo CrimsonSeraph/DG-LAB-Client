@@ -39,7 +39,7 @@ ApplicationWindow {
                 spacing: Metrics.spacingSm
 
                 Image {
-                    source: "qrc:/image/assets/normal_image/main_image.png"
+                    source: "qrc:/icon/assets/icon/dglab-client-128.png"
                     sourceSize.width: 40
                     sourceSize.height: 40
                     Layout.preferredWidth: 40

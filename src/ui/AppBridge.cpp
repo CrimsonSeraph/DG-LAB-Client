@@ -6,6 +6,7 @@
 #include "AppBridge.h"
 
 #include "AppConfig.h"
+#include "AppVersion.h"
 
 namespace {
 /// @brief 一次性反馈浮层的驻留时长
@@ -26,7 +27,7 @@ AppBridge::AppBridge(QObject* parent)
 void AppBridge::initialize() {
     const auto& config = AppConfig::instance();
     app_name_ = QString::fromStdString(config.get_value<std::string>("app.name", "DG-LAB-Client"));
-    app_version_ = QString::fromStdString(config.get_value<std::string>("app.version", "2.2.0"));
+    app_version_ = QString::fromStdString(config.get_value<std::string>("app.version", APP_VERSION));
     emit appInfoChanged();
 }
 

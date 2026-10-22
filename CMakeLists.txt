@@ -1,6 +1,33 @@
-# 要求 CMake 最低版本 3.16
-cmake_minimum_required(VERSION 3.16)
-project(DG-LAB-Client VERSION 2.2.0 LANGUAGES CXX)
+# 要求 CMake 最低版本 3.19（string(JSON) 自 3.19 起可用）
+cmake_minimum_required(VERSION 3.19)
+# project() 的 VERSION 只接受字面量，故此处不写版本；版本号在下方从配置读取后注入
+project(DG-LAB-Client LANGUAGES CXX)
+
+# -------------------- 版本号单一来源 --------------------
+# config/main.json 的 app.version 是唯一真相来源：运行期由 AppConfig 读取该字段，
+# 构建期由 CMake 读同一个字段并生成 AppVersion.h，源码与 README 内不再写死版本号。
+set(DGLAB_VERSION_JSON "${CMAKE_CURRENT_SOURCE_DIR}/config/main.json")
+file(READ "${DGLAB_VERSION_JSON}" _dglab_main_json)
+string(JSON APP_VERSION GET "${_dglab_main_json}" app version)
+if(NOT APP_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+	message(FATAL_ERROR
+		"config/main.json 的 app.version 必须是 主.次.修订 三段数字形式，实际读到: '${APP_VERSION}'"
+	)
+endif()
+
+# CPack 与工程版本统一取 JSON 里的同一个值
+string(REPLACE "." ";" _dglab_version_parts "${APP_VERSION}")
+list(GET _dglab_version_parts 0 PROJECT_VERSION_MAJOR)
+list(GET _dglab_version_parts 1 PROJECT_VERSION_MINOR)
+list(GET _dglab_version_parts 2 PROJECT_VERSION_PATCH)
+set(PROJECT_VERSION "${APP_VERSION}")
+
+# 生成 AppVersion.h 供 C++ 引用（宏展开为字符串字面量）
+set(DGLAB_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
+configure_file(cmake/AppVersion.h.in "${DGLAB_GENERATED_DIR}/AppVersion.h" @ONLY)
+message(STATUS
+	"APP_VERSION = ${APP_VERSION} (来源: config/main.json 的 app.version)"
+)
 
 # 引入 Qt 相关设置
 include(qt.cmake)
@@ -506,6 +533,8 @@ target_link_libraries(${PROJECT_NAME}
 )
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
+		# 生成目录：AppVersion.h（版本号由 config/main.json 注入）
+		${DGLAB_GENERATED_DIR}
 		${CMAKE_CURRENT_SOURCE_DIR}/include
 		# 头文件按分类存放于 include/ 子目录，全部加入包含路径以便源码以文件名直接引用
 		${CMAKE_CURRENT_SOURCE_DIR}/include/core

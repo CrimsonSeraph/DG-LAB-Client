@@ -1,4 +1,11 @@
-# DG-LAB-Client
+<div align="center">
+  <img src="assets/icon/dglab-client-256.png" width="128" alt="DG-LAB-Client icon"/>
+  <h1>DG-LAB-Client</h1>
+  <img alt="version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FCrimsonSeraph%2FDG-LAB-Client%2Fmain%2Fconfig%2Fmain.json&query=%24.app.version&label=version&color=ff4d8d">
+  <img alt="GitHub License" src="https://img.shields.io/github/license/CrimsonSeraph/DG-LAB-Client">
+  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/CrimsonSeraph/DG-LAB-Client">
+  <p>一个基于 Qt/QML 的 DG-LAB 桌面客户端 · 自托管 WebSocket 中转 · 郊狼 V3 蓝牙直连</p>
+</div>
 
 > **目录**
 >
@@ -16,7 +23,7 @@
 > - [十二、许可证](#十二许可证)
 > - [十三、联系方式](#十三联系方式)
 
-一个基于 Qt/QML 的 DG-LAB 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。当前版本号: `v2.2.0`
+一个基于 Qt/QML 的 DG-LAB 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。版本号以 `config/main.json` 的 `app.version` 为唯一来源，构建时由 CMake 注入。
 
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
@@ -171,7 +178,7 @@ cpack
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "2.2.0",
+        "version": "2.3.0",
         "debug": false,
         "log": {
             "console_level": 0,
@@ -454,7 +461,7 @@ DG-LAB-Client/
 ├── licenses/                   # 第三方许可证文本（GPLv2 / LGPLv3 / MIT）
 ├── module/                     # 动态库插件源码：example、gsi（见 module/README.md）
 ├── python/                     # PathFinder.py：供 CS2 GSI 插件查找游戏目录
-├── screenshot/                 # 文档用截图（others / pages / themes）
+├── screenshot/                 # 文档用截图（pages：当前界面四页）
 ├── src/                        # C++ 源文件，与 include/ 一一对应（见 src/README.md）
 │   └── ui/qml/                 # QML 界面：MainWindow、pages/、home/、dialogs/、components/、style/
 ├── third_party/qrcodegen/      # 内嵌二维码生成库（MIT）
@@ -476,21 +483,17 @@ DG-LAB-Client/
 ## 八、截图
 
 <details>
-<summary>点击展开查看 6 张界面截图 - 最后更新：2026-05-03</summary>
+<summary>点击展开查看 4 张界面截图 - 最后更新：2026-10-23</summary>
 
-### 主界面
+| 首页 | 配置页 |
+| :-: | :-: |
+| ![main_page](screenshot/pages/main_page.png) | ![config_page](screenshot/pages/config_page.png) |
 
-| 首页 | 配置页 | 规则文件管理页 |
-| :-: | :-: | :-: |
-| ![main_page](screenshot/pages/main_page.png) | ![config_page](screenshot/pages/config_page.png) | ![rule_page](screenshot/pages/rule_page.png) |
+| 模块页 | 关于页 |
+| :-: | :-: |
+| ![module_page](screenshot/pages/module_page.png) | ![about_page](screenshot/pages/about_page.png) |
 
-### 功能对话框
-
-| IP 选择器 | 主题选择器 | 公式构建器 | 调试控制台 (Windows) |
-| :-: | :-: | :-: | :-: |
-| ![IpSelector](screenshot/others/IpSelector.png) | ![ThemeSelectorDialog](screenshot/others/ThemeSelectorDialog.png) | ![ValueModeDelegate](screenshot/others/ValueModeDelegate.png) | ![Console](screenshot/others/Console.png) |
-
-> 更多主题截图请查看 [`screenshot/themes/`](screenshot/themes/) 目录，共收录 14 套配色截图（应用内置 16 套主题，「午夜蓝」「森野绿」的预览待补充）。
+> 截图说明与重新生成方式见 [`screenshot/README.md`](screenshot/README.md)。
 
 </details>
 

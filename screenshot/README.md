@@ -1,6 +1,6 @@
 # 截图目录 (screenshot)
 
-本目录包含 DG-LAB-Client 的主要界面截图，按功能模块分为三个子目录：`others/`、`pages/` 和 `themes/`。您可以直接点击下方图片链接查看，或在文件管理器中打开对应文件。
+本目录存放 DG-LAB-Client 当前 QML 界面的文档用截图，全部位于 `pages/`，共四张，与左侧导航的四个页面一一对应。
 
 ---
 
@@ -8,99 +8,47 @@
 
 ```
 screenshot/
-├── others/               # 辅助功能/对话框截图
-│   ├── Console.png       # Windows 调试控制台
-│   ├── IpSelector.png    # IP 选择/黑白名单编辑对话框
-│   ├── ThemeSelectorDialog.png  # 主题选择对话框（卡片视图）
-│   └── ValueModeDelegate.png    # 规则值模式公式构建器
-├── pages/                # 主界面页面截图
-│   ├── main_page.png     # 首页（连接/通道控制/波形）
-│   ├── config_page.png   # 配置页（规则表格编辑）
-│   └── rule_page.png     # 规则文件管理页
-└── themes/               # 所有内置主题的预览截图
-    ├── light.png
-    ├── night.png
-    ├── charcoal_pink.png
-    ├── deepsea_cream.png
-    ├── vine_purple_tea_green.png
-    ├── offwhite_camellia.png
-    ├── dark_blue_clear_blue.png
-    ├── klein_yellow.png
-    ├── mars_green_rose.png
-    ├── hermes_orange_navy.png
-    ├── tiffany_blue_cheese.png
-    ├── china_red_yellow.png
-    ├── vandyke_brown_khaki.png
-    └── prussian_blue_fog.png
+├── pages/                # 当前界面四页
+│   ├── main_page.png     # 首页（连接、A/B 通道、波形）
+│   ├── config_page.png   # 配置页（连接、规则表、日志）
+│   ├── module_page.png   # 模块页（插件与数值卡片）
+│   └── about_page.png    # 关于页（版本、链接、许可信息）
+└── README.md             # 本文件
 ```
 
-> 说明：主题截图展示了同一界面（例如首页）在不同主题下的配色效果。应用内置 16 套主题，本目录当前收录 14 套；新增的「午夜蓝」「森野绿」预览待补充。
-
 ---
 
-## Others（辅助功能/对话框）
+## 页面说明
 
-| 截图 | 说明 |
-| --- | --- |
-| ![Console](others/Console.png) | Windows 调试控制台<br>当 `app.debug = true` 时自动创建，显示详细日志输出。 |
-| ![IpSelector](others/IpSelector.png) | IP 选择器对话框<br>支持编辑黑白名单、手动选择可用 IP。 |
-| ![ThemeSelectorDialog](others/ThemeSelectorDialog.png) | 主题选择对话框<br>网格卡片形式展示所有主题，点击即切换。 |
-| ![ValueModeDelegate](others/ValueModeDelegate.png) | 规则值模式公式构建器<br>双击表格“值模式”单元格弹出，支持 `{}` 占位符和 `+-*/()` 表达式。 |
-
----
-
-## Pages（主界面页面）
-
-| 截图 | 说明 |
-| --- | --- |
-| ![main_page](pages/main_page.png) | 首页<br>包含连接信息、A/B 通道强度控制、实时波形显示区域。 |
-| ![config_page](pages/config_page.png) | 配置页<br>规则表格展示，支持添加/编辑/删除规则，修改规则文件。 |
-| ![rule_page](pages/rule_page.png) | 规则文件管理页<br>切换/新建/删除/保存规则文件，管理规则文件列表。 |
-
----
-
-## Themes（主题预览）
-
-所有主题均以上述首页（main_page）为例，展示不同的配色方案。
-
-| 主题名称 | 英文模式名 | 预览图 |
+| 截图 | 页面 | 内容 |
 | --- | --- | --- |
-| 浅色模式 | light | ![light](themes/light.png) |
-| 深色模式 | night | ![night](themes/night.png) |
-| 炭黑甜粉 | charcoal_pink | ![charcoal_pink](themes/charcoal_pink.png) |
-| 深海奶白 | deepsea_cream | ![deepsea_cream](themes/deepsea_cream.png) |
-| 藤紫钛绿 | vine_purple_tea_green | ![vine_purple_tea_green](themes/vine_purple_tea_green.png) |
-| 无白茶花 | offwhite_camellia | ![offwhite_camellia](themes/offwhite_camellia.png) |
-| 捣蓝清水 | dark_blue_clear_blue | ![dark_blue_clear_blue](themes/dark_blue_clear_blue.png) |
-| 克莱因黄 | klein_yellow | ![klein_yellow](themes/klein_yellow.png) |
-| 马尔斯玫瑰 | mars_green_rose | ![mars_green_rose](themes/mars_green_rose.png) |
-| 爱马仕深蓝 | hermes_orange_navy | ![hermes_orange_navy](themes/hermes_orange_navy.png) |
-| 蒂芙尼奶酪 | tiffany_blue_cheese | ![tiffany_blue_cheese](themes/tiffany_blue_cheese.png) |
-| 中国红黄 | china_red_yellow | ![china_red_yellow](themes/china_red_yellow.png) |
-| 凡戴克棕卡其 | vandyke_brown_khaki | ![vandyke_brown_khaki](themes/vandyke_brown_khaki.png) |
-| 普鲁士雾灰 | prussian_blue_fog | ![prussian_blue_fog](themes/prussian_blue_fog.png) |
-
-> 注意：如果部分主题截图尚未添加，对应位置将显示占位符。上表对应 14 张已生成的图片；应用内置 16 套主题，新增预设的预览图补充后请同步加入上表。
+| ![main_page](pages/main_page.png) | 首页 | 页头、配对二维码与连接状态、A/B 通道卡片（模块 / 规则 / 波形）、状态栏常驻摘要。 |
+| ![config_page](pages/config_page.png) | 配置页 | 连接与主题设置、规则文件切换与规则表、日志面板与导出入口。 |
+| ![module_page](pages/module_page.png) | 模块页 | 插件与静态模块卡片网格，卡片显示加载状态与最小查询周期，点击可查看并设置数值周期。 |
+| ![about_page](pages/about_page.png) | 关于页 | 应用名称与版本（版本号来自 `config/main.json`）、项目链接与许可说明。 |
 
 ---
 
-## 使用说明
+## 规格
 
-- 您可以在项目主 `README.md` 的“截图”章节中引用本文件，或直接在此目录下浏览图片。
-- 截图基于 Windows 11 + Qt 6.5.0 默认字体（微软雅黑 9pt）生成，实际显示可能因操作系统和 Qt 版本略有差异。
-- 所有截图均在 1920×1080 分辨率下截取，未作后期处理。
-
----
-
-## 维护
-
-如需更新截图，请保持以下约定：
-
-- 命名使用小写字母和下划线（snake_case）。
-- PNG 格式，建议无压缩或低压缩，保证文字清晰。
-- 同功能区域的新截图请放入对应的子目录（`others/`、`pages/`、`themes/`）。
-- 更新后请同步修改本 README 中的文件名和说明。
+- 分辨率统一为 **1618×1047**：125% DPI 缩放下的 1280×800 窗口（含窗口边框）按整数物理像素截取，未缩放、未裁剪、未后期处理。
+- PNG 无损格式，文字清晰；不使用阴影装饰或拼图。
+- 截图环境：Windows 11 + Qt 6 Release 构建，默认主题与默认字体。
 
 ---
 
-_最后更新：2026-05-03_
+## 如何重新生成
+
+1. 以 Release 构建并启动应用（`cd config` 等同级目录就位后运行 `DG-LAB-Client.exe`）。
+2. 保持窗口尺寸为 1280×800、系统缩放 125%，按左侧导航依次进入首页、配置、模块、关于四个页面。
+3. 逐页截图，并按 `pages/main_page.png`、`config_page.png`、`module_page.png`、`about_page.png` 原名覆盖。
+4. 四张图应来自同一次构建、同一主题、同一窗口尺寸，否则页面之间的间距与徽章配色会对不上。
+5. 重新生成后同步更新本文件与主 [README](../README.md) 的截图章节。
+
+---
+
+## 已移除的历史截图
+
+- `others/`（`Console`、`IpSelector`、`ThemeSelectorDialog`、`ValueModeDelegate`）与 `themes/`（14 套主题预览）已在 v2.3.0 一并移除。
+- 原因：这些截图拍的是已废弃的 Widgets 界面（QSS 样式表、旧对话框与旧主题选择器），与当前 QML 界面（`Theme` 单例 + 设计令牌）不是同一套渲染结果，留着会误导使用者。
+- 旧的 `pages/rule_page.png` 也一并删除：规则编辑已并入配置页，不再存在独立的规则文件管理页。

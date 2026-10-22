@@ -176,9 +176,8 @@ jobs:
 
           # linuxdeployqt / appimagetool 要求 AppDir 根目录存在与 .desktop 中 Icon= 同名的 256x256 PNG，
           # 否则会以 "<name>{.png,.svg,.xpm} defined in desktop file but not found" 退出（exit 1）。
-          # 优先使用专用图标 assets/app_icon/app_icon.png，缺失时回退到主图。
-          ICON_SRC="assets/app_icon/app_icon.png"
-          [ -f "$ICON_SRC" ] || ICON_SRC="assets/normal_image/main_image.png"
+          # AppImage 图标源：项目应用图标（256px 母版，PNG）
+          ICON_SRC="assets/icon/dglab-client-256.png"
           convert "$ICON_SRC" -resize 256x256^ -gravity center -extent 256x256 \
             install_root/DG-LAB-Client.png
           file install_root/DG-LAB-Client.png

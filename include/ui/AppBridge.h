@@ -9,6 +9,8 @@
 #include <QString>
 #include <QTimer>
 
+#include "AppVersion.h"
+
 // AppBridge - 应用级状态桥接（QML 上下文属性 app）
 // 职责：向 QML 暴露只读应用信息（名称/版本）、页面导航状态与一次性反馈浮层（Toast）。
 //      界面只做属性绑定，交互由 UiConnector 在 C++ 侧连接。
@@ -75,7 +77,7 @@ signals:
 
 private:
     QString app_name_ = QStringLiteral("DG-LAB-Client");
-    QString app_version_ = QStringLiteral("2.2.0");
+    QString app_version_ = QStringLiteral(APP_VERSION);
     int current_page_ = HomePage;
     QString status_text_;
     int status_level_ = StatusInfo;
