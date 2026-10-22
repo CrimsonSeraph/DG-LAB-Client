@@ -18,8 +18,14 @@
 
 #include <QColor>
 #include <QHash>
+#include <QKeyEvent>
 #include <QMetaObject>
+#include <QQmlContext>
+#include <QQmlEngine>
 #include <QQuickItem>
+#include <QQuickWindow>
+#include <QVariantList>
+#include <QVariantMap>
 
 #include <utility>
 
@@ -34,6 +40,48 @@ namespace {
             { QStringLiteral("navAboutButton"), AppBridge::AboutPage }
         };
         return bindings;
+    }
+
+    /// @brief 输入类控件的类名：焦点落在这些控件（或其子项）里时，Enter 属于输入本身
+    /// @note 用 QObject::inherits 走元对象链判断，不依赖 QtQuick 私有头里的具体类；
+    ///       TextField 继承 TextInput，TextArea（QQuickTextArea）继承 TextEdit，
+    ///       SpinBox 的 contentItem 就是 TextInput，三种都覆盖到
+    const char* const k_text_entry_classes[] = {
+        "QQuickTextInput",  // TextInput / TextField / SpinBox 的 contentItem
+        "QQuickTextEdit",   // TextEdit / TextArea
+        "QQuickSpinBox",    // SpinBox 根项自己持焦时
+        "QQuickComboBox",   // ComboBox：Enter 用于确认下拉选择，不该触发主操作
+    };
+
+    /// @brief 焦点对象或其任一父级是否属于输入类控件
+    bool is_text_entry(QObject* object) {
+        for (QObject* current = object; current != nullptr; current = current->parent()) {
+            for (const char* class_name : k_text_entry_classes) {
+                if (current->inherits(class_name)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// @brief 读取 QML 样式单例的令牌值，避免在 C++ 里复制度量数字
+    qreal qml_token(QObject* anchor, const char* singleton, const char* property, qreal fallback) {
+        if (anchor == nullptr) {
+            return fallback;
+        }
+        QQmlContext* context = qmlContext(anchor);
+        QQmlEngine* engine = (context == nullptr) ? nullptr : context->engine();
+        if (engine == nullptr) {
+            return fallback;
+        }
+        QObject* object = engine->singletonInstance<QObject*>(QStringLiteral("Dglab"),
+            QString::fromLatin1(singleton));
+        if (object == nullptr) {
+            return fallback;
+        }
+        const QVariant value = object->property(property);
+        return value.isValid() ? value.toReal() : fallback;
     }
 
     /// @brief 从 "channelAStrengthSpin" 这类名字中解析通道（A/B）
@@ -144,6 +192,14 @@ void UiConnector::attach(QObject* root_object) {
     }
     root_ = root_object;
 
+    // 键位统一入口：Esc（取消）/ Enter（主操作）由本类的事件过滤器接管，QML 不写键位处理器
+    if (auto* window = qobject_cast<QQuickWindow*>(root_object)) {
+        window->installEventFilter(this);
+    }
+    else {
+        LOG_MODULE("UiConnector", "attach", LOG_WARN, "根对象不是 QQuickWindow，Esc/Enter 不可用");
+    }
+
     for (auto it = nav_bindings().constBegin(); it != nav_bindings().constEnd(); ++it) {
         auto* button = root_object->findChild<QObject*>(it.key());
         if (button == nullptr) {
@@ -156,6 +212,8 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "homeRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "configRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "ruleEditorCloseButton", SLOT(on_rule_editor_close_clicked()));
+    connect_clicked(root_object, "ruleSaveButton", SLOT(on_rule_save_clicked()));
+    connect_clicked(root_object, "ruleFitViewButton", SLOT(on_rule_fit_view_clicked()));
 
     // 通用确认弹层：弹层缺失只告警，ask_confirm 会退化为不执行待确认动作
     confirm_dialog_ = root_object->findChild<QObject*>(QStringLiteral("confirmDialog"));
@@ -292,6 +350,56 @@ void UiConnector::close_dialog(const char* object_name) {
     }
 }
 
+bool UiConnector::dialog_visible(const char* object_name) const {
+    QObject* dialog = find(object_name);
+    return dialog != nullptr && dialog->property("visible").toBool();
+}
+
+bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() != QEvent::KeyPress || root_.isNull() || watched != root_.data()) {
+        return QObject::eventFilter(watched, event);
+    }
+    // 确认弹层盖在最上面时，键位归它自己的按钮路径，不穿透到底下的编辑器
+    if (dialog_visible("confirmDialog")) {
+        return false;
+    }
+    auto* key_event = static_cast<QKeyEvent*>(event);
+    if (key_event->key() == Qt::Key_Escape) {
+        // Esc = 取消：未保存改动先弹确认，未改动直接关（三个对话框都是 NoAutoClose，这里是唯一入口）
+        if (dialog_visible("ruleEditorDialog")) {
+            on_rule_editor_close_clicked();
+            return true;
+        }
+        if (dialog_visible("waveEditorDialog")) {
+            on_wave_editor_close_clicked();
+            return true;
+        }
+        if (dialog_visible("waveSelectDialog")) {
+            on_wave_select_close_clicked();
+            return true;
+        }
+        return false;
+    }
+    if (key_event->key() == Qt::Key_Return || key_event->key() == Qt::Key_Enter) {
+        auto* window = qobject_cast<QQuickWindow*>(watched);
+        // 输入框里的 Enter 属于输入本身：直接放行，不消费事件
+        if (is_text_entry((window == nullptr) ? nullptr : window->activeFocusItem())) {
+            return false;
+        }
+        // Enter = 主操作：规则编辑器保存规则图，波形编辑器保存草稿，波形库无主操作
+        if (dialog_visible("ruleEditorDialog")) {
+            on_rule_save_clicked();
+            return true;
+        }
+        if (dialog_visible("waveEditorDialog")) {
+            on_wave_save_clicked();
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
 void UiConnector::ask_confirm(const QString& title, const QString& message, bool danger,
     std::function<void()> on_accept) {
     if (confirm_dialog_.isNull()) {
@@ -413,6 +521,75 @@ void UiConnector::on_rule_editor_close_clicked() {
                 QMetaObject::invokeMethod(guard.data(), "close");
             }
         });
+}
+
+void UiConnector::on_rule_save_clicked() {
+    if (rule_graph_ == nullptr) {
+        return;
+    }
+    rule_graph_->save();
+}
+
+void UiConnector::on_rule_fit_view_clicked() {
+    auto* canvas = qobject_cast<QQuickItem*>(find("ruleCanvas"));
+    if (canvas == nullptr || rule_graph_ == nullptr) {
+        LOG_MODULE("UiConnector", "on_rule_fit_view_clicked", LOG_WARN, "未找到画布: ruleCanvas");
+        return;
+    }
+    // 度量全部从 QML 令牌读取，不在 C++ 里复写数值
+    const qreal padding = qml_token(canvas, "Metrics", "spacingXl", 16.0);
+    const qreal bottom_inset = qml_token(canvas, "Metrics", "spacingLg", 12.0);
+    const qreal zoom_min = qml_token(canvas, "ComponentStyle", "graphZoomMin", 0.4);
+    const qreal zoom_max = qml_token(canvas, "ComponentStyle", "graphZoomMax", 2.0);
+
+    bool has_node = false;
+    qreal min_x = 0.0;
+    qreal min_y = 0.0;
+    qreal max_x = 0.0;
+    qreal max_y = 0.0;
+    for (const QVariant& entry : rule_graph_->nodes()) {
+        const QVariantMap node = entry.toMap();
+        const qreal x = node.value(QStringLiteral("x")).toReal();
+        const qreal y = node.value(QStringLiteral("y")).toReal();
+        // 节点高度与 QML 委托同一公式：头 + 端口内缩 + 端口数 × 端口间距 + 底部留白
+        const qreal node_height = node.value(QStringLiteral("headerHeight")).toReal()
+            + node.value(QStringLiteral("portInset")).toReal()
+            + qMax(1, node.value(QStringLiteral("inputCount")).toInt())
+                * node.value(QStringLiteral("portSpacing")).toReal()
+            + bottom_inset;
+        const qreal right = x + node.value(QStringLiteral("width")).toReal();
+        const qreal bottom = y + node_height;
+        if (!has_node) {
+            has_node = true;
+            min_x = x;
+            min_y = y;
+            max_x = right;
+            max_y = bottom;
+            continue;
+        }
+        min_x = qMin(min_x, x);
+        min_y = qMin(min_y, y);
+        max_x = qMax(max_x, right);
+        max_y = qMax(max_y, bottom);
+    }
+
+    // 无节点：回到 1.0 并把世界原点摆在画布中央
+    qreal zoom = 1.0;
+    qreal pan_x = canvas->width() / 2.0;
+    qreal pan_y = canvas->height() / 2.0;
+    if (has_node) {
+        const qreal box_width = qMax<qreal>(1.0, max_x - min_x);
+        const qreal box_height = qMax<qreal>(1.0, max_y - min_y);
+        const qreal available_width = qMax<qreal>(1.0, canvas->width() - padding * 2.0);
+        const qreal available_height = qMax<qreal>(1.0, canvas->height() - padding * 2.0);
+        zoom = qBound(zoom_min,
+            qMin(available_width / box_width, available_height / box_height), zoom_max);
+        pan_x = padding + (available_width - box_width * zoom) / 2.0 - min_x * zoom;
+        pan_y = padding + (available_height - box_height * zoom) / 2.0 - min_y * zoom;
+    }
+    canvas->setProperty("zoom", zoom);
+    canvas->setProperty("panX", pan_x);
+    canvas->setProperty("panY", pan_y);
 }
 
 void UiConnector::on_channel_toggle_clicked() {

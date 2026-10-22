@@ -15,6 +15,12 @@ Dialog {
     height: Math.min(ComponentStyle.dialogWaveSelectHeight, Overlay.overlay.height - Metrics.spacingXl * 2)
     padding: Metrics.spacingMd
 
+    // 遮罩：压暗底层界面，不透明度取 Metrics.scrimOpacity（与其余对话框同一个令牌）
+    Overlay.modal: Rectangle {
+        color: Theme.windowBg
+        opacity: Metrics.scrimOpacity
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: Metrics.spacingMd
@@ -107,14 +113,26 @@ Dialog {
                 font.pixelSize: Typography.fontBody
             }
         }
+    }
+
+    // 底部按钮区：左次要（关闭）、右主操作（创建波形）；
+    // 间距与上边距由令牌给定，不再贴着内容区下沿
+    footer: Item {
+        // 上边距 = spacingLg（与内容区留白），左右与下边距 = spacingMd（与内容区内缩对齐）
+        implicitHeight: waveSelectFooter.implicitHeight + Metrics.spacingLg + Metrics.spacingMd
 
         RowLayout {
-            Layout.fillWidth: true
+            id: waveSelectFooter
+            anchors.fill: parent
+            anchors.topMargin: Metrics.spacingLg
+            anchors.leftMargin: Metrics.spacingMd
+            anchors.rightMargin: Metrics.spacingMd
+            anchors.bottomMargin: Metrics.spacingMd
             spacing: Metrics.spacingMd
 
             AppButton {
-                objectName: "waveSelectCreateButton"
-                text: qsTr("创建波形")
+                objectName: "waveSelectCloseButton"
+                text: qsTr("关闭")
             }
 
             Item {
@@ -122,8 +140,9 @@ Dialog {
             }
 
             AppButton {
-                objectName: "waveSelectCloseButton"
-                text: qsTr("关闭")
+                objectName: "waveSelectCreateButton"
+                text: qsTr("创建波形")
+                primary: true
             }
         }
     }

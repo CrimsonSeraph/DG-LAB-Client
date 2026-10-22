@@ -44,12 +44,20 @@ public:
     void ask_confirm(const QString& title, const QString& message, bool danger,
         std::function<void()> on_accept);
 
+protected:
+    /// @brief 主窗口事件过滤器：把 Esc（取消）与 Enter（主操作）接到三个对话框上
+    /// @note QML 不为键位写处理器；三个对话框都是 closePolicy: Popup.NoAutoClose，
+    ///       Esc 不会由 Popup 自己处理，本过滤器是唯一入口
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private slots:
     // 导航
     void on_nav_button_clicked();
     void on_home_module_entry_clicked();
     void on_rule_editor_clicked();
     void on_rule_editor_close_clicked();
+    void on_rule_save_clicked();
+    void on_rule_fit_view_clicked();
     // 通用确认弹层
     void on_confirm_accepted();
     void on_confirm_canceled();
@@ -105,6 +113,8 @@ private:
     void connect_clicked(QObject* root_object, const char* object_name, const char* slot);
     void open_dialog(const char* object_name);
     void close_dialog(const char* object_name);
+    /// @brief 对话框是否处于可见状态（键位过滤器只在可见时生效）
+    bool dialog_visible(const char* object_name) const;
     /// @brief 监听列表 contentItem 或布局项，并连接其中名为 item_name 的热区
     void watch_items(QObject* root_object, const char* owner_name, const QString& item_name, const char* slot);
     void scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot);

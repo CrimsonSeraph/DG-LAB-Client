@@ -7,7 +7,18 @@ Dialog {
     id: dialog
 
     objectName: "waveEditorDialog"
-    title: qsTr("创建波形")
+    // 标题按草稿是否已对应库中波形区分：新建 →「新建波形」，载入/已保存 →「波形编辑 · 名称」。
+    // 判定只用既有 API（draftName 与 waves 列表）；WaveBridge 未暴露「是否编辑中」标志，
+    // 因此「新建的草稿被命名成库里已有的名字」会被视为编辑，见 src/ui/README.md。
+    title: {
+        var list = waveBridge.waves;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].name === waveBridge.draftName) {
+                return qsTr("波形编辑 · %1").arg(waveBridge.draftName);
+            }
+        }
+        return qsTr("新建波形");
+    }
     modal: true
     // 草稿可能有未保存改动：关闭只走「关闭」按钮（由 C++ 判断后弹确认），不用 Esc/点外自动关
     closePolicy: Popup.NoAutoClose
@@ -22,6 +33,12 @@ Dialog {
         color: Theme.surface
         border.width: Metrics.borderWidth
         border.color: Theme.border
+    }
+
+    // 遮罩：压暗底层界面，不透明度取 Metrics.scrimOpacity（与其余对话框同一个令牌）
+    Overlay.modal: Rectangle {
+        color: Theme.windowBg
+        opacity: Metrics.scrimOpacity
     }
 
     RowLayout {
@@ -309,28 +326,48 @@ Dialog {
                 Item {
                     Layout.fillWidth: true
                 }
-
-                AppButton {
-                    objectName: "waveSendAButton"
-                    text: qsTr("发送到 A")
-                }
-
-                AppButton {
-                    objectName: "waveSendBButton"
-                    text: qsTr("发送到 B")
-                }
-
-                AppButton {
-                    objectName: "waveSaveButton"
-                    text: qsTr("保存到波形库")
-                    primary: true
-                }
             }
+        }
+    }
+
+    // 底部按钮区：左次要（关闭）、右主操作（保存到波形库）；
+    // 间距与上边距由令牌给定，不再贴着内容区下沿
+    footer: Item {
+        // 上边距 = spacingLg（与内容区留白），左右与下边距 = spacingMd（与内容区内缩对齐）
+        implicitHeight: waveFooter.implicitHeight + Metrics.spacingLg + Metrics.spacingMd
+
+        RowLayout {
+            id: waveFooter
+            anchors.fill: parent
+            anchors.topMargin: Metrics.spacingLg
+            anchors.leftMargin: Metrics.spacingMd
+            anchors.rightMargin: Metrics.spacingMd
+            anchors.bottomMargin: Metrics.spacingMd
+            spacing: Metrics.spacingMd
 
             AppButton {
                 objectName: "waveEditorCloseButton"
-                Layout.fillWidth: true
                 text: qsTr("关闭")
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            AppButton {
+                objectName: "waveSendAButton"
+                text: qsTr("发送到 A")
+            }
+
+            AppButton {
+                objectName: "waveSendBButton"
+                text: qsTr("发送到 B")
+            }
+
+            AppButton {
+                objectName: "waveSaveButton"
+                text: qsTr("保存到波形库")
+                primary: true
             }
         }
     }

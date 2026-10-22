@@ -27,10 +27,10 @@ Dialog {
         border.color: Theme.border
     }
 
-    // 遮罩：压暗底层界面。不透明度是遮罩语义的常量，Metrics 暂无对应令牌
+    // 遮罩：压暗底层界面，不透明度取 Metrics.scrimOpacity（与其余对话框共用同一令牌）
     Overlay.modal: Rectangle {
         color: Theme.windowBg
-        opacity: 0.45
+        opacity: Metrics.scrimOpacity
     }
 
     contentItem: ColumnLayout {

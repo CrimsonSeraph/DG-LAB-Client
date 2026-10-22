@@ -22,6 +22,8 @@ QtObject {
 
     // 规则节点编辑器
     readonly property int graphGridSize: 40
+    // 网格线透明度：横线与纵线共用同一参数，避免两处各写一个近似值
+    readonly property real graphGridOpacity: 0.4
     readonly property int nodeWidth: 168
     readonly property int nodeHeaderHeight: 26
     readonly property int nodePortSize: 12
@@ -52,7 +54,13 @@ QtObject {
     // 规则图画布世界尺寸与端口命中范围
     readonly property int graphWorldWidth: 4000
     readonly property int graphWorldHeight: 3000
+    // 端口命中容差是屏幕像素：用法为 graphPortHitTolerance / zoom
     readonly property int graphPortHitTolerance: 12
+    // 连线曲线的控制点水平偏移（世界单位），绘制与命中测试共用
+    readonly property int graphEdgeCurveOffset: 60
+    // 缩放上下限，滚轮缩放与适配视图共用
+    readonly property real graphZoomMin: 0.4
+    readonly property real graphZoomMax: 2.0
 
     // 对话框尺寸
     readonly property int dialogRuleEditorWidth: 1100

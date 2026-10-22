@@ -27,6 +27,9 @@ QtObject {
     readonly property int focusRingOffset: 1
     readonly property real disabledOpacity: 0.45
 
+    // 弹层遮罩：所有对话框统一压暗底层界面的不透明度
+    readonly property real scrimOpacity: 0.45
+
     // 导航栏
     readonly property int navWidth: 190
     // 窄窗态：整栏从 navWidth 收到此宽度，文字始终完整可见（不再退化成单字）

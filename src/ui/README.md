@@ -157,6 +157,9 @@ src/ui/
 | objectName | 行为 |
 | --- | --- |
 | `ruleEditorDialog` | 规则编辑器；`ruleEditorCloseButton` 的关闭经 C++ 判断未保存改动后先弹确认 |
+| `ruleCanvas` / `ruleZoomLabel` | 画布根项（C++ 通过它读写 `panX`/`panY`/`zoom`）与左下缩放百分比标签（纯绑定 `zoom`） |
+| `ruleFitViewButton` | 适配视图：点击由 C++ 连接，按节点包围盒重置缩放与平移；无节点时回到 1.0 居中 |
+| `ruleDeleteEdgeMenu` | 右键菜单「删除此连线」：仅当右键命中连线（`canvas.contextEdgeId > 0`）时可见，`onTriggered` 调用 `ruleGraph.deleteEdge()` |
 | `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭 |
 | `waveSelectDialog` / `waveLibraryList` | 波形库对话框与列表；`waveSelectCloseButton` 关闭 |
 | `waveSelectClick` | 行热区（`waveName` 属性）：指派该波形到目标通道并关闭对话框；委托热区由 `watch_items` 扫描 |
@@ -232,7 +235,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | 例外位置 | 原因 | 约束 |
 | --- | --- | --- |
 | `dialogs/RuleEditorDialog.qml` 画布 `MouseArea` 的 `onPressed` / `onPositionChanged` / `onReleased` / `onWheel` / `Keys.onPressed` | 拖动节点、拉线、缩放、平移与快捷键都是指针/键盘手势，命中测试无法通过 `objectName` + C++ 连接表达 | 处理器只调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型 |
-| 同文件画布右键菜单的 5 个 `MenuItem.onTriggered` | 菜单由手势弹出，且需要读画布当前缩放/平移换算世界坐标 | 同上，只调用 `ruleGraph` |
+| 同文件画布右键菜单的 6 个 `MenuItem.onTriggered`（含 `ruleDeleteEdgeMenu` 删除连线） | 菜单由手势弹出，且需要读画布当前缩放/平移换算世界坐标；删除连线依赖右键命中测试得到的连线 id | 同上，只调用 `ruleGraph` |
 | 同文件调色板 11 个 `AppButton.onClicked`（`ruleAddAdd` / `ruleAddSub` / `ruleAddMul` / `ruleAddDiv` / `ruleAddAbs` / `ruleAddSquare` / `ruleAddSqrt` / `ruleAddExpr` / `ruleAddRule` / `ruleAddChannelA` / `ruleAddChannelB`）与模块列表委托 `MouseArea.onClicked` | 遗留：这些点击都能用 `objectName` + `connect_clicked` 迁到 C++，目前尚未迁移 | 只调用 `ruleGraph`；新增控件不得照抄此写法 |
 | 同文件检查器的 `onEditingFinished`（规则名 `nameField` / 表达式 `expressionArea`）、`onActivated`（值模式 `modeCombo`）、`onClicked`（启用勾选、应用表达式）、`ruleSaveButton.onClicked` | 遗留：输入回灌与保存沿用 QML 处理器 | 只调用 `ruleGraph`；不得扩大 |
 
@@ -240,7 +243,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
-复核口径：对 `src/ui/qml` 全量扫描 `onXxx:\b` / `Connections` / `Behavior`，命中 28 处且全部落在 `RuleEditorDialog.qml`，均属上表已登记条目；其余文件为 0，本批次未新增任何处理器。
+复核口径：对 `src/ui/qml` 全量扫描 `onXxx:\b` / `Connections` / `Behavior`，命中 27 处且全部落在 `RuleEditorDialog.qml`，均属上表已登记条目；其余文件为 0，本批次未新增任何处理器。
 
 ## 扩展点与注意事项
 

@@ -30,6 +30,12 @@ Dialog {
         border.color: Theme.border
     }
 
+    // 遮罩：压暗底层界面，不透明度取 Metrics.scrimOpacity（与其余对话框同一个令牌）
+    Overlay.modal: Rectangle {
+        color: Theme.windowBg
+        opacity: Metrics.scrimOpacity
+    }
+
     SplitView {
         id: rootRow
         anchors.fill: parent
@@ -172,6 +178,8 @@ Dialog {
             Item {
                 id: canvas
 
+                // C++（UiConnector）按此名访问画布做视图适配
+                objectName: "ruleCanvas"
                 anchors.fill: parent
 
                 property real panX: 40
@@ -186,6 +194,8 @@ Dialog {
                 property bool panning: false
                 property real lastMouseX: 0
                 property real lastMouseY: 0
+                // 最近一次右键命中的连线 id（0 = 未命中）
+                property int contextEdgeId: 0
 
                 function toWorldX(x) {
                     return (x - panX) / zoom;
@@ -207,14 +217,21 @@ Dialog {
                     return null;
                 }
 
+                // 端口命中容差是屏幕像素，换算成世界单位要除以 zoom，
+                // 否则 0.4 倍下命中区缩水、2 倍下过大
+                function portHitTolerance() {
+                    return ComponentStyle.graphPortHitTolerance / zoom;
+                }
+
                 function inputPortAt(wx, wy) {
                     var list = ruleGraph.nodes;
+                    var tolerance = portHitTolerance();
                     for (var i = 0; i < list.length; i++) {
                         var n = list[i];
                         for (var p = 0; p < n.inputCount; p++) {
                             var px = n.x;
                             var py = n.y + n.headerHeight + n.portInset + p * n.portSpacing;
-                            if (Math.abs(wx - px) < ComponentStyle.graphPortHitTolerance && Math.abs(wy - py) < ComponentStyle.graphPortHitTolerance) {
+                            if (Math.abs(wx - px) < tolerance && Math.abs(wy - py) < tolerance) {
                                 return {
                                     "node": n.id,
                                     "port": p
@@ -223,6 +240,53 @@ Dialog {
                         }
                     }
                     return null;
+                }
+
+                // 点到线段的最短距离（世界单位）
+                function distanceToSegment(px, py, ax, ay, bx, by) {
+                    var dx = bx - ax;
+                    var dy = by - ay;
+                    var lengthSquared = dx * dx + dy * dy;
+                    if (lengthSquared <= 0) {
+                        return Math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+                    }
+                    var t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared));
+                    var cx = ax + t * dx;
+                    var cy = ay + t * dy;
+                    return Math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy));
+                }
+
+                // 连线命中：把连线曲线按等参折线采样，取容差内距离最近的一条，返回连线 id（0 = 未命中）。
+                // 参数是画布内（屏幕）坐标；曲线控制点与绘制使用同一组偏移，容差同样按屏幕恒定。
+                function edgeAt(sx, sy) {
+                    var wx = toWorldX(sx);
+                    var wy = toWorldY(sy);
+                    var limit = (ComponentStyle.edgeWidth + Metrics.spacingSm) / zoom;
+                    var list = ruleGraph.edges;
+                    var hit = 0;
+                    var best = limit;
+                    for (var i = 0; i < list.length; i++) {
+                        var e = list[i];
+                        var c1x = e.fromX + ComponentStyle.graphEdgeCurveOffset;
+                        var c2x = e.toX - ComponentStyle.graphEdgeCurveOffset;
+                        var px = e.fromX;
+                        var py = e.fromY;
+                        var segments = 24;
+                        for (var s = 1; s <= segments; s++) {
+                            var t = s / segments;
+                            var mt = 1 - t;
+                            var qx = mt * mt * mt * e.fromX + 3 * mt * mt * t * c1x + 3 * mt * t * t * c2x + t * t * t * e.toX;
+                            var qy = mt * mt * mt * e.fromY + 3 * mt * mt * t * e.fromY + 3 * mt * t * t * e.toY + t * t * t * e.toY;
+                            var distance = distanceToSegment(wx, wy, px, py, qx, qy);
+                            if (distance <= best) {
+                                best = distance;
+                                hit = e.id;
+                            }
+                            px = qx;
+                            py = qy;
+                        }
+                    }
+                    return hit;
                 }
 
                 Item {
@@ -239,18 +303,30 @@ Dialog {
                         yScale: canvas.zoom
                     }
 
-                    // 网格
+                    // 网格：横线与纵线同间距、同透明度（世界坐标单位，随画布缩放）
                     Repeater {
                         model: 120
 
                         delegate: Rectangle {
                             x: 0
-                            // 网格间距与画布世界坐标同单位，zoom 换算属后续批次
                             y: index * ComponentStyle.graphGridSize
                             width: ComponentStyle.graphWorldWidth
                             height: Metrics.borderWidth
                             color: Theme.divider
-                            opacity: 0.4
+                            opacity: ComponentStyle.graphGridOpacity
+                        }
+                    }
+
+                    Repeater {
+                        model: Math.ceil(ComponentStyle.graphWorldWidth / ComponentStyle.graphGridSize)
+
+                        delegate: Rectangle {
+                            x: index * ComponentStyle.graphGridSize
+                            y: 0
+                            width: Metrics.borderWidth
+                            height: ComponentStyle.graphWorldHeight
+                            color: Theme.divider
+                            opacity: ComponentStyle.graphGridOpacity
                         }
                     }
 
@@ -269,9 +345,9 @@ Dialog {
                                 startX: modelData.fromX
                                 startY: modelData.fromY
                                 PathCubic {
-                                    control1X: modelData.fromX + 60
+                                    control1X: modelData.fromX + ComponentStyle.graphEdgeCurveOffset
                                     control1Y: modelData.fromY
-                                    control2X: modelData.toX - 60
+                                    control2X: modelData.toX - ComponentStyle.graphEdgeCurveOffset
                                     control2Y: modelData.toY
                                     x: modelData.toX
                                     y: modelData.toY
@@ -397,6 +473,17 @@ Dialog {
                     }
                 }
 
+                // 缩放百分比：画布角落的只读指示，纯绑定 canvas.zoom
+                Text {
+                    objectName: "ruleZoomLabel"
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Metrics.spacingMd
+                    text: Math.round(canvas.zoom * 100) + "%"
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontBody
+                }
+
                 MouseArea {
                     id: canvasMouse
 
@@ -414,14 +501,16 @@ Dialog {
                         canvas.lastMouseY = mouse.y;
 
                         if (mouse.button === Qt.RightButton) {
-                            contextMenu.popup();
+                            // 先在点击处做连线命中，菜单再就地弹出（坐标取画布内坐标）
+                            canvas.contextEdgeId = canvas.edgeAt(mouse.x, mouse.y);
+                            contextMenu.popup(mouse.x, mouse.y);
                             return;
                         }
 
                         if (node !== null) {
                             ruleGraph.selectNode(node.id);
                             // 输出端口：开始连线
-                            if (Math.abs(wx - (node.x + node.width)) < ComponentStyle.graphPortHitTolerance && Math.abs(wy - (node.y + node.headerHeight / 2)) < ComponentStyle.graphPortHitTolerance) {
+                            if (Math.abs(wx - (node.x + node.width)) < canvas.portHitTolerance() && Math.abs(wy - (node.y + node.headerHeight / 2)) < canvas.portHitTolerance()) {
                                 canvas.connectFrom = node.id;
                                 canvas.tempX = wx;
                                 canvas.tempY = wy;
@@ -473,7 +562,7 @@ Dialog {
 
                     onWheel: function (wheel) {
                         var factor = wheel.angleDelta.y > 0 ? 1.1 : 0.9;
-                        var newZoom = Math.max(0.4, Math.min(2.0, canvas.zoom * factor));
+                        var newZoom = Math.max(ComponentStyle.graphZoomMin, Math.min(ComponentStyle.graphZoomMax, canvas.zoom * factor));
                         // 以鼠标位置为锚点缩放
                         var wx = canvas.toWorldX(wheel.x);
                         var wy = canvas.toWorldY(wheel.y);
@@ -518,6 +607,13 @@ Dialog {
                         onTriggered: ruleGraph.addAdvancedNode("expression", canvas.toWorldX(canvas.lastMouseX), canvas.toWorldY(canvas.lastMouseY))
                     }
                     MenuSeparator {}
+                    MenuItem {
+                        objectName: "ruleDeleteEdgeMenu"
+                        text: qsTr("删除此连线")
+                        // 只有右键命中连线时才出现；删除仍走 C++ 的 ruleGraph.deleteEdge
+                        visible: canvas.contextEdgeId > 0
+                        onTriggered: ruleGraph.deleteEdge(canvas.contextEdgeId)
+                    }
                     MenuItem {
                         text: qsTr("删除选中节点")
                         enabled: ruleGraph.selectedNodeId > 0
@@ -611,22 +707,46 @@ Dialog {
                 wrapMode: Text.WordWrap
             }
 
+            AppButton {
+                objectName: "ruleFitViewButton"
+                Layout.fillWidth: true
+                text: qsTr("适配视图")
+            }
+
             Item {
                 Layout.fillHeight: true
+            }
+        }
+    }
+
+    // 底部按钮区：左次要（关闭）、右主操作（保存规则图）；
+    // 间距与上边距由令牌给定，不再纵向堆叠、也不再贴着内容区下沿
+    footer: Item {
+        // 上边距 = spacingLg（与内容区留白），左右与下边距 = spacingMd（与内容区内缩对齐）
+        implicitHeight: ruleFooter.implicitHeight + Metrics.spacingLg + Metrics.spacingMd
+
+        RowLayout {
+            id: ruleFooter
+            anchors.fill: parent
+            anchors.topMargin: Metrics.spacingLg
+            anchors.leftMargin: Metrics.spacingMd
+            anchors.rightMargin: Metrics.spacingMd
+            anchors.bottomMargin: Metrics.spacingMd
+            spacing: Metrics.spacingMd
+
+            AppButton {
+                objectName: "ruleEditorCloseButton"
+                text: qsTr("关闭")
+            }
+
+            Item {
+                Layout.fillWidth: true
             }
 
             AppButton {
                 objectName: "ruleSaveButton"
-                Layout.fillWidth: true
                 text: ruleGraph.dirty ? qsTr("保存规则图 *") : qsTr("保存规则图")
                 primary: true
-                onClicked: ruleGraph.save()
-            }
-
-            AppButton {
-                objectName: "ruleEditorCloseButton"
-                Layout.fillWidth: true
-                text: qsTr("关闭")
             }
         }
     }
