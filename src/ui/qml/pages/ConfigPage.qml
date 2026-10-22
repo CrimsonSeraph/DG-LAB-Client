@@ -24,20 +24,12 @@ Item {
             width: scrollView.availableWidth
             spacing: Metrics.cardSpacing
 
-            RowLayout {
+            PageHeader {
                 Layout.fillWidth: true
-                spacing: Metrics.spacingMd
-
-                Text {
-                    text: qsTr("配置")
-                    color: Theme.textPrimary
-                    font.pixelSize: Typography.fontTitle
-                    font.bold: true
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
+                title: qsTr("配置")
+                subtitle: (device.pairingStage === 2 ? qsTr("已配对")
+                        : (device.pairingStage === 1 ? qsTr("等待 APP 扫码配对") : qsTr("未启动")))
+                    + " · " + (ble.connected ? qsTr("蓝牙已连接") : qsTr("蓝牙未连接"))
 
                 AppButton {
                     objectName: "configRuleEditorButton"

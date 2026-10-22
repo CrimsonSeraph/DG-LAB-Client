@@ -29,6 +29,8 @@ QtObject {
 
     // 导航栏
     readonly property int navWidth: 190
+    // 窄窗态：整栏从 navWidth 收到此宽度，文字始终完整可见（不再退化成单字）
+    readonly property int navWidthCompact: 150
     readonly property int navButtonHeight: 42
     readonly property int navHeaderHeight: 96
 
@@ -39,4 +41,11 @@ QtObject {
     readonly property int cardSpacing: 12
     readonly property int buttonHeight: 34
     readonly property int statusBarHeight: 28
+
+    // 页面标题行
+    readonly property int pageSubtitleGap: 2
+
+    // Toast 浮层
+    readonly property int toastMinWidth: 280
+    readonly property int toastMaxWidth: 420
 }

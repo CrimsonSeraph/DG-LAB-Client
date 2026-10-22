@@ -59,7 +59,7 @@ src/ui/
 
 | 上下文属性 | 类型 | 职责 |
 | --- | --- | --- |
-| `app` | `AppBridge` | 应用名称/版本、当前页面（`currentPage`）、状态栏文本 |
+| `app` | `AppBridge` | 应用名称/版本、当前页面（`currentPage`）、一次性反馈浮层（`toastText` / `toastLevel` / `showToast()`） |
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、配对链接 `pairingUrl` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期、选中模块数值 |
@@ -103,6 +103,17 @@ src/ui/
 | `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备 |
 | `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性） |
 | `bleStrengthA{Increase,Decrease}` / `bleStrengthB{Increase,Decrease}` | 蓝牙通道强度增减 |
+
+页面骨架与反馈：
+
+| objectName | 行为 |
+| --- | --- |
+| `pageHeader` / `pageHeaderTitle` / `pageHeaderSubtitle` | `components/PageHeader.qml`：页面名 + 一行副标题 + 右侧操作区（默认属性槽）；副标题承载该页关键状态，四个页面各有同名实例 |
+| `toast` / `toastText` | `components/Toast.qml`：右下角一次性反馈浮层，`app.showToast(text, level)` 驱动，3 秒后自动消失；描边按 `toastLevel` 取 `success` / `warning` / `danger` / `border` |
+| `statusLabel` | 底部状态栏常驻摘要（中转 / 蓝牙 / 通道），**不**承载一次性消息 |
+
+一次性反馈与常驻摘要分工：错误、保存结果、规则图状态等一次性文案一律走 `app.showToast()`；
+状态栏只显示 QML 侧组合的常驻摘要。
 
 对话框：
 

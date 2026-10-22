@@ -13,11 +13,10 @@ Item {
         anchors.margins: Metrics.pageMargin
         spacing: Metrics.cardSpacing
 
-        Text {
-            text: qsTr("关于")
-            color: Theme.textPrimary
-            font.pixelSize: Typography.fontTitle
-            font.bold: true
+        PageHeader {
+            Layout.fillWidth: true
+            title: qsTr("关于")
+            subtitle: "v" + app.appVersion
         }
 
         GlassCard {

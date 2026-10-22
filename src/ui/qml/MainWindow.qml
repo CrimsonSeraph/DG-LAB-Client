@@ -17,11 +17,6 @@ ApplicationWindow {
     color: Theme.windowBg
 
     readonly property bool compactNav: Responsive.isCompactNav(width)
-    // 状态栏文字颜色：按 app.statusLevel（0 info / 1 success / 2 warning / 3 danger）取语义色
-    readonly property color statusColor: app.statusLevel === 1 ? Theme.success
-        : app.statusLevel === 2 ? Theme.warning
-        : app.statusLevel === 3 ? Theme.danger
-        : Theme.textSecondary
 
     // 左侧导航
     Rectangle {
@@ -30,7 +25,7 @@ ApplicationWindow {
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: root.compactNav ? 64 : Metrics.navWidth
+        width: root.compactNav ? Metrics.navWidthCompact : Metrics.navWidth
         color: Theme.surfaceAlt
 
         ColumnLayout {
@@ -53,8 +48,8 @@ ApplicationWindow {
                 }
 
                 ColumnLayout {
-                    visible: !root.compactNav
                     Layout.fillWidth: true
+                    Layout.preferredWidth: 0
                     spacing: 0
 
                     Text {
@@ -78,28 +73,28 @@ ApplicationWindow {
 
             NavButton {
                 objectName: "navHomeButton"
-                text: root.compactNav ? qsTr("首") : qsTr("首页")
+                text: qsTr("首页")
                 selected: app.currentPage === 0
                 Layout.fillWidth: true
             }
 
             NavButton {
                 objectName: "navConfigButton"
-                text: root.compactNav ? qsTr("配") : qsTr("配置")
+                text: qsTr("配置")
                 selected: app.currentPage === 1
                 Layout.fillWidth: true
             }
 
             NavButton {
                 objectName: "navModuleButton"
-                text: root.compactNav ? qsTr("模") : qsTr("模块")
+                text: qsTr("模块")
                 selected: app.currentPage === 2
                 Layout.fillWidth: true
             }
 
             NavButton {
                 objectName: "navAboutButton"
-                text: root.compactNav ? qsTr("关") : qsTr("关于")
+                text: qsTr("关于")
                 selected: app.currentPage === 3
                 Layout.fillWidth: true
             }
@@ -136,6 +131,12 @@ ApplicationWindow {
         AboutPage {
             id: aboutPage
         }
+    }
+
+    // 一次性反馈浮层：C++ 侧 app.showToast() 驱动，3 秒后自动消失
+    Toast {
+        id: toast
+        bottomInset: Metrics.spacingXl + Metrics.statusBarHeight
     }
 
     // 波形库与波形编辑器（首页 / 配置页均可打开）
@@ -177,8 +178,11 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.leftMargin: Metrics.spacingLg
             anchors.verticalCenter: parent.verticalCenter
-            text: app.statusText.length > 0 ? app.statusText : qsTr("就绪")
-            color: root.statusColor
+            text: qsTr("中转：%1 · 蓝牙：%2 · 通道：%3")
+                .arg(device.connected ? qsTr("已连接") : qsTr("未连接"))
+                .arg(ble.connected ? qsTr("已连接") : qsTr("未连接"))
+                .arg(home.channelAState === "idle" && home.channelBState === "idle" ? qsTr("空闲") : qsTr("运行中"))
+            color: Theme.textSecondary
             font.pixelSize: Typography.fontBody
             elide: Text.ElideRight
         }

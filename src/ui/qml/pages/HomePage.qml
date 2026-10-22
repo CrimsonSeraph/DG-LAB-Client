@@ -14,20 +14,11 @@ Item {
         anchors.margins: Metrics.pageMargin
         spacing: Metrics.cardSpacing
 
-        RowLayout {
+        PageHeader {
             Layout.fillWidth: true
-            spacing: Metrics.spacingMd
-
-            Text {
-                text: qsTr("首页")
-                color: Theme.textPrimary
-                font.pixelSize: Typography.fontTitle
-                font.bold: true
-            }
-
-            Item {
-                Layout.fillWidth: true
-            }
+            title: qsTr("首页")
+            subtitle: device.outputReady ? qsTr("输出可用")
+                : (device.connected ? qsTr("已连接 · 等待输出") : qsTr("未连接设备"))
 
             AppButton {
                 objectName: "homeModuleEntryButton"

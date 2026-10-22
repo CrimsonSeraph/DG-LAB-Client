@@ -7,8 +7,20 @@
 
 #include "AppConfig.h"
 
+namespace {
+/// @brief 一次性反馈浮层的驻留时长
+constexpr int toast_duration_ms = 3000;
+} // namespace
+
 AppBridge::AppBridge(QObject* parent)
     : QObject(parent) {
+    toast_timer_.setSingleShot(true);
+    toast_timer_.setInterval(toast_duration_ms);
+    // 定时器到期只清空文本：Toast 是否可见由 QML 绑定 toastText.length 决定
+    QObject::connect(&toast_timer_, &QTimer::timeout, this, [this]() {
+        toast_text_.clear();
+        emit toastChanged();
+    });
 }
 
 void AppBridge::initialize() {
@@ -30,11 +42,19 @@ void AppBridge::navigate(int page) {
     set_current_page(page);
 }
 
-void AppBridge::setStatus(const QString& text, int level) {
-    if (text == status_text_ && level == status_level_) {
-        return;
+void AppBridge::showToast(const QString& text, int level) {
+    toast_text_ = text;
+    toast_level_ = level;
+    // 空文本立即隐藏；非空则重新起算 3 秒（连续消息只续期，不叠加多个倒计时）
+    if (toast_text_.isEmpty()) {
+        toast_timer_.stop();
     }
-    status_text_ = text;
-    status_level_ = level;
-    emit statusTextChanged();
+    else {
+        toast_timer_.start();
+    }
+    emit toastChanged();
+}
+
+void AppBridge::setStatus(const QString& text, int level) {
+    showToast(text, level);
 }

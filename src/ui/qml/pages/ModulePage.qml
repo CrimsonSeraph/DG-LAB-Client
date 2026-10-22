@@ -14,11 +14,10 @@ Item {
         anchors.margins: Metrics.pageMargin
         spacing: Metrics.cardSpacing
 
-        Text {
-            text: qsTr("模块")
-            color: Theme.textPrimary
-            font.pixelSize: Typography.fontTitle
-            font.bold: true
+        PageHeader {
+            Layout.fillWidth: true
+            title: qsTr("模块")
+            subtitle: qsTr("%1 个模块 · 基准周期 %2ms").arg(moduleBridge.modules.length).arg(moduleBridge.basePeriodMs)
         }
 
         GlassCard {

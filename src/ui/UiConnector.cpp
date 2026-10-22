@@ -64,7 +64,7 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
         QObject::connect(log_, &LogBridge::statusMessage, this,
             [this](const QString& message) {
                 if (app_ != nullptr) {
-                    app_->setStatus(message);
+                    app_->showToast(message, AppBridge::StatusInfo);
                 }
             });
     }
@@ -72,21 +72,21 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
         QObject::connect(device_, &DeviceController::errorOccurred, this,
             [this](const QString& message) {
                 if (app_ != nullptr) {
-                    app_->setStatus(message, AppBridge::StatusDanger);
+                    app_->showToast(message, AppBridge::StatusDanger);
                 }
             });
         // device_.initialize() 早于本类构造，启动期（如中转服务端口占用）发出的 errorOccurred
-        // 没有接收者；在此用 lastError 回填一次状态栏，不改动 initialize() 的时序与信号语义。
+        // 没有接收者；在此用 lastError 补弹一次 Toast，不改动 initialize() 的时序与信号语义。
         const QString startup_error = device_->last_error();
         if (!startup_error.isEmpty() && app_ != nullptr) {
-            app_->setStatus(startup_error, AppBridge::StatusDanger);
+            app_->showToast(startup_error, AppBridge::StatusDanger);
         }
     }
     if (rule_graph_ != nullptr) {
         QObject::connect(rule_graph_, &RuleGraphBridge::statusMessage, this,
             [this](const QString& message) {
                 if (app_ != nullptr) {
-                    app_->setStatus(message, AppBridge::StatusInfo);
+                    app_->showToast(message, AppBridge::StatusInfo);
                 }
             });
     }
@@ -501,14 +501,14 @@ void UiConnector::on_wave_save_clicked() {
     auto* name_field = find("waveNameField");
     const QString name = name_field == nullptr ? QString() : name_field->property("text").toString();
     if (name.isEmpty()) {
-        app_->setStatus(QStringLiteral("请先填写波形名称"));
+        app_->showToast(QStringLiteral("请先填写波形名称"), AppBridge::StatusWarning);
         return;
     }
     if (wave_->saveDraft(name)) {
-        app_->setStatus(QStringLiteral("波形已保存：") + name);
+        app_->showToast(QStringLiteral("波形已保存：") + name, AppBridge::StatusSuccess);
     }
     else {
-        app_->setStatus(QStringLiteral("波形保存失败"));
+        app_->showToast(QStringLiteral("波形保存失败"), AppBridge::StatusDanger);
     }
 }
 
