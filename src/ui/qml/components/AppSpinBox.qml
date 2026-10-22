@@ -7,6 +7,10 @@ import QtQuick.Controls
 SpinBox {
     id: control
 
+    // 通道卡等场景用「键入 + 外侧 ± 按钮」，不需要内置上下箭头：
+    // 置 false 时指示器宽度收成 0 并隐藏，原本留给箭头的横向空间回到数值区。
+    property bool showIndicator: true
+
     contentItem: TextInput {
         z: 2
         text: control.displayText
@@ -28,8 +32,9 @@ SpinBox {
     up.indicator: Rectangle {
         x: control.mirrored ? 0 : control.width - width
         height: control.height
-        implicitWidth: ComponentStyle.spinIndicatorWidth
-        implicitHeight: ComponentStyle.spinIndicatorWidth
+        implicitWidth: control.showIndicator ? ComponentStyle.spinIndicatorWidth : 0
+        implicitHeight: control.showIndicator ? ComponentStyle.spinIndicatorWidth : 0
+        visible: control.showIndicator
         radius: Metrics.radiusSm
         color: !control.enabled ? Theme.surfaceDisabled : (control.up.pressed ? Theme.pressed : Theme.surface)
         border.width: Metrics.borderWidth
@@ -46,8 +51,9 @@ SpinBox {
     down.indicator: Rectangle {
         x: control.mirrored ? parent.width - width : 0
         height: control.height
-        implicitWidth: ComponentStyle.spinIndicatorWidth
-        implicitHeight: ComponentStyle.spinIndicatorWidth
+        implicitWidth: control.showIndicator ? ComponentStyle.spinIndicatorWidth : 0
+        implicitHeight: control.showIndicator ? ComponentStyle.spinIndicatorWidth : 0
+        visible: control.showIndicator
         radius: Metrics.radiusSm
         color: !control.enabled ? Theme.surfaceDisabled : (control.down.pressed ? Theme.pressed : Theme.surface)
         border.width: Metrics.borderWidth

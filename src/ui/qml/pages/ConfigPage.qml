@@ -4,6 +4,8 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 
 // 配置页：连接（IP/端口/二维码）、波形、主题、日志，以及规则编辑器入口。
+// 卡片语言与首页一致：层级只在卡片这一层，卡片内分组一律「小标题 + 留白」，
+// 不画内层描边、不填内层底色，分组间距由 ComponentStyle.groupSpacing 承担。
 // 交互约定：本文件不写任何信号处理器；交互控件由 C++（UiConnector）按 objectName 连接。
 Item {
     id: page
@@ -37,98 +39,154 @@ Item {
                 }
             }
 
-            // 连接
+            // 连接：左列表单，右列扫码配对（右列固定宽度，不再独占整卡）
             GlassCard {
+                id: connectCard
+
+                objectName: "configConnectionCard"
                 Layout.fillWidth: true
                 title: qsTr("连接")
 
                 RowLayout {
                     width: parent.width
-                    spacing: Metrics.spacingMd
+                    spacing: ComponentStyle.groupSpacing
 
-                    Text {
-                        text: qsTr("地址")
-                        color: Theme.textSecondary
-                        font.pixelSize: Typography.fontBody
-                    }
+                    // 左列：地址 / 端口 / 连接 / 状态行 / 错误行
+                    ColumnLayout {
+                        objectName: "configConnectionFormColumn"
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 0
+                        spacing: ComponentStyle.groupTitleGap
 
-                    AppTextField {
-                        id: ipField
+                        Text {
+                            text: qsTr("中转连接")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                            font.bold: true
+                        }
 
-                        objectName: "configIpField"
-                        text: device.ip
-                        Layout.preferredWidth: 180
-                    }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Metrics.spacingMd
 
-                    Text {
-                        text: qsTr("端口")
-                        color: Theme.textSecondary
-                        font.pixelSize: Typography.fontBody
-                    }
+                            Text {
+                                text: qsTr("地址")
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontBody
+                            }
 
-                    AppTextField {
-                        id: portField
+                            AppTextField {
+                                id: ipField
 
-                        objectName: "configPortField"
-                        text: device.port
-                        Layout.preferredWidth: 100
-                        validator: IntValidator {
-                            bottom: 1
-                            top: 65535
+                                objectName: "configIpField"
+                                text: device.ip
+                                Layout.preferredWidth: ComponentStyle.configIpFieldWidth
+                            }
+
+                            Text {
+                                text: qsTr("端口")
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontBody
+                            }
+
+                            AppTextField {
+                                id: portField
+
+                                objectName: "configPortField"
+                                text: device.port
+                                Layout.preferredWidth: ComponentStyle.configPortFieldWidth
+                                validator: IntValidator {
+                                    bottom: 1
+                                    top: 65535
+                                }
+                            }
+
+                            AppButton {
+                                objectName: "configConnectButton"
+                                text: device.connected ? qsTr("断开") : qsTr("连接")
+                                primary: !device.connected
+                                enabled: !device.connecting
+                            }
+
+                            Item {
+                                Layout.fillWidth: true
+                            }
+                        }
+
+                        // 状态行：按配对阶段显示
+                        Text {
+                            Layout.fillWidth: true
+                            text: device.pairingStage === 2 ? qsTr("已配对")
+                                : (device.pairingStage === 1 ? qsTr("等待 APP 扫码配对") : qsTr("未启动"))
+                            color: device.pairingStage === 2 ? Theme.success
+                                : (device.pairingStage === 1 ? Theme.warning : Theme.textMuted)
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        // 错误行：有错误时单独占一行，不与状态行混排
+                        Text {
+                            Layout.fillWidth: true
+                            visible: device.lastError.length > 0
+                            text: device.lastError
+                            color: Theme.danger
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
                         }
                     }
 
-                    AppButton {
-                        objectName: "configConnectButton"
-                        text: device.connected ? qsTr("断开") : qsTr("连接")
-                        primary: !device.connected
-                        enabled: !device.connecting
-                    }
+                    // 右列：扫码配对（宽度令牌固定，列内二维码按边长令牌）
+                    ColumnLayout {
+                        objectName: "configQrColumn"
+                        Layout.fillWidth: false
+                        Layout.preferredWidth: ComponentStyle.configQrColumnWidth
+                        spacing: ComponentStyle.groupTitleGap
 
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                }
+                        Text {
+                            text: qsTr("扫码配对")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                            font.bold: true
+                        }
 
-                // 连接状态：错误文案优先，其余按配对阶段显示
-                Text {
-                    width: parent.width
-                    text: device.lastError.length > 0 ? device.lastError
-                        : (device.pairingStage === 2 ? qsTr("已配对")
-                        : (device.pairingStage === 1 ? qsTr("等待 APP 扫码配对") : qsTr("未启动")))
-                    color: device.lastError.length > 0 ? Theme.danger
-                        : (device.pairingStage === 2 ? Theme.success
-                        : (device.pairingStage === 1 ? Theme.warning : Theme.textMuted))
-                    font.pixelSize: Typography.fontBody
-                    elide: Text.ElideRight
-                }
+                        Image {
+                            objectName: "configQrImage"
+                            Layout.preferredWidth: ComponentStyle.configQrSize
+                            Layout.preferredHeight: ComponentStyle.configQrSize
+                            visible: device.connected
+                            source: device.qrImageUrl
+                            sourceSize.width: ComponentStyle.configQrSize
+                            sourceSize.height: ComponentStyle.configQrSize
+                            fillMode: Image.PreserveAspectFit
+                        }
 
-                Column {
-                    visible: device.connected
-                    spacing: Metrics.spacingSm
+                        Text {
+                            Layout.fillWidth: true
+                            visible: !device.connected
+                            text: qsTr("连接后显示配对二维码")
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            wrapMode: Text.WordWrap
+                        }
 
-                    Image {
-                        objectName: "configQrImage"
-                        width: 200
-                        height: 200
-                        source: device.qrImageUrl
-                        sourceSize.width: 200
-                        sourceSize.height: 200
-                        fillMode: Image.PreserveAspectFit
-                    }
+                        Text {
+                            Layout.fillWidth: true
+                            visible: device.connected
+                            text: device.pairingUrl
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideMiddle
+                        }
 
-                    Text {
-                        width: 420
-                        text: device.pairingUrl
-                        color: Theme.textMuted
-                        font.pixelSize: Typography.fontBody
-                        elide: Text.ElideMiddle
-                    }
-
-                    Text {
-                        text: device.v3Paired ? qsTr("APP 已配对") : (device.v4Attached ? qsTr("V4 已接入，等待设备上报") : qsTr("等待 APP 扫码配对"))
-                        color: (device.v3Paired || device.v4Attached) ? Theme.accent : Theme.textMuted
-                        font.pixelSize: Typography.fontBody
+                        Text {
+                            Layout.fillWidth: true
+                            visible: device.connected
+                            text: device.v3Paired ? qsTr("APP 已配对")
+                                : (device.v4Attached ? qsTr("V4 已接入，等待设备上报") : qsTr("等待 APP 扫码配对"))
+                            color: (device.v3Paired || device.v4Attached) ? Theme.accent : Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            wrapMode: Text.WordWrap
+                        }
                     }
                 }
             }
@@ -140,7 +198,7 @@ Item {
 
                 Column {
                     width: parent.width
-                    spacing: Metrics.spacingMd
+                    spacing: ComponentStyle.groupSpacing
 
                     RowLayout {
                         width: parent.width
@@ -152,6 +210,7 @@ Item {
                             font.pixelSize: Typography.fontBody
                         }
 
+                        // 选中态沿用 primary 语义：当前编辑目标通道整块强调，另一个保持默认表面色
                         AppButton {
                             objectName: "configWaveChannelAButton"
                             text: "A"
@@ -225,9 +284,14 @@ Item {
                         }
                     }
 
+                    // 卡片底部行：选择 / 创建波形右对齐
                     RowLayout {
                         width: parent.width
                         spacing: Metrics.spacingMd
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
 
                         AppButton {
                             objectName: "configWaveSelectButton"
@@ -237,10 +301,6 @@ Item {
                         AppButton {
                             objectName: "configWaveCreateButton"
                             text: qsTr("创建波形")
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
                         }
                     }
                 }
@@ -262,6 +322,7 @@ Item {
                         font.bold: true
                     }
 
+                    // 主色：色块（1px 描边，浅色块也能看清边界）+ 标签，hex 作为次级文本
                     Rectangle {
                         Layout.preferredWidth: ComponentStyle.swatchMinWidth
                         Layout.preferredHeight: ComponentStyle.swatchHeight
@@ -276,10 +337,20 @@ Item {
                         }
                     }
 
-                    Text {
-                        text: qsTr("主色 %1").arg(Theme.primary)
-                        color: Theme.textMuted
-                        font.pixelSize: Typography.fontBody
+                    Column {
+                        spacing: Metrics.spacing2xs
+
+                        Text {
+                            text: qsTr("主色")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        Text {
+                            text: Theme.primary
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                        }
                     }
 
                     Rectangle {
@@ -296,10 +367,20 @@ Item {
                         }
                     }
 
-                    Text {
-                        text: qsTr("副色 %1").arg(Theme.secondary)
-                        color: Theme.textMuted
-                        font.pixelSize: Typography.fontBody
+                    Column {
+                        spacing: Metrics.spacing2xs
+
+                        Text {
+                            text: qsTr("副色")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        Text {
+                            text: Theme.secondary
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                        }
                     }
 
                     Item {
@@ -326,7 +407,7 @@ Item {
 
                 Column {
                     width: parent.width
-                    spacing: Metrics.spacingMd
+                    spacing: ComponentStyle.groupSpacing
 
                     RowLayout {
                         width: parent.width
@@ -371,24 +452,21 @@ Item {
                         elide: Text.ElideRight
                     }
 
+                    // 设备行只靠留白分行，不再画内层描边/填色
                     ListView {
                         id: bleDeviceList
 
                         objectName: "bleDeviceList"
                         width: parent.width
-                        height: Math.min(contentHeight, 360)
+                        height: Math.min(contentHeight, ComponentStyle.panelBlockMaxHeight)
                         visible: ble.devices.length > 0
                         clip: true
                         model: ble.devices
                         spacing: Metrics.spacing2xs
 
-                        delegate: Rectangle {
+                        delegate: Item {
                             width: bleDeviceList.width
-                            height: 32
-                            radius: Metrics.radiusXs
-                            color: Theme.surfaceAlt
-                            border.width: Metrics.borderWidth
-                            border.color: Theme.divider
+                            height: ComponentStyle.inputHeight
 
                             Text {
                                 anchors.left: parent.left
@@ -462,92 +540,110 @@ Item {
                 }
             }
 
-            // 日志
+            // 日志：整卡高度由令牌给定，列表吃满卡片剩余高度（不再写死列表高度）
             GlassCard {
+                id: logCard
+
                 Layout.fillWidth: true
-                title: qsTr("日志")
+                Layout.preferredHeight: ComponentStyle.logCardHeight
+                Layout.minimumHeight: ComponentStyle.logCardHeight
 
-                RowLayout {
+                ColumnLayout {
                     width: parent.width
-                    spacing: Metrics.spacingMd
+                    height: ComponentStyle.logCardHeight - Metrics.cardPadding * 2
+                    spacing: ComponentStyle.groupTitleGap
 
-                    Text {
-                        text: qsTr("级别")
-                        color: Theme.textSecondary
-                        font.pixelSize: Typography.fontBody
-                    }
-
-                    AppComboBox {
-                        id: logLevelCombo
-
-                        objectName: "logLevelCombo"
-                        Layout.preferredWidth: ComponentStyle.inputMinWidth
-                        model: ["DEBUG", "INFO", "WARN", "ERROR"]
-                        currentIndex: logBridge.levelFilter
-                    }
-
-                    Item {
+                    // 卡头行：标题与级别过滤 / 导出 / 清空同一行
+                    RowLayout {
                         Layout.fillWidth: true
-                    }
-
-                    AppButton {
-                        objectName: "logExportButton"
-                        text: qsTr("导出日志")
-                    }
-
-                    AppButton {
-                        objectName: "logClearButton"
-                        text: qsTr("清空")
-                    }
-                }
-
-                // 贴底跟随：stickToBottom 由 C++ 侧（UiConnector）按用户滚动结果维护，
-                // 绑定只在需要跟随时生效，用户上滚回看历史日志时不再被新日志拽回底部。
-                ListView {
-                    id: logList
-
-                    objectName: "configLogList"
-                    width: parent.width
-                    height: ComponentStyle.logListHeight
-                    clip: true
-                    model: logBridge.messages
-                    spacing: 0
-                    property bool stickToBottom: true
-
-                    delegate: Rectangle {
-                        width: logList.width
-                        height: ComponentStyle.logRowHeight
-                        color: Theme.transparentFill
+                        spacing: Metrics.spacingMd
 
                         Text {
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: parent.width
-                            text: modelData.text
-                            color: modelData.level >= 3 ? Theme.danger : (modelData.level === 2 ? Theme.warning : Theme.textSecondary)
-                            font.family: Typography.fontMonoFamily
+                            text: qsTr("日志")
+                            color: Theme.textPrimary
+                            font.pixelSize: Typography.fontSubtitle
+                            font.bold: true
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
+                            text: qsTr("级别")
+                            color: Theme.textSecondary
                             font.pixelSize: Typography.fontBody
-                            elide: Text.ElideRight
+                        }
+
+                        AppComboBox {
+                            id: logLevelCombo
+
+                            objectName: "logLevelCombo"
+                            Layout.preferredWidth: ComponentStyle.inputMinWidth
+                            model: ["DEBUG", "INFO", "WARN", "ERROR"]
+                            currentIndex: logBridge.levelFilter
+                        }
+
+                        AppButton {
+                            objectName: "logExportButton"
+                            text: qsTr("导出日志")
+                        }
+
+                        AppButton {
+                            objectName: "logClearButton"
+                            text: qsTr("清空")
                         }
                     }
 
-                    // 无信号处理器：新日志到达时内容高度变化，绑定自动滚到底部；
-                    // stickToBottom 为 false 时绑定不生效（restoreMode 不还原），用户停留原处
-                    Binding {
-                        target: logList
-                        property: "contentY"
-                        value: Math.max(0, logList.contentHeight - logList.height)
-                        when: logList.stickToBottom
-                        restoreMode: Binding.RestoreNone
-                    }
-                }
+                    // 贴底跟随：stickToBottom 由 C++ 侧（UiConnector）按用户滚动结果维护，
+                    // 绑定只在需要跟随时生效，用户上滚回看历史日志时不再被新日志拽回底部。
+                    ListView {
+                        id: logList
 
-                Text {
-                    width: parent.width
-                    text: qsTr("导出目录：%1").arg(logBridge.exportDir)
-                    color: Theme.textMuted
-                    font.pixelSize: Typography.fontBody
-                    elide: Text.ElideMiddle
+                        objectName: "configLogList"
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.minimumHeight: ComponentStyle.logListMinHeight
+                        clip: true
+                        model: logBridge.messages
+                        spacing: 0
+                        property bool stickToBottom: true
+
+                        delegate: Rectangle {
+                            width: logList.width
+                            height: ComponentStyle.logRowHeight
+                            color: Theme.transparentFill
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: parent.width
+                                text: modelData.text
+                                color: modelData.level >= 3 ? Theme.danger : (modelData.level === 2 ? Theme.warning : Theme.textSecondary)
+                                font.family: Typography.fontMonoFamily
+                                font.pixelSize: Typography.fontBody
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        // 无信号处理器：新日志到达时内容高度变化，绑定自动滚到底部；
+                        // stickToBottom 为 false 时绑定不生效（restoreMode 不还原），用户停留原处
+                        Binding {
+                            target: logList
+                            property: "contentY"
+                            value: Math.max(0, logList.contentHeight - logList.height)
+                            when: logList.stickToBottom
+                            restoreMode: Binding.RestoreNone
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: qsTr("导出目录：%1").arg(logBridge.exportDir)
+                        color: Theme.textMuted
+                        font.pixelSize: Typography.fontBody
+                        elide: Text.ElideMiddle
+                    }
                 }
             }
 

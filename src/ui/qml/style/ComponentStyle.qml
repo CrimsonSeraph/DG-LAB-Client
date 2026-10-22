@@ -3,6 +3,11 @@ import QtQuick
 
 // 组件专属度量：通道卡片 / 强度卡 / 波形预览 / 节点编辑器等。
 QtObject {
+    // 卡片内分组：层级只由留白承担——分组用小标题 + 间距，不再画内层描边或填内层底色
+    readonly property int groupTitleGap: 6
+    readonly property int groupSpacing: 18
+    readonly property int statusBadgeHeight: 22
+
     // 首页通道卡片
     readonly property int channelCardMinWidth: 320
     readonly property int strengthValueWidth: 96
@@ -28,9 +33,16 @@ QtObject {
     readonly property int swatchHeight: 28
     readonly property int swatchMinWidth: 64
 
-    // 日志面板
+    // 日志面板：卡片高度由令牌给定，列表吃满卡片剩余高度（下限见 logListMinHeight）
     readonly property int logRowHeight: 18
-    readonly property int logListHeight: 170
+    readonly property int logCardHeight: 360
+    readonly property int logListMinHeight: 200
+
+    // 配置页连接卡：右列二维码固定宽度（二维码边长 + 列内余量）
+    readonly property int configQrSize: 200
+    readonly property int configQrColumnWidth: 216
+    readonly property int configIpFieldWidth: 180
+    readonly property int configPortFieldWidth: 100
 
     // 模块卡片
     readonly property int moduleCardWidth: 232

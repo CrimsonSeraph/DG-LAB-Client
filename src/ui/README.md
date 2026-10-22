@@ -82,8 +82,10 @@ src/ui/
 
 | objectName                                  | 行为                                     |
 | ------------------------------------------- | ---------------------------------------- |
-| `channel{A,B}StartButton`                   | 切换通道启用状态（同步规则引擎通道变量） |
-| `channel{A,B}StrengthSpin`                  | 设置目标强度（`valueModified`）          |
+| `channel{A,B}Card`                          | 通道卡根节点（`GlassCard`），用于几何度量 |
+| `channel{A,B}StartButton`                   | 切换通道启用状态（同步规则引擎通道变量）；位于卡头右侧，运行态为 `danger` + `outline` |
+| `channel{A,B}StatusBadge`                   | 状态徽标（`components/StatusBadge.qml`）：未运行 / 运行中 / 无输出，只展示不给交互 |
+| `channel{A,B}StrengthSpin`                  | 设置目标强度（`valueModified`）；`showIndicator: false` |
 | `channel{A,B}StrengthIncrease` / `Decrease` | 强度 ±1                                  |
 | `channel{A,B}SelectWaveButton`              | 选择波形                                 |
 
@@ -91,6 +93,8 @@ src/ui/
 
 | objectName | 行为 |
 | --- | --- |
+| `configConnectionCard` | 连接卡根节点（`GlassCard`），左列表单 + 右列二维码 |
+| `configConnectionFormColumn` / `configQrColumn` | 连接卡左列表单列 / 右列二维码列（右列固定宽度） |
 | `configIpField` / `configPortField` | 连接地址与端口（连接时读取并持久化） |
 | `configConnectButton` | 连接 / 断开 |
 | `configQrImage` | 连接成功后展示二维码 |
@@ -147,6 +151,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `AppTextArea`  | `TextArea`  | 同 `AppTextField`，用于表达式等长文本                  |
 | `AppComboBox`  | `ComboBox`  | 内容区 / 指示器 / 弹层 / 委托全部主题化                |
 | `AppCheckBox`  | `CheckBox`  | 指示器与文字主题化，选中态用 `accent`                  |
+| `AppButton`    | `Button`    | 三态：`primary` = 强调色实心、`danger` = 危险色实心、`outline` = 透明底 + 语义色描边与文字（可与 `danger` / `primary` 组合，默认 false 时视觉不变） |
 
 - 控件只读 `Theme` / `Metrics` / `Typography` / `ComponentStyle`，不写任何颜色字面量。
 - 新增输入控件先在此目录封装，尺寸常量补进 `ComponentStyle`，再替换页面中的原生控件。

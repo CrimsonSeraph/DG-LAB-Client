@@ -251,6 +251,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/components/AppCheckBox.qml
 		src/ui/qml/components/ConfirmDialog.qml
 		src/ui/qml/components/WavePreview.qml
+		src/ui/qml/components/StatusBadge.qml
 		src/ui/qml/components/PageHeader.qml
 		src/ui/qml/components/Toast.qml
 		src/ui/qml/style/Metrics.qml
