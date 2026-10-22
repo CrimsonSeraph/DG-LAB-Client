@@ -11,6 +11,8 @@
 #include <QSet>
 #include <QString>
 
+#include <functional>
+
 class AppBridge;
 class CoyoteBleController;
 class DeviceController;
@@ -37,11 +39,20 @@ public:
     /// @brief 在 engine.load 之后调用，连接根对象下的全部交互控件
     void attach(QObject* root_object);
 
+    /// @brief 弹出确认弹层，用户点确认后执行 on_accept；取消只关闭弹层
+    /// @note 同一时刻只保留一个待确认动作：再次调用会覆盖上一次的回调
+    void ask_confirm(const QString& title, const QString& message, bool danger,
+        std::function<void()> on_accept);
+
 private slots:
     // 导航
     void on_nav_button_clicked();
     void on_home_module_entry_clicked();
     void on_rule_editor_clicked();
+    void on_rule_editor_close_clicked();
+    // 通用确认弹层
+    void on_confirm_accepted();
+    void on_confirm_canceled();
     // 首页通道
     void on_channel_toggle_clicked();
     void on_strength_modified();
@@ -85,6 +96,8 @@ private slots:
     void on_log_export_clicked();
     void on_log_clear_clicked();
     void on_log_level_changed();
+    void on_log_list_movement_ended();
+    void on_log_messages_changed();
     // 动态内容变化后重扫热区
     void on_tracked_children_changed();
 
@@ -113,6 +126,10 @@ private:
     RuleGraphBridge* rule_graph_ = nullptr;
     LogBridge* log_ = nullptr;
     QPointer<QObject> root_;
+    QPointer<QObject> confirm_dialog_;       ///< 通用确认弹层
+    std::function<void()> confirm_callback_;  ///< 确认后要执行的动作（取消即丢弃）
+    QPointer<QObject> log_list_;  ///< 日志列表（贴底跟随在此维护）
+    qreal log_scroll_y_ = 0.0;    ///< 用户滚动停留时的 contentY
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
 };

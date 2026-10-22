@@ -31,6 +31,8 @@ void HomeBridge::initialize() {
                 emit dataChanged();
             });
         connect(device_, &DeviceController::connectedChanged, this, &HomeBridge::dataChanged);
+        // 通道状态包含输出可用性，蓝牙 / 中转任一路变化都要重算
+        connect(device_, &DeviceController::outputReadyChanged, this, &HomeBridge::dataChanged);
     }
 
     auto& rules = RuleManager::instance();
@@ -101,6 +103,17 @@ int HomeBridge::channel_index(const QString& channel) const {
 int HomeBridge::clamp_strength(const QString& channel, int value) const {
     const int limit = (channel == QStringLiteral("A")) ? limit_a_ : limit_b_;
     return std::clamp(value, 0, std::min(limit, 200));
+}
+
+QString HomeBridge::channel_state(const QString& channel) const {
+    const bool running = (channel == QStringLiteral("A")) ? running_a() : running_b();
+    if (!running) {
+        return QStringLiteral("idle");
+    }
+    if (device_ != nullptr && device_->output_available()) {
+        return QStringLiteral("running");
+    }
+    return QStringLiteral("runningNoOutput");
 }
 
 void HomeBridge::apply_strength(const QString& channel, int value) {

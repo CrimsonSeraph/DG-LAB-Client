@@ -53,12 +53,13 @@ void DeviceController::initialize() {
     relay_ = new DglabRelayServer(this);
 
     connect(relay_, &DglabRelayServer::statusMessage, this, &DeviceController::statusMessage);
-    connect(relay_, &DglabRelayServer::errorOccurred, this, &DeviceController::errorOccurred);
+    connect(relay_, &DglabRelayServer::errorOccurred, this, &DeviceController::report_error);
     connect(relay_, &DglabRelayServer::strengthFeedback, this, &DeviceController::strengthFeedback);
     connect(relay_, &DglabRelayServer::deviceFeedback, this, &DeviceController::deviceFeedback);
     connect(relay_, &DglabRelayServer::pairingChanged, this, [this]() {
         update_pairing_url();
         emit pairingChanged();
+        emit pairingStageChanged();
     });
 
     const auto& config = AppConfig::instance();
@@ -97,6 +98,12 @@ void DeviceController::initialize() {
 
 void DeviceController::attach_ble(CoyoteBleController* ble) {
     ble_ = ble;
+    if (ble_ != nullptr) {
+        // 蓝牙连接状态直接决定输出可用性，属性需要跟着广播
+        connect(ble_, &CoyoteBleController::stateChanged, this, [this]() {
+            emit outputReadyChanged();
+        });
+    }
 }
 
 bool DeviceController::output_available() const {
@@ -119,13 +126,20 @@ QVariantList DeviceController::v4_devices() const {
     return relay_ == nullptr ? QVariantList() : relay_->v4_devices();
 }
 
+int DeviceController::pairing_stage() const {
+    if (!connected_) {
+        return 0;
+    }
+    return (v3_paired() || v4_attached()) ? 2 : 1;
+}
+
 QQuickImageProvider* DeviceController::qr_image_provider() const {
     return qr_provider_;
 }
 
 void DeviceController::setEndpoint(const QString& ip, int port) {
     if (ip.isEmpty() || port <= 0 || port > 65535) {
-        emit errorOccurred(QStringLiteral("地址或端口无效"));
+        report_error(QStringLiteral("地址或端口无效"));
         return;
     }
     ip_ = ip;
@@ -151,7 +165,10 @@ void DeviceController::connectDevice() {
 
     connected_ = started;
     emit connectedChanged();
+    notify_output_state();
     if (started) {
+        last_error_.clear();
+        emit lastErrorChanged();
         update_pairing_url();
         emit statusMessage(QStringLiteral("内置中转服务已启动，请用 APP 扫码配对"));
     }
@@ -171,6 +188,7 @@ void DeviceController::disconnectDevice() {
     emit connectedChanged();
     emit qrUrlChanged();
     emit pairingChanged();
+    notify_output_state();
 }
 
 void DeviceController::sendStrength(int channel, int mode, int value) {
@@ -256,4 +274,15 @@ void DeviceController::update_pairing_url() {
 
 bool DeviceController::ble_ready() const {
     return ble_ != nullptr && ble_->connected();
+}
+
+void DeviceController::report_error(const QString& message) {
+    last_error_ = message;
+    emit lastErrorChanged();
+    emit errorOccurred(message);
+}
+
+void DeviceController::notify_output_state() {
+    emit outputReadyChanged();
+    emit pairingStageChanged();
 }

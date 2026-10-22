@@ -17,6 +17,11 @@ ApplicationWindow {
     color: Theme.windowBg
 
     readonly property bool compactNav: Responsive.isCompactNav(width)
+    // 状态栏文字颜色：按 app.statusLevel（0 info / 1 success / 2 warning / 3 danger）取语义色
+    readonly property color statusColor: app.statusLevel === 1 ? Theme.success
+        : app.statusLevel === 2 ? Theme.warning
+        : app.statusLevel === 3 ? Theme.danger
+        : Theme.textSecondary
 
     // 左侧导航
     Rectangle {
@@ -55,7 +60,7 @@ ApplicationWindow {
                     Text {
                         text: app.appName
                         color: Theme.textPrimary
-                        font.pixelSize: Typography.fontBodyLarge
+                        font.pixelSize: Typography.fontSubtitle
                         font.bold: true
                         elide: Text.ElideRight
                         Layout.fillWidth: true
@@ -64,7 +69,7 @@ ApplicationWindow {
                     Text {
                         text: "v" + app.appVersion
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
@@ -147,6 +152,11 @@ ApplicationWindow {
         id: ruleEditorDialog
     }
 
+    // 通用确认弹层（C++ 侧 UiConnector::ask_confirm 驱动）
+    ConfirmDialog {
+        id: confirmDialog
+    }
+
     // 底部状态栏
     Rectangle {
         id: statusBar
@@ -168,8 +178,8 @@ ApplicationWindow {
             anchors.leftMargin: Metrics.spacingLg
             anchors.verticalCenter: parent.verticalCenter
             text: app.statusText.length > 0 ? app.statusText : qsTr("就绪")
-            color: Theme.textSecondary
-            font.pixelSize: Typography.fontSmall
+            color: root.statusColor
+            font.pixelSize: Typography.fontBody
             elide: Text.ElideRight
         }
     }

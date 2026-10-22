@@ -30,10 +30,11 @@ void AppBridge::navigate(int page) {
     set_current_page(page);
 }
 
-void AppBridge::setStatus(const QString& text) {
-    if (text == status_text_) {
+void AppBridge::setStatus(const QString& text, int level) {
+    if (text == status_text_ && level == status_level_) {
         return;
     }
     status_text_ = text;
+    status_level_ = level;
     emit statusTextChanged();
 }

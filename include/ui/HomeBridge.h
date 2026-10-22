@@ -28,6 +28,8 @@ class HomeBridge : public QObject {
     Q_PROPERTY(QVariantList rulesB READ rules_b NOTIFY dataChanged)
     Q_PROPERTY(QString waveA READ wave_a NOTIFY dataChanged)
     Q_PROPERTY(QString waveB READ wave_b NOTIFY dataChanged)
+    Q_PROPERTY(QString channelAState READ channel_a_state NOTIFY dataChanged)
+    Q_PROPERTY(QString channelBState READ channel_b_state NOTIFY dataChanged)
 
 public:
     explicit HomeBridge(DeviceController* device, QObject* parent = nullptr);
@@ -47,6 +49,9 @@ public:
     QVariantList rules_b() const;
     QString wave_a() const;
     QString wave_b() const;
+    /// @brief 通道状态：idle / running / runningNoOutput
+    QString channel_a_state() const { return channel_state(QStringLiteral("A")); }
+    QString channel_b_state() const { return channel_state(QStringLiteral("B")); }
 
     /// @brief 切换通道启用状态（同步到规则引擎的通道启用变量）
     Q_INVOKABLE void toggleChannel(const QString& channel);
@@ -64,6 +69,7 @@ signals:
 private:
     int channel_index(const QString& channel) const;
     int clamp_strength(const QString& channel, int value) const;
+    QString channel_state(const QString& channel) const;
     void apply_strength(const QString& channel, int value);
     QVariantList build_modules(const QString& channel) const;
     QVariantList build_rules(const QString& channel) const;

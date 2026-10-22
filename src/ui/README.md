@@ -99,16 +99,24 @@ src/ui/
 | `themePresetList` / `themePresetClick` | 预设主题列表与行热区（`mode` 属性） |
 | `customThemePrimaryButton` / `customThemeSecondaryButton` | 打开主/副色取色对话框 |
 | `customThemeSaveButton` | 保存并应用自定义主题 |
+| `configLogList` | 日志列表；`movementEnded` 时按 `atYEnd` 维护 QML 侧 `stickToBottom`（贴底跟随 / 上滚回看） |
 | `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备 |
 | `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性） |
 | `bleStrengthA{Increase,Decrease}` / `bleStrengthB{Increase,Decrease}` | 蓝牙通道强度增减 |
+
+对话框：
+
+| objectName | 行为 |
+| --- | --- |
+| `ruleEditorDialog` | 规则编辑器；`ruleEditorCloseButton` 的关闭经 C++ 判断未保存改动后先弹确认 |
+| `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭 |
 
 ## 样式令牌（style/ 单例）
 
 | 单例             | 职责                                                       |
 | ---------------- | ---------------------------------------------------------- |
 | `Metrics`        | 间距刻度、圆角、描边、导航宽度、卡片内边距、按钮高度       |
-| `Typography`     | `fontTiny` ~ `fontDisplay`                                 |
+| `Typography`     | 五档字号：`fontBody` / `fontSubtitle` / `fontHeading` / `fontTitle` / `fontDisplay`，另加等宽字体族 `fontMonoFamily` |
 | `Responsive`     | 窗口断点（`isCompactNav` / `isNarrow`）与最小窗口尺寸      |
 | `ComponentStyle` | 通道卡片、波形预览、规则节点编辑器、主题色块等组件专属度量 |
 | `Theme`（C++）   | 全部颜色令牌                                               |
@@ -137,7 +145,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 - QML 不写 `onClicked` / `Connections` / `onXxx`；所有交互由 `UiConnector` 在 `engine.load()` 之后按 `objectName` 连接。
 - 新增交互控件必须同步更新 `UiConnector` 与本文件的 objectName 表。
-- 列表/中继器动态生成的委托（如 `themePresetList` 的 `themePresetClick`）不在 `QObject::children()` 中：`UiConnector::watch_list()` 沿 `QQuickItem::childItems()` 扫描热区并在 `childrenChanged` 后重扫。
+- 列表/中继器动态生成的委托（如 `themePresetList` 的 `themePresetClick`）不在 `QObject::children()` 中：`UiConnector::watch_items()` 沿 `QQuickItem::childItems()` 扫描热区并在 `childrenChanged` 后重扫。
 - 用户可编辑但需要回灌的控件（如强度 `SpinBox`）使用 `Binding` 元素回写，避免用户操作破坏绑定。
 
 ## 信号处理器例外（必须使用手势的视图）
@@ -146,8 +154,12 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 | 例外位置 | 原因 | 约束 |
 | --- | --- | --- |
-| `dialogs/RuleEditorDialog.qml` 的规则图画布与节点（拖动、滚轮缩放、右键菜单、快捷键） | 手势与命中测试无法通过 `objectName` + C++ 连接表达 | 处理器内只调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型。节点检查器（名称 / 模式 / 启用 / 表达式）沿用同一条例外，同样只调用 `ruleGraph`。本次控件主题化未新增或扩大例外 |
-| `Shape`/`Canvas` 的 `onPaint` 等绘制回调 | 渲染框架要求 | 只读取传入的 `points` 等属性，不写业务逻辑 |
+| `dialogs/RuleEditorDialog.qml` 画布 `MouseArea` 的 `onPressed` / `onPositionChanged` / `onReleased` / `onWheel` / `Keys.onPressed` | 拖动节点、拉线、缩放、平移与快捷键都是指针/键盘手势，命中测试无法通过 `objectName` + C++ 连接表达 | 处理器只调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型 |
+| 同文件画布右键菜单的 5 个 `MenuItem.onTriggered` | 菜单由手势弹出，且需要读画布当前缩放/平移换算世界坐标 | 同上，只调用 `ruleGraph` |
+| 同文件调色板 11 个 `AppButton.onClicked`（`ruleAddAdd` / `ruleAddSub` / `ruleAddMul` / `ruleAddDiv` / `ruleAddAbs` / `ruleAddSquare` / `ruleAddSqrt` / `ruleAddExpr` / `ruleAddRule` / `ruleAddChannelA` / `ruleAddChannelB`）与模块列表委托 `MouseArea.onClicked` | 遗留：这些点击都能用 `objectName` + `connect_clicked` 迁到 C++，目前尚未迁移 | 只调用 `ruleGraph`；新增控件不得照抄此写法 |
+| 同文件检查器的 `onEditingFinished`（规则名 `nameField` / 表达式 `expressionArea`）、`onActivated`（值模式 `modeCombo`）、`onClicked`（启用勾选、应用表达式）、`ruleSaveButton.onClicked` | 遗留：输入回灌与保存沿用 QML 处理器 | 只调用 `ruleGraph`；不得扩大 |
+
+已迁出：规则编辑器关闭按钮（`ruleEditorCloseButton`）原先写 `onClicked: dialog.close()`，现由 `UiConnector::on_rule_editor_close_clicked()` 连接，存在未保存改动时先经 `confirmDialog` 确认。
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 

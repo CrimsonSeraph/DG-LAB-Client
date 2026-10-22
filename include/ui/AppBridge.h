@@ -18,6 +18,7 @@ class AppBridge : public QObject {
     Q_PROPERTY(int currentPage READ current_page WRITE set_current_page NOTIFY currentPageChanged)
     Q_PROPERTY(int pageCount READ page_count CONSTANT)
     Q_PROPERTY(QString statusText READ status_text NOTIFY statusTextChanged)
+    Q_PROPERTY(int statusLevel READ status_level NOTIFY statusTextChanged)
 
 public:
     enum Page {
@@ -27,6 +28,15 @@ public:
         AboutPage = 3
     };
     Q_ENUM(Page)
+
+    /// @brief 状态栏文本级别（0=info / 1=success / 2=warning / 3=danger）
+    enum StatusLevel {
+        StatusInfo = 0,
+        StatusSuccess = 1,
+        StatusWarning = 2,
+        StatusDanger = 3
+    };
+    Q_ENUM(StatusLevel)
 
     explicit AppBridge(QObject* parent = nullptr);
 
@@ -38,12 +48,13 @@ public:
     int current_page() const { return current_page_; }
     int page_count() const { return 4; }
     QString status_text() const { return status_text_; }
+    int status_level() const { return status_level_; }
 
     void set_current_page(int page);
     Q_INVOKABLE void navigate(int page);
 
-    /// @brief 设置底部状态栏文本
-    Q_INVOKABLE void setStatus(const QString& text);
+    /// @brief 设置底部状态栏文本与级别（级别决定状态栏文字颜色）
+    Q_INVOKABLE void setStatus(const QString& text, int level = StatusInfo);
 
 signals:
     void appInfoChanged();
@@ -55,4 +66,5 @@ private:
     QString app_version_ = QStringLiteral("2.2.0");
     int current_page_ = HomePage;
     QString status_text_;
+    int status_level_ = StatusInfo;
 };

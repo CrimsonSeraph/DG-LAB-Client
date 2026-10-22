@@ -33,6 +33,9 @@ class DeviceController : public QObject {
     Q_PROPERTY(bool v3Paired READ v3_paired NOTIFY pairingChanged)
     Q_PROPERTY(bool v4Attached READ v4_attached NOTIFY pairingChanged)
     Q_PROPERTY(QVariantList v4Devices READ v4_devices NOTIFY pairingChanged)
+    Q_PROPERTY(QString lastError READ last_error NOTIFY lastErrorChanged)
+    Q_PROPERTY(bool outputReady READ output_ready NOTIFY outputReadyChanged)
+    Q_PROPERTY(int pairingStage READ pairing_stage NOTIFY pairingStageChanged)
 
 public:
     explicit DeviceController(QObject* parent = nullptr);
@@ -56,6 +59,12 @@ public:
     bool v3_paired() const;
     bool v4_attached() const;
     QVariantList v4_devices() const;
+    /// @brief 最近一次错误文案（所有 errorOccurred 出口同步写入）
+    QString last_error() const { return last_error_; }
+    /// @brief 输出可用性（镜像 output_available()，供 QML 绑定）
+    bool output_ready() const { return output_available(); }
+    /// @brief 配对阶段（0=未启动 / 1=等待扫码 / 2=已配对）
+    int pairing_stage() const;
 
     /// @brief 二维码图像提供者（由 main 注册到 QML 引擎）
     QQuickImageProvider* qr_image_provider() const;
@@ -87,11 +96,18 @@ signals:
     void deviceFeedback(int channel, int button);
     void errorOccurred(const QString& message);
     void statusMessage(const QString& message);
+    void lastErrorChanged();
+    void outputReadyChanged();
+    void pairingStageChanged();
 
 private:
     void update_pairing_url();
     /// @brief 蓝牙是否可作为输出通道
     bool ble_ready() const;
+    /// @brief 记录错误文案并广播（所有错误出口统一经此）
+    void report_error(const QString& message);
+    /// @brief 输出可用性与配对阶段变化后广播派生属性
+    void notify_output_state();
 
     DglabRelayServer* relay_ = nullptr;
     QrImageProvider* qr_provider_ = nullptr;
@@ -104,4 +120,5 @@ private:
     int qr_revision_ = 0;
     bool connected_ = false;
     bool connecting_ = false;
+    QString last_error_; ///< 最近一次错误文案
 };

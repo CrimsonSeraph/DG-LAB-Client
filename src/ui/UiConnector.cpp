@@ -21,6 +21,8 @@
 #include <QMetaObject>
 #include <QQuickItem>
 
+#include <utility>
+
 namespace {
 
     /// @brief 导航按钮 objectName -> 页面索引
@@ -66,6 +68,28 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
                 }
             });
     }
+    if (device_ != nullptr) {
+        QObject::connect(device_, &DeviceController::errorOccurred, this,
+            [this](const QString& message) {
+                if (app_ != nullptr) {
+                    app_->setStatus(message, AppBridge::StatusDanger);
+                }
+            });
+        // device_.initialize() 早于本类构造，启动期（如中转服务端口占用）发出的 errorOccurred
+        // 没有接收者；在此用 lastError 回填一次状态栏，不改动 initialize() 的时序与信号语义。
+        const QString startup_error = device_->last_error();
+        if (!startup_error.isEmpty() && app_ != nullptr) {
+            app_->setStatus(startup_error, AppBridge::StatusDanger);
+        }
+    }
+    if (rule_graph_ != nullptr) {
+        QObject::connect(rule_graph_, &RuleGraphBridge::statusMessage, this,
+            [this](const QString& message) {
+                if (app_ != nullptr) {
+                    app_->setStatus(message, AppBridge::StatusInfo);
+                }
+            });
+    }
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -86,6 +110,15 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "homeModuleEntryButton", SLOT(on_home_module_entry_clicked()));
     connect_clicked(root_object, "homeRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "configRuleEditorButton", SLOT(on_rule_editor_clicked()));
+    connect_clicked(root_object, "ruleEditorCloseButton", SLOT(on_rule_editor_close_clicked()));
+
+    // 通用确认弹层：弹层缺失只告警，ask_confirm 会退化为不执行待确认动作
+    confirm_dialog_ = root_object->findChild<QObject*>(QStringLiteral("confirmDialog"));
+    if (confirm_dialog_.isNull()) {
+        LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到控件: confirmDialog");
+    }
+    connect_clicked(root_object, "confirmAcceptButton", SLOT(on_confirm_accepted()));
+    connect_clicked(root_object, "confirmCancelButton", SLOT(on_confirm_canceled()));
 
     connect_clicked(root_object, "channelAStartButton", SLOT(on_channel_toggle_clicked()));
     connect_clicked(root_object, "channelBStartButton", SLOT(on_channel_toggle_clicked()));
@@ -165,6 +198,19 @@ void UiConnector::attach(QObject* root_object) {
     if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("logLevelCombo"))) {
         QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_log_level_changed()));
     }
+    // 日志列表贴底跟随：用户滚动结束后按 atYEnd 维护 QML 侧 stickToBottom，
+    // 上滚回看历史时不跟新日志，滚回底部后恢复跟随。
+    auto* log_list = root_object->findChild<QObject*>(QStringLiteral("configLogList"));
+    if (log_list == nullptr) {
+        LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到控件: configLogList");
+    }
+    else {
+        log_list_ = log_list;
+        QObject::connect(log_list, SIGNAL(movementEnded()), this, SLOT(on_log_list_movement_ended()));
+        if (log_ != nullptr) {
+            QObject::connect(log_, &LogBridge::messagesChanged, this, &UiConnector::on_log_messages_changed);
+        }
+    }
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
@@ -199,6 +245,36 @@ void UiConnector::close_dialog(const char* object_name) {
     if (dialog != nullptr) {
         QMetaObject::invokeMethod(dialog, "close");
     }
+}
+
+void UiConnector::ask_confirm(const QString& title, const QString& message, bool danger,
+    std::function<void()> on_accept) {
+    if (confirm_dialog_.isNull()) {
+        LOG_MODULE("UiConnector", "ask_confirm", LOG_WARN,
+            "确认弹层缺失，待确认动作未执行: " + title.toStdString());
+        return;
+    }
+    confirm_dialog_->setProperty("titleText", title);
+    confirm_dialog_->setProperty("messageText", message);
+    confirm_dialog_->setProperty("acceptDanger", danger);
+    confirm_callback_ = std::move(on_accept);
+    QMetaObject::invokeMethod(confirm_dialog_, "open");
+}
+
+void UiConnector::on_confirm_accepted() {
+    // 先摘下并清空回调，再关闭、执行：关闭动作本身可能再次 ask_confirm（连续确认），
+    // 后关闭会把新弹层一起关掉；清空回调则保证一次点击只触发一次动作。
+    auto action = std::move(confirm_callback_);
+    confirm_callback_ = nullptr;
+    close_dialog("confirmDialog");
+    if (action) {
+        action();
+    }
+}
+
+void UiConnector::on_confirm_canceled() {
+    confirm_callback_ = nullptr;
+    close_dialog("confirmDialog");
 }
 
 void UiConnector::watch_items(QObject* root_object, const char* owner_name, const QString& item_name,
@@ -273,11 +349,45 @@ void UiConnector::on_rule_editor_clicked() {
     open_dialog("ruleEditorDialog");
 }
 
+void UiConnector::on_rule_editor_close_clicked() {
+    auto* dialog = find("ruleEditorDialog");
+    if (dialog == nullptr) {
+        LOG_MODULE("UiConnector", "on_rule_editor_close_clicked", LOG_WARN,
+            "未找到对话框: ruleEditorDialog");
+        return;
+    }
+    const bool dirty = rule_graph_ != nullptr && rule_graph_->property("dirty").toBool();
+    if (!dirty) {
+        QMetaObject::invokeMethod(dialog, "close");
+        return;
+    }
+    // 有未保存改动：关闭会丢弃这些改动，先确认
+    ask_confirm(tr("放弃未保存的改动？"), tr("规则图有未保存的修改，关闭后将丢失。"), true,
+        [guard = QPointer<QObject>(dialog)]() {
+            if (!guard.isNull()) {
+                QMetaObject::invokeMethod(guard.data(), "close");
+            }
+        });
+}
+
 void UiConnector::on_channel_toggle_clicked() {
     auto* button = sender();
-    if (button != nullptr && home_ != nullptr) {
-        home_->toggleChannel(channel_of(button->objectName()));
+    if (button == nullptr || home_ == nullptr) {
+        return;
     }
+    const QString channel = channel_of(button->objectName());
+    const bool running = channel == QStringLiteral("A") ? home_->running_a() : home_->running_b();
+    if (!running) {
+        home_->toggleChannel(channel);
+        return;
+    }
+    // 关闭运行中的通道会立即停止输出，先确认再切换
+    ask_confirm(tr("关闭通道 %1？").arg(channel), tr("关闭后该通道将停止输出。"), false,
+        [this, channel]() {
+            if (home_ != nullptr) {
+                home_->toggleChannel(channel);
+            }
+        });
 }
 
 void UiConnector::on_strength_modified() {
@@ -449,6 +559,38 @@ void UiConnector::on_log_clear_clicked() {
     if (log_ != nullptr) {
         log_->clear();
     }
+}
+
+void UiConnector::on_log_list_movement_ended() {
+    auto* list = sender();
+    if (list == nullptr) {
+        return;
+    }
+    // 滚动结束：到底部则恢复跟随，否则记住用户停留位置
+    const bool at_end = list->property("atYEnd").toBool();
+    list->setProperty("stickToBottom", at_end);
+    if (!at_end) {
+        log_scroll_y_ = list->property("contentY").toReal();
+    }
+}
+
+void UiConnector::on_log_messages_changed() {
+    auto* list = log_list_.data();
+    if (list == nullptr) {
+        return;
+    }
+    // 日志模型每次整体替换：ListView 会把第一个条目重新锚回顶部（contentY 归零）。
+    // 等本轮事件循环把列表重新布局完，再按 stickToBottom 写回贴底或用户停留位置。
+    QMetaObject::invokeMethod(list, [this, list]() {
+        if (list->property("stickToBottom").toBool()) {
+            list->setProperty("contentY",
+                qMax<qreal>(0.0,
+                    list->property("contentHeight").toReal() - list->property("height").toReal()));
+        }
+        else if (list->property("count").toInt() > 0) {
+            list->setProperty("contentY", log_scroll_y_);
+        }
+    }, Qt::QueuedConnection);
 }
 
 void UiConnector::on_log_level_changed() {
