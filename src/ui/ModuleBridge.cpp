@@ -16,13 +16,13 @@
 
 namespace {
 
-    /// @brief 周期选项（文本 -> 毫秒），与 QueryPeriod 对应
+    /// @brief 周期选项（文本 -> 毫秒），与 QueryPeriod 对应；文本直接用毫秒数值，避免口语量词
     const std::pair<const char*, int> kPeriodOptions[] = {
-        { "四分之一秒", 250 },
-        { "每半秒", 500 },
-        { "每秒", 1000 },
-        { "每两秒", 2000 },
-        { "每四秒", 4000 }
+        { "250 ms", 250 },
+        { "500 ms", 500 },
+        { "1000 ms", 1000 },
+        { "2000 ms", 2000 },
+        { "4000 ms", 4000 }
     };
 
 } // namespace
@@ -57,20 +57,25 @@ QVariantList ModuleBridge::modules() const {
         item.insert(QStringLiteral("error"), QString::fromStdString(plugin.error));
 
         QString state_text;
+        QString state;
         bool enabled = false;
         switch (plugin.state) {
         case ModuleManager::PluginLoadState::Loaded:
             state_text = QStringLiteral("已加载");
+            state = QStringLiteral("loaded");
             enabled = true;
             loaded_names.insert(name);
             break;
         case ModuleManager::PluginLoadState::Failed:
             state_text = QStringLiteral("加载失败");
+            state = QStringLiteral("failed");
             break;
         default:
             state_text = QStringLiteral("暂未加载");
+            state = QStringLiteral("notLoaded");
             break;
         }
+        item.insert(QStringLiteral("state"), state);
         item.insert(QStringLiteral("stateText"), state_text);
         item.insert(QStringLiteral("enabled"), enabled);
         item.insert(QStringLiteral("periodMs"), enabled ? manager.get_module_min_period_ms(plugin.display_name) : 0);
@@ -88,6 +93,7 @@ QVariantList ModuleBridge::modules() const {
         item.insert(QStringLiteral("name"), name);
         item.insert(QStringLiteral("version"), QString());
         item.insert(QStringLiteral("error"), QString());
+        item.insert(QStringLiteral("state"), QStringLiteral("builtin"));
         item.insert(QStringLiteral("stateText"), QStringLiteral("内置模块"));
         item.insert(QStringLiteral("enabled"), true);
         item.insert(QStringLiteral("periodMs"), manager.get_module_min_period_ms(raw_name));
@@ -148,18 +154,39 @@ void ModuleBridge::togglePlugin(const QString& file_name) {
         return;
     }
     auto& manager = ModuleManager::instance();
+    bool found = false;
+    bool was_loaded = false;
     for (const auto& plugin : manager.get_plugins()) {
         if (QString::fromStdString(plugin.file_name) != file_name) {
             continue;
         }
-        if (plugin.state == ModuleManager::PluginLoadState::Loaded) {
-            manager.unload_plugin(plugin.file_name);
-        }
-        else {
-            manager.load_plugin(plugin.file_name);
-        }
+        found = true;
+        was_loaded = plugin.state == ModuleManager::PluginLoadState::Loaded;
         break;
     }
+    if (!found) {
+        emit pluginToggled(file_name, false, QStringLiteral("插件不存在：") + file_name);
+        emit dataChanged();
+        return;
+    }
+
+    const bool ok = was_loaded ? manager.unload_plugin(file_name.toStdString())
+                               : manager.load_plugin(file_name.toStdString());
+    QString error;
+    if (!ok) {
+        // 失败原因以管理器记录的加载错误为准；卸载被插件拒绝时没有 error 字段
+        for (const auto& plugin : manager.get_plugins()) {
+            if (QString::fromStdString(plugin.file_name) == file_name) {
+                error = QString::fromStdString(plugin.error);
+                break;
+            }
+        }
+        if (error.isEmpty()) {
+            error = was_loaded ? QStringLiteral("插件拒绝卸载，仍处于启用状态")
+                               : QStringLiteral("插件加载失败");
+        }
+    }
+    emit pluginToggled(file_name, ok, error);
     emit dataChanged();
 }
 

@@ -349,6 +349,7 @@ A 与 B 是平级主体，不是"主通道 + 次通道"。界面上必须满足�
 | - | Typography 过渡别名删除、README 契约与例外表按真实清册对齐 | `grep` 全仓 0 命中；真实 QML 处理器清册 27 处全部登记在案 |
 | - | P1-1 页面骨架与导航（提交「页面骨架、导航与一次性反馈浮层」）：`PageHeader`、`Toast`、导航取消折叠、状态栏改常驻摘要 | 探针实测：窄窗导航宽 150 且文案完整、四页副标题非空、Toast 3 秒过期、状态栏摘要不被一次性消息污染 |
 | - | P1-2 首页与配置页重排（提交「首页与配置页重排」）：`StatusBadge`、`AppButton.outline`、`AppSpinBox.showIndicator`、卡片内层去描边 | 探针实测：启停按钮 y=14（卡头）、`showIndicator=0` 仅作用于通道卡、ChannelPanel 内层描边 0 处、连接卡右列贴内容右缘（未分配空白 0）、日志列表高 270 |
+| - | P1-3 反馈补全与模块/关于页（提交「反馈补全与模块/关于页收尾」）：`WaveBridge.lastError/draftDirty/draftSent`、`ModuleBridge.pluginToggled`、`LogBridge.lastExportPath` | 探针实测：空名保存给出具体原因、改正后清空；未连接设备发送报「未下发」、连接后报「已发送」；波形库删除取消 4→4 / 确认 4→3；插件失败带真实原因 |
 
 ### 与原始方案的偏差（已决策）
 

@@ -7,6 +7,8 @@
 
 #include "AppConfig.h"
 
+#include <QDir>
+#include <QFileInfo>
 #include <QMetaObject>
 #include <QTimer>
 
@@ -15,6 +17,12 @@
 namespace {
 
     constexpr int kMaxMessages = 400;
+
+    /// @brief 手动日志目录下最近写入的日志文件（LogExporter 每次导出写一个独立时间戳文件）
+    QString newest_export_file(const QString& dir) {
+        const QFileInfoList files = QDir(dir).entryInfoList({QStringLiteral("log_*.txt")}, QDir::Files, QDir::Time);
+        return files.isEmpty() ? QString() : files.first().absoluteFilePath();
+    }
 
     QString level_text(LogLevel level) {
         switch (level) {
@@ -102,9 +110,14 @@ bool LogBridge::exportLogs() {
     }
     QString error;
     const bool ok = exporter_.export_log(lines.join(QLatin1Char('\n')), &error);
-    emit statusMessage(ok ? QStringLiteral("日志已导出到 ") + export_dir()
-                          : QStringLiteral("日志导出失败: ") + error);
-    return ok;
+    if (!ok) {
+        emit statusMessage(QStringLiteral("日志导出失败：") + error);
+        return false;
+    }
+    // 导出器内部按时间戳生成文件名，不回传路径：取目录中最新写入的那份作为本次结果
+    last_export_path_ = newest_export_file(export_dir());
+    emit exportChanged();
+    return true;
 }
 
 void LogBridge::setLevelFilter(int level) {

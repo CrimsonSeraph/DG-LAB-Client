@@ -130,6 +130,7 @@ private:
     std::function<void()> confirm_callback_;  ///< 确认后要执行的动作（取消即丢弃）
     QPointer<QObject> log_list_;  ///< 日志列表（贴底跟随在此维护）
     qreal log_scroll_y_ = 0.0;    ///< 用户滚动停留时的 contentY
+    QString wave_last_error_;     ///< 上一次已反馈过的波形错误（避免重复 Toast）
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
 };

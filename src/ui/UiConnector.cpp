@@ -61,11 +61,56 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     , rule_graph_(rule_graph)
     , log_(log) {
     if (log_ != nullptr) {
+        // statusMessage 现在只在导出失败时发出，走 danger；成功走 exportChanged 带路径
         QObject::connect(log_, &LogBridge::statusMessage, this,
             [this](const QString& message) {
                 if (app_ != nullptr) {
-                    app_->showToast(message, AppBridge::StatusInfo);
+                    app_->showToast(message, AppBridge::StatusDanger);
                 }
+            });
+        QObject::connect(log_, &LogBridge::exportChanged, this, [this]() {
+            if (app_ != nullptr) {
+                app_->showToast(QStringLiteral("日志已导出：") + log_->last_export_path(),
+                    AppBridge::StatusInfo);
+            }
+        });
+    }
+    if (wave_ != nullptr) {
+        // draftSent 只表示调用链走完：下发链路不可用时必须说「未下发」，不能报「已发送」
+        QObject::connect(wave_, &WaveBridge::draftSent, this,
+            [this](const QString& channel, int seconds) {
+                if (app_ == nullptr) {
+                    return;
+                }
+                if (device_ == nullptr || !device_->output_ready()) {
+                    app_->showToast(QStringLiteral("通道 %1 未连接设备，波形未下发").arg(channel),
+                        AppBridge::StatusWarning);
+                    return;
+                }
+                app_->showToast(QStringLiteral("已发送到通道 %1（%2 秒）").arg(channel).arg(seconds),
+                    AppBridge::StatusInfo);
+            });
+        // 保存/发送失败：编辑器状态行就地显示原因，同时补一次 danger 回执
+        QObject::connect(wave_, &WaveBridge::draftChanged, this, [this]() {
+            const QString error = wave_->last_error();
+            if (error == wave_last_error_) {
+                return;
+            }
+            wave_last_error_ = error;
+            if (!error.isEmpty() && app_ != nullptr) {
+                app_->showToast(error, AppBridge::StatusDanger);
+            }
+        });
+    }
+    if (module_ != nullptr) {
+        // 插件启用成功时卡片徽标会变（就地反馈），只有失败才补 Toast
+        QObject::connect(module_, &ModuleBridge::pluginToggled, this,
+            [this](const QString& file, bool ok, const QString& error) {
+                if (ok || app_ == nullptr) {
+                    return;
+                }
+                app_->showToast(QStringLiteral("插件 %1 操作失败：%2").arg(file, error),
+                    AppBridge::StatusDanger);
             });
     }
     if (device_ != nullptr) {
@@ -447,9 +492,20 @@ void UiConnector::on_wave_library_item_clicked() {
 
 void UiConnector::on_wave_delete_clicked() {
     auto* item = sender();
-    if (item != nullptr && wave_ != nullptr) {
-        wave_->deleteWave(item->property("waveName").toString());
+    if (item == nullptr || wave_ == nullptr) {
+        return;
     }
+    const QString name = item->property("waveName").toString();
+    if (name.isEmpty()) {
+        return;
+    }
+    // 删除不可恢复：先确认，确认后按名字删除（委托可能在关闭列表时被销毁，故捕获名字）
+    ask_confirm(tr("删除波形 %1？").arg(name), tr("删除后无法恢复，已指派到通道的引用会一并清除。"), true,
+        [this, name]() {
+            if (wave_ != nullptr) {
+                wave_->deleteWave(name);
+            }
+        });
 }
 
 void UiConnector::on_wave_section_clicked() {
@@ -500,16 +556,8 @@ void UiConnector::on_wave_save_clicked() {
     }
     auto* name_field = find("waveNameField");
     const QString name = name_field == nullptr ? QString() : name_field->property("text").toString();
-    if (name.isEmpty()) {
-        app_->showToast(QStringLiteral("请先填写波形名称"), AppBridge::StatusWarning);
-        return;
-    }
-    if (wave_->saveDraft(name)) {
-        app_->showToast(QStringLiteral("波形已保存：") + name, AppBridge::StatusSuccess);
-    }
-    else {
-        app_->showToast(QStringLiteral("波形保存失败"), AppBridge::StatusDanger);
-    }
+    // 结果反馈统一由 WaveBridge::lastError 与编辑器状态行承担：成功不弹 Toast，失败弹 danger
+    wave_->saveDraft(name);
 }
 
 void UiConnector::on_wave_send_clicked() {
@@ -523,7 +571,24 @@ void UiConnector::on_wave_send_clicked() {
 }
 
 void UiConnector::on_wave_editor_close_clicked() {
-    close_dialog("waveEditorDialog");
+    auto* dialog = find("waveEditorDialog");
+    if (dialog == nullptr) {
+        LOG_MODULE("UiConnector", "on_wave_editor_close_clicked", LOG_WARN,
+            "未找到对话框: waveEditorDialog");
+        return;
+    }
+    const bool dirty = wave_ != nullptr && wave_->draft_dirty();
+    if (!dirty) {
+        QMetaObject::invokeMethod(dialog, "close");
+        return;
+    }
+    // 有未保存草稿：关闭会丢弃这些改动，先确认
+    ask_confirm(tr("放弃未保存的草稿？"), tr("波形编辑器有未保存的修改，关闭后将丢失。"), true,
+        [guard = QPointer<QObject>(dialog)]() {
+            if (!guard.isNull()) {
+                QMetaObject::invokeMethod(guard.data(), "close");
+            }
+        });
 }
 
 void UiConnector::on_wave_select_close_clicked() {
@@ -662,6 +727,10 @@ void UiConnector::on_custom_theme_save_clicked() {
     theme_->applyCustom(dialog->property("customPrimary").value<QColor>(),
         dialog->property("customSecondary").value<QColor>());
     close_dialog("customThemeDialog");
+    // 自定义主题不落库、无持久化痕迹，只能靠 Toast 说明「已保存并应用」
+    if (app_ != nullptr) {
+        app_->showToast(QStringLiteral("已保存并应用自定义主题"), AppBridge::StatusSuccess);
+    }
 }
 
 void UiConnector::on_custom_primary_clicked() {

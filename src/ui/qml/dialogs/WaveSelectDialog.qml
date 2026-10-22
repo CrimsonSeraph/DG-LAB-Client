@@ -62,10 +62,26 @@ Dialog {
                         font.pixelSize: Typography.fontBody
                     }
 
+                    // 已指派到通道的行就地标出，省得用户回首页确认
+                    StatusBadge {
+                        objectName: "waveCurrentABadge"
+                        visible: waveBridge.currentA === modelData.name
+                        text: qsTr("当前 A")
+                        level: 0
+                    }
+
+                    StatusBadge {
+                        objectName: "waveCurrentBBadge"
+                        visible: waveBridge.currentB === modelData.name
+                        text: qsTr("当前 B")
+                        level: 0
+                    }
+
                     AppButton {
                         objectName: "waveDeleteClick"
                         property string waveName: modelData.name
                         text: qsTr("删除")
+                        danger: true
                     }
                 }
 
@@ -76,6 +92,19 @@ Dialog {
                     z: -1
                     property string waveName: modelData.name
                 }
+            }
+
+            // 空态：库为空时给出下一步指引
+            Text {
+                objectName: "waveLibraryEmptyText"
+                anchors.centerIn: parent
+                width: parent.width - Metrics.spacingXl * 2
+                visible: waveBridge.waves.length === 0
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: qsTr("波形库为空，点击下方「创建波形」新建一个")
+                color: Theme.textMuted
+                font.pixelSize: Typography.fontBody
             }
         }
 

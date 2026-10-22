@@ -123,6 +123,10 @@ void WaveBridge::beginCreate() {
     draft_sections_ = { section };
     selected_section_ = 0;
     draft_name_ = QStringLiteral("新波形");
+    // 新草稿还没落库：保留「未保存」语义，并清掉上一份草稿遗留的错误
+    has_saved_ = false;
+    saved_fingerprint_.clear();
+    last_error_.clear();
     regenerate_frames();
     emit draftChanged();
 }
@@ -205,7 +209,14 @@ void WaveBridge::applyRawFrames(const QString& text) {
 }
 
 bool WaveBridge::saveDraft(const QString& name) {
-    if (name.isEmpty() || draft_frames_.isEmpty()) {
+    if (name.isEmpty()) {
+        last_error_ = QStringLiteral("波形名称为空，请填写名称后再保存");
+        emit draftChanged();
+        return false;
+    }
+    if (draft_frames_.isEmpty()) {
+        last_error_ = QStringLiteral("当前草稿没有可保存的波形帧");
+        emit draftChanged();
         return false;
     }
     Wave wave;
@@ -214,18 +225,37 @@ bool WaveBridge::saveDraft(const QString& name) {
     wave.frames = draft_frames_;
     draft_name_ = name;
     const bool ok = WaveLibrary::instance().save(wave);
+    if (ok) {
+        last_error_.clear();
+        has_saved_ = true;
+        saved_fingerprint_ = draft_fingerprint();
+    }
+    else {
+        last_error_ = QStringLiteral("写入波形库失败：") + name;
+    }
     emit draftChanged();
     return ok;
 }
 
 void WaveBridge::sendDraft(const QString& channel) {
-    if (device_ == nullptr || draft_frames_.isEmpty()) {
+    const QString channel_label = (channel == QStringLiteral("B")) ? QStringLiteral("B") : QStringLiteral("A");
+    if (draft_frames_.isEmpty()) {
+        last_error_ = QStringLiteral("当前草稿没有可发送的波形帧");
+        emit draftChanged();
         return;
     }
-    const int channel_index = (channel == QStringLiteral("B")) ? 2 : 1;
+    if (device_ == nullptr) {
+        last_error_ = QStringLiteral("设备未就绪，波形未发送");
+        emit draftChanged();
+        return;
+    }
+    const int channel_index = (channel_label == QStringLiteral("B")) ? 2 : 1;
     const int seconds = std::max(1, (static_cast<int>(draft_frames_.size()) * 100 + 999) / 1000);
     device_->sendWave(channel_index, draft_frames_, seconds);
+    last_error_.clear();
     LOG_MODULE("WaveBridge", "sendDraft", LOG_INFO, "已发送草稿波形");
+    emit draftChanged();
+    emit draftSent(channel_label, seconds);
 }
 
 void WaveBridge::loadIntoEditor(const QString& name) {
@@ -237,7 +267,30 @@ void WaveBridge::loadIntoEditor(const QString& name) {
     draft_sections_ = wave->sections;
     draft_frames_ = wave->frames;
     selected_section_ = draft_sections_.empty() ? -1 : 0;
+    // 载入的正是库中内容：草稿与已保存内容一致
+    has_saved_ = true;
+    saved_fingerprint_ = draft_fingerprint();
+    last_error_.clear();
     emit draftChanged();
+}
+
+bool WaveBridge::draft_dirty() const {
+    return !has_saved_ || draft_fingerprint() != saved_fingerprint_;
+}
+
+QString WaveBridge::draft_fingerprint() const {
+    QString fingerprint = draft_name_;
+    for (const auto& section : draft_sections_) {
+        fingerprint += QStringLiteral("|%1,%2,%3,%4,%5")
+                           .arg(section.duration_ms)
+                           .arg(section.freq_start)
+                           .arg(section.freq_end)
+                           .arg(section.strength_start)
+                           .arg(section.strength_end);
+    }
+    fingerprint += QLatin1Char('#');
+    fingerprint += draft_frames_.join(QLatin1Char(','));
+    return fingerprint;
 }
 
 void WaveBridge::regenerate_frames() {

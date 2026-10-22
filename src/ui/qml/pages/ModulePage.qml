@@ -88,6 +88,18 @@ Item {
                     width: moduleScroll.width
                     spacing: Metrics.cardSpacing
 
+                    // 空态：插件目录里没有任何插件（内置模块也没有）时给出检查提示
+                    Text {
+                        objectName: "moduleEmptyStateText"
+                        width: moduleScroll.width
+                        topPadding: Metrics.spacing2xl
+                        visible: moduleBridge.modules.length === 0
+                        horizontalAlignment: Text.AlignHCenter
+                        text: qsTr("未发现模块（检查 plugins 目录）")
+                        color: Theme.textMuted
+                        font.pixelSize: Typography.fontBody
+                    }
+
                     Repeater {
                         model: moduleBridge.modules
 
@@ -105,33 +117,52 @@ Item {
                                 anchors.margins: Metrics.spacingLg
                                 spacing: Metrics.spacingXs
 
-                                Text {
+                                RowLayout {
                                     Layout.fillWidth: true
-                                    text: modelData.name
-                                    color: Theme.textPrimary
-                                    font.pixelSize: Typography.fontBody
-                                    font.bold: true
-                                    elide: Text.ElideRight
-                                }
+                                    spacing: Metrics.spacingSm
 
-                                Text {
-                                    text: modelData.stateText
-                                    color: Theme.textSecondary
-                                    font.pixelSize: Typography.fontBody
+                                    Text {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        text: modelData.name
+                                        color: Theme.textPrimary
+                                        font.pixelSize: Typography.fontBody
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+
+                                    // 状态徽标：已启用(1) / 未启用(0) / 加载失败(3)
+                                    StatusBadge {
+                                        objectName: "moduleStateBadge"
+                                        text: {
+                                            if (modelData.kind !== "plugin") {
+                                                return qsTr("内置模块");
+                                            }
+                                            if (modelData.state === "loaded") {
+                                                return qsTr("已启用");
+                                            }
+                                            if (modelData.state === "failed") {
+                                                return qsTr("加载失败");
+                                            }
+                                            return qsTr("未启用");
+                                        }
+                                        level: (modelData.state === "loaded" || modelData.state === "builtin") ? 1 : (modelData.state === "failed" ? 3 : 0)
+                                    }
                                 }
 
                                 Text {
                                     Layout.fillWidth: true
                                     text: {
-                                        if (modelData.kind !== "plugin") {
+                                        if (modelData.kind !== "plugin" || modelData.enabled) {
                                             return qsTr("最小周期 %1ms").arg(modelData.periodMs);
                                         }
-                                        if (modelData.enabled) {
-                                            return qsTr("最小周期 %1ms").arg(modelData.periodMs);
+                                        if (modelData.state === "failed") {
+                                            return modelData.error.length > 0 ? modelData.error : qsTr("加载失败，原因未知");
                                         }
-                                        return modelData.error.length > 0 ? modelData.error : qsTr("启用后将加载");
+                                        return qsTr("启用后将加载");
                                     }
-                                    color: Theme.textMuted
+                                    // 加载失败的原因留在卡片里就地显示，颜色与 Toast 一致
+                                    color: modelData.state === "failed" ? Theme.danger : Theme.textMuted
                                     font.pixelSize: Typography.fontBody
                                     elide: Text.ElideRight
                                     wrapMode: Text.WordWrap

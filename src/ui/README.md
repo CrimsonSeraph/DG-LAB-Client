@@ -70,6 +70,8 @@ src/ui/
 
 ## objectName 契约表
 
+> 本批次只新增与补登记条目，既有 `objectName` 一处未改。
+
 导航：
 
 | objectName | 行为 |
@@ -115,9 +117,40 @@ src/ui/
 | `pageHeader` / `pageHeaderTitle` / `pageHeaderSubtitle` | `components/PageHeader.qml`：页面名 + 一行副标题 + 右侧操作区（默认属性槽）；副标题承载该页关键状态，四个页面各有同名实例 |
 | `toast` / `toastText` | `components/Toast.qml`：右下角一次性反馈浮层，`app.showToast(text, level)` 驱动，3 秒后自动消失；描边按 `toastLevel` 取 `success` / `warning` / `danger` / `border` |
 | `statusLabel` | 底部状态栏常驻摘要（中转 / 蓝牙 / 通道），**不**承载一次性消息 |
+| `configWaveChannelAButton` / `configWaveChannelBButton` | 配置页选择波形目标通道 |
+| `configWaveSelectButton` / `configWaveCreateButton` | 打开波形库 / 直接新建波形 |
 
-一次性反馈与常驻摘要分工：错误、保存结果、规则图状态等一次性文案一律走 `app.showToast()`；
-状态栏只显示 QML 侧组合的常驻摘要。
+模块页：
+
+| objectName | 行为 |
+| --- | --- |
+| `modulePeriodCombo` | 统一查询周期下拉（`periodOptions`，文案为毫秒数值）；`activated` 与「应用」共用同一槽 |
+| `modulePeriodApplyButton` | 把所选周期应用到全部数值 |
+| `moduleCardFlow` | 模块卡片流式容器；委托热区由 `watch_items` 扫描 |
+| `moduleCardClick` | 卡片热区（`moduleName` 属性）：打开数值弹窗（仅已启用模块可点） |
+| `pluginToggleClick` | 插件卡启用/禁用（`fileName` 属性）：成功不弹 Toast（徽标变化），失败 `ModuleBridge::pluginToggled` 弹 danger |
+| `moduleStateBadge` | 卡片状态徽标（`StatusBadge`）：内置模块/已启用 level 1、未启用 level 0、加载失败 level 3 |
+| `moduleEmptyStateText` | 模块列表空态文案（`moduleBridge.modules` 为空时可见）：未发现模块（检查 plugins 目录） |
+| `moduleValuesDialog` | 选中模块的数值列表弹窗 |
+
+关于页：
+
+| objectName | 行为 |
+| --- | --- |
+| `aboutVersionText` / `aboutDescriptionText` | 版本号与一句话说明（同色阶 `Theme.textSecondary`） |
+| `aboutLicenseText` | 许可证：GPL-3.0-only |
+| `aboutDependenciesText` | 依赖：Qt 6 |
+| `aboutRepositoryText` | 仓库地址 |
+
+一次性反馈与常驻摘要分工：一次性结果文案一律走 `app.showToast()`；状态栏只显示 QML 侧组合的常驻摘要。
+
+反馈分两档，避免「操作完成却没回执」与「明显变化还弹 Toast」两头都踩：
+
+| 情况 | 处理 | 例子 |
+| --- | --- | --- |
+| 成功且界面本身有明显变化 | **不弹** Toast，靠界面变化回执 | 切换主题预设、启动/关闭通道、保存波形（编辑器状态行显示「已保存」）、启用插件（卡片徽标变化） |
+| 成功但界面无变化 | 弹 Toast（`StatusInfo` / `StatusSuccess`） | 发送波形到通道（通道与秒数）、导出日志（完整路径）、保存自定义主题 |
+| 失败 | **一律**弹 Toast（`StatusDanger`），界面上有就地位置时同时显示红字原因 | 波形保存/发送失败（状态行红字）、插件加载失败（卡片内红字 + Toast） |
 
 对话框：
 
@@ -125,6 +158,21 @@ src/ui/
 | --- | --- |
 | `ruleEditorDialog` | 规则编辑器；`ruleEditorCloseButton` 的关闭经 C++ 判断未保存改动后先弹确认 |
 | `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭 |
+| `waveSelectDialog` / `waveLibraryList` | 波形库对话框与列表；`waveSelectCloseButton` 关闭 |
+| `waveSelectClick` | 行热区（`waveName` 属性）：指派该波形到目标通道并关闭对话框；委托热区由 `watch_items` 扫描 |
+| `waveDeleteClick` | 行内删除（`waveName` 属性，`AppButton.danger`）：先经 `confirmDialog` 确认不可恢复，确认后按名字删除 |
+| `waveCurrentABadge` / `waveCurrentBBadge` | 行内「当前 A / 当前 B」徽标（`StatusBadge` level 0），按 `waveBridge.currentA/currentB` 显示 |
+| `waveLibraryEmptyText` | 波形库空态文案，`waveBridge.waves` 为空时可见 |
+| `waveSelectCreateButton` | 关闭波形库并新建波形（打开编辑器） |
+| `waveEditorDialog` | 波形编辑器；`closePolicy: Popup.NoAutoClose`，关闭只走按钮，由 C++ 判断 `draftDirty` 后先弹确认 |
+| `waveEditorCloseButton` | 关闭编辑器：草稿未保存时先弹确认，取消则对话框保持打开 |
+| `waveEditorStatusLine` | 编辑器状态行：`waveBridge.lastError` 非空显示红字失败原因；否则 `draftDirty` 显示「草稿未保存」，已保存显示「已保存」 |
+| `waveNameField` / `waveSaveButton` | 波形名称输入与保存；成败由 `lastError` + 状态行承担，保存成功不弹 Toast |
+| `waveSendAButton` / `waveSendBButton` | 发送草稿到 A/B：`WaveBridge::draftSent` 按下发链路是否可用弹「已发送（通道与秒数）」或「未连接设备，波形未下发」 |
+| `waveAddSectionButton` / `waveRemoveSectionButton` / `waveApplySectionButton` / `waveApplyRawButton` | 段落增删、应用段落参数、应用原始帧 |
+| `waveSectionList` / `waveSectionClick` | 段落列表与行热区（`sectionIndex` 属性） |
+| `waveRawFramesArea` | 原始 V3 帧文本域（每行一个 8 字节 HEX） |
+| `waveSection{Duration,FreqStart,FreqEnd,StrengthStart,StrengthEnd}Spin` | 段落参数输入（`Binding` 回写选中段落） |
 
 ## 样式令牌（style/ 单例）
 
@@ -164,6 +212,19 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 - 列表/中继器动态生成的委托（如 `themePresetList` 的 `themePresetClick`）不在 `QObject::children()` 中：`UiConnector::watch_items()` 沿 `QQuickItem::childItems()` 扫描热区并在 `childrenChanged` 后重扫。
 - 用户可编辑但需要回灌的控件（如强度 `SpinBox`）使用 `Binding` 元素回写，避免用户操作破坏绑定。
 
+桥接信号 → 反馈路由（`UiConnector` 构造期连接，QML 不参与）：
+
+| 信号 | 反馈 |
+| --- | --- |
+| `WaveBridge::draftSent(channel, seconds)` | 先看下发链路 `device.outputReady`：可用 → Toast（info）`已发送到通道 A（3 秒）`；不可用 → Toast（warning）`通道 A 未连接设备，波形未下发`。`draftSent` 只代表调用链走完，不代表设备已收到 |
+| `WaveBridge::draftChanged` + `lastError` 由空转非空 | Toast（danger）：失败原因；编辑器状态行同时显示红字 |
+| `ModuleBridge::pluginToggled(file, ok, error)` | `ok` 不弹（徽标变化）；失败弹 Toast（danger，含文件名与原因） |
+| `LogBridge::exportChanged` | Toast（info）：`日志已导出：<path>`，路径取 `lastExportPath` |
+| `LogBridge::statusMessage` | 仅导出失败时发出 → Toast（danger） |
+| 自定义主题保存按钮 | Toast（success）：已保存并应用；预设主题切换不弹 |
+
+新增「操作完成但界面无变化」的按钮时，按上表补一条桥接信号与 Toast，不要在 QML 里写处理器。
+
 ## 信号处理器例外（必须使用手势的视图）
 
 默认规则不变：QML **不写** `onClicked` / `Connections` / `onXxx`。但**必须依赖指针手势或逐帧回调的视图**允许例外，且需逐处登记：
@@ -178,6 +239,8 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 已迁出：规则编辑器关闭按钮（`ruleEditorCloseButton`）原先写 `onClicked: dialog.close()`，现由 `UiConnector::on_rule_editor_close_clicked()` 连接，存在未保存改动时先经 `confirmDialog` 确认。
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
+
+复核口径：对 `src/ui/qml` 全量扫描 `onXxx:\b` / `Connections` / `Behavior`，命中 28 处且全部落在 `RuleEditorDialog.qml`，均属上表已登记条目；其余文件为 0，本批次未新增任何处理器。
 
 ## 扩展点与注意事项
 

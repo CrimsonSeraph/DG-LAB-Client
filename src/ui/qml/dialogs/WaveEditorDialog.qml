@@ -9,6 +9,8 @@ Dialog {
     objectName: "waveEditorDialog"
     title: qsTr("创建波形")
     modal: true
+    // 草稿可能有未保存改动：关闭只走「关闭」按钮（由 C++ 判断后弹确认），不用 Esc/点外自动关
+    closePolicy: Popup.NoAutoClose
     anchors.centerIn: Overlay.overlay
     // 令牌值是理想尺寸，再钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
     width: Math.min(ComponentStyle.dialogWaveEditorWidth, Overlay.overlay.width - Metrics.spacingXl * 2)
@@ -227,6 +229,21 @@ Dialog {
                 objectName: "waveApplySectionButton"
                 Layout.fillWidth: true
                 text: qsTr("应用段落参数")
+            }
+
+            // 状态行：失败原因优先（红字），否则提示草稿是否已保存
+            Text {
+                objectName: "waveEditorStatusLine"
+                Layout.fillWidth: true
+                text: {
+                    if (waveBridge.lastError.length > 0) {
+                        return waveBridge.lastError;
+                    }
+                    return waveBridge.draftDirty ? qsTr("草稿未保存") : qsTr("已保存");
+                }
+                color: waveBridge.lastError.length > 0 ? Theme.danger : Theme.textMuted
+                font.pixelSize: Typography.fontBody
+                wrapMode: Text.WordWrap
             }
 
             Item {

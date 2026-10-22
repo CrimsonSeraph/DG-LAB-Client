@@ -39,6 +39,8 @@ class WaveBridge : public QObject {
     Q_PROPERTY(QString draftFramesText READ draft_frames_text NOTIFY draftChanged)
     Q_PROPERTY(int draftFrameCount READ draft_frame_count NOTIFY draftChanged)
     Q_PROPERTY(int draftDurationMs READ draft_duration_ms NOTIFY draftChanged)
+    Q_PROPERTY(QString lastError READ last_error NOTIFY draftChanged)
+    Q_PROPERTY(bool draftDirty READ draft_dirty NOTIFY draftChanged)
 
 public:
     explicit WaveBridge(DeviceController* device, QObject* parent = nullptr);
@@ -63,6 +65,10 @@ public:
     QString draft_frames_text() const;
     int draft_frame_count() const { return static_cast<int>(draft_frames_.size()); }
     int draft_duration_ms() const { return static_cast<int>(draft_frames_.size()) * 100; }
+    /// @brief 最近一次保存/发送失败的原因（成功后清空）
+    QString last_error() const { return last_error_; }
+    /// @brief 草稿与已保存内容是否不一致（从未保存过的草稿视为不一致）
+    bool draft_dirty() const;
 
     /// @brief 设置选择/指派目标通道（"A"/"B"）
     Q_INVOKABLE void setTargetChannel(const QString& channel);
@@ -92,10 +98,14 @@ public:
 signals:
     void dataChanged();
     void draftChanged();
+    /// @brief 草稿发送成功（channel 为 A/B，seconds 为波形时长）
+    void draftSent(const QString& channel, int seconds);
 
 private:
     QVariantList points_from_frames(const QStringList& frames) const;
     void regenerate_frames();
+    /// @brief 草稿内容指纹：用于比较草稿是否偏离已保存内容
+    QString draft_fingerprint() const;
     QString section_summary(const WaveSection& section) const;
     WaveSection* selected_section();
 
@@ -105,4 +115,7 @@ private:
     QStringList draft_frames_;
     int selected_section_ = -1;
     QString draft_name_ = QStringLiteral("新波形");
+    QString last_error_;
+    QString saved_fingerprint_; ///< 上次保存（或载入）时的草稿指纹
+    bool has_saved_ = false;    ///< 草稿是否对应过库中内容
 };

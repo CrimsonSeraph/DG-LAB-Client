@@ -42,6 +42,8 @@ public:
 signals:
     void dataChanged();
     void selectedChanged();
+    /// @brief 插件启用/禁用结果（ok 为 false 时 error 为真实失败原因）
+    void pluginToggled(const QString& file, bool ok, const QString& error);
 
 private:
     QString selected_;
