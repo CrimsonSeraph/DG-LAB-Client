@@ -98,6 +98,19 @@ Item {
                     }
                 }
 
+                // 连接状态：错误文案优先，其余按配对阶段显示
+                Text {
+                    width: parent.width
+                    text: device.lastError.length > 0 ? device.lastError
+                        : (device.pairingStage === 2 ? qsTr("已配对")
+                        : (device.pairingStage === 1 ? qsTr("等待 APP 扫码配对") : qsTr("未启动")))
+                    color: device.lastError.length > 0 ? Theme.danger
+                        : (device.pairingStage === 2 ? Theme.success
+                        : (device.pairingStage === 1 ? Theme.warning : Theme.textMuted))
+                    font.pixelSize: Typography.fontBody
+                    elide: Text.ElideRight
+                }
+
                 Column {
                     visible: device.connected
                     spacing: Metrics.spacingSm
@@ -116,14 +129,14 @@ Item {
                         width: 420
                         text: device.pairingUrl
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                         elide: Text.ElideMiddle
                     }
 
                     Text {
                         text: device.v3Paired ? qsTr("APP 已配对") : (device.v4Attached ? qsTr("V4 已接入，等待设备上报") : qsTr("等待 APP 扫码配对"))
                         color: (device.v3Paired || device.v4Attached) ? Theme.accent : Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                     }
                 }
             }
@@ -166,45 +179,55 @@ Item {
                         Text {
                             text: qsTr("当前：A = %1 ｜ B = %2").arg(waveBridge.currentA.length > 0 ? waveBridge.currentA : qsTr("未选择")).arg(waveBridge.currentB.length > 0 ? waveBridge.currentB : qsTr("未选择"))
                             color: Theme.textMuted
-                            font.pixelSize: Typography.fontCaption
+                            font.pixelSize: Typography.fontBody
                             elide: Text.ElideRight
                         }
                     }
 
+                    // A 与 B 平级：两列权重相同（preferredWidth 0 + fillWidth），
+                    // 文本宽度与预览框隐含宽度都不参与列宽分配，只由布局权重等分。
                     RowLayout {
                         width: parent.width
                         spacing: Metrics.spacingLg
 
-                        Column {
+                        ColumnLayout {
                             Layout.fillWidth: true
+                            Layout.preferredWidth: 0
                             spacing: Metrics.spacingXs
 
                             Text {
+                                Layout.fillWidth: true
                                 text: qsTr("通道 A")
                                 color: Theme.textSecondary
-                                font.pixelSize: Typography.fontSmall
+                                font.pixelSize: Typography.fontBody
+                                elide: Text.ElideRight
                             }
 
                             WavePreview {
-                                width: parent.width
-                                height: ComponentStyle.wavePreviewHeight
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 0
+                                Layout.preferredHeight: ComponentStyle.wavePreviewHeight
                                 points: waveBridge.pointsA
                             }
                         }
 
-                        Column {
+                        ColumnLayout {
                             Layout.fillWidth: true
+                            Layout.preferredWidth: 0
                             spacing: Metrics.spacingXs
 
                             Text {
+                                Layout.fillWidth: true
                                 text: qsTr("通道 B")
                                 color: Theme.textSecondary
-                                font.pixelSize: Typography.fontSmall
+                                font.pixelSize: Typography.fontBody
+                                elide: Text.ElideRight
                             }
 
                             WavePreview {
-                                width: parent.width
-                                height: ComponentStyle.wavePreviewHeight
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 0
+                                Layout.preferredHeight: ComponentStyle.wavePreviewHeight
                                 points: waveBridge.pointsB
                             }
                         }
@@ -243,7 +266,7 @@ Item {
                     Text {
                         text: Theme.displayName
                         color: Theme.textPrimary
-                        font.pixelSize: Typography.fontBodyLarge
+                        font.pixelSize: Typography.fontSubtitle
                         font.bold: true
                     }
 
@@ -264,7 +287,7 @@ Item {
                     Text {
                         text: qsTr("主色 %1").arg(Theme.primary)
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                     }
 
                     Rectangle {
@@ -284,7 +307,7 @@ Item {
                     Text {
                         text: qsTr("副色 %1").arg(Theme.secondary)
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                     }
 
                     Item {
@@ -327,7 +350,7 @@ Item {
                             visible: ble.battery >= 0
                             text: qsTr("电量 %1%").arg(ble.battery)
                             color: Theme.textMuted
-                            font.pixelSize: Typography.fontCaption
+                            font.pixelSize: Typography.fontBody
                         }
 
                         Item {
@@ -352,7 +375,7 @@ Item {
                         width: parent.width
                         text: ble.status
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                         elide: Text.ElideRight
                     }
 
@@ -381,7 +404,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.name + "   " + modelData.address
                                 color: Theme.textSecondary
-                                font.pixelSize: Typography.fontCaption
+                                font.pixelSize: Typography.fontBody
                             }
 
                             MouseArea {
@@ -412,11 +435,13 @@ Item {
                         AppButton {
                             objectName: "bleStrengthADecrease"
                             text: "A－"
+                            enabled: ble.connected
                         }
 
                         AppButton {
                             objectName: "bleStrengthAIncrease"
                             text: "A＋"
+                            enabled: ble.connected
                         }
 
                         Text {
@@ -429,11 +454,13 @@ Item {
                         AppButton {
                             objectName: "bleStrengthBDecrease"
                             text: "B－"
+                            enabled: ble.connected
                         }
 
                         AppButton {
                             objectName: "bleStrengthBIncrease"
                             text: "B＋"
+                            enabled: ble.connected
                         }
 
                         Item {
@@ -446,7 +473,6 @@ Item {
             // 日志
             GlassCard {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 260
                 title: qsTr("日志")
 
                 RowLayout {
@@ -463,7 +489,7 @@ Item {
                         id: logLevelCombo
 
                         objectName: "logLevelCombo"
-                        Layout.preferredWidth: 120
+                        Layout.preferredWidth: ComponentStyle.inputMinWidth
                         model: ["DEBUG", "INFO", "WARN", "ERROR"]
                         currentIndex: logBridge.levelFilter
                     }
@@ -483,19 +509,23 @@ Item {
                     }
                 }
 
+                // 贴底跟随：stickToBottom 由 C++ 侧（UiConnector）按用户滚动结果维护，
+                // 绑定只在需要跟随时生效，用户上滚回看历史日志时不再被新日志拽回底部。
                 ListView {
                     id: logList
 
+                    objectName: "configLogList"
                     width: parent.width
-                    height: 170
+                    height: ComponentStyle.logListHeight
                     clip: true
                     model: logBridge.messages
                     spacing: 0
+                    property bool stickToBottom: true
 
                     delegate: Rectangle {
                         width: logList.width
-                        height: 18
-                        color: "transparent"
+                        height: ComponentStyle.logRowHeight
+                        color: Theme.transparentFill
 
                         Text {
                             anchors.left: parent.left
@@ -503,21 +533,28 @@ Item {
                             width: parent.width
                             text: modelData.text
                             color: modelData.level >= 3 ? Theme.danger : (modelData.level === 2 ? Theme.warning : Theme.textSecondary)
-                            font.family: "Consolas"
-                            font.pixelSize: Typography.fontCaption
+                            font.family: Typography.fontMonoFamily
+                            font.pixelSize: Typography.fontBody
                             elide: Text.ElideRight
                         }
                     }
 
-                    // 无信号处理器：新日志到达时内容高度变化，绑定自动滚到底部
-                    contentY: Math.max(0, contentHeight - height)
+                    // 无信号处理器：新日志到达时内容高度变化，绑定自动滚到底部；
+                    // stickToBottom 为 false 时绑定不生效（restoreMode 不还原），用户停留原处
+                    Binding {
+                        target: logList
+                        property: "contentY"
+                        value: Math.max(0, logList.contentHeight - logList.height)
+                        when: logList.stickToBottom
+                        restoreMode: Binding.RestoreNone
+                    }
                 }
 
                 Text {
                     width: parent.width
                     text: qsTr("导出目录：%1").arg(logBridge.exportDir)
                     color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
+                    font.pixelSize: Typography.fontBody
                     elide: Text.ElideMiddle
                 }
             }
@@ -562,7 +599,7 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    anchors.margins: 2
+                    anchors.margins: Metrics.spacing2xs
                     radius: Metrics.radiusSm
                     color: Theme.surfaceAlt
                     border.width: Metrics.borderWidth
@@ -602,7 +639,7 @@ Item {
                         Text {
                             text: modelData.mode
                             color: Theme.textMuted
-                            font.pixelSize: Typography.fontCaption
+                            font.pixelSize: Typography.fontBody
                         }
                     }
                 }
@@ -667,7 +704,7 @@ Item {
                     Layout.fillWidth: true
                     text: customThemeDialog.customPrimary
                     color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
+                    font.pixelSize: Typography.fontBody
                 }
 
                 AppButton {
@@ -700,7 +737,7 @@ Item {
                     Layout.fillWidth: true
                     text: customThemeDialog.customSecondary
                     color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
+                    font.pixelSize: Typography.fontBody
                 }
 
                 AppButton {

@@ -10,8 +10,9 @@ Dialog {
     title: qsTr("选择波形")
     modal: true
     anchors.centerIn: Overlay.overlay
-    width: 540
-    height: 500
+    // 令牌值是理想尺寸，再钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
+    width: Math.min(ComponentStyle.dialogWaveSelectWidth, Overlay.overlay.width - Metrics.spacingXl * 2)
+    height: Math.min(ComponentStyle.dialogWaveSelectHeight, Overlay.overlay.height - Metrics.spacingXl * 2)
     padding: Metrics.spacingMd
 
     ColumnLayout {
@@ -58,7 +59,7 @@ Dialog {
                     Text {
                         text: qsTr("%1 帧 · %2ms").arg(modelData.frameCount).arg(modelData.durationMs)
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                     }
 
                     AppButton {

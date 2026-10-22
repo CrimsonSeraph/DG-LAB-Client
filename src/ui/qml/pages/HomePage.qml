@@ -49,6 +49,9 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumWidth: ComponentStyle.channelCardMinWidth
+                // 卡片内容（规则/模块名、上限值）的隐含宽度不得参与分配：
+                // 显式置 0 后 fillWidth 平分整个 RowLayout，A/B 才真正等宽。
+                Layout.preferredWidth: 0
                 channel: "A"
                 strength: home.strengthA
                 limit: home.limitA
@@ -63,6 +66,7 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 Layout.minimumWidth: ComponentStyle.channelCardMinWidth
+                Layout.preferredWidth: 0
                 channel: "B"
                 strength: home.strengthB
                 limit: home.limitB

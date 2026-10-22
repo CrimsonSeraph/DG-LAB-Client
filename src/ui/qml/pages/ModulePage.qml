@@ -56,93 +56,110 @@ Item {
                 Text {
                     text: qsTr("当前基准周期 %1ms").arg(moduleBridge.basePeriodMs)
                     color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
+                    font.pixelSize: Typography.fontBody
                 }
             }
         }
 
         GlassCard {
+            id: moduleCard
+
             Layout.fillWidth: true
             Layout.fillHeight: true
+            // 卡片高度由外层 Layout 铺满，滚动区取卡片剩余高度；因此不让卡片再按内容自适应，
+            // 否则「滚动区高度 ← 卡片高度 ← 内容隐式高度」会形成绑定环。
+            implicitHeight: 0
             title: qsTr("模块")
 
-            Flow {
-                id: moduleCardFlow
+            Flickable {
+                id: moduleScroll
 
-                objectName: "moduleCardFlow"
                 width: parent.width
-                spacing: Metrics.cardSpacing
+                // 卡片高 − 上下内边距 − 卡片标题行（parent 即卡片内容 Column，y 已含标题行与间距）
+                height: Math.max(0, moduleCard.height - Metrics.cardPadding * 2 - moduleScroll.parent.y)
+                contentWidth: width
+                contentHeight: moduleCardFlow.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+                clip: true
 
-                Repeater {
-                    model: moduleBridge.modules
+                Flow {
+                    id: moduleCardFlow
 
-                    delegate: Rectangle {
-                        width: 232
-                        height: 118
-                        radius: Metrics.radiusMd
-                        color: Theme.surfaceAlt
-                        border.width: Metrics.borderWidth
-                        border.color: Theme.border
-                        opacity: modelData.enabled ? 1.0 : 0.65
+                    objectName: "moduleCardFlow"
+                    width: moduleScroll.width
+                    spacing: Metrics.cardSpacing
 
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: Metrics.spacingLg
-                            spacing: Metrics.spacingXs
+                    Repeater {
+                        model: moduleBridge.modules
 
-                            Text {
-                                Layout.fillWidth: true
-                                text: modelData.name
-                                color: Theme.textPrimary
-                                font.pixelSize: Typography.fontBody
-                                font.bold: true
-                                elide: Text.ElideRight
-                            }
+                        delegate: Rectangle {
+                            width: ComponentStyle.moduleCardWidth
+                            height: ComponentStyle.moduleCardHeight
+                            radius: Metrics.radiusMd
+                            color: Theme.surfaceAlt
+                            border.width: Metrics.borderWidth
+                            border.color: Theme.border
+                            opacity: modelData.enabled ? 1.0 : 0.65
 
-                            Text {
-                                text: modelData.stateText
-                                color: Theme.textSecondary
-                                font.pixelSize: Typography.fontSmall
-                            }
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: Metrics.spacingLg
+                                spacing: Metrics.spacingXs
 
-                            Text {
-                                Layout.fillWidth: true
-                                text: {
-                                    if (modelData.kind !== "plugin") {
-                                        return qsTr("最小周期 %1ms").arg(modelData.periodMs);
-                                    }
-                                    if (modelData.enabled) {
-                                        return qsTr("最小周期 %1ms").arg(modelData.periodMs);
-                                    }
-                                    return modelData.error.length > 0 ? modelData.error : qsTr("启用后将加载");
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name
+                                    color: Theme.textPrimary
+                                    font.pixelSize: Typography.fontBody
+                                    font.bold: true
+                                    elide: Text.ElideRight
                                 }
-                                color: Theme.textMuted
-                                font.pixelSize: Typography.fontCaption
-                                elide: Text.ElideRight
-                                wrapMode: Text.WordWrap
+
+                                Text {
+                                    text: modelData.stateText
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Typography.fontBody
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: {
+                                        if (modelData.kind !== "plugin") {
+                                            return qsTr("最小周期 %1ms").arg(modelData.periodMs);
+                                        }
+                                        if (modelData.enabled) {
+                                            return qsTr("最小周期 %1ms").arg(modelData.periodMs);
+                                        }
+                                        return modelData.error.length > 0 ? modelData.error : qsTr("启用后将加载");
+                                    }
+                                    color: Theme.textMuted
+                                    font.pixelSize: Typography.fontBody
+                                    elide: Text.ElideRight
+                                    wrapMode: Text.WordWrap
+                                }
+
+                                Item {
+                                    Layout.fillHeight: true
+                                }
                             }
 
-                            Item {
-                                Layout.fillHeight: true
+                            // 点击卡片查看数值（未加载的插件不可点击）
+                            MouseArea {
+                                objectName: "moduleCardClick"
+                                anchors.fill: parent
+                                enabled: modelData.enabled
+                                property string moduleName: modelData.name
                             }
-                        }
 
-                        // 点击卡片查看数值（未加载的插件不可点击）
-                        MouseArea {
-                            objectName: "moduleCardClick"
-                            anchors.fill: parent
-                            enabled: modelData.enabled
-                            property string moduleName: modelData.name
-                        }
-
-                        AppButton {
-                            objectName: "pluginToggleClick"
-                            property string fileName: modelData.fileName
-                            visible: modelData.kind === "plugin"
-                            anchors.right: parent.right
-                            anchors.bottom: parent.bottom
-                            anchors.margins: Metrics.spacingSm
-                            text: modelData.enabled ? qsTr("禁用") : qsTr("启用")
+                            AppButton {
+                                objectName: "pluginToggleClick"
+                                property string fileName: modelData.fileName
+                                visible: modelData.kind === "plugin"
+                                anchors.right: parent.right
+                                anchors.bottom: parent.bottom
+                                anchors.margins: Metrics.spacingSm
+                                text: modelData.enabled ? qsTr("禁用") : qsTr("启用")
+                            }
                         }
                     }
                 }
@@ -192,7 +209,7 @@ Item {
                         Layout.fillWidth: true
                         text: modelData.name + "  (" + modelData.id + ")"
                         color: Theme.textSecondary
-                        font.pixelSize: Typography.fontSmall
+                        font.pixelSize: Typography.fontBody
                         elide: Text.ElideRight
                     }
 
@@ -206,13 +223,13 @@ Item {
                     Text {
                         text: (modelData.min === undefined ? "NULL" : modelData.min) + " / " + (modelData.max === undefined ? "NULL" : modelData.max)
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                     }
 
                     Text {
                         text: modelData.periodText
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                     }
                 }
             }

@@ -17,14 +17,30 @@ GlassCard {
     property var rules: []
     property string waveName: "未选择"
     property var wavePoints: []
+    // 通道输出状态（home.channelAState / channelBState）：runningNoOutput 表示已启动但无可用输出
+    readonly property string outputState: root.channel === "A" ? home.channelAState : home.channelBState
 
     title: qsTr("通道 %1").arg(root.channel)
+
+    // 卡片宽度只由父布局（权重）决定：把隐含宽度钉成常量，切断
+    // 「卡片内文本长度 -> 隐含宽度 -> 卡片实际宽度」的回传链路。
+    implicitWidth: 0
 
     Column {
         id: content
 
         width: parent.width
         spacing: Metrics.spacingMd
+
+        // 输出不可用警示：通道在跑，但没有任何可用的下发链路（指令会被丢弃）
+        Text {
+            width: parent.width
+            visible: root.outputState === "runningNoOutput"
+            text: qsTr("已启动，但当前没有可用输出（未连接设备）")
+            color: Theme.warning
+            font.pixelSize: Typography.fontBody
+            wrapMode: Text.WordWrap
+        }
 
         // 强度
         Rectangle {
@@ -61,11 +77,16 @@ GlassCard {
                     editable: true
                     Layout.preferredWidth: ComponentStyle.strengthValueWidth
 
-                    // 用 Binding 回灌目标值：用户编辑不会破坏与 home.strength 的同步
+                    // 用 Binding 回灌目标值：用户编辑不会破坏与 home.strength 的同步。
+                    // when 条件保证用户正在键入（获得焦点）时不回灌，避免覆盖输入中间值；
+                    // RestoreNone 保证条件关闭时不清掉控件当前值（默认行为会退回构造时的 0）。
+                    // 失焦后 valueModified 已把数值写回 home.strength，回灌等于用户输入值。
                     Binding {
                         target: strengthSpin
                         property: "value"
                         value: root.strength
+                        when: !strengthSpin.activeFocus
+                        restoreMode: Binding.RestoreNone
                     }
                 }
 
@@ -86,7 +107,7 @@ GlassCard {
                 Text {
                     text: qsTr("上限 %1").arg(root.limit)
                     color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
+                    font.pixelSize: Typography.fontBody
                 }
             }
         }
@@ -122,28 +143,47 @@ GlassCard {
                     visible: root.modules.length === 0
                     text: qsTr("未挂载模块")
                     color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
+                    font.pixelSize: Typography.fontBody
                 }
 
-                Repeater {
-                    model: root.modules
+                // 条目再多区块高度也有界：内容区限高 + 裁剪 + 滚动，卡片里的「启动通道」始终可见
+                Flickable {
+                    id: moduleListFlick
 
-                    delegate: RowLayout {
-                        width: moduleColumn.width
+                    width: parent.width
+                    height: Math.min(moduleList.implicitHeight, ComponentStyle.panelBlockMaxHeight)
+                    contentWidth: width
+                    contentHeight: moduleList.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
+                    clip: true
+
+                    Column {
+                        id: moduleList
+
+                        width: moduleListFlick.width
                         spacing: Metrics.spacingSm
 
-                        Text {
-                            Layout.fillWidth: true
-                            text: modelData.name
-                            color: Theme.textSecondary
-                            font.pixelSize: Typography.fontSmall
-                            elide: Text.ElideRight
-                        }
+                        Repeater {
+                            model: root.modules
 
-                        Text {
-                            text: qsTr("%1ms").arg(modelData.periodMs)
-                            color: Theme.textMuted
-                            font.pixelSize: Typography.fontCaption
+                            delegate: RowLayout {
+                                width: moduleList.width
+                                spacing: Metrics.spacingSm
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Typography.fontBody
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    text: qsTr("%1ms").arg(modelData.periodMs)
+                                    color: Theme.textMuted
+                                    font.pixelSize: Typography.fontBody
+                                }
+                            }
                         }
                     }
                 }
@@ -181,29 +221,48 @@ GlassCard {
                     visible: root.rules.length === 0
                     text: qsTr("无直连规则")
                     color: Theme.textMuted
-                    font.pixelSize: Typography.fontCaption
+                    font.pixelSize: Typography.fontBody
                 }
 
-                Repeater {
-                    model: root.rules
+                // 同模块区块：限高 + 裁剪 + 滚动，规则条目增多不会把卡片撑出可视区
+                Flickable {
+                    id: ruleListFlick
 
-                    delegate: RowLayout {
-                        width: ruleColumn.width
+                    width: parent.width
+                    height: Math.min(ruleList.implicitHeight, ComponentStyle.panelBlockMaxHeight)
+                    contentWidth: width
+                    contentHeight: ruleList.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
+                    clip: true
+
+                    Column {
+                        id: ruleList
+
+                        width: ruleListFlick.width
                         spacing: Metrics.spacingSm
 
-                        Text {
-                            Layout.fillWidth: true
-                            text: modelData.name
-                            color: Theme.textSecondary
-                            font.pixelSize: Typography.fontSmall
-                            elide: Text.ElideRight
-                        }
+                        Repeater {
+                            model: root.rules
 
-                        Text {
-                            text: modelData.value === undefined ? "--" : modelData.value
-                            color: Theme.accent
-                            font.pixelSize: Typography.fontSmall
-                            font.bold: true
+                            delegate: RowLayout {
+                                width: ruleList.width
+                                spacing: Metrics.spacingSm
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name
+                                    color: Theme.textSecondary
+                                    font.pixelSize: Typography.fontBody
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    text: modelData.value === undefined ? "--" : modelData.value
+                                    color: Theme.accent
+                                    font.pixelSize: Typography.fontBody
+                                    font.bold: true
+                                }
+                            }
                         }
                     }
                 }
@@ -251,7 +310,7 @@ GlassCard {
                         Layout.fillWidth: true
                         text: root.waveName
                         color: Theme.textMuted
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                         elide: Text.ElideRight
                     }
 

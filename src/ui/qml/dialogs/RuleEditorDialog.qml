@@ -14,9 +14,13 @@ Dialog {
     objectName: "ruleEditorDialog"
     title: qsTr("规则编辑器")
     modal: true
+    // 关闭只能由关闭按钮（C++ 侧 UiConnector 连接，未保存改动先确认）或代码触发，
+    // Esc / 点击遮罩不关闭，避免绕过未保存改动拦截
+    closePolicy: Popup.NoAutoClose
     anchors.centerIn: Overlay.overlay
-    width: 1100
-    height: 700
+    // 令牌值是理想尺寸，再钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
+    width: Math.min(ComponentStyle.dialogRuleEditorWidth, Overlay.overlay.width - Metrics.spacingXl * 2)
+    height: Math.min(ComponentStyle.dialogRuleEditorHeight, Overlay.overlay.height - Metrics.spacingXl * 2)
     padding: Metrics.spacingMd
 
     background: Rectangle {
@@ -34,7 +38,7 @@ Dialog {
         // 模块 / 节点面板
         ColumnLayout {
             id: leftCol
-            SplitView.preferredWidth: 210
+            SplitView.preferredWidth: ComponentStyle.paletteWidth
             SplitView.minimumWidth: 180
             Layout.fillHeight: true
             spacing: Metrics.spacingMd
@@ -56,7 +60,7 @@ Dialog {
 
                 delegate: Rectangle {
                     width: moduleList.width
-                    height: 30
+                    height: ComponentStyle.dialogListRowHeight
                     radius: Metrics.radiusXs
                     color: Theme.surfaceAlt
                     border.width: Metrics.borderWidth
@@ -68,9 +72,9 @@ Dialog {
                         anchors.verticalCenter: parent.verticalCenter
                         text: modelData.label + "  (" + modelData.valueId + ")"
                         color: Theme.textSecondary
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                         elide: Text.ElideRight
-                        width: parent.width - 12
+                        width: parent.width - Metrics.spacingLg
                     }
 
                     MouseArea {
@@ -195,7 +199,7 @@ Dialog {
                     var list = ruleGraph.nodes;
                     for (var i = list.length - 1; i >= 0; i--) {
                         var n = list[i];
-                        var height = n.headerHeight + n.portInset + Math.max(1, n.inputCount) * n.portSpacing + 12;
+                        var height = n.headerHeight + n.portInset + Math.max(1, n.inputCount) * n.portSpacing + Metrics.spacingLg;
                         if (wx >= n.x && wx <= n.x + n.width && wy >= n.y && wy <= n.y + height) {
                             return n;
                         }
@@ -210,7 +214,7 @@ Dialog {
                         for (var p = 0; p < n.inputCount; p++) {
                             var px = n.x;
                             var py = n.y + n.headerHeight + n.portInset + p * n.portSpacing;
-                            if (Math.abs(wx - px) < 12 && Math.abs(wy - py) < 10) {
+                            if (Math.abs(wx - px) < ComponentStyle.graphPortHitTolerance && Math.abs(wy - py) < ComponentStyle.graphPortHitTolerance) {
                                 return {
                                     "node": n.id,
                                     "port": p
@@ -226,8 +230,8 @@ Dialog {
 
                     x: canvas.panX
                     y: canvas.panY
-                    width: 4000
-                    height: 3000
+                    width: ComponentStyle.graphWorldWidth
+                    height: ComponentStyle.graphWorldHeight
                     transform: Scale {
                         origin.x: 0
                         origin.y: 0
@@ -241,9 +245,10 @@ Dialog {
 
                         delegate: Rectangle {
                             x: 0
-                            y: index * 40
-                            width: 4000
-                            height: 1
+                            // 网格间距与画布世界坐标同单位，zoom 换算属后续批次
+                            y: index * ComponentStyle.graphGridSize
+                            width: ComponentStyle.graphWorldWidth
+                            height: Metrics.borderWidth
                             color: Theme.divider
                             opacity: 0.4
                         }
@@ -259,8 +264,8 @@ Dialog {
 
                             ShapePath {
                                 strokeColor: Theme.accent
-                                strokeWidth: 2
-                                fillColor: "transparent"
+                                strokeWidth: ComponentStyle.edgeWidth
+                                fillColor: Theme.transparentFill
                                 startX: modelData.fromX
                                 startY: modelData.fromY
                                 PathCubic {
@@ -278,14 +283,14 @@ Dialog {
                     // 临时连线
                     Shape {
                         anchors.fill: parent
-                        visible: canvas.connectFrom >= 0
+                        visible: canvas.connectFrom > 0
                         antialiasing: true
 
                         ShapePath {
                             strokeColor: Theme.warning
-                            strokeWidth: 2
+                            strokeWidth: ComponentStyle.edgeWidth
                             strokeStyle: ShapePath.DashLine
-                            fillColor: "transparent"
+                            fillColor: Theme.transparentFill
                             startX: {
                                 var list = ruleGraph.nodes;
                                 for (var i = 0; i < list.length; i++) {
@@ -321,7 +326,7 @@ Dialog {
                             x: modelData.x
                             y: modelData.y
                             width: modelData.width
-                            height: modelData.headerHeight + modelData.portInset + Math.max(1, modelData.inputCount) * modelData.portSpacing + 12
+                            height: modelData.headerHeight + modelData.portInset + Math.max(1, modelData.inputCount) * modelData.portSpacing + Metrics.spacingLg
                             radius: Metrics.radiusSm
                             color: Theme.surfaceAlt
                             border.width: ruleGraph.selectedNodeId === modelData.id ? 2 : Metrics.borderWidth
@@ -337,10 +342,10 @@ Dialog {
                                     anchors.left: parent.left
                                     anchors.leftMargin: Metrics.spacingSm
                                     anchors.verticalCenter: parent.verticalCenter
-                                    width: parent.width - 12
+                                    width: parent.width - Metrics.spacingLg
                                     text: modelData.name
                                     color: Theme.textPrimary
-                                    font.pixelSize: Typography.fontCaption
+                                    font.pixelSize: Typography.fontBody
                                     font.bold: true
                                     elide: Text.ElideRight
                                 }
@@ -350,14 +355,14 @@ Dialog {
                                 anchors.left: parent.left
                                 anchors.right: parent.right
                                 anchors.top: parent.top
-                                anchors.topMargin: modelData.headerHeight + 6
-                                spacing: modelData.portSpacing - Typography.fontCaption - 4
+                                anchors.topMargin: modelData.headerHeight + Metrics.spacingSm
+                                spacing: modelData.portSpacing - Typography.fontBody - Metrics.spacingXs
 
                                 Repeater {
                                     model: modelData.inputCount
 
                                     delegate: Row {
-                                        height: Typography.fontCaption + 4
+                                        height: Typography.fontBody + Metrics.spacingXs
 
                                         Rectangle {
                                             width: 10
@@ -373,7 +378,7 @@ Dialog {
                                             x: 10
                                             text: nodeData.inputLabels[index]
                                             color: Theme.textMuted
-                                            font.pixelSize: Typography.fontCaption
+                                            font.pixelSize: Typography.fontBody
                                         }
                                     }
                                 }
@@ -381,12 +386,12 @@ Dialog {
 
                             // 输出端口
                             Rectangle {
-                                width: 12
-                                height: 12
-                                radius: 6
+                                width: ComponentStyle.nodePortSize
+                                height: ComponentStyle.nodePortSize
+                                radius: ComponentStyle.nodePortSize / 2
                                 color: Theme.accent
-                                x: parent.width - 6
-                                y: modelData.headerHeight / 2 - 6
+                                x: parent.width - ComponentStyle.nodePortSize / 2
+                                y: modelData.headerHeight / 2 - ComponentStyle.nodePortSize / 2
                             }
                         }
                     }
@@ -416,7 +421,7 @@ Dialog {
                         if (node !== null) {
                             ruleGraph.selectNode(node.id);
                             // 输出端口：开始连线
-                            if (Math.abs(wx - (node.x + node.width)) < 14 && Math.abs(wy - (node.y + node.headerHeight / 2)) < 14) {
+                            if (Math.abs(wx - (node.x + node.width)) < ComponentStyle.graphPortHitTolerance && Math.abs(wy - (node.y + node.headerHeight / 2)) < ComponentStyle.graphPortHitTolerance) {
                                 canvas.connectFrom = node.id;
                                 canvas.tempX = wx;
                                 canvas.tempY = wy;
@@ -434,7 +439,7 @@ Dialog {
                     onPositionChanged: function (mouse) {
                         var wx = canvas.toWorldX(mouse.x);
                         var wy = canvas.toWorldY(mouse.y);
-                        if (canvas.connectFrom >= 0) {
+                        if (canvas.connectFrom > 0) {
                             canvas.tempX = wx;
                             canvas.tempY = wy;
                             return;
@@ -454,12 +459,13 @@ Dialog {
                     onReleased: function (mouse) {
                         var wx = canvas.toWorldX(mouse.x);
                         var wy = canvas.toWorldY(mouse.y);
-                        if (canvas.connectFrom >= 0) {
+                        if (canvas.connectFrom > 0) {
                             var port = canvas.inputPortAt(wx, wy);
                             if (port !== null) {
                                 ruleGraph.connectNodes(canvas.connectFrom, port.node, port.port);
                             }
-                            canvas.connectFrom = 0;
+                            // connectFrom 的哨兵是 -1，0 不是合法节点 id（桥接层 0 表示未选中）
+                            canvas.connectFrom = -1;
                         }
                         canvas.dragNodeId = -1;
                         canvas.panning = false;
@@ -524,7 +530,7 @@ Dialog {
         // 检查器
         ColumnLayout {
             id: rightCol
-            SplitView.preferredWidth: 250
+            SplitView.preferredWidth: ComponentStyle.dialogSidePanelWidth
             SplitView.minimumWidth: 220
             Layout.fillHeight: true
             spacing: Metrics.spacingMd
@@ -575,7 +581,7 @@ Dialog {
             Text {
                 text: qsTr("值模式 / 表达式")
                 color: Theme.textSecondary
-                font.pixelSize: Typography.fontCaption
+                font.pixelSize: Typography.fontBody
             }
 
             AppTextArea {
@@ -584,8 +590,8 @@ Dialog {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 90
                 wrapMode: TextArea.Wrap
-                font.family: "Consolas"
-                font.pixelSize: Typography.fontSmall
+                font.family: Typography.fontMonoFamily
+                font.pixelSize: Typography.fontBody
                 text: ruleGraph.selectedNode.expression === undefined ? "" : ruleGraph.selectedNode.expression
                 enabled: ruleGraph.selectedNode.type === "rule" || ruleGraph.selectedNode.advanced === "expression"
                 onEditingFinished: ruleGraph.setRuleExpression(ruleGraph.selectedNode.id, text)
@@ -601,7 +607,7 @@ Dialog {
                 Layout.fillWidth: true
                 text: qsTr("提示：拖拽节点移动，从右侧圆点拖到左侧端口连线；右键画布添加节点；Ctrl+C/V、Delete 操作选中节点。")
                 color: Theme.textMuted
-                font.pixelSize: Typography.fontCaption
+                font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap
             }
 
@@ -621,7 +627,6 @@ Dialog {
                 objectName: "ruleEditorCloseButton"
                 Layout.fillWidth: true
                 text: qsTr("关闭")
-                onClicked: dialog.close()
             }
         }
     }

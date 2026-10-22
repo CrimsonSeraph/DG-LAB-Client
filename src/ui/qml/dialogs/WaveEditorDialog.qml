@@ -10,8 +10,9 @@ Dialog {
     title: qsTr("创建波形")
     modal: true
     anchors.centerIn: Overlay.overlay
-    width: 900
-    height: 640
+    // 令牌值是理想尺寸，再钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
+    width: Math.min(ComponentStyle.dialogWaveEditorWidth, Overlay.overlay.width - Metrics.spacingXl * 2)
+    height: Math.min(ComponentStyle.dialogWaveEditorHeight, Overlay.overlay.height - Metrics.spacingXl * 2)
     padding: Metrics.spacingMd
 
     background: Rectangle {
@@ -63,7 +64,7 @@ Dialog {
 
                 delegate: Rectangle {
                     width: sectionList.width
-                    height: 30
+                    height: ComponentStyle.dialogListRowHeight
                     radius: Metrics.radiusXs
                     color: modelData.selected ? Theme.selectionBg : Theme.surfaceAlt
                     border.width: Metrics.borderWidth
@@ -75,7 +76,7 @@ Dialog {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "#" + (modelData.index + 1) + "  " + modelData.summary
                         color: Theme.textSecondary
-                        font.pixelSize: Typography.fontCaption
+                        font.pixelSize: Typography.fontBody
                     }
 
                     MouseArea {
@@ -113,7 +114,7 @@ Dialog {
                 Text {
                     text: qsTr("时长 (ms)")
                     color: Theme.textSecondary
-                    font.pixelSize: Typography.fontSmall
+                    font.pixelSize: Typography.fontBody
                 }
 
                 AppSpinBox {
@@ -136,7 +137,7 @@ Dialog {
                 Text {
                     text: qsTr("起始频率 (Hz)")
                     color: Theme.textSecondary
-                    font.pixelSize: Typography.fontSmall
+                    font.pixelSize: Typography.fontBody
                 }
 
                 AppSpinBox {
@@ -158,7 +159,7 @@ Dialog {
                 Text {
                     text: qsTr("结束频率 (Hz)")
                     color: Theme.textSecondary
-                    font.pixelSize: Typography.fontSmall
+                    font.pixelSize: Typography.fontBody
                 }
 
                 AppSpinBox {
@@ -180,7 +181,7 @@ Dialog {
                 Text {
                     text: qsTr("起始强度")
                     color: Theme.textSecondary
-                    font.pixelSize: Typography.fontSmall
+                    font.pixelSize: Typography.fontBody
                 }
 
                 AppSpinBox {
@@ -202,7 +203,7 @@ Dialog {
                 Text {
                     text: qsTr("结束强度")
                     color: Theme.textSecondary
-                    font.pixelSize: Typography.fontSmall
+                    font.pixelSize: Typography.fontBody
                 }
 
                 AppSpinBox {
@@ -248,7 +249,7 @@ Dialog {
             Text {
                 text: qsTr("%1 帧 · %2ms（每帧 100ms）").arg(waveBridge.draftFrameCount).arg(waveBridge.draftDurationMs)
                 color: Theme.textMuted
-                font.pixelSize: Typography.fontCaption
+                font.pixelSize: Typography.fontBody
             }
 
             Text {
@@ -267,8 +268,8 @@ Dialog {
 
                     objectName: "waveRawFramesArea"
                     wrapMode: TextArea.NoWrap
-                    font.family: "Consolas"
-                    font.pixelSize: Typography.fontSmall
+                    font.family: Typography.fontMonoFamily
+                    font.pixelSize: Typography.fontBody
                     text: waveBridge.draftFramesText
 
                     Binding {
