@@ -48,6 +48,8 @@ jobs:
     steps:
       - name: 拉取源码
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: 清理 QML 文件 BOM
         shell: pwsh
