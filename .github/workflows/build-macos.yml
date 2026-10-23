@@ -245,8 +245,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(sed -n 's/^project([^)]*[[:space:]]VERSION[[:space:]]*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' CMakeLists.txt | head -1)"
-          VERSION="${VERSION:-1.0.0}"
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ] || [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VERSION=$(python -c "import json; print(json.load(open('config/main.json'))['app']['version'])" 2>/dev/null || echo "1.0.0")
+          fi
           echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
           mkdir -p package
 
@@ -254,16 +256,6 @@ jobs:
             -ov -format UDZO "package/DG-LAB-Client-${VERSION}-macos-universal.dmg"
           ditto -c -k --sequesterRsrc --keepParent "$APP_REL" "$RUNNER_TEMP/notarize.zip"
           ls -lh package "$RUNNER_TEMP/notarize.zip"
-
-      # ★ 已删除：「CPack 打包（macOS）」步骤
-      #   原因：CMakeLists.txt 里 APPLE 的 CPACK_GENERATOR 是 "DragNDrop;TGZ"，
-      #   产出的 dmg 与手动 hdiutil 的 dmg 重复、TGZ 与最终 zip 重复；
-      #   且该步骤原本带 `|| true`，本质上是静默失败的空转，直接删除
-
-      # ★ 已删除：「生成不带 Python 运行时的精简包」步骤
-      #   原因：macOS 系统自带的 Python 早已被 Apple 弃用，用户不会依赖系统 Python；
-      #   删掉 libpython 后 Qt 里调 Python 子进程会直接失败，产物没有实际意义
-      #   同时这一步会额外产出 ~300 MB 的 tar.gz，是 macOS 上传 OOM 的主因之一
 
       - name: notarytool 公证
         if: ${{ steps.apple.outputs.notary_ready == 'true' && steps.apple.outputs.cert_ready == 'true' }}
