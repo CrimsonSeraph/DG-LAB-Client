@@ -8,13 +8,13 @@
 
 ## 依赖
 
-| 依赖                            | 说明                                                     |
-| ------------------------------- | -------------------------------------------------------- |
-| `Qt6::Quick` / `Qt6::Qml`       | QML 运行时                                               |
-| `Qt6::QuickControls2`           | 控件（应用统一样式设为 `Basic`，外观完全由样式令牌控制） |
-| `Qt6::QuickDialogs2`            | `ColorDialog`（自定义主题取色）等                        |
-| `AppConfig` / `DebugLog`        | 核心基础设施                                             |
-| `ModuleManager` / `RuleManager` | 数据与规则来源                                           |
+| 依赖 | 说明 |
+| --- | --- |
+| `Qt6::Quick` / `Qt6::Qml` | QML 运行时 |
+| `Qt6::QuickControls2` | 控件（应用统一样式设为 `Basic`，外观完全由样式令牌控制） |
+| `Qt6::QuickDialogs2` | `ColorDialog`（自定义主题取色）等 |
+| `AppConfig` / `DebugLog` | 核心基础设施 |
+| `ModuleManager` / `RuleManager` | 数据与规则来源 |
 | `DeviceController` / `DglabRelayServer` / `CoyoteBleController` | 设备通信：应用内 V3 / V4 中转服务与郊狼 V3 蓝牙直连 |
 
 ## 目录结构
@@ -38,13 +38,18 @@ src/ui/
 │   │   └── ChannelPanel.qml    # 单通道面板（强度 / 模块 / 规则 / 波形 / 启停）
 │   ├── components/
 │   │   ├── GlassCard.qml       # 卡片容器
-│   │   ├── AppButton.qml       # 通用按钮
+│   │   ├── AppButton.qml       # 通用按钮（primary / danger / outline）
 │   │   ├── NavButton.qml       # 左侧导航按钮
 │   │   ├── AppSpinBox.qml      # 主题化 SpinBox
 │   │   ├── AppTextField.qml    # 主题化单行输入框
 │   │   ├── AppTextArea.qml     # 主题化多行输入框
 │   │   ├── AppComboBox.qml     # 主题化下拉框
-│   │   └── AppCheckBox.qml     # 主题化勾选框
+│   │   ├── AppCheckBox.qml     # 主题化勾选框
+│   │   ├── ConfirmDialog.qml   # 通用确认弹层（ask_confirm 复用）
+│   │   ├── PageHeader.qml      # 页面标题行（标题 + 副标题 + 右侧操作区）
+│   │   ├── StatusBadge.qml     # 状态徽标（info / success / warning / danger）
+│   │   ├── Toast.qml           # 右下角一次性反馈浮层
+│   │   └── WavePreview.qml     # 波形预览（强度曲线 + 频率曲线）
 │   └── style/                  # 【QML 单例】设计令牌（页面只引用，不写字面量）
 │       ├── Metrics.qml         # 间距 / 圆角 / 描边 / 通用尺寸
 │       ├── Typography.qml      # 字号
@@ -74,22 +79,22 @@ src/ui/
 
 导航：
 
-| objectName | 行为 |
-| --- | --- |
-| `navHomeButton` / `navConfigButton` / `navModuleButton` / `navAboutButton` | 切换页面 |
-| `homeModuleEntryButton` | 跳转模块页 |
-| `homeRuleEditorButton` / `configRuleEditorButton` | 打开规则编辑器 |
+| objectName                                                                 | 行为           |
+| -------------------------------------------------------------------------- | -------------- |
+| `navHomeButton` / `navConfigButton` / `navModuleButton` / `navAboutButton` | 切换页面       |
+| `homeModuleEntryButton`                                                    | 跳转模块页     |
+| `homeRuleEditorButton` / `configRuleEditorButton`                          | 打开规则编辑器 |
 
 首页通道（`ChannelPanel`，`channel` 为 A/B）：
 
-| objectName                                  | 行为                                     |
-| ------------------------------------------- | ---------------------------------------- |
-| `channel{A,B}Card`                          | 通道卡根节点（`GlassCard`），用于几何度量 |
-| `channel{A,B}StartButton`                   | 切换通道启用状态（同步规则引擎通道变量）；位于卡头右侧，运行态为 `danger` + `outline` |
-| `channel{A,B}StatusBadge`                   | 状态徽标（`components/StatusBadge.qml`）：未运行 / 运行中 / 无输出，只展示不给交互 |
-| `channel{A,B}StrengthSpin`                  | 设置目标强度（`valueModified`）；`showIndicator: false` |
-| `channel{A,B}StrengthIncrease` / `Decrease` | 强度 ±1                                  |
-| `channel{A,B}SelectWaveButton`              | 选择波形                                 |
+| objectName | 行为 |
+| --- | --- |
+| `channel{A,B}Card` | 通道卡根节点（`GlassCard`），用于几何度量 |
+| `channel{A,B}StartButton` | 切换通道启用状态（同步规则引擎通道变量）；位于卡头右侧，运行态为 `danger` + `outline` |
+| `channel{A,B}StatusBadge` | 状态徽标（`components/StatusBadge.qml`）：未运行 / 运行中 / 无输出，只展示不给交互 |
+| `channel{A,B}StrengthSpin` | 设置目标强度（`valueModified`）；`showIndicator: false` |
+| `channel{A,B}StrengthIncrease` / `Decrease` | 强度 ±1 |
+| `channel{A,B}SelectWaveButton` | 选择波形 |
 
 配置页：
 
@@ -135,12 +140,12 @@ src/ui/
 
 关于页：
 
-| objectName | 行为 |
-| --- | --- |
+| objectName                                  | 行为                                               |
+| ------------------------------------------- | -------------------------------------------------- |
 | `aboutVersionText` / `aboutDescriptionText` | 版本号与一句话说明（同色阶 `Theme.textSecondary`） |
-| `aboutLicenseText` | 许可证：GPL-3.0-only |
-| `aboutDependenciesText` | 依赖：Qt 6 |
-| `aboutRepositoryText` | 仓库地址 |
+| `aboutLicenseText`                          | 许可证：GPL-3.0-only                               |
+| `aboutDependenciesText`                     | 依赖：Qt 6                                         |
+| `aboutRepositoryText`                       | 仓库地址                                           |
 
 一次性反馈与常驻摘要分工：一次性结果文案一律走 `app.showToast()`；状态栏只显示 QML 侧组合的常驻摘要。
 
@@ -160,7 +165,7 @@ src/ui/
 | `ruleCanvas` / `ruleZoomLabel` | 画布根项（C++ 通过它读写 `panX`/`panY`/`zoom`）与左下缩放百分比标签（纯绑定 `zoom`） |
 | `ruleFitViewButton` | 适配视图：点击由 C++ 连接，按节点包围盒重置缩放与平移；无节点时回到 1.0 居中 |
 | `ruleDeleteEdgeMenu` | 右键菜单「删除此连线」：仅当右键命中连线（`canvas.contextEdgeId > 0`）时可见，`onTriggered` 调用 `ruleGraph.deleteEdge()` |
-| `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭 |
+| `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层（`components/ConfirmDialog.qml`）：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭 |
 | `waveSelectDialog` / `waveLibraryList` | 波形库对话框与列表；`waveSelectCloseButton` 关闭 |
 | `waveSelectClick` | 行热区（`waveName` 属性）：指派该波形到目标通道并关闭对话框；委托热区由 `watch_items` 扫描 |
 | `waveDeleteClick` | 行内删除（`waveName` 属性，`AppButton.danger`）：先经 `confirmDialog` 确认不可恢复，确认后按名字删除 |
@@ -179,13 +184,13 @@ src/ui/
 
 ## 样式令牌（style/ 单例）
 
-| 单例             | 职责                                                       |
-| ---------------- | ---------------------------------------------------------- |
-| `Metrics`        | 间距刻度、圆角、描边、导航宽度、卡片内边距、按钮高度       |
-| `Typography`     | 五档字号：`fontBody` / `fontSubtitle` / `fontHeading` / `fontTitle` / `fontDisplay`，另加等宽字体族 `fontMonoFamily` |
-| `Responsive`     | 窗口断点（`isCompactNav` / `isNarrow`）与最小窗口尺寸      |
+| 单例 | 职责 |
+| --- | --- |
+| `Metrics` | 间距刻度、圆角、描边、导航宽度、卡片内边距、按钮高度 |
+| `Typography` | 五档字号：`fontBody` / `fontSubtitle` / `fontHeading` / `fontTitle` / `fontDisplay`，另加等宽字体族 `fontMonoFamily` |
+| `Responsive` | 窗口断点（`isCompactNav` / `isNarrow`）与最小窗口尺寸 |
 | `ComponentStyle` | 通道卡片、波形预览、规则节点编辑器、主题色块等组件专属度量 |
-| `Theme`（C++）   | 全部颜色令牌                                               |
+| `Theme`（C++） | 全部颜色令牌 |
 
 新增样式时：颜色补进 `ThemeManager`，字号补进 `Typography`，通用间距/圆角补进 `Metrics`，断点补进 `Responsive`，组件度量补进 `ComponentStyle`，**不要**在页面里留字面量。
 
@@ -195,18 +200,35 @@ src/ui/
 
 Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `components/` 下的封装：
 
-| 控件           | 基于        | 说明                                                   |
-| -------------- | ----------- | ------------------------------------------------------ |
-| `AppSpinBox`   | `SpinBox`   | 内容区 / 上下指示器 / 背景全部取 `Theme` 令牌          |
+| 控件 | 基于 | 说明 |
+| --- | --- | --- |
+| `AppSpinBox` | `SpinBox` | 内容区 / 上下指示器 / 背景全部取 `Theme` 令牌 |
 | `AppTextField` | `TextField` | 文字 / 占位符 / 选区 / 背景主题化，聚焦描边转 `accent` |
-| `AppTextArea`  | `TextArea`  | 同 `AppTextField`，用于表达式等长文本                  |
-| `AppComboBox`  | `ComboBox`  | 内容区 / 指示器 / 弹层 / 委托全部主题化                |
-| `AppCheckBox`  | `CheckBox`  | 指示器与文字主题化，选中态用 `accent`                  |
-| `AppButton`    | `Button`    | 三态：`primary` = 强调色实心、`danger` = 危险色实心、`outline` = 透明底 + 语义色描边与文字（可与 `danger` / `primary` 组合，默认 false 时视觉不变） |
+| `AppTextArea` | `TextArea` | 同 `AppTextField`，用于表达式等长文本 |
+| `AppComboBox` | `ComboBox` | 内容区 / 指示器 / 弹层 / 委托全部主题化 |
+| `AppCheckBox` | `CheckBox` | 指示器与文字主题化，选中态用 `accent` |
+| `AppButton` | `Button` | 三态：`primary` = 强调色实心、`danger` = 危险色实心、`outline` = 透明底 + 语义色描边与文字（可与 `danger` / `primary` 组合，默认 false 时视觉不变） |
 
 - 控件只读 `Theme` / `Metrics` / `Typography` / `ComponentStyle`，不写任何颜色字面量。
 - 新增输入控件先在此目录封装，尺寸常量补进 `ComponentStyle`，再替换页面中的原生控件。
 - 主题令牌、预设配色与对比度约束见 [docs/theme.md](../../docs/theme.md)。
+
+## 展示与容器组件
+
+除输入控件外，`components/` 还提供以下展示/容器组件，同样只读令牌、不写信号处理器：
+
+| 控件 | 基于 | 说明 |
+| --- | --- | --- |
+| `GlassCard` | `Rectangle` | 卡片容器：统一背景 / 圆角 / 描边 / 内边距，内容走默认属性 |
+| `NavButton` | `Button` | 左侧导航按钮，`selected` 绑定选中态（不使用内部 `checked`） |
+| `PageHeader` | `Item` | 页面标题行：标题 + 副标题 + 右侧操作区（默认属性槽） |
+| `StatusBadge` | `Rectangle` | 状态徽标：level 0 信息 / 1 成功 / 2 警示 / 3 危险，纯展示 |
+| `Toast` | `Rectangle` | 右下角一次性反馈浮层，绑定 `app.toastText` / `app.toastLevel` |
+| `ConfirmDialog` | `Dialog` | 通用确认弹层，`closePolicy: NoAutoClose`，供 `ask_confirm` 复用 |
+| `WavePreview` | `Item` | 波形预览：强度曲线（`accent`）+ 频率曲线（`secondary`），空态显示「无波形」 |
+
+- 上述组件均无 `onXxx` / `Connections`，交互统一由 `UiConnector` 按 `objectName` 建立。
+- 新增展示组件优先放入 `components/`，专属组件放页面目录；样式一律引用令牌。
 
 ## 信号连接约定
 
