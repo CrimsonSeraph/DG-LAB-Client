@@ -113,112 +113,202 @@ if(QT_VERSION_MAJOR EQUAL 6)
 	qt_standard_project_setup()
 endif()
 
-# -------------------- 项目源文件列表 --------------------
-set(PROJECT_SOURCES
-	# 程序入口
-	main.cpp
+#  项目源文件列表
+#  约定：
+#    - 按模块分组为独立变量，末尾统一汇总到 PROJECT_SOURCES；
+#    - 每个模块内先列源文件(.cpp)，再列头文件(.h/.hpp)；
+#    - 资源(.qrc) 与配置(.json) 单独分组。
 
-	# ---------- 核心基础设施（core）：配置系统 ----------
-	include/core/AppConfig.h
+# 程序入口
+set(ENTRY_SOURCES
+	main.cpp
+)
+
+# 核心基础设施（core）
+
+# --- 配置系统 ---
+set(CORE_CONFIG
+	# 源文件
 	src/core/AppConfig.cpp
+	src/core/ConfigManager.cpp
+	src/core/MultiConfigManager.cpp
+	src/core/ConfigStructs.cpp
+	src/core/DefaultConfigs.cpp
+	# 头文件
+	include/core/AppConfig.h
 	include/core/AppConfig_impl.hpp
 	include/core/AppConfig_utils.hpp
 	include/core/ConfigManager.h
-	src/core/ConfigManager.cpp
 	include/core/ConfigManager_impl.hpp
 	include/core/MultiConfigManager.h
-	src/core/MultiConfigManager.cpp
 	include/core/MultiConfigManager_impl.hpp
 	include/core/ConfigStructs.h
-	src/core/ConfigStructs.cpp
 	include/core/DefaultConfigs.h
-	src/core/DefaultConfigs.cpp
+)
 
-	# ---------- 核心基础设施（core）：日志系统 ----------
-	include/core/DebugLog.h
+# 日志系统
+set(CORE_LOG
+	# 源文件
 	src/core/DebugLog.cpp
+	src/core/Console.cpp
+	src/core/LogExporter.cpp
+	# 头文件
+	include/core/DebugLog.h
 	include/core/DebugLog_utils.hpp
 	include/core/Console.h
-	src/core/Console.cpp
 	include/core/LogExporter.h
-	src/core/LogExporter.cpp
+)
 
-	# ---------- 核心基础设施（core）：工具类 ----------
-	include/core/ProcessChecker.h
+# 工具类
+set(CORE_TOOLS
+	# 源文件
 	src/core/ProcessChecker.cpp
+	# 头文件
+	include/core/ProcessChecker.h
+)
 
-	# ---------- 规则引擎（rule） ----------
-	include/rule/Rule.h
+# 更新系统
+set(CORE_UPDATE
+	# 源文件
+	src/core/UpdateManager.cpp
+	# 头文件
+	include/core/UpdateManager.h
+)
+
+# 规则引擎（rule）
+set(RULE
+	# 源文件
 	src/rule/Rule.cpp
-	include/rule/RuleManager.h
 	src/rule/RuleManager.cpp
+	src/rule/RuleGraph.cpp
+	# 头文件
+	include/rule/Rule.h
+	include/rule/RuleManager.h
 	include/rule/RuleManager_impl.hpp
 	include/rule/RuleGraph.h
-	src/rule/RuleGraph.cpp
+)
 
-	# ---------- 数值模块（module） ----------
-	include/module/ModuleValue.h
+# 数值模块（module）
+set(MODULE
+	# 源文件
 	src/module/ModuleValue.cpp
-	include/module/Module.h
 	src/module/Module.cpp
-	include/module/ModuleManager.h
 	src/module/ModuleManager.cpp
-	include/module/DataListener.h
 	src/module/DataListener.cpp
+	# 头文件
+	include/module/ModuleValue.h
+	include/module/Module.h
+	include/module/ModuleManager.h
+	include/module/DataListener.h
+)
 
-	# ---------- 蓝牙（ble）：郊狼 V3 直连 ----------
-	include/ble/CoyoteBleController.h
+# 蓝牙（ble）：郊狼 V3 直连
+set(BLE
+	# 源文件
 	src/ble/CoyoteBleController.cpp
+	# 头文件
+	include/ble/CoyoteBleController.h
+)
 
-	# ---------- 网络（net）：应用内中转服务 ----------
-	include/net/DglabRelayServer.h
+# 网络（net）：应用内中转服务
+set(NET
+	# 源文件
 	src/net/DglabRelayServer.cpp
+	# 头文件
+	include/net/DglabRelayServer.h
+)
 
-	# ---------- 第三方库（QR 码生成，MIT） ----------
-	third_party/qrcodegen/qrcodegen.hpp
-	third_party/qrcodegen/qrcodegen.cpp
-
-	# ---------- 波形（wave） ----------
-	include/wave/Wave.h
+# 波形（wave）
+set(WAVE
+	# 源文件
 	src/wave/Wave.cpp
-	include/wave/WaveLibrary.h
 	src/wave/WaveLibrary.cpp
+	# 头文件
+	include/wave/Wave.h
+	include/wave/WaveLibrary.h
+)
 
-	# ---------- 插件接口（plugin） ----------
+# 插件接口（plugin）：仅头文件
+set(PLUGIN_HEADERS
 	include/plugin/IPlugin.h
 	include/plugin/PluginHost.h
 	include/plugin/plugin_export.h
+)
 
-	# ---------- 界面层（ui）：QML 桥接 ----------
-	include/ui/ThemeManager.h
+# 第三方库（QR 码生成，MIT）
+set(THIRD_PARTY_QRCODE
+	# 源文件
+	third_party/qrcodegen/qrcodegen.cpp
+	# 头文件
+	third_party/qrcodegen/qrcodegen.hpp
+)
+
+# 界面层（ui）
+
+# QML 桥接
+set(UI_QML
+	# 源文件
 	src/ui/ThemeManager.cpp
-	include/ui/AppBridge.h
 	src/ui/AppBridge.cpp
-	include/ui/UiConnector.h
 	src/ui/UiConnector.cpp
-	include/ui/DeviceController.h
 	src/ui/DeviceController.cpp
-	include/ui/HomeBridge.h
 	src/ui/HomeBridge.cpp
-	include/ui/ModuleBridge.h
 	src/ui/ModuleBridge.cpp
-	include/ui/WaveBridge.h
 	src/ui/WaveBridge.cpp
-	include/ui/QrImageProvider.h
 	src/ui/QrImageProvider.cpp
-	include/ui/RuleGraphBridge.h
 	src/ui/RuleGraphBridge.cpp
-	include/ui/LogBridge.h
 	src/ui/LogBridge.cpp
+	# 头文件
+	include/ui/ThemeManager.h
+	include/ui/AppBridge.h
+	include/ui/UiConnector.h
+	include/ui/DeviceController.h
+	include/ui/HomeBridge.h
+	include/ui/ModuleBridge.h
+	include/ui/WaveBridge.h
+	include/ui/QrImageProvider.h
+	include/ui/RuleGraphBridge.h
+	include/ui/LogBridge.h
+)
 
-	# 资源文件
+# 更新桥接
+set(UI_UPDATE
+	# 源文件
+	src/ui/UpdateBridge.cpp
+	# 头文件
+	include/ui/UpdateBridge.h
+)
+
+# 资源与配置
+set(RESOURCES
 	DGLABClient.qrc
+)
 
-	# 配置文件
+set(CONFIGS
 	config/main.json
 	config/system.json
 	config/user.json
 	config/rules/rules.json
+)
+
+# 汇总
+set(PROJECT_SOURCES
+	${ENTRY_SOURCES}
+	${CORE_CONFIG}
+	${CORE_LOG}
+	${CORE_TOOLS}
+	${CORE_UPDATE}
+	${RULE}
+	${MODULE}
+	${BLE}
+	${NET}
+	${WAVE}
+	${PLUGIN_HEADERS}
+	${THIRD_PARTY_QRCODE}
+	${UI_QML}
+	${UI_UPDATE}
+	${RESOURCES}
+	${CONFIGS}
 )
 
 # Windows 可执行文件图标：app.rc 只描述 exe 的图标资源（资源管理器里显示的那个），

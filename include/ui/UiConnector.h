@@ -23,6 +23,7 @@ class RuleGraphBridge;
 class ThemeManager;
 class WaveBridge;
 class QQuickItem;
+class UpdateBridge;
 
 // UiConnector - QML 与 C++ 的连接集中点
 // QML 不写信号处理器（onClicked / Connections），每个交互控件都有稳定的 objectName，
@@ -34,7 +35,7 @@ class UiConnector : public QObject {
 public:
     UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme, DeviceController* device,
         ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble, RuleGraphBridge* rule_graph,
-        LogBridge* log, QObject* parent = nullptr);
+        LogBridge* log, UpdateBridge* update, QObject* parent = nullptr);
 
     /// @brief 在 engine.load 之后调用，连接根对象下的全部交互控件
     void attach(QObject* root_object);
@@ -108,6 +109,10 @@ private slots:
     void on_log_messages_changed();
     // 动态内容变化后重扫热区
     void on_tracked_children_changed();
+    // 软件更新
+    void on_check_update_clicked();
+    void on_update_download_clicked();
+    void on_update_apply_clicked();
 
 private:
     void connect_clicked(QObject* root_object, const char* object_name, const char* slot);
@@ -137,10 +142,11 @@ private:
     LogBridge* log_ = nullptr;
     QPointer<QObject> root_;
     QPointer<QObject> confirm_dialog_;       ///< 通用确认弹层
-    std::function<void()> confirm_callback_;  ///< 确认后要执行的动作（取消即丢弃）
-    QPointer<QObject> log_list_;  ///< 日志列表（贴底跟随在此维护）
-    qreal log_scroll_y_ = 0.0;    ///< 用户滚动停留时的 contentY
-    QString wave_last_error_;     ///< 上一次已反馈过的波形错误（避免重复 Toast）
+    std::function<void()> confirm_callback_; ///< 确认后要执行的动作（取消即丢弃）
+    QPointer<QObject> log_list_;             ///< 日志列表（贴底跟随在此维护）
+    qreal log_scroll_y_ = 0.0;               ///< 用户滚动停留时的 contentY
+    QString wave_last_error_;                ///< 上一次已反馈过的波形错误（避免重复 Toast）
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
+    UpdateBridge* update_ = nullptr;
 };

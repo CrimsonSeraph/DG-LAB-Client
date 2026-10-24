@@ -14,6 +14,7 @@
 #include "ModuleBridge.h"
 #include "RuleGraphBridge.h"
 #include "ThemeManager.h"
+#include "UpdateBridge.h"
 #include "WaveBridge.h"
 
 #include <QColor>
@@ -34,11 +35,10 @@ namespace {
     /// @brief 导航按钮 objectName -> 页面索引
     const QHash<QString, int>& nav_bindings() {
         static const QHash<QString, int> bindings = {
-            { QStringLiteral("navHomeButton"), AppBridge::HomePage },
-            { QStringLiteral("navConfigButton"), AppBridge::ConfigPage },
-            { QStringLiteral("navModuleButton"), AppBridge::ModulePage },
-            { QStringLiteral("navAboutButton"), AppBridge::AboutPage }
-        };
+            {QStringLiteral("navHomeButton"), AppBridge::HomePage},
+            {QStringLiteral("navConfigButton"), AppBridge::ConfigPage},
+            {QStringLiteral("navModuleButton"), AppBridge::ModulePage},
+            {QStringLiteral("navAboutButton"), AppBridge::AboutPage}};
         return bindings;
     }
 
@@ -47,10 +47,10 @@ namespace {
     ///       TextField 继承 TextInput，TextArea（QQuickTextArea）继承 TextEdit，
     ///       SpinBox 的 contentItem 就是 TextInput，三种都覆盖到
     const char* const k_text_entry_classes[] = {
-        "QQuickTextInput",  // TextInput / TextField / SpinBox 的 contentItem
-        "QQuickTextEdit",   // TextEdit / TextArea
-        "QQuickSpinBox",    // SpinBox 根项自己持焦时
-        "QQuickComboBox",   // ComboBox：Enter 用于确认下拉选择，不该触发主操作
+        "QQuickTextInput", // TextInput / TextField / SpinBox 的 contentItem
+        "QQuickTextEdit",  // TextEdit / TextArea
+        "QQuickSpinBox",   // SpinBox 根项自己持焦时
+        "QQuickComboBox",  // ComboBox：Enter 用于确认下拉选择，不该触发主操作
     };
 
     /// @brief 焦点对象或其任一父级是否属于输入类控件
@@ -97,7 +97,7 @@ namespace {
 
 UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     DeviceController* device, ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble,
-    RuleGraphBridge* rule_graph, LogBridge* log, QObject* parent)
+    RuleGraphBridge* rule_graph, LogBridge* log, UpdateBridge* update, QObject* parent)
     : QObject(parent)
     , app_(app)
     , home_(home)
@@ -107,7 +107,8 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     , wave_(wave)
     , ble_(ble)
     , rule_graph_(rule_graph)
-    , log_(log) {
+    , log_(log)
+    , update_(update) {
     if (log_ != nullptr) {
         // statusMessage 现在只在导出失败时发出，走 danger；成功走 exportChanged 带路径
         QObject::connect(log_, &LogBridge::statusMessage, this,
@@ -183,6 +184,14 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
                 }
             });
     }
+    if (update_ != nullptr) {
+        QObject::connect(update_, &UpdateBridge::toast_requested, this,
+            [this](const QString& message, int level) {
+                if (app_ != nullptr) {
+                    app_->showToast(message, static_cast<AppBridge::StatusLevel>(level));
+                }
+            });
+    }
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -231,7 +240,7 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "channelBStrengthDecrease", SLOT(on_strength_adjust_clicked()));
     connect_clicked(root_object, "channelASelectWaveButton", SLOT(on_wave_select_clicked()));
     connect_clicked(root_object, "channelBSelectWaveButton", SLOT(on_wave_select_clicked()));
-    const char* spins[] = { "channelAStrengthSpin", "channelBStrengthSpin" };
+    const char* spins[] = {"channelAStrengthSpin", "channelBStrengthSpin"};
     for (const char* name : spins) {
         auto* spin = root_object->findChild<QObject*>(QString::fromLatin1(name));
         if (spin != nullptr) {
@@ -314,6 +323,11 @@ void UiConnector::attach(QObject* root_object) {
             QObject::connect(log_, &LogBridge::messagesChanged, this, &UiConnector::on_log_messages_changed);
         }
     }
+
+    // 更新模块
+    connect_clicked(root_object, "configCheckUpdateButton", SLOT(on_check_update_clicked()));
+    connect_clicked(root_object, "updateDownloadButton", SLOT(on_update_download_clicked()));
+    connect_clicked(root_object, "updateApplyButton", SLOT(on_update_apply_clicked()));
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
@@ -480,6 +494,27 @@ void UiConnector::on_tracked_children_changed() {
     }
 }
 
+void UiConnector::on_check_update_clicked() {
+    if (update_ != nullptr) {
+        update_->on_check_update_clicked();
+    }
+}
+
+void UiConnector::on_update_download_clicked() {
+    if (update_ != nullptr) {
+        update_->on_start_download_clicked();
+    }
+}
+
+void UiConnector::on_update_apply_clicked() {
+    if (update_ != nullptr) {
+        ask_confirm(tr("重启并安装更新"), tr("应用将关闭并自动完成更新，是否继续？"), false,
+            [this]() {
+                update_->on_apply_update_clicked();
+            });
+    }
+}
+
 void UiConnector::on_nav_button_clicked() {
     auto* button = sender();
     if (button == nullptr) {
@@ -552,11 +587,7 @@ void UiConnector::on_rule_fit_view_clicked() {
         const qreal x = node.value(QStringLiteral("x")).toReal();
         const qreal y = node.value(QStringLiteral("y")).toReal();
         // 节点高度与 QML 委托同一公式：头 + 端口内缩 + 端口数 × 端口间距 + 底部留白
-        const qreal node_height = node.value(QStringLiteral("headerHeight")).toReal()
-            + node.value(QStringLiteral("portInset")).toReal()
-            + qMax(1, node.value(QStringLiteral("inputCount")).toInt())
-                * node.value(QStringLiteral("portSpacing")).toReal()
-            + bottom_inset;
+        const qreal node_height = node.value(QStringLiteral("headerHeight")).toReal() + node.value(QStringLiteral("portInset")).toReal() + qMax(1, node.value(QStringLiteral("inputCount")).toInt()) * node.value(QStringLiteral("portSpacing")).toReal() + bottom_inset;
         const qreal right = x + node.value(QStringLiteral("width")).toReal();
         const qreal bottom = y + node_height;
         if (!has_node) {
@@ -743,8 +774,8 @@ void UiConnector::on_wave_send_clicked() {
         return;
     }
     wave_->sendDraft(button->objectName().endsWith(QStringLiteral("AButton"))
-            ? QStringLiteral("A")
-            : QStringLiteral("B"));
+                         ? QStringLiteral("A")
+                         : QStringLiteral("B"));
 }
 
 void UiConnector::on_wave_editor_close_clicked() {
@@ -831,8 +862,7 @@ void UiConnector::on_log_messages_changed() {
         }
         else if (list->property("count").toInt() > 0) {
             list->setProperty("contentY", log_scroll_y_);
-        }
-    }, Qt::QueuedConnection);
+        } }, Qt::QueuedConnection);
 }
 
 void UiConnector::on_log_level_changed() {

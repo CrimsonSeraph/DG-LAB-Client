@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Dglab
 
 // 关于页：应用信息、许可证与依赖说明。
 Item {
@@ -39,6 +40,108 @@ Item {
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap
+            }
+        }
+
+        GlassCard {
+            Layout.fillWidth: true
+            title: qsTr("软件更新")
+
+            // 标题行 + 状态徽标
+            Row {
+                width: parent.width
+                spacing: Metrics.spacingSm
+
+                Text {
+                    text: "当前版本：v" + app.appVersion
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                }
+
+                Item {
+                    width: parent.width - 150
+                    height: 1
+                }
+
+                StatusBadge {
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: updateBridge.remote_version !== ""
+                    text: "新版本 v" + updateBridge.remote_version
+                    level: 1 // success 级别
+                }
+            }
+
+            // 错误信息展示
+            Text {
+                width: parent.width
+                visible: updateBridge.error_message !== ""
+                text: updateBridge.error_message
+                color: Theme.danger
+                font.pixelSize: Typography.fontBody
+                wrapMode: Text.WordWrap
+            }
+
+            // 更新日志展示
+            Text {
+                width: parent.width
+                visible: updateBridge.remote_version !== ""
+                text: updateBridge.release_notes
+                color: Theme.textSecondary
+                font.pixelSize: Typography.fontBody
+                wrapMode: Text.WordWrap
+                maximumLineCount: 4
+                elide: Text.ElideRight
+            }
+
+            // 下载进度条
+            ProgressBar {
+                id: downloadProgress
+                width: parent.width
+                visible: updateBridge.downloading
+                value: updateBridge.progress / 100.0
+                height: 6
+
+                background: Rectangle {
+                    color: Theme.surfaceAlt
+                    radius: Metrics.radiusSm
+                }
+                contentItem: Item {
+                    Rectangle {
+                        width: downloadProgress.visualPosition * parent.width
+                        height: parent.height
+                        color: Theme.primary
+                        radius: Metrics.radiusSm
+                    }
+                }
+            }
+
+            // 操作按钮区域
+            Row {
+                width: parent.width
+                spacing: Metrics.spacingMd
+                layoutDirection: Qt.RightToLeft // 按钮靠右显示
+
+                AppButton {
+                    objectName: "configCheckUpdateButton"
+                    text: updateBridge.checking ? "检查中..." : "检查更新"
+                    enabled: !updateBridge.checking && !updateBridge.downloading
+                }
+
+                AppButton {
+                    objectName: "updateDownloadButton"
+                    text: "下载更新"
+                    primary: true
+                    visible: updateBridge.remote_version !== "" && !updateBridge.ready_to_install
+                    enabled: !updateBridge.downloading
+                }
+
+                AppButton {
+                    objectName: "updateApplyButton"
+                    text: "重启并安装"
+                    primary: true
+                    danger: true
+                    visible: updateBridge.ready_to_install
+                }
             }
         }
 

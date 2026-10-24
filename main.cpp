@@ -6,8 +6,8 @@
 #include "AppBridge.h"
 #include "AppConfig.h"
 #include "Console.h"
-#include "DebugLog.h"
 #include "CoyoteBleController.h"
+#include "DebugLog.h"
 #include "DeviceController.h"
 #include "HomeBridge.h"
 #include "LogBridge.h"
@@ -17,20 +17,45 @@
 #include "RuleManager.h"
 #include "ThemeManager.h"
 #include "UiConnector.h"
+#include "UpdateBridge.h"
+#include "UpdateManager.h"
 #include "WaveBridge.h"
 #include "WaveLibrary.h"
 
+#include <QDir>
+#include <QFile>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickImageProvider>
 #include <QQuickStyle>
+#include <QStandardPaths>
+#include <QTimer>
 
 #include <iostream>
 
 int main(int argc, char* argv[]) {
     QGuiApplication app(argc, argv);
+
+    bool is_updated_start = false;
+    for (const QString& arg : QCoreApplication::arguments()) {
+        if (arg == "--updated") {
+            is_updated_start = true;
+            break;
+        }
+    }
+    if (is_updated_start) {
+        // 延迟 5 秒后生成标记，证明程序成功启动并运行
+        QTimer::singleShot(5000, []() {
+            QString flag_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update_ok.tmp";
+            QFile flag(flag_path);
+            if (flag.open(QIODevice::WriteOnly)) {
+                flag.write("ok");
+                flag.close();
+            }
+        });
+    }
 
     // 窗口图标：以 256 为基准，再补 64/32/16，任务栏与 Alt-Tab 在不同 DPI 下都有合适尺寸
     QIcon app_icon;
@@ -132,6 +157,10 @@ int main(int argc, char* argv[]) {
     QObject::connect(&device, &DeviceController::errorOccurred, &bridge,
         [&bridge](const QString& message) { bridge.setStatus(message); });
 
+    // 初始化更新系统
+    UpdateManager update_manager;
+    UpdateBridge update_bridge(&update_manager);
+
     QQmlApplicationEngine engine;
     engine.addImageProvider(QStringLiteral("dglabqr"), device.qr_image_provider());
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &bridge);
@@ -142,12 +171,12 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("ble"), &ble);
     engine.rootContext()->setContextProperty(QStringLiteral("ruleGraph"), &rule_graph);
     engine.rootContext()->setContextProperty(QStringLiteral("logBridge"), &log_bridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("updateBridge"), &update_bridge);
 
     // QML 交互连接集中在 C++ 侧
     UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave, &ble, &rule_graph,
-        &log_bridge);
-    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
-        []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
+        &log_bridge, &update_bridge);
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 
     engine.loadFromModule("Dglab", "MainWindow");
     if (engine.rootObjects().isEmpty()) {
