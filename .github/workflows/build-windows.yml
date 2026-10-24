@@ -212,11 +212,17 @@ jobs:
         shell: pwsh
         run: |
           # 从 config/main.json 读取版本号
-          $version = '1.0.0'
-          if (Test-Path 'config/main.json') {
-              $json = Get-Content -Path 'config/main.json' -Raw | ConvertFrom-Json
-              if ($json.app.version) { $version = $json.app.version }
+          if (-not (Test-Path 'config/main.json')) {
+          Write-Host "::error title=缺少 config/main.json::无法读取版本号"
+          exit 1
           }
+          $json = Get-Content -Path 'config/main.json' -Raw | ConvertFrom-Json
+          if (-not $json.app.version) {
+          Write-Host "::error title=缺少版本号::config/main.json 中未读到 app.version"
+          exit 1
+          }
+          $version = $json.app.version
+          "DG_LAB_VERSION=$version" >> $env:GITHUB_ENV
 
           "DG_LAB_VERSION=$version" >> $env:GITHUB_ENV
           New-Item -ItemType Directory -Force -Path package | Out-Null

@@ -170,6 +170,20 @@ jobs:
             || { echo "::error title=缺少可执行文件::install_root/DG-LAB-Client 不存在"; ls -R install_root | head -50; exit 1; }
           file install_root/DG-LAB-Client
 
+      - name: 解析版本号
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(python -c "import json; print(json.load(open('config/main.json'))['app']['version'])")
+          if [ -z "$VERSION" ]; then
+            echo "::error title=缺少版本号::config/main.json 中未读到 app.version"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "版本号：$VERSION"
+
       - name: 用 linuxdeployqt 生成 AppImage
         shell: bash
         run: |
@@ -207,6 +221,7 @@ jobs:
           ls -lh package/
           ls package/*.AppImage >/dev/null 2>&1 \
             || { echo "::error title=未生成 AppImage::linuxdeployqt 未输出 .AppImage"; exit 1; }
+          mv package/*.AppImage "package/DG-LAB-Client-${VERSION}-linux-x64.AppImage"
 
       - name: CPack 打包（deb / rpm / tgz）
         shell: bash
@@ -223,13 +238,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          # 如果 tag 名不是标准的 x.y.z 格式，就去读 config/main.json
-          if [ -z "$VERSION" ] || [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            VERSION=$(python -c "import json; print(json.load(open('config/main.json'))['app']['version'])" 2>/dev/null || echo "1.0.0")
-          fi
-          echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
-
           cp -r install_root install_root_no_python
           rm -rf install_root_no_python/lib/libpython*.so* \
                  install_root_no_python/python/Lib \

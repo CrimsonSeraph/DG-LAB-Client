@@ -134,17 +134,6 @@ jobs:
           echo "---- 汇总大小 ----"
           du -sh dist
 
-      - name: 汇总 SHA256 校验和
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd dist
-          : > SHA256SUMS.txt
-          find . -maxdepth 1 -type f ! -name 'SHA256SUMS*' ! -name '*.asc' -exec basename {} \; | sort | while read -r f; do
-            sha256sum "$f" >> SHA256SUMS.txt
-          done
-          cat SHA256SUMS.txt
-
       - name: 解析发布标签
         id: tag
         shell: bash
@@ -208,6 +197,77 @@ jobs:
           echo "---- 提取到的发布说明预览 ----"
           printf '%s\n' "$NOTES"
 
+      - name: 解析版本号（统一来自 config/main.json）
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          VER=$(python -c "import json; print(json.load(open('config/main.json'))['app']['version'])")
+          if [ -z "$VER" ]; then
+            echo "::error title=缺少版本号::config/main.json 中未读到 app.version"
+            exit 1
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "版本号：$VER"
+          TAG="${{ steps.tag.outputs.tag }}"
+          if [ "${TAG#v}" != "$VERSION" ]; then
+            echo "::warning title=版本不一致::tag ${TAG} 与 config/main.json 的 ${VERSION} 不一致，产物文件名与 manifest.version 将使用 ${VERSION}"
+          fi
+
+      - name: 生成更新清单 manifest.json
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          REPO: ${{ github.repository }}
+          VER: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd dist
+
+          pick_one() {
+            local pattern="$1" desc="$2" f
+            f=$(find . -maxdepth 1 -type f -name "$pattern" -printf '%f\n' | sort | head -n 1)
+            if [ -z "$f" ]; then
+              echo "::error title=缺少 $desc::dist 下未找到匹配 $pattern 的文件"
+              ls -1
+              return 1
+            fi
+            printf '%s\n' "$f"
+          }
+          sha_of() { sha256sum "$1" | awk '{print $1}'; }
+
+          WIN_FILE=$(pick_one 'DG-LAB-Client-*-win64*.exe'      'Windows 安装包') || exit 1
+          MAC_FILE=$(pick_one 'DG-LAB-Client-*-macos-universal.dmg' 'macOS dmg')  || exit 1
+          LINUX_FILE=$(pick_one 'DG-LAB-Client-*-linux-x64.AppImage' 'Linux AppImage') || exit 1
+
+          WIN_SHA=$(sha_of "$WIN_FILE")
+          MAC_SHA=$(sha_of "$MAC_FILE")
+          LINUX_SHA=$(sha_of "$LINUX_FILE")
+
+          cat > manifest.json <<EOF
+          {
+            "version": "$VER",
+            "release_notes": "https://github.com/$REPO/releases/tag/$TAG",
+            "platforms": {
+              "windows": { "file": "$WIN_FILE", "sha256": "$WIN_SHA" },
+              "macos":   { "file": "$MAC_FILE", "sha256": "$MAC_SHA" },
+              "linux":   { "file": "$LINUX_FILE", "sha256": "$LINUX_SHA" }
+            }
+          }
+          EOF
+          cat manifest.json
+          cd ..
+
+      - name: 汇总 SHA256 校验和
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          : > SHA256SUMS.txt
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS*' ! -name '*.asc' -exec basename {} \; \
+            | sort | while read -r f; do sha256sum "$f" >> SHA256SUMS.txt; done
+          cat SHA256SUMS.txt
+
       - name: 创建 GitHub Release 并上传产物
         uses: softprops/action-gh-release@v2
         with:
@@ -230,6 +290,7 @@ jobs:
             dist/*.msi
             dist/SHA256SUMS*.txt
             dist/*.asc
+            dist/manifest.json
           draft: false
           prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}
           fail_on_unmatched_files: false
