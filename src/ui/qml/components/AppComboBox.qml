@@ -47,7 +47,7 @@ ComboBox {
         contentItem: Text {
             leftPadding: ComponentStyle.inputPadding
             rightPadding: ComponentStyle.inputPadding
-            text: optionDelegate.text
+            text: control.textAt(index)
             font: optionDelegate.font
             color: control.enabled ? Theme.textPrimary : Theme.textDisabled
             verticalAlignment: Text.AlignVCenter
