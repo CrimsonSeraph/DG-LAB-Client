@@ -72,6 +72,8 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 - **设备通信** 应用通过内置中转服务（`DglabRelayServer`）与 DG-LAB APP 扫码配对后直接下发强度/波形/清除指令；郊狼 V3 设备可经蓝牙直连，蓝牙已连接时规则输出与波形发送优先走蓝牙。原先的 Python `Bridge.py` / `WebSocketCore.py` 通信层已移除。
 
+- **自动更新** `UpdateManager` 从 GitHub Releases 的 `manifest.json` 检查新版本，按平台（Windows NSIS / macOS DMG / Linux AppImage）下载更新包并校验 SHA256；`UpdateBridge` 将检查 / 下载 / 安装状态与进度暴露给 QML，安装经 `confirmDialog` 二次确认后由平台脚本替换文件并自动重启。新进程带 `--updated` 参数启动并写入健康标记：macOS / Linux 脚本据此决定保留新版或回滚旧版；Windows 因 NSIS 直接覆盖安装目录不做回滚，失败时仅写失败标记。
+
 - **跨平台构建** 基于 CMake，支持 Windows、Linux、macOS 等平台，并通过 GitHub Actions 自动构建和打包。
 
 ---
@@ -343,17 +345,28 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 > **注意**: 所有主题的令牌都会按 WCAG 对比度下限校正，浅色主题下也不会出现不可读文字；令牌清单、每套预设的主/副色与派生色值、扩展新主题的方法见 [docs/theme.md](docs/theme.md)。
 
-### 10. 插件开发指南
+### 10. 自动更新
+
+- **检查更新**：关于页「软件更新」卡片的 `configCheckUpdateButton` 触发 `UpdateManager::check_for_updates()`，拉取 `https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json`，与编译期注入的 `APP_VERSION` 做点分段比较。
+- **下载与校验**：`start_download()` 按当前平台（`windows` / `macos` / `linux`）从清单 `platforms` 条目取文件名与 SHA256，下载到临时目录并在完成后校验；不匹配立即删除并报错。
+- **安装与重启**：`apply_update_and_restart()` 生成平台脚本——
+    - Windows：`start /wait <installer> /S` 静默安装，再以 `--updated` 拉起主程序；不做回滚（NSIS 已覆盖旧文件），失败时写 `update_failed.flag`。
+    - macOS：备份 `.app` → 挂载 DMG → 复制新 `.app` → 启动 → 失败回滚。
+    - Linux：备份 AppImage → 替换 → `chmod +x` → 启动 → 失败回滚。
+- **健康检查**：带 `--updated` 启动的进程会在 5 秒后写入健康标记；macOS / Linux 脚本据此删除备份或回滚旧版。
+- **反馈**：检查结果（发现新版本 / 已是最新）、下载完成、安装前确认与错误均经 `UpdateBridge::toast_requested` 走 Toast，安装动作本身经 `confirmDialog` 确认。
+
+### 11. 插件开发指南
 
 插件化模块系统允许将数值模块（如 CS2 GSI）实现为独立的动态库，由主程序动态扫描/加载/卸载，无需重新编译主程序。
 
-#### 10.1 目录与现有插件
+#### 11.1 目录与现有插件
 
 - **源码目录**: `module/`（每个插件一个子目录，如 `module/example/`、`module/gsi/`）。
 - **运行时扫描目录**: 默认 `<程序目录>/module/`，构建后插件 DLL 自动复制至此；路径可由 `config/main.json` 的 `app.module.path` 更改。
 - **现有插件**: `module/example/`（示例空壳插件，演示接口与导出）、`module/gsi/`（CS2 GSI 插件，完整功能示例）。
 
-#### 10.2 接口（IPlugin，`include/plugin/IPlugin.h`）
+#### 11.2 接口（IPlugin，`include/plugin/IPlugin.h`）
 
 所有插件必须继承 `IPlugin` 并实现：
 
@@ -371,7 +384,7 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 数值通过 `ModuleValue` 构造可携带**可选最小/最大值**（如 `ModuleValue("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth", 0, 100)`，空表示无上下限）：弹窗显示 `当前值 \| 最小值/最大值`（无范围显示 `NULL`），写入时自动钳制到范围。
 
-#### 10.3 动态库导出约定
+#### 11.3 动态库导出约定
 
 插件动态库必须通过 `extern "C"` 导出以下三个符号（`include/plugin/plugin_export.h` 提供 `PLUGIN_EXPORT` 宏）：
 
@@ -384,7 +397,7 @@ PLUGIN_EXPORT void destroy_plugin(IPlugin*); // 销毁实例（插件内部 dele
 }
 ```
 
-#### 10.4 宿主能力（IPluginHost，`include/plugin/PluginHost.h`）
+#### 11.4 宿主能力（IPluginHost，`include/plugin/PluginHost.h`）
 
 宿主在加载插件后通过 `attach_host()` 注入宿主上下文，插件在生命周期方法中调用：
 
@@ -398,7 +411,7 @@ PLUGIN_EXPORT void destroy_plugin(IPlugin*); // 销毁实例（插件内部 dele
 
 数据包信封格式（自定义协议建议采用）: `{"source": "<模块名>", "type": "<信息类型>", "data": {...}}`；无信封数据（如 CS2 GSI）回退到监听器默认来源。
 
-#### 10.5 规范要求
+#### 11.5 规范要求
 
 - **日志转发**: 插件内部**不直接使用** `LOG_MODULE`，统一使用 `PLUGIN_LOG(this, level, ...)` 宏（类名/方法名自动为插件名称与函数名），由宿主统一记录。
 - **内存隔离**: 插件实例在插件内 `new`，宿主仅调用 `destroy_plugin` 销毁；**禁止跨模块 new/delete**、**禁止静态全局变量**。
@@ -407,7 +420,7 @@ PLUGIN_EXPORT void destroy_plugin(IPlugin*); // 销毁实例（插件内部 dele
 - **ABI 兼容**: 插件必须与主程序使用同一工具链构建（本项目 MinGW g++ + Qt 6.9.3），否则无法加载。
 - **API 版本**: 接口不兼容变更时递增 `PLUGIN_API_VERSION`，主程序加载时校验。
 
-#### 10.6 构建示例（CMake）
+#### 11.6 构建示例（CMake）
 
 ```cmake
 # 插件目标：SHARED + PLUGIN_BUILD + 接口头文件路径
@@ -432,14 +445,14 @@ add_custom_command(TARGET my_plugin POST_BUILD
 )
 ```
 
-#### 10.7 加载流程与状态
+#### 11.7 加载流程与状态
 
 1. 主程序启动时扫描插件目录（`*.dll`/`*.so`/`*.dylib`），**默认只扫描不加载**，模块页显示“暂未加载”与“启用”按钮；`app.module.scan_load=true` 时扫描即加载（调试用）。
 2. 加载流程: `QLibrary` 动态加载 → `get_plugin_api_version` 校验 → 依赖校验 → `create_plugin` → `attach_host` + `set_log_callback` → `initialize()`（插件在此注册数值与数据处理器）。
 3. 卸载流程: `can_unload()` 检查 → `uninitialize()` → `cleanup()` → `destroy_plugin()` → `QLibrary::unload`。
 4. 加载失败时记录原因，模块页显示“加载失败”。
 
-#### 10.8 GSI 插件数据归属规则（module/gsi/）
+#### 11.8 GSI 插件数据归属规则（module/gsi/）
 
 CS2 GSI 插件按 `player.steamid` 区分数据归属：首次收到有效数据时记录为本地玩家基准，之后比较——**一致为自身**（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），**不一致为队友**（个人数值不更新，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。字符串字段按固定集合映射为数字（如 `team` CT/T→3/2、`bomb.state`→1-4、`map.phase`→0-6），不固定的值放弃该字段。
 
@@ -485,8 +498,8 @@ DG-LAB-Client/
 <details>
 <summary>点击展开查看 4 张界面截图 - 最后更新：2026-10-23</summary>
 
-| 首页 | 配置页 |
-| :-: | :-: |
+|                     首页                     |                      配置页                      |
+| :------------------------------------------: | :----------------------------------------------: |
 | ![main_page](screenshot/pages/main_page.png) | ![config_page](screenshot/pages/config_page.png) |
 
 | 模块页 | 关于页 |
@@ -734,6 +747,38 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 
 - 自动选择只取第一个「已启用且非回环」网卡的 IPv4 地址，不区分虚拟网卡（VMware / VirtualBox / Docker 等）与物理网卡。若选到的地址手机访问不到，请在“配置”页面的“连接”卡片中手动填写局域网 IP。
 - 如果没有任何可用网卡，自动选择会回退到 `127.0.0.1`，此时手机无法扫码连接。
+
+</details>
+
+### 更新问题
+
+<details>
+<summary><b>Q16: 检查更新失败或下载更新包失败</b></summary>
+
+**现象**: 点击"检查更新"后提示网络错误，或下载过程中失败。
+
+**可能原因及解决**:
+
+| 原因 | 解决方法 |
+| --- | --- |
+| 无法访问 GitHub | 确认网络可访问 `github.com` 与 `raw.githubusercontent.com`；如需代理，请为系统或 Qt 配置代理 |
+| `manifest.json` 不存在 | 仅正式 Release 附带 `manifest.json`；预发布或开发构建无此文件，检查更新会失败，属正常 |
+| SHA256 校验失败 | 下载文件损坏或被中间人篡改；删除临时文件后重试 |
+| 当前平台无更新包 | manifest 的 `platforms` 中缺少对应平台条目，等待发布方补齐 |
+
+</details>
+
+<details>
+<summary><b>Q17: 更新后程序未能自动重启或回滚</b></summary>
+
+**现象**: 安装完成后程序没有自动拉起，或新版本启动失败但没有回滚。
+
+**解决方案**:
+
+- Windows：NSIS 安装包以 `/S` 静默执行；若安装目录无写权限，安装会失败。请以有权限的账户运行，或把程序安装到用户可写目录。
+- macOS / Linux：更新脚本会先备份旧版本，新版本启动后 5 秒内写入健康标记（`--updated` 参数），脚本据此决定保留新版还是回滚。若新版本在 5 秒内崩溃，脚本会自动回滚并重新打开旧版。
+- 检查临时目录下的 `dglab_update.bat` / `dglab_update.sh` 与日志，确认脚本是否被执行。
+- 若回滚也失败，手动从备份文件（`.bak`）恢复。
 
 </details>
 

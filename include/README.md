@@ -47,6 +47,7 @@ include/
 | `Console.h` | 调试控制台 |
 | `LogExporter.h` | 自动/手动日志导出设置与导出、清理 |
 | `ProcessChecker.h` | 进程存在性检查 |
+| `UpdateManager.h` | 自动更新：清单拉取、版本比较、平台包选择、SHA256 校验、更新脚本生成与执行 |
 
 ## 二、rule/
 
@@ -58,44 +59,45 @@ include/
 
 ## 三、module/
 
-| 文件 | 描述 |
-| --- | --- |
-| `ModuleValue.h` | 数值模型（周期、最值、钳制、JSON 互转） |
-| `Module.h` | 模块（数值集合与通道挂载） |
+| 文件              | 描述                                          |
+| ----------------- | --------------------------------------------- |
+| `ModuleValue.h`   | 数值模型（周期、最值、钳制、JSON 互转）       |
+| `Module.h`        | 模块（数值集合与通道挂载）                    |
 | `ModuleManager.h` | 数值调度、变化推送、插件宿主（`IPluginHost`） |
-| `DataListener.h` | 通用数据接收器与解析器接口 |
+| `DataListener.h`  | 通用数据接收器与解析器接口                    |
 
 ## 四、wave/ · ble/ · net/
 
-| 文件 | 描述 |
-| --- | --- |
-| `wave/Wave.h` | V3 波形模型（段落 → 八字节帧） |
-| `wave/WaveLibrary.h` | 波形库与 A/B 当前波形 |
-| `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1） |
-| `net/DglabRelayServer.h` | 应用内 V3/V4 中转服务 |
+| 文件                        | 描述                           |
+| --------------------------- | ------------------------------ |
+| `wave/Wave.h`               | V3 波形模型（段落 → 八字节帧） |
+| `wave/WaveLibrary.h`        | 波形库与 A/B 当前波形          |
+| `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1）   |
+| `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务          |
 
 ## 五、plugin/
 
-| 文件 | 描述 |
-| --- | --- |
-| `IPlugin.h` | 插件纯虚基类与生命周期/自描述接口 |
-| `PluginHost.h` | 宿主上下文接口（数值注册、数据接收、配置读写、通知、周期） |
-| `plugin_export.h` | 导出宏与 API 版本 |
+| 文件              | 描述                                                       |
+| ----------------- | ---------------------------------------------------------- |
+| `IPlugin.h`       | 插件纯虚基类与生命周期/自描述接口                          |
+| `PluginHost.h`    | 宿主上下文接口（数值注册、数据接收、配置读写、通知、周期） |
+| `plugin_export.h` | 导出宏与 API 版本                                          |
 
 ## 六、ui/
 
-| 文件 | 描述 |
-| --- | --- |
-| `ThemeManager.h` | 主题令牌（QML 单例 `Theme`） |
-| `AppBridge.h` | 应用信息与页面导航 |
-| `DeviceController.h` | 内置中转服务、二维码、指令下发与回传 |
-| `HomeBridge.h` | 首页通道面板数据 |
-| `ModuleBridge.h` | 模块页数据与操作 |
-| `WaveBridge.h` | 波形库与波形编辑器草稿 |
-| `RuleGraphBridge.h` | 规则图编辑器桥接 |
-| `LogBridge.h` | 界面日志收集与导出 |
-| `QrImageProvider.h` | 二维码图像提供者 |
-| `UiConnector.h` | QML↔C++ 连接集中点 |
+| 文件                 | 描述                                          |
+| -------------------- | --------------------------------------------- |
+| `ThemeManager.h`     | 主题令牌（QML 单例 `Theme`）                  |
+| `AppBridge.h`        | 应用信息与页面导航                            |
+| `DeviceController.h` | 内置中转服务、二维码、指令下发与回传          |
+| `HomeBridge.h`       | 首页通道面板数据                              |
+| `ModuleBridge.h`     | 模块页数据与操作                              |
+| `WaveBridge.h`       | 波形库与波形编辑器草稿                        |
+| `RuleGraphBridge.h`  | 规则图编辑器桥接                              |
+| `LogBridge.h`        | 界面日志收集与导出                            |
+| `QrImageProvider.h`  | 二维码图像提供者                              |
+| `UiConnector.h`      | QML↔C++ 连接集中点                            |
+| `UpdateBridge.h`     | 更新界面桥接（QML 上下文属性 `updateBridge`） |
 
 ---
 
@@ -137,13 +139,13 @@ include/
 
 ### 规则图节点与连线（`rule/RuleGraph.h`）
 
-| 节点类型 | 语义 |
-| --- | --- |
-| `Rule` | 规则节点：输入端口数量 = `valuePattern` 中 `{}` 的个数，带内容的 `{}` 显示名称 |
-| `Module` | 模块源节点：来自某个已启用模块的数值 |
-| `Operator` | 基础运算节点：`+ - * /`（结果向下取整） |
-| `Advanced` | 高级节点：`abs` / `square` / `sqrt` / `expression`（自定义表达式） |
-| `Channel` | 通道输出节点：`A` / `B`（单输入，同一通道只允许一个来源） |
+| 节点类型   | 语义                                                                           |
+| ---------- | ------------------------------------------------------------------------------ |
+| `Rule`     | 规则节点：输入端口数量 = `valuePattern` 中 `{}` 的个数，带内容的 `{}` 显示名称 |
+| `Module`   | 模块源节点：来自某个已启用模块的数值                                           |
+| `Operator` | 基础运算节点：`+ - * /`（结果向下取整）                                        |
+| `Advanced` | 高级节点：`abs` / `square` / `sqrt` / `expression`（自定义表达式）             |
+| `Channel`  | 通道输出节点：`A` / `B`（单输入，同一通道只允许一个来源）                      |
 
 连线方向为「源（输出）→ 消费端（输入端口）」。规则节点被其它节点引用时写为 `{rule:序号}`，模块源节点写为 `{id:值ID(名称)}`，运算符/高级节点生成 JS 子表达式（`valuePattern` 由 QJSEngine 求值，天然支持 `Math.*`）。
 
@@ -154,6 +156,21 @@ QML 不写信号处理器（`onClicked` / `Connections`），每个交互控件�
 ### 插件约定（`plugin/IPlugin.h`）
 
 插件实例由插件内部 `new`，宿主仅调用 `destroy_plugin` 销毁；禁止跨模块 `new` / `delete`，插件内禁止使用静态全局变量。所有可能失败的操作返回错误码而非抛出异常。详见 [module/README.md](../module/README.md)。
+
+### 更新清单与版本比较（`core/UpdateManager.h`）
+
+清单固定从 `https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json` 拉取，结构为：
+
+```json
+{
+  "version": "2.4.0",
+  "release_notes": "...",
+  "platforms": {
+    "windows": { "file": "...", "sha256": "..." },
+    "macos":   { "file": "...", "sha256": "..." },
+    "linux":   { "file": "...", "sha256": "..." }
+  }
+}
 
 ---
 
@@ -174,3 +191,4 @@ QML 不写信号处理器（`onClicked` / `Connections`），每个交互控件�
 - **规则引擎**：`valuePattern` 由 QJSEngine 求值，因此支持任意 JS 表达式（规则图的高级节点即生成 `Math.*` 子表达式）；规则间通过 `{rule:xx}` 引用并级联触发，带深度保护。
 - **传输与蓝牙**：`DglabRelayServer` 由应用自身托管中转服务（无需 Node/Python）；`CoyoteBleController` 按官方 V3 蓝牙协议直连设备。
 - **界面层**：QML 只做属性绑定与渲染，交互由 `UiConnector` 在 C++ 侧按 `objectName` 连接；画布类手势为登记在案的例外。
+```

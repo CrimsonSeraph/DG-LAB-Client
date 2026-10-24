@@ -72,6 +72,7 @@ src/ui/
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
 | `Theme` | `ThemeManager`（QML 单例） | 主题令牌（16 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
+| `updateBridge` | `UpdateBridge` | 检查更新、下载更新包（进度 / 错误）、重启并安装；安装经 `confirmDialog` 确认 |
 
 ## objectName 契约表
 
@@ -140,12 +141,15 @@ src/ui/
 
 关于页：
 
-| objectName                                  | 行为                                               |
-| ------------------------------------------- | -------------------------------------------------- |
+| objectName | 行为 |
+| --- | --- |
 | `aboutVersionText` / `aboutDescriptionText` | 版本号与一句话说明（同色阶 `Theme.textSecondary`） |
-| `aboutLicenseText`                          | 许可证：GPL-3.0-only                               |
-| `aboutDependenciesText`                     | 依赖：Qt 6                                         |
-| `aboutRepositoryText`                       | 仓库地址                                           |
+| `aboutLicenseText` | 许可证：GPL-3.0-only |
+| `aboutDependenciesText` | 依赖：Qt 6 |
+| `aboutRepositoryText` | 仓库地址 |
+| `configCheckUpdateButton` | 检查更新：位于关于页「软件更新」卡片（`objectName` 沿用 `config` 前缀属命名遗留）；`checking` / `downloading` 期间置灰，结果由 Toast 回执 |
+| `updateDownloadButton` | 下载更新包：`remote_version` 非空且未就绪时可见；`downloading` 期间置灰，进度由卡片内 ProgressBar 绑定 `progress` 展示 |
+| `updateApplyButton` | 重启并安装：`ready_to_install` 时可见；由 `UiConnector::on_update_apply_clicked` 先经 `confirmDialog` 确认，确认后调用 `UpdateManager::apply_update_and_restart()` |
 
 一次性反馈与常驻摘要分工：一次性结果文案一律走 `app.showToast()`；状态栏只显示 QML 侧组合的常驻摘要。
 
@@ -246,6 +250,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `ModuleBridge::pluginToggled(file, ok, error)` | `ok` 不弹（徽标变化）；失败弹 Toast（danger，含文件名与原因） |
 | `LogBridge::exportChanged` | Toast（info）：`日志已导出：<path>`，路径取 `lastExportPath` |
 | `LogBridge::statusMessage` | 仅导出失败时发出 → Toast（danger） |
+| `UpdateBridge::toast_requested(message, level)` | 直接映射为 `app.showToast(message, level)`：发现新版本 / 已是最新 / 下载完成 / 各类错误统一走 Toast，QML 不参与 |
 | 自定义主题保存按钮 | Toast（success）：已保存并应用；预设主题切换不弹 |
 
 新增「操作完成但界面无变化」的按钮时，按上表补一条桥接信号与 Toast，不要在 QML 里写处理器。

@@ -65,6 +65,7 @@ ui     ->  core, module, rule, wave, net, ble
 | `Console.cpp` | Windows 调试控制台（UTF-8、字体、标准流重定向） |
 | `LogExporter.cpp` | 自动日志（分片轮转、数量/大小上限）与手动日志导出，设置持久化到 `user.json` |
 | `ProcessChecker.cpp` | 跨平台进程存在性检查（供 GSI 插件判断游戏是否运行） |
+| `UpdateManager.cpp` | 自动更新：拉取 GitHub Releases 的 `manifest.json`、点分段版本比较、按平台选择更新包并下载、SHA256 校验、生成并执行跨平台更新脚本 |
 
 ---
 
@@ -130,6 +131,7 @@ C++ 侧提供桥接对象与连接集中点，QML 只做绑定与渲染；界面
 | `LogBridge.cpp` | 界面日志收集、级别过滤与导出 |
 | `QrImageProvider.cpp` | 由内嵌 `qrcodegen` 生成配对二维码（`image://dglabqr`） |
 | `UiConnector.cpp` | 按 `objectName` 集中建立 QML↔C++ 连接（含动态委托热区扫描） |
+| `UpdateBridge.cpp` | 更新界面桥接：检查 / 下载 / 安装状态、下载进度与错误；安装经 `confirmDialog` 二次确认后调用 `UpdateManager` |
 | `qml/` | QML 界面：`MainWindow`、`pages/`、`home/`、`dialogs/`、`components/`、`style/` |
 
 ---
