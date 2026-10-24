@@ -169,6 +169,19 @@ jobs:
           test -x install_root/DG-LAB-Client \
             || { echo "::error title=缺少可执行文件::install_root/DG-LAB-Client 不存在"; ls -R install_root | head -50; exit 1; }
           file install_root/DG-LAB-Client
+          MODULE_DIR="install_root/module"
+          test -d "$MODULE_DIR" \
+            || { echo "::error title=插件缺失::install_root/module 不存在，检查 dgl_install_plugins() 是否被调用"; ls -R install_root | head -50; exit 1; }
+          if ! find "$MODULE_DIR" -maxdepth 1 -name '*.so' | grep -q .; then
+            echo "::error title=插件缺失::module 下没有 .so 文件"
+            ls -l "$MODULE_DIR"
+            exit 1
+          fi
+          for n in libdgl_example_plugin.so libdgl_gsi_plugin.so; do
+            test -f "$MODULE_DIR/$n" \
+              || { echo "::error title=插件缺失::缺少 $n"; exit 1; }
+          done
+          ls -lh "$MODULE_DIR"
 
       - name: 解析版本号
         id: ver
@@ -230,6 +243,19 @@ jobs:
           cpack --config build/CPackConfig.cmake -B package
           ls -lh package/
 
+      - name: 打包后包内容检查
+        shell: bash
+        run: |
+          set -euo pipefail
+          TGZ=$(ls package/DG-LAB-Client-*-Linux.tar.gz 2>/dev/null | head -n 1 || true)
+          if [ -z "$TGZ" ]; then
+            echo "::error title=未找到 tgz::CPack 未生成 DG-LAB-Client-*-Linux.tar.gz"
+            ls -lh package
+            exit 1
+          fi
+          echo "检查 $TGZ"
+          tar tzf "$TGZ" | grep -q 'module/.*\.so' \
+            || { echo "::error title=发布包缺少插件::tgz 内未找到 module/*.so"; exit 1; }
       - name: 清理 CPack 临时目录
         shell: bash
         run: rm -rf package/_CPack_Packages

@@ -24,13 +24,20 @@ set(PROJECT_VERSION "${APP_VERSION}")
 
 # 生成 AppVersion.h 供 C++ 引用（宏展开为字符串字面量）
 set(DGLAB_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
-configure_file(cmake/AppVersion.h.in "${DGLAB_GENERATED_DIR}/AppVersion.h" @ONLY)
+configure_file(
+	cmake/AppVersion.h.in
+	"${DGLAB_GENERATED_DIR}/AppVersion.h"
+	@ONLY
+)
 message(STATUS
 	"APP_VERSION = ${APP_VERSION} (来源: config/main.json 的 app.version)"
 )
 
 # 引入 Qt 相关设置
 include(qt.cmake)
+
+# 引入 CMake 脚本
+include(cmake/Plugins.cmake)
 
 # 设置 C++ 标准
 set(CMAKE_CXX_STANDARD 20)
@@ -550,63 +557,22 @@ target_include_directories(${PROJECT_NAME}
 )
 # （无额外编译宏）
 
-# -------------------- 示例插件（动态库，验证插件接口与导出约定）--------------------
-add_library(dgl_example_plugin SHARED
-	module/example/ExamplePlugin.h
-	module/example/ExamplePlugin.cpp
-	# ModuleValue 为纯 C++ 模型，编入插件以便插件侧构造数值（与主程序同 ABI）
-	src/module/ModuleValue.cpp
-)
-# 定义 PLUGIN_BUILD 使接口类标记导出；插件与主程序使用同一工具链保证 ABI 兼容
-target_compile_definitions(dgl_example_plugin PRIVATE PLUGIN_BUILD)
-target_include_directories(dgl_example_plugin
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-)
-# PluginHost.h 依赖 QJsonObject，插件需链接 Qt Core
-target_link_libraries(dgl_example_plugin PRIVATE Qt::Core)
-if(WIN32)
-	# 去掉 MinGW 的 lib 前缀，输出 dgl_example_plugin.dll
-	set_target_properties(dgl_example_plugin PROPERTIES PREFIX "")
-endif()
-# 构建后复制到可执行文件旁的 module/ 目录（默认插件扫描目录）
-add_custom_command(
-	TARGET dgl_example_plugin
-	POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E make_directory
-		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different
-		"$<TARGET_FILE:dgl_example_plugin>"
-		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
-	COMMENT "Copying example plugin to module directory"
+# 插件
+
+dgl_add_plugin(dgl_example_plugin
+	SOURCES
+		module/example/ExamplePlugin.h
+		module/example/ExamplePlugin.cpp
+	QT_LIBS Qt::Core
 )
 
-# -------------------- CS2 GSI 插件（动态库，改造自原静态 CS2GSIModule）--------------------
-add_library(dgl_gsi_plugin SHARED
-	module/gsi/CS2GsiPlugin.h
-	module/gsi/CS2GsiPlugin.cpp
-	# ModuleValue 为纯 C++ 模型，编入插件以便插件侧构造数值（与主程序同 ABI）
-	src/module/ModuleValue.cpp
-)
-target_compile_definitions(dgl_gsi_plugin PRIVATE PLUGIN_BUILD)
-target_include_directories(dgl_gsi_plugin
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-)
-target_link_libraries(dgl_gsi_plugin PRIVATE Qt::Core Qt::Network)
-if(WIN32)
-	set_target_properties(dgl_gsi_plugin PROPERTIES PREFIX "")
-endif()
-add_custom_command(
-	TARGET dgl_gsi_plugin
-	POST_BUILD
-	COMMAND ${CMAKE_COMMAND} -E make_directory
-		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
-	COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:dgl_gsi_plugin>"
-		"$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
-	COMMENT "Copying gsi plugin to module directory"
+dgl_add_plugin(dgl_gsi_plugin
+	SOURCES
+		module/gsi/CS2GsiPlugin.h
+		module/gsi/CS2GsiPlugin.cpp
+	QT_LIBS
+		Qt::Core
+		Qt::Network
 )
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
@@ -627,11 +593,13 @@ install(
 	BUNDLE DESTINATION .
 	LIBRARY DESTINATION ${DGLAB_APP_DIR}
 )
-install(DIRECTORY python/
+install(
+	DIRECTORY python/
 	DESTINATION "${DGLAB_APP_DIR}/python"
 	FILES_MATCHING PATTERN "*.py"
 )
-install(DIRECTORY config/
+install(
+	DIRECTORY config/
 	DESTINATION "${DGLAB_APP_DIR}/config"
 	FILES_MATCHING PATTERN "*.json"
 )
@@ -863,5 +831,7 @@ endif()
 
 set(CPACK_NSIS_DISPLAY_NAME "DG-LAB Client")
 set(CPACK_NSIS_PACKAGE_NAME "DG-LAB Client")
+
+dgl_install_plugins()
 
 include(CPack)

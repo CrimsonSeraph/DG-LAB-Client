@@ -147,6 +147,24 @@ jobs:
             Get-ChildItem install_root -Recurse | Select-Object -First 50 FullName
             exit 1
           }
+          $moduleDir = "install_root/bin/module"
+          if (-not (Test-Path $moduleDir)) {
+              Write-Host "::error title=插件缺失::install_root/bin/module 不存在，检查 dgl_install_plugins() 是否被调用"
+              Get-ChildItem install_root -Recurse | Select-Object -First 50 FullName
+              exit 1
+          }
+          $dlls = Get-ChildItem $moduleDir -Filter *.dll -ErrorAction SilentlyContinue
+          if (-not $dlls) {
+              Write-Host "::error title=插件缺失::module 下没有 .dll"
+              exit 1
+          }
+          foreach ($n in @('dgl_example_plugin.dll','dgl_gsi_plugin.dll')) {
+              if (-not (Test-Path (Join-Path $moduleDir $n))) {
+                  Write-Host "::error title=插件缺失::缺少 $n"
+                  exit 1
+              }
+          }
+          $dlls | ForEach-Object { Write-Host $_.FullName }
 
       - name: 检查签名 secrets
         id: signcheck
@@ -229,6 +247,18 @@ jobs:
           Compress-Archive -Path "install_root/*" `
             -DestinationPath "package/DG-LAB-Client-$version-windows-x64.zip" -Force
           Get-ChildItem package
+
+      - name: 打包后包内容检查
+        shell: pwsh
+        run: |
+          $tmp = Join-Path $env:RUNNER_TEMP "zipcheck"
+          Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+          Expand-Archive -Path (Get-ChildItem package -Filter '*-windows-x64.zip' | Select-Object -First 1).FullName -DestinationPath $tmp
+          if (-not (Get-ChildItem $tmp -Recurse -Filter 'dgl_*_plugin.dll' -ErrorAction SilentlyContinue)) {
+              Write-Host "::error title=发布包缺少插件::zip 内未找到 dgl_*_plugin.dll"
+              exit 1
+          }
+          Remove-Item -Recurse -Force $tmp
 
       - name: 安装 NSIS（windows-2025 镜像已不再预装 makensis）
         shell: pwsh
