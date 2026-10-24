@@ -86,7 +86,7 @@ namespace {
 
     /// @brief 从 "channelAStrengthSpin" 这类名字中解析通道（A/B）
     QString channel_of(const QString& object_name) {
-        const int index = object_name.indexOf(QStringLiteral("channel"));
+        const qsizetype index = object_name.indexOf(QStringLiteral("channel"));
         if (index < 0 || index + 8 >= object_name.size()) {
             return QString();
         }

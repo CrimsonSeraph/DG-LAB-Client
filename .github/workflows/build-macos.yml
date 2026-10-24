@@ -127,6 +127,7 @@ jobs:
         run: |
           set -euo pipefail
           cmake -S . -B "$BUILD_DIR" -G Xcode \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$QTDIR" \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
@@ -174,7 +175,9 @@ jobs:
           "$QTDIR/bin/macdeployqt" "$APP_REL" \
             -qmldir=src/ui/qml \
             -appstore-compliant \
+            -no-translations \
             -verbose=1
+          rm -rf "$APP_REL/Contents/PlugIns/qmltooling"
           du -sh "$APP_REL"
 
       - name: 解析版本号

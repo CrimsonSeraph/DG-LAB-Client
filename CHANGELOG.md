@@ -26,10 +26,13 @@
     - `dgl_example_plugin` 演示用插件。
     - `dgl_gsi_plugin` CSGO2 相关插件。
 - **关闭强制开启的控制台**: 关闭在测试配置系统时强制启用的控制台，改为通过配置文件决定启用与否。
+- **发布包精简**: Linux 与 macOS 发布包不再包含 `qmltooling` 调试插件与 Qt 自带翻译，减小体积并避免暴露调试能力；Linux 工作流缓存 AppImage runtime，降低 CI 网络依赖。
 
 ### Fixed
 
-- **修复下拉菜单无法显示文本**: 使用 `ComboBox` 内置的 `textAt(int index)` 直接根据索引获取显示文本，完全绕开委托内部的数据访问问题
+- **修复下拉菜单无法显示文本**: 使用 `ComboBox` 内置的 `textAt(int index)` 直接根据索引获取显示文本，完全绕开委托内部的数据访问问题。
+- **规则图保存日志输出错误**: `RuleGraph::save` 的日志三元表达式未加括号，`<<` 优先级高于 `?:`，实际输出布尔值而非中文结果消息。
+- **编译警告清理**: `ModuleManager::set_value` 补 `override`；`RuleGraph` / `UiConnector` / `DataListener` 中 `indexOf()` 返回值改用 `qsizetype`，消除 64→32 位截断警告；CMake 显式设置 macOS 最低系统版本，消除 `LSMinimumSystemVersion` 为空警告。
 
 ---
 

@@ -33,6 +33,17 @@ message(STATUS
 	"APP_VERSION = ${APP_VERSION} (来源: config/main.json 的 app.version)"
 )
 
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+	set(
+		CMAKE_OSX_DEPLOYMENT_TARGET
+		"12.0"
+		CACHE
+			STRING
+			"Minimum macOS version"
+		FORCE
+	)
+endif()
+
 # 引入 Qt 相关设置
 include(qt.cmake)
 

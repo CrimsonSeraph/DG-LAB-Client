@@ -123,7 +123,7 @@ public:
     /// @param module_name 模块名称
     /// @param value_id 数值 ID
     /// @param value 最新数值
-    void set_value(const std::string& module_name, const std::string& value_id, int value);
+    void set_value(const std::string& module_name, const std::string& value_id, int value) override;
 
     /// @brief 获取当前调度基准周期（所有数值中的最短查询周期）
     /// @return 基准周期毫秒数

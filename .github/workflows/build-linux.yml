@@ -196,6 +196,23 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "版本号：$VERSION"
+      - name: 缓存 AppImage runtime
+        uses: actions/cache@v4
+        with:
+        path: ${{ runner.temp }}/appimage-runtime/runtime-x86_64
+        key: appimage-runtime-x86_64
+
+      - name: 准备 AppImage runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/appimage-runtime"
+          RUNTIME="$RUNNER_TEMP/appimage-runtime/runtime-x86_64"
+          if [ ! -s "$RUNTIME" ]; then
+          curl -fsSL -o "$RUNTIME" \
+              https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
+          fi
+          echo "APPIMAGE_RUNTIME_FILE=$RUNTIME" >> "$GITHUB_ENV"
 
       - name: 用 linuxdeployqt 生成 AppImage
         shell: bash
@@ -229,7 +246,8 @@ jobs:
           export PATH="$SCHEDULE_TMP:$PATH"
           export APPIMAGE_EXTRACT_AND_RUN=1
           cd "$GITHUB_WORKSPACE"
-          ( cd install_root && linuxdeployqt DG-LAB-Client -appimage -verbose=2 )
+          ( cd install_root && linuxdeployqt DG-LAB-Client -appimage -verbose=2 \
+            -exclude-plugins qmltooling -no-translations )
           mv install_root/*.AppImage package/ 2>/dev/null || true
           ls -lh package/
           ls package/*.AppImage >/dev/null 2>&1 \

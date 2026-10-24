@@ -59,7 +59,7 @@ namespace {
     QString label_from_placeholder(const QString& inner) {
         if (inner.startsWith(QStringLiteral("id:"))) {
             const QString body = inner.mid(3);
-            const int open = body.indexOf(QLatin1Char('('));
+            const qsizetype open = body.indexOf(QLatin1Char('('));
             if (open > 0) {
                 return body.mid(open + 1, body.length() - open - 2);
             }
@@ -285,7 +285,7 @@ void RuleGraph::import_from_rules() {
             const QString inner = placeholders.at(i).inner;
             if (inner.startsWith(QStringLiteral("id:"))) {
                 const QString body = inner.mid(3);
-                const int open = body.indexOf(QLatin1Char('('));
+                const qsizetype open = body.indexOf(QLatin1Char('('));
                 const QString value_id = (open > 0) ? body.left(open) : body;
                 const QString label = (open > 0) ? body.mid(open + 1, body.length() - open - 2) : value_id;
 
@@ -376,7 +376,7 @@ nlohmann::json RuleGraph::to_rules_json() const {
         QString pattern = node.expression;
         const auto placeholders = parse_placeholders(pattern);
         // 从后往前替换，避免位置偏移
-        for (int i = placeholders.size() - 1; i >= 0; --i) {
+        for (qsizetype i = placeholders.size() - 1; i >= 0; --i) {
             const int source = source_at_port(node.id, i);
             if (source <= 0) {
                 continue;
@@ -427,26 +427,26 @@ nlohmann::json RuleGraph::to_json() const {
 
     nlohmann::json node_array = nlohmann::json::array();
     for (const auto& node : nodes_) {
-        node_array.push_back({ { "id", node.id },
-            { "type", graph_node_type_to_string(node.type).toStdString() },
-            { "name", node.name.toStdString() },
-            { "ruleName", node.rule_name.toStdString() },
-            { "valueId", node.value_id.toStdString() },
-            { "label", node.label.toStdString() },
-            { "op", node.op.toStdString() },
-            { "advanced", node.advanced.toStdString() },
-            { "expression", node.expression.toStdString() },
-            { "channel", node.channel.toStdString() },
-            { "mode", node.mode },
-            { "enabled", node.enabled },
-            { "x", node.x },
-            { "y", node.y } });
+        node_array.push_back({{"id", node.id},
+            {"type", graph_node_type_to_string(node.type).toStdString()},
+            {"name", node.name.toStdString()},
+            {"ruleName", node.rule_name.toStdString()},
+            {"valueId", node.value_id.toStdString()},
+            {"label", node.label.toStdString()},
+            {"op", node.op.toStdString()},
+            {"advanced", node.advanced.toStdString()},
+            {"expression", node.expression.toStdString()},
+            {"channel", node.channel.toStdString()},
+            {"mode", node.mode},
+            {"enabled", node.enabled},
+            {"x", node.x},
+            {"y", node.y}});
     }
     json["nodes"] = node_array;
 
     nlohmann::json edge_array = nlohmann::json::array();
     for (const auto& edge : edges_) {
-        edge_array.push_back({ { "id", edge.id }, { "from", edge.from }, { "to", edge.to }, { "port", edge.port } });
+        edge_array.push_back({{"id", edge.id}, {"from", edge.from}, {"to", edge.to}, {"port", edge.port}});
     }
     json["edges"] = edge_array;
     return json;
@@ -531,7 +531,7 @@ bool RuleGraph::save(const QString& rule_file) {
     const nlohmann::json rules = to_rules_json();
     const bool ok = RuleManager::instance().modify_rule_file(rule_file.toStdString(), rules);
     LOG_MODULE("RuleGraph", "save", ok ? LOG_INFO : LOG_ERROR,
-        ok ? "规则图已写回规则文件" : "规则图写回失败");
+        (ok ? "规则图已写回规则文件" : "规则图写回失败"));
     return ok;
 }
 QString RuleGraph::formula_of(int node_id, int depth) const {
@@ -568,7 +568,7 @@ QString RuleGraph::formula_of(int node_id, int depth) const {
         }
         QString expression = node->expression;
         const auto placeholders = parse_placeholders(expression);
-        for (int i = placeholders.size() - 1; i >= 0; --i) {
+        for (qsizetype i = placeholders.size() - 1; i >= 0; --i) {
             expression.replace(placeholders.at(i).pos, placeholders.at(i).len,
                 source_formula(node_id, i, depth));
         }
@@ -630,7 +630,6 @@ int RuleGraph::rule_index_of(const QString& rule_name) const {
         }
     }
     names.sort();
-    const int index = names.indexOf(rule_name);
-    return index < 0 ? -1 : index + 1;
+    const qsizetype index = names.indexOf(rule_name);
+    return index < 0 ? -1 : static_cast<int>(index) + 1;
 }
-

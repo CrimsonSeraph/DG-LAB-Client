@@ -24,7 +24,7 @@ QJsonObject HttpJsonParser::parse(const QByteArray& raw, bool* ok) const {
     }
     // 提取请求体：Content-Length 指定 body 长度，body 在空行之后
     QByteArray body;
-    int header_end = raw.indexOf("\r\n\r\n");
+    const qsizetype header_end = raw.indexOf("\r\n\r\n");
     if (header_end >= 0) {
         QByteArray header = raw.left(header_end);
         body = raw.mid(header_end + 4);
@@ -191,7 +191,7 @@ void DataListener::incomingConnection(qintptr socketDescriptor) {
             return;
         }
         // HTTP 头未完整：继续等待后续数据
-        int header_end = buffer->indexOf("\r\n\r\n");
+        const qsizetype header_end = buffer->indexOf("\r\n\r\n");
         if (header_end < 0) {
             return;
         }
