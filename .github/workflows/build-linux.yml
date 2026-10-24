@@ -199,8 +199,8 @@ jobs:
       - name: 缓存 AppImage runtime
         uses: actions/cache@v4
         with:
-        path: ${{ runner.temp }}/appimage-runtime/runtime-x86_64
-        key: appimage-runtime-x86_64
+          path: ${{ runner.temp }}/appimage-runtime/runtime-x86_64
+          key: appimage-runtime-x86_64
 
       - name: 准备 AppImage runtime
         shell: bash
@@ -209,7 +209,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/appimage-runtime"
           RUNTIME="$RUNNER_TEMP/appimage-runtime/runtime-x86_64"
           if [ ! -s "$RUNTIME" ]; then
-          curl -fsSL -o "$RUNTIME" \
+            curl -fsSL -o "$RUNTIME" \
               https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
           fi
           echo "APPIMAGE_RUNTIME_FILE=$RUNTIME" >> "$GITHUB_ENV"
