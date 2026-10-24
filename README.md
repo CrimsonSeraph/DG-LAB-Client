@@ -25,6 +25,8 @@
 
 一个基于 Qt/QML 的 DG-LAB 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。版本号以 `config/main.json` 的 `app.version` 为唯一来源，构建时由 CMake 注入。
 
+> 当前版本: `v2.4.0`
+
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
 ---
@@ -180,7 +182,7 @@ cpack
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "2.3.0",
+        "version": "2.4.0",
         "debug": false,
         "log": {
             "console_level": 0,

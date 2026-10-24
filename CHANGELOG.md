@@ -4,11 +4,17 @@
 
 版本号格式遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)
 
-> **注意**: 当前版本为 v2.3.0（版本号唯一来源为 `config/main.json` 的 `app.version`），正在逐步修复、完善功能。
+> **注意**: 当前版本为 v2.4.0（版本号唯一来源为 `config/main.json` 的 `app.version`），正在逐步修复、完善功能。
 
 ## [Unreleased]
 
-> **变动**: [v2.3.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.3.0...HEAD)
+> **变动**: [v2.4.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.4.0...HEAD)
+
+---
+
+## [v2.4.0] - 2026-10-24
+
+> **变动**: [v2.3.0...v2.4.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.3.0...v2.4.0)
 
 ### Added
 
@@ -20,6 +26,10 @@
     - `dgl_example_plugin` 演示用插件。
     - `dgl_gsi_plugin` CSGO2 相关插件。
 - **关闭强制开启的控制台**: 关闭在测试配置系统时强制启用的控制台，改为通过配置文件决定启用与否。
+
+### Fixed
+
+- **修复下拉菜单无法显示文本**: 使用 `ComboBox` 内置的 `textAt(int index)` 直接根据索引获取显示文本，完全绕开委托内部的数据访问问题
 
 ---
 
