@@ -327,10 +327,22 @@ jobs:
           ls -lh package
 
       - name: 打包后包内容检查
-        shell: pwsh
+        shell: bash
         run: |
-          unzip -l package/DG-LAB-Client-*-macos-universal.zip | grep -q 'Contents/MacOS/module/.*\.dylib' \
-          || { echo "::error title=发布包缺少插件::zip 内未找到 Contents/MacOS/module/*.dylib"; exit 1; }
+          set -euo pipefail
+          ZIP=$(ls package/DG-LAB-Client-*-macos-universal.zip 2>/dev/null | head -n 1 || true)
+          if [ -z "$ZIP" ]; then
+            echo "::error title=未找到 zip::package 下没有 macos-universal.zip"
+            exit 1
+          fi
+          echo "检查 $ZIP"
+          unzip -l "$ZIP" > "${RUNNER_TEMP}/zip_list.txt"
+          if ! grep -q 'Contents/MacOS/module/.*\.dylib' "${RUNNER_TEMP}/zip_list.txt"; then
+            echo "::error title=发布包缺少插件::zip 内未找到 Contents/MacOS/module/*.dylib"
+            grep 'Contents/MacOS/module/' "${RUNNER_TEMP}/zip_list.txt" || true
+            exit 1
+          fi
+          echo "检查通过：Contents/MacOS/module/*.dylib 存在于 zip 中"
       - name: 生成 SHA256 校验和
         shell: bash
         run: |

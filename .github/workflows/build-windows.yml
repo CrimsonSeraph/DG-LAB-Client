@@ -253,11 +253,22 @@ jobs:
         run: |
           $tmp = Join-Path $env:RUNNER_TEMP "zipcheck"
           Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
-          Expand-Archive -Path (Get-ChildItem package -Filter '*-windows-x64.zip' | Select-Object -First 1).FullName -DestinationPath $tmp
-          if (-not (Get-ChildItem $tmp -Recurse -Filter 'dgl_*_plugin.dll' -ErrorAction SilentlyContinue)) {
-              Write-Host "::error title=发布包缺少插件::zip 内未找到 dgl_*_plugin.dll"
-              exit 1
+          $zip = Get-ChildItem package -Filter '*-windows-x64.zip' | Select-Object -First 1
+          if (-not $zip) { throw "package 下没有 *-windows-x64.zip" }
+          Write-Host "检查 $($zip.FullName)"
+          Expand-Archive -Path $zip.FullName -DestinationPath $tmp
+
+          Write-Host "---- zip 内全部 .dll ----"
+          Get-ChildItem $tmp -Recurse -Filter '*.dll' -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName
+
+          $dlls = Get-ChildItem $tmp -Recurse -Filter 'dgl_*_plugin.dll' -ErrorAction SilentlyContinue
+          if (-not $dlls) {
+            Write-Host "::error title=发布包缺少插件::zip 内未找到 dgl_*_plugin.dll"
+            exit 1
           }
+          Write-Host "检查通过："
+          $dlls | Select-Object -ExpandProperty FullName
           Remove-Item -Recurse -Force $tmp
 
       - name: 安装 NSIS（windows-2025 镜像已不再预装 makensis）

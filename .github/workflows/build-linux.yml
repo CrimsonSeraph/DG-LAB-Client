@@ -287,8 +287,13 @@ jobs:
             exit 1
           fi
           echo "检查 $TGZ"
-          tar tzf "$TGZ" | grep -q 'module/.*\.so' \
-            || { echo "::error title=发布包缺少插件::tgz 内未找到 module/*.so"; exit 1; }
+          tar tzf "$TGZ" > "${RUNNER_TEMP}/tar_list.txt"
+          if ! grep -q 'module/.*\.so' "${RUNNER_TEMP}/tar_list.txt"; then
+            echo "::error title=发布包缺少插件::tgz 内未找到 module/*.so"
+            grep 'module/' "${RUNNER_TEMP}/tar_list.txt" || true
+            exit 1
+          fi
+          echo "检查通过：module/*.so 存在于 tgz 中"
       - name: 清理 CPack 临时目录
         shell: bash
         run: rm -rf package/_CPack_Packages
