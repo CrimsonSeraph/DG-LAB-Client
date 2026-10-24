@@ -10,11 +10,16 @@
 
 > **变动**: [v2.3.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.3.0...HEAD)
 
+### Added
+
+- **自动更新**: 新增 `UpdateManager` / `UpdateBridge` 与关于页「软件更新」卡片，支持检查 GitHub Releases 清单、按平台下载并校验 SHA256、生成脚本替换文件并自动重启（安装经确认弹层二次确认）。脚本按主程序 PID 精确等待旧进程退出，并通过 `--updated` 启动后的健康标记判定成功；macOS / Linux 失败自动回滚，Windows 仅记录失败标记。
+
 ### Changed
 
 - **打包内容添加默认提供的插件**: 防止无插件可用，含：
     - `dgl_example_plugin` 演示用插件。
     - `dgl_gsi_plugin` CSGO2 相关插件。
+- **关闭强制开启的控制台**: 关闭在测试配置系统时强制启用的控制台，改为通过配置文件决定启用与否。
 
 ---
 
