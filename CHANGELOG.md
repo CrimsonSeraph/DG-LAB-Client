@@ -10,6 +10,12 @@
 
 > **变动**: [v2.3.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.3.0...HEAD)
 
+### Changed
+
+- **打包内容添加默认提供的插件**: 防止无插件可用，含：
+    - `dgl_example_plugin` 演示用插件。
+    - `dgl_gsi_plugin` CSGO2 相关插件。
+
 ---
 
 ## [v2.3.0] - 2026-10-23
