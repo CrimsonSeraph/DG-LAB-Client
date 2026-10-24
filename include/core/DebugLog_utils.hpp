@@ -9,9 +9,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonValue>
+#include <QString>
 
 #include <algorithm>
 #include <cstddef>
+#include <ostream>
 #include <set>
 #include <string>
 
@@ -73,3 +75,11 @@ namespace DebugLogUtil {
     }
 
 } // namespace DebugLogUtil
+
+/// @brief 将 QString 输出到标准 C++ 输出流的便捷重载
+/// @param os 目标输出流（如 std::cout、std::ostringstream 等）
+/// @param s 待输出的 QString 对象
+/// @return 传入的输出流引用，以支持连续链式输出（如 `os << a << b`）
+inline std::ostream& operator<<(std::ostream& os, const QString& s) {
+    return os << s.toStdString();
+}
