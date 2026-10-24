@@ -32,6 +32,13 @@ void UpdateManager::check_for_updates() {
     LOG_MODULE("UpdateManager", "check_for_updates", LOG_INFO, "开始检查更新...");
     current_error_.clear();
 
+    // 重置上一轮结果
+    remote_version_.clear();
+    release_notes_.clear();
+    download_url_.clear();
+    expected_sha256_.clear();
+    download_file_path_.clear();
+
     QNetworkRequest req{QUrl(manifest_url_)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
 
@@ -83,6 +90,7 @@ void UpdateManager::on_manifest_reply(QNetworkReply* reply) {
 
 void UpdateManager::start_download() {
     if (download_url_.isEmpty()) return;
+    if (current_download_reply_ != nullptr) return;
 
     LOG_MODULE("UpdateManager", "start_download", LOG_INFO, "开始下载: " + download_url_);
 
@@ -92,6 +100,7 @@ void UpdateManager::start_download() {
     // 临时文件路径
     download_file_path_ = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
                           "/" + QFileInfo(download_url_).fileName();
+    QFile::remove(download_file_path_);
 
     current_download_reply_ = network_manager_->get(req);
     connect(current_download_reply_, &QNetworkReply::readyRead, this, &UpdateManager::on_download_ready_read);
@@ -109,21 +118,21 @@ void UpdateManager::on_download_ready_read() {
 
 void UpdateManager::on_download_finished() {
     if (!current_download_reply_) return;
-    current_download_reply_->deleteLater();
+    QNetworkReply* reply = current_download_reply_;
+    current_download_reply_ = nullptr;
+    reply->deleteLater();
 
-    if (current_download_reply_->error() != QNetworkReply::NoError) {
-        current_error_ = "下载失败: " + current_download_reply_->errorString();
+    if (reply->error() != QNetworkReply::NoError) {
+        current_error_ = "下载失败: " + reply->errorString();
         emit download_finished(false, current_error_);
         return;
     }
-
     if (!verify_sha256(download_file_path_, expected_sha256_)) {
         current_error_ = "文件校验失败 (SHA256 不匹配)";
         QFile::remove(download_file_path_);
         emit download_finished(false, current_error_);
         return;
     }
-
     LOG_MODULE("UpdateManager", "on_download_finished", LOG_INFO, "下载完成并通过校验");
     emit download_finished(true, "");
 }
@@ -187,9 +196,10 @@ bool UpdateManager::verify_sha256(const QString& file_path, const QString& expec
 }
 
 QString UpdateManager::generate_windows_script(const QString& installer_path) {
-    QString app_dir = QCoreApplication::applicationDirPath();
-    QString exe_path = QCoreApplication::applicationFilePath();
-    QString script_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update.bat";
+    const QString exe_path = QCoreApplication::applicationFilePath();
+    const QString script_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update.bat";
+    const QString fail_flag = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/update_failed.flag";
+    const qint64 self_pid = QCoreApplication::applicationPid();
 
     QFile file(script_path);
     file.open(QIODevice::WriteOnly | QIODevice::Text);
@@ -197,49 +207,97 @@ QString UpdateManager::generate_windows_script(const QString& installer_path) {
 
     out << "@echo off\n"
         << "chcp 65001 >nul\n"
-        << ":wait_loop\n"
-        // 稍显复杂：如果是 NSIS 安装包，直接静默运行即可，无需手动备份目录（NSIS 会处理覆盖）
-        << "start /wait \"\" \"" << QDir::toNativeSeparators(installer_path) << "\" /S\n"
-        << "start \"\" \"" << QDir::toNativeSeparators(exe_path) << "\" --updated\n"
-        << "timeout /t 5 /nobreak >nul\n"
-        // 依赖主程序的健康检查文件
-        << "if exist \"" << QDir::toNativeSeparators(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/update_ok.tmp") << "\" (\n"
-        << "    del \"" << QDir::toNativeSeparators(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/update_ok.tmp") << "\"\n"
-        << ") else (\n"
-        // 如果 NSIS 覆盖了旧版，回滚比较困难（因为旧文件已丢）。建议只做弹窗提示
-        << "    echo update failed > \"" << QDir::toNativeSeparators(QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/update_failed.flag") << "\"\n"
+        << "\n"
+        << "set \"TARGET_PID=" << self_pid << "\"\n"
+        << "set \"INSTALLER=" << QDir::toNativeSeparators(installer_path) << "\"\n"
+        << "set \"EXE=" << QDir::toNativeSeparators(exe_path) << "\"\n"
+        << "set \"FLAG=" << QDir::toNativeSeparators(update_flag_path()) << "\"\n"
+        << "set \"FAIL_FLAG=" << QDir::toNativeSeparators(fail_flag) << "\"\n"
+        << "\n"
+        << "rem 等待旧进程退出（按 PID 精确轮询）\n"
+        << ":wait_exit\n"
+        << "tasklist /FI \"PID eq %TARGET_PID%\" /NH 2>nul | find \"%TARGET_PID%\" >nul\n"
+        << "if not errorlevel 1 (\n"
+        << "    timeout /t 1 /nobreak >nul\n"
+        << "    goto wait_exit\n"
         << ")\n"
+        << "\n"
+        << "rem 静默安装（NSIS 覆盖旧文件）\n"
+        << "start /wait \"\" \"%INSTALLER%\" /S\n"
+        << "\n"
+        << "rem 启动新版本\n"
+        << "start \"\" \"%EXE%\" --updated\n"
+        << "\n"
+        << "rem 轮询等待健康标记（最多 20 秒）\n"
+        << "set /a waited=0\n"
+        << ":wait_flag\n"
+        << "if exist \"%FLAG%\" goto flag_ok\n"
+        << "timeout /t 1 /nobreak >nul\n"
+        << "set /a waited+=1\n"
+        << "if %waited% lss 20 goto wait_flag\n"
+        << "echo update failed > \"%FAIL_FLAG%\"\n"
+        << "goto cleanup\n"
+        << "\n"
+        << ":flag_ok\n"
+        << "del \"%FLAG%\"\n"
+        << "\n"
+        << ":cleanup\n"
         << "del \"%~f0\"\n";
     return script_path;
 }
 
 QString UpdateManager::generate_macos_script(const QString& dmg_path) {
     QString app_path = QCoreApplication::applicationDirPath();
-    // 获取 .app 路径
     if (app_path.contains(".app/")) {
         app_path = app_path.left(app_path.indexOf(".app/") + 4);
     }
-    QString script_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update.sh";
+    const QString script_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update.sh";
+    const qint64 self_pid = QCoreApplication::applicationPid();
 
     QFile file(script_path);
     file.open(QIODevice::WriteOnly | QIODevice::Text);
     QTextStream out(&file);
 
     out << "#!/bin/bash\n"
-        << "sleep 2\n"
-        << "mv \"" << app_path << "\" \"" << app_path << ".bak\"\n"
-        << "hdiutil attach \"" << dmg_path << "\" -nobrowse -quiet -mountpoint /tmp/dglab_update\n"
-        << "cp -R /tmp/dglab_update/*.app \"" << app_path << "\"\n"
-        << "hdiutil detach /tmp/dglab_update -quiet\n"
-        << "\"" << app_path << "/Contents/MacOS/DG-LAB-Client\" --updated &\n"
-        << "sleep 5\n"
-        << "if [ -f \"" << QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) << "/update_ok.tmp\" ]; then\n"
-        << "    rm -rf \"" << app_path << ".bak\"\n"
-        << "    rm -f \"" << QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) << "/update_ok.tmp\"\n"
+        << "TARGET_PID=" << self_pid << "\n"
+        << "APP_PATH=\"" << app_path << "\"\n"
+        << "DMG_PATH=\"" << dmg_path << "\"\n"
+        << "FLAG=\"" << update_flag_path() << "\"\n"
+        << "\n"
+        << "# 等待旧进程退出（按 PID 精确轮询，30 秒兜底）\n"
+        << "elapsed=0\n"
+        << "while kill -0 \"$TARGET_PID\" 2>/dev/null; do\n"
+        << "    sleep 1\n"
+        << "    elapsed=$((elapsed + 1))\n"
+        << "    if [ \"$elapsed\" -ge 30 ]; then break; fi\n"
+        << "done\n"
+        << "\n"
+        << "# 备份并替换\n"
+        << "mv \"$APP_PATH\" \"$APP_PATH.bak\"\n"
+        << "MOUNT_DIR=$(mktemp -d /tmp/dglab_update.XXXXXX)\n"
+        << "hdiutil attach \"$DMG_PATH\" -nobrowse -quiet -mountpoint \"$MOUNT_DIR\"\n"
+        << "cp -R \"$MOUNT_DIR\"/*.app \"$APP_PATH\"\n"
+        << "hdiutil detach \"$MOUNT_DIR\" -quiet\n"
+        << "rmdir \"$MOUNT_DIR\"\n"
+        << "\n"
+        << "# 启动新版本\n"
+        << "\"$APP_PATH/Contents/MacOS/DG-LAB-Client\" --updated &\n"
+        << "\n"
+        << "# 轮询等待健康标记（最多 20 秒）\n"
+        << "elapsed=0\n"
+        << "while [ ! -f \"$FLAG\" ]; do\n"
+        << "    sleep 1\n"
+        << "    elapsed=$((elapsed + 1))\n"
+        << "    if [ \"$elapsed\" -ge 20 ]; then break; fi\n"
+        << "done\n"
+        << "\n"
+        << "if [ -f \"$FLAG\" ]; then\n"
+        << "    rm -rf \"$APP_PATH.bak\"\n"
+        << "    rm -f \"$FLAG\"\n"
         << "else\n"
-        << "    rm -rf \"" << app_path << "\"\n"
-        << "    mv \"" << app_path << ".bak\" \"" << app_path << "\"\n"
-        << "    open \"" << app_path << "\"\n"
+        << "    rm -rf \"$APP_PATH\"\n"
+        << "    mv \"$APP_PATH.bak\" \"$APP_PATH\"\n"
+        << "    open \"$APP_PATH\"\n"
         << "fi\n"
         << "rm -f \"$0\"\n";
     file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
@@ -247,27 +305,51 @@ QString UpdateManager::generate_macos_script(const QString& dmg_path) {
 }
 
 QString UpdateManager::generate_linux_script(const QString& appimage_path) {
-    QString current_appimage = QCoreApplication::applicationFilePath();
-    QString script_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update.sh";
+    const QString current_appimage = QCoreApplication::applicationFilePath();
+    const QString script_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update.sh";
+    const qint64 self_pid = QCoreApplication::applicationPid();
 
     QFile file(script_path);
     file.open(QIODevice::WriteOnly | QIODevice::Text);
     QTextStream out(&file);
 
     out << "#!/bin/bash\n"
-        << "sleep 1\n"
-        << "mv \"" << current_appimage << "\" \"" << current_appimage << ".bak\"\n"
-        << "mv \"" << appimage_path << "\" \"" << current_appimage << "\"\n"
-        << "chmod +x \"" << current_appimage << "\"\n"
-        << "\"" << current_appimage << "\" --updated &\n"
-        << "sleep 5\n"
-        << "if [ -f \"" << QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) << "/update_ok.tmp\" ]; then\n"
-        << "    rm -f \"" << current_appimage << ".bak\"\n"
-        << "    rm -f \"" << QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) << "/update_ok.tmp\"\n"
+        << "TARGET_PID=" << self_pid << "\n"
+        << "CURRENT_APPIMAGE=\"" << current_appimage << "\"\n"
+        << "NEW_APPIMAGE=\"" << appimage_path << "\"\n"
+        << "FLAG=\"" << update_flag_path() << "\"\n"
+        << "\n"
+        << "# 等待旧进程退出（按 PID 精确轮询，30 秒兜底）\n"
+        << "elapsed=0\n"
+        << "while kill -0 \"$TARGET_PID\" 2>/dev/null; do\n"
+        << "    sleep 1\n"
+        << "    elapsed=$((elapsed + 1))\n"
+        << "    if [ \"$elapsed\" -ge 30 ]; then break; fi\n"
+        << "done\n"
+        << "\n"
+        << "# 备份并替换\n"
+        << "mv \"$CURRENT_APPIMAGE\" \"$CURRENT_APPIMAGE.bak\"\n"
+        << "mv \"$NEW_APPIMAGE\" \"$CURRENT_APPIMAGE\"\n"
+        << "chmod +x \"$CURRENT_APPIMAGE\"\n"
+        << "\n"
+        << "# 启动新版本\n"
+        << "\"$CURRENT_APPIMAGE\" --updated &\n"
+        << "\n"
+        << "# 轮询等待健康标记（最多 20 秒）\n"
+        << "elapsed=0\n"
+        << "while [ ! -f \"$FLAG\" ]; do\n"
+        << "    sleep 1\n"
+        << "    elapsed=$((elapsed + 1))\n"
+        << "    if [ \"$elapsed\" -ge 20 ]; then break; fi\n"
+        << "done\n"
+        << "\n"
+        << "if [ -f \"$FLAG\" ]; then\n"
+        << "    rm -f \"$CURRENT_APPIMAGE.bak\"\n"
+        << "    rm -f \"$FLAG\"\n"
         << "else\n"
-        << "    rm -f \"" << current_appimage << "\"\n"
-        << "    mv \"" << current_appimage << ".bak\" \"" << current_appimage << "\"\n"
-        << "    \"" << current_appimage << "\" &\n"
+        << "    rm -f \"$CURRENT_APPIMAGE\"\n"
+        << "    mv \"$CURRENT_APPIMAGE.bak\" \"$CURRENT_APPIMAGE\"\n"
+        << "    \"$CURRENT_APPIMAGE\" &\n"
         << "fi\n"
         << "rm -f \"$0\"\n";
     file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
@@ -288,3 +370,7 @@ bool UpdateManager::has_update() const { return !download_url_.isEmpty(); }
 QString UpdateManager::remote_version() const { return remote_version_; }
 QString UpdateManager::release_notes() const { return release_notes_; }
 QString UpdateManager::error_message() const { return current_error_; }
+
+QString UpdateManager::update_flag_path() {
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/update_ok.tmp";
+}

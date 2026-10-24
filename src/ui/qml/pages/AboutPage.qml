@@ -65,7 +65,7 @@ Item {
 
                 StatusBadge {
                     anchors.verticalCenter: parent.verticalCenter
-                    visible: updateBridge.remote_version !== ""
+                    visible: updateBridge.hasUpdate
                     text: "新版本 v" + updateBridge.remote_version
                     level: 1 // success 级别
                 }
@@ -84,7 +84,7 @@ Item {
             // 更新日志展示
             Text {
                 width: parent.width
-                visible: updateBridge.remote_version !== ""
+                visible: updateBridge.hasUpdate
                 text: updateBridge.release_notes
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
@@ -131,7 +131,7 @@ Item {
                     objectName: "updateDownloadButton"
                     text: "下载更新"
                     primary: true
-                    visible: updateBridge.remote_version !== "" && !updateBridge.ready_to_install
+                    visible: updateBridge.hasUpdate && !updateBridge.ready_to_install
                     enabled: !updateBridge.downloading
                 }
 

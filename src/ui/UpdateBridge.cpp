@@ -9,6 +9,8 @@ UpdateBridge::UpdateBridge(UpdateManager* manager, QObject* parent)
     , downloading_(false)
     , ready_to_install_(false)
     , progress_(0) {
+    Q_ASSERT(manager_ != nullptr);
+    if (manager_ == nullptr) return;
     connect(manager_, &UpdateManager::update_available, this, &UpdateBridge::on_update_available);
     connect(manager_, &UpdateManager::download_progress, this, &UpdateBridge::on_download_progress);
     connect(manager_, &UpdateManager::download_finished, this, &UpdateBridge::on_download_finished);
@@ -23,10 +25,17 @@ QString UpdateBridge::remote_version() const { return manager_->remote_version()
 QString UpdateBridge::release_notes() const { return manager_->release_notes(); }
 QString UpdateBridge::error_message() const { return error_message_; }
 
+
+bool UpdateBridge::has_update() const { return manager_->has_update(); }
+
 void UpdateBridge::on_check_update_clicked() {
     checking_ = true;
+    downloading_ = false;
+    ready_to_install_ = false;
+    progress_ = 0;
     error_message_.clear();
     emit state_changed();
+    emit progress_changed();
     manager_->check_for_updates();
 }
 

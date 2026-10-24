@@ -43,6 +43,10 @@ public:
     /// @return 错误信息字符串
     QString error_message() const;
 
+    /// @brief 获取更新健康标记文件路径（脚本与主程序共用）
+    /// @return 标记文件的绝对路径
+    static QString update_flag_path();
+
 private:
     QNetworkAccessManager* network_manager_; // 网络访问管理器
     QNetworkReply* current_download_reply_;  // 当前下载请求回复

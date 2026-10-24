@@ -24,6 +24,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
@@ -37,6 +38,8 @@
 
 int main(int argc, char* argv[]) {
     QGuiApplication app(argc, argv);
+    QCoreApplication::setOrganizationName(QStringLiteral("CrimsonSeraph"));
+    QCoreApplication::setApplicationName(QStringLiteral("DG-LAB-Client"));
 
     bool is_updated_start = false;
     for (const QString& arg : QCoreApplication::arguments()) {
@@ -46,10 +49,11 @@ int main(int argc, char* argv[]) {
         }
     }
     if (is_updated_start) {
-        // 延迟 5 秒后生成标记，证明程序成功启动并运行
-        QTimer::singleShot(5000, []() {
-            QString flag_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update_ok.tmp";
-            QFile flag(flag_path);
+        // 延迟 3 秒后生成标记，证明程序成功启动并运行
+        QTimer::singleShot(3000, []() {
+            const QString path = UpdateManager::update_flag_path();
+            QDir().mkpath(QFileInfo(path).absolutePath());
+            QFile flag(path);
             if (flag.open(QIODevice::WriteOnly)) {
                 flag.write("ok");
                 flag.close();

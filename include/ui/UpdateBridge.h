@@ -14,6 +14,7 @@ class UpdateBridge : public QObject {
     Q_PROPERTY(QString remote_version READ remote_version NOTIFY state_changed)  // 远程版本号
     Q_PROPERTY(QString release_notes READ release_notes NOTIFY state_changed)    // 更新说明
     Q_PROPERTY(QString error_message READ error_message NOTIFY state_changed)    // 当前错误信息
+    Q_PROPERTY(bool hasUpdate READ has_update NOTIFY state_changed)              // 是否存在可用更新
 
 public:
     /// @brief 构造更新桥接对象
@@ -48,6 +49,10 @@ public:
     /// @brief 获取当前错误信息
     /// @return 错误信息字符串
     QString error_message() const;
+
+    /// @brief 获取是否存在可用更新
+    /// @return 是否存在可用更新
+    bool has_update() const;
 
 public slots:
     /// @brief 用户点击检查更新
