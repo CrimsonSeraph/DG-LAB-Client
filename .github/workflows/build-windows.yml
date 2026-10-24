@@ -166,6 +166,16 @@ jobs:
           }
           $dlls | ForEach-Object { Write-Host $_.FullName }
 
+      - name: 剔除 qmltooling
+        shell: pwsh
+        run: |
+          Get-ChildItem install_root -Recurse -Directory -Filter 'qmltooling' -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Host "Removing $($_.FullName)"; Remove-Item -Recurse -Force $_.FullName }
+          if (Get-ChildItem install_root -Recurse -Directory -Filter 'qmltooling' -ErrorAction SilentlyContinue) {
+            Write-Host "::error title=qmltooling 未剔除::install_root 中仍存在 qmltooling 目录"
+            exit 1
+          }
+
       - name: 检查签名 secrets
         id: signcheck
         shell: pwsh
@@ -251,25 +261,29 @@ jobs:
       - name: 打包后包内容检查
         shell: pwsh
         run: |
-          $tmp = Join-Path $env:RUNNER_TEMP "zipcheck"
-          Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
-          $zip = Get-ChildItem package -Filter '*-windows-x64.zip' | Select-Object -First 1
-          if (-not $zip) { throw "package 下没有 *-windows-x64.zip" }
+          $zip = Get-ChildItem package -Filter '*-windows-x64.zip' |
+                 Where-Object { $_.Name -notlike '*without-Python*' } |
+                 Select-Object -First 1
+          if (-not $zip) { throw "package 下没有 *-windows-x64.zip（含 Python 版）" }
           Write-Host "检查 $($zip.FullName)"
-          Expand-Archive -Path $zip.FullName -DestinationPath $tmp
 
-          Write-Host "---- zip 内全部 .dll ----"
-          Get-ChildItem $tmp -Recurse -Filter '*.dll' -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty FullName
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $entries = [IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          try {
+            $names = $entries.Entries | ForEach-Object { $_.FullName }
+          } finally {
+            $entries.Dispose()
+          }
 
-          $dlls = Get-ChildItem $tmp -Recurse -Filter 'dgl_*_plugin.dll' -ErrorAction SilentlyContinue
-          if (-not $dlls) {
-            Write-Host "::error title=发布包缺少插件::zip 内未找到 dgl_*_plugin.dll"
+          $expected = @('bin/module/dgl_example_plugin.dll', 'bin/module/dgl_gsi_plugin.dll')
+          $missing = $expected | Where-Object { $names -notcontains $_ }
+          if ($missing) {
+            Write-Host "::error title=发布包缺少插件::zip 内缺少：$($missing -join ', ')"
+            Write-Host "zip 内 module/ 条目"
+            $names | Where-Object { $_ -like '*/module/*' }
             exit 1
           }
-          Write-Host "检查通过："
-          $dlls | Select-Object -ExpandProperty FullName
-          Remove-Item -Recurse -Force $tmp
+          Write-Host "检查通过：$($expected -join ', ')"
 
       - name: 安装 NSIS（windows-2025 镜像已不再预装 makensis）
         shell: pwsh
