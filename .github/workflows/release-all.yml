@@ -200,6 +200,8 @@ jobs:
       - name: 解析版本号（统一来自 config/main.json）
         id: ver
         shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
           VER=$(python -c "import json; print(json.load(open('config/main.json'))['app']['version'])")
@@ -209,9 +211,8 @@ jobs:
           fi
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "版本号：$VER"
-          TAG="${{ steps.tag.outputs.tag }}"
-          if [ "${TAG#v}" != "$VERSION" ]; then
-            echo "::warning title=版本不一致::tag ${TAG} 与 config/main.json 的 ${VERSION} 不一致，产物文件名与 manifest.version 将使用 ${VERSION}"
+          if [ "${TAG#v}" != "$VER" ]; then
+            echo "::warning title=版本不一致::tag ${TAG} 与 config/main.json 的 ${VER} 不一致，产物文件名与 manifest.version 将使用 ${VER}"
           fi
 
       - name: 生成更新清单 manifest.json
