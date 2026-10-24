@@ -144,8 +144,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cmake --build "$BUILD_DIR" --config Release --parallel "$(sysctl -n hw.ncpu)"
-          ccache --show-stats || true
+          cmake --build "$BUILD_DIR" --config Release --parallel "$(sysctl -n hw.ncpu)" -- -quiet
+          command -v ccache >/dev/null 2>&1 && ccache --show-stats || true
 
       - name: 安装到 install_root
         shell: bash
@@ -175,7 +175,6 @@ jobs:
           "$QTDIR/bin/macdeployqt" "$APP_REL" \
             -qmldir=src/ui/qml \
             -appstore-compliant \
-            -no-translations \
             -verbose=1
           rm -rf "$APP_REL/Contents/PlugIns/qmltooling"
           du -sh "$APP_REL"

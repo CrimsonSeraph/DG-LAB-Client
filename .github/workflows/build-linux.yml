@@ -214,7 +214,7 @@ jobs:
           fi
           echo "APPIMAGE_RUNTIME_FILE=$RUNTIME" >> "$GITHUB_ENV"
 
-      - name: 用 linuxdeployqt 生成 AppImage
+      - name: 用 linuxdeployqt 部署、剔除 qmltooling 并用 appimagetool 打包
         shell: bash
         run: |
           set -euo pipefail
@@ -222,7 +222,6 @@ jobs:
 
           # linuxdeployqt / appimagetool 要求 AppDir 根目录存在与 .desktop 中 Icon= 同名的 256x256 PNG，
           # 否则会以 "<name>{.png,.svg,.xpm} defined in desktop file but not found" 退出（exit 1）。
-          # AppImage 图标源：项目应用图标（1024px 母版，PNG）
           ICON_SRC="assets/icon/dglab-client-1024.png"
           convert "$ICON_SRC" -resize 256x256^ -gravity center -extent 256x256 \
             install_root/DG-LAB-Client.png
@@ -246,13 +245,29 @@ jobs:
           export PATH="$SCHEDULE_TMP:$PATH"
           export APPIMAGE_EXTRACT_AND_RUN=1
           cd "$GITHUB_WORKSPACE"
-          ( cd install_root && linuxdeployqt DG-LAB-Client -appimage -verbose=2 \
-            -exclude-plugins qmltooling -no-translations )
-          mv install_root/*.AppImage package/ 2>/dev/null || true
+
+          # 仅部署，得到完整 AppDir
+          ( cd install_root && linuxdeployqt DG-LAB-Client -verbose=2 -no-translations )
+
+          # 剔除 qmltooling（QML 调试插件，运行时用不到）
+          find install_root -type d -name qmltooling -print -exec rm -rf {} + 2>/dev/null || true
+          if find install_root -type d -name qmltooling | grep -q .; then
+            echo "::error title=qmltooling 未剔除::AppDir 中仍存在 qmltooling 目录"
+            find install_root -type d -name qmltooling
+            exit 1
+          fi
+          echo "已剔除 qmltooling"
+
+          # 用 appimagetool 打包
+          curl -fsSL -o "$SCHEDULE_TMP/appimagetool" \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x "$SCHEDULE_TMP/appimagetool"
+          "$SCHEDULE_TMP/appimagetool" install_root \
+            "package/DG-LAB-Client-${VERSION}-linux-x64.AppImage"
+
           ls -lh package/
           ls package/*.AppImage >/dev/null 2>&1 \
-            || { echo "::error title=未生成 AppImage::linuxdeployqt 未输出 .AppImage"; exit 1; }
-          mv package/*.AppImage "package/DG-LAB-Client-${VERSION}-linux-x64.AppImage"
+            || { echo "::error title=未生成 AppImage::appimagetool 未输出 .AppImage"; exit 1; }
 
       - name: CPack 打包（deb / rpm / tgz）
         shell: bash
