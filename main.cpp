@@ -72,10 +72,6 @@ int main(int argc, char* argv[]) {
     // 统一使用 Basic 样式：界面外观完全由 QML 的样式令牌控制（不叠加平台样式）
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
-    // 直接创建控制台，以便在初始化配置系统时输出日志
-    Console& console = Console::get_instance();
-    console.create();
-
     // 配置初始化
     auto& config = AppConfig::instance();
     try {
@@ -95,6 +91,7 @@ int main(int argc, char* argv[]) {
     // 启用控制台
     const bool enable_console = config.get_value<bool>("app.debug", false);
     if (enable_console) {
+        Console& console = Console::get_instance();
         if (console.create()) {
             LOG_MODULE("main", "main", LOG_DEBUG, "控制台已启用");
             LOG_MODULE("main", "main", LOG_INFO, "配置初始化完成，debug模式=" << enable_console);
