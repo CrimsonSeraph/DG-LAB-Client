@@ -65,7 +65,7 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             {"__priority", 2},
             {"app", {
                 {"ui", {
-                    {"theme", "light"},
+                    {"theme", "classic"},
                     {"font_size", 16}
                 }},
                 {"log", {

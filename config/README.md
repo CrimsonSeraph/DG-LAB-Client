@@ -73,7 +73,7 @@
 {
     "app": {
         "ui": {
-            "theme": "light",
+            "theme": "classic",
             "font_size": 16
         }
     }

@@ -122,7 +122,7 @@ private:
     void persist(const QString& mode, const QColor& primary, const QColor& secondary);
 
     QList<Preset> preset_list_;
-    QString mode_ = "light";
+    QString mode_ = "classic";
     QString display_ = "浅色模式";
     bool custom_ = false;
     bool dark_ = false;

@@ -190,7 +190,7 @@ cpack
             "ui_log_level": 0
         },
         "ui": {
-            "theme": "light"
+            "theme": "classic"
         }
     },
     "python": {

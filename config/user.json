@@ -2,7 +2,7 @@
     "__priority": 2,
     "app": {
         "ui": {
-            "theme": "light",
+            "theme": "classic",
             "font_size": 16
         },
         "log": {

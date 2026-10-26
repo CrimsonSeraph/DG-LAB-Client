@@ -153,7 +153,7 @@ ThemeManager::ThemeManager(QObject* parent)
 
 void ThemeManager::initialize() {
     const auto& config = AppConfig::instance();
-    mode_ = QString::fromStdString(config.get_value<std::string>("app.ui.theme", "light"));
+    mode_ = QString::fromStdString(config.get_value<std::string>("app.ui.theme", "classic"));
     if (mode_ == QStringLiteral("custom")) {
         const QString primary = QString::fromStdString(config.get_value<std::string>("app.ui.custom.primary", "#4C8DFF"));
         const QString secondary = QString::fromStdString(config.get_value<std::string>("app.ui.custom.secondary", "#1F2A44"));
@@ -170,7 +170,7 @@ void ThemeManager::initialize() {
     else {
         const Preset* preset = find_preset(mode_);
         if (preset == nullptr) {
-            mode_ = QStringLiteral("light");
+            mode_ = QStringLiteral("classic");
             preset = find_preset(mode_);
         }
         primary_ = preset->primary;
