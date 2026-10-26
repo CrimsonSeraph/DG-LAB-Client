@@ -403,6 +403,10 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/pages/ConfigPage.qml
 		src/ui/qml/pages/ModulePage.qml
 		src/ui/qml/pages/AboutPage.qml
+		src/ui/qml/pages/PluginCenterPage.qml
+		src/ui/qml/pages/WavePage.qml
+		src/ui/qml/pages/MiniGamePage.qml
+		src/ui/qml/pages/LogPage.qml
 		src/ui/qml/home/ChannelPanel.qml
 		src/ui/qml/dialogs/WaveSelectDialog.qml
 		src/ui/qml/dialogs/WaveEditorDialog.qml
@@ -415,6 +419,15 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/components/AppTextArea.qml
 		src/ui/qml/components/AppComboBox.qml
 		src/ui/qml/components/AppCheckBox.qml
+		src/ui/qml/components/AppSwitch.qml
+		src/ui/qml/components/AppSlider.qml
+		src/ui/qml/components/AppTabs.qml
+		src/ui/qml/components/AppChip.qml
+		src/ui/qml/components/AppCard.qml
+		src/ui/qml/components/AppField.qml
+		src/ui/qml/components/AppSparkline.qml
+		src/ui/qml/components/AppStatusButton.qml
+		src/ui/qml/components/AppSegment.qml
 		src/ui/qml/components/ConfirmDialog.qml
 		src/ui/qml/components/WavePreview.qml
 		src/ui/qml/components/StatusBadge.qml

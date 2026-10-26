@@ -24,16 +24,20 @@ src/ui/
 │   （QML 模块在根 CMakeLists.txt 中通过 qt_add_qml_module 声明）
 ├── README.md
 ├── qml/
-│   ├── MainWindow.qml          # 左侧导航 + 页面栈 + 状态栏（原生标题栏）
+│   ├── MainWindow.qml          # 左侧导航 + 内容区页栈 + 左下常驻面板 + 状态栏（原生标题栏；自绘标题栏与窗口控制按钮为后续任务）
 │   ├── dialogs/
 │   │   ├── RuleEditorDialog.qml # 规则可视化编辑器（画布手势例外见下）
 │   │   ├── WaveSelectDialog.qml
 │   │   └── WaveEditorDialog.qml
 │   ├── pages/
-│   │   ├── HomePage.qml        # 首页：A/B 通道面板
-│   │   ├── ConfigPage.qml      # 配置：连接 / 波形 / 主题 / 日志
-│   │   ├── ModulePage.qml      # 模块页
-│   │   └── AboutPage.qml       # 关于
+│   │   ├── HomePage.qml        # 主页：A/B 通道面板（导航第 1 项）
+│   │   ├── PluginCenterPage.qml # 插件中心（导航第 2 项，当前为骨架）
+│   │   ├── WavePage.qml        # 波形设置（导航第 3 项，当前为骨架）
+│   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
+│   │   ├── LogPage.qml         # 日志（导航第 5 项，当前为骨架）
+│   │   ├── ConfigPage.qml      # 设置：连接 / 波形 / 主题 / 日志（仅经左下角面板入口可达）
+│   │   ├── ModulePage.qml      # 模块页（不在导航中，仅经首页入口可达）
+│   │   └── AboutPage.qml       # 关于（仅经左下角面板入口可达）
 │   ├── home/
 │   │   └── ChannelPanel.qml    # 单通道面板（强度 / 模块 / 规则 / 波形 / 启停）
 │   ├── components/
@@ -45,6 +49,15 @@ src/ui/
 │   │   ├── AppTextArea.qml     # 主题化多行输入框
 │   │   ├── AppComboBox.qml     # 主题化下拉框
 │   │   ├── AppCheckBox.qml     # 主题化勾选框
+│   │   ├── AppSwitch.qml       # 主题化开关
+│   │   ├── AppSlider.qml       # 连续值滑杆（可选数值标签）
+│   │   ├── AppTabs.qml         # 标签页切换条
+│   │   ├── AppChip.qml         # 可选中标签片
+│   │   ├── AppCard.qml         # 横幅 / 标签 / 状态卡片
+│   │   ├── AppField.qml        # 表单行（标签 + 提示 + 内容槽）
+│   │   ├── AppSparkline.qml    # 迷你曲线
+│   │   ├── AppStatusButton.qml # 带状态点的按钮
+│   │   ├── AppSegment.qml      # 分段选择器
 │   │   ├── ConfirmDialog.qml   # 通用确认弹层（ask_confirm 复用）
 │   │   ├── PageHeader.qml      # 页面标题行（标题 + 副标题 + 右侧操作区）
 │   │   ├── StatusBadge.qml     # 状态徽标（info / success / warning / danger）
@@ -76,15 +89,23 @@ src/ui/
 
 ## objectName 契约表
 
-> 本批次只新增与补登记条目，既有 `objectName` 一处未改。
+> 导航重排移除了 `navConfigButton` / `navModuleButton` / `navAboutButton` 三个旧条目，其余条目未改。
 
-导航：
+导航与左下角面板：
 
-| objectName                                                                 | 行为           |
-| -------------------------------------------------------------------------- | -------------- |
-| `navHomeButton` / `navConfigButton` / `navModuleButton` / `navAboutButton` | 切换页面       |
-| `homeModuleEntryButton`                                                    | 跳转模块页     |
-| `homeRuleEditorButton` / `configRuleEditorButton`                          | 打开规则编辑器 |
+左侧导航按「主页 / 插件中心 / 波形设置 / 小游戏 / 日志」排列；`ModulePage` 不在导航中，仅经首页入口可达，`AboutPage` 仅经左下角面板入口可达。导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定（`ble.connected` / `ble.deviceName`），不产生交互。
+
+| objectName | 行为 |
+| --- | --- |
+| `navHomeButton` | 主页（`AppBridge::HomePage`） |
+| `navPluginCenterButton` | 插件中心（`PluginCenterPage`） |
+| `navWaveButton` | 波形设置（`WavePage`） |
+| `navMiniGameButton` | 小游戏（`MiniGamePage`） |
+| `navLogButton` | 日志（`LogPage`） |
+| `panelSettingsButton` / `panelAboutButton` | 左下角面板「设置」→ `ConfigPage`、「关于」→ `AboutPage` |
+| `panelCheckUpdateButton` | 左下角面板「检查更新」→ 既有 `UpdateBridge::on_check_update_clicked()`；`checking` / `downloading` 期间置灰，结果由 Toast 回执 |
+| `homeModuleEntryButton` | 跳转模块页 |
+| `homeRuleEditorButton` / `configRuleEditorButton` | 打开规则编辑器 |
 
 首页通道（`ChannelPanel`，`channel` 为 A/B）：
 
@@ -147,7 +168,7 @@ src/ui/
 | `aboutLicenseText` | 许可证：GPL-3.0-only |
 | `aboutDependenciesText` | 依赖：Qt 6 |
 | `aboutRepositoryText` | 仓库地址 |
-| `configCheckUpdateButton` | 检查更新：位于关于页「软件更新」卡片（`objectName` 沿用 `config` 前缀属命名遗留）；`checking` / `downloading` 期间置灰，结果由 Toast 回执 |
+| `configCheckUpdateButton` | 关于页「软件更新」卡片内的旧入口（`objectName` 沿用 `config` 前缀属命名遗留）：检查更新入口已移至左下角常驻面板 `panelCheckUpdateButton`，关于页不再承载该入口，两侧共用 `UpdateBridge::on_check_update_clicked()`，关于页的卡片入口随该页重写移除 |
 | `updateDownloadButton` | 下载更新包：`remote_version` 非空且未就绪时可见；`downloading` 期间置灰，进度由卡片内 ProgressBar 绑定 `progress` 展示 |
 | `updateApplyButton` | 重启并安装：`ready_to_install` 时可见；由 `UiConnector::on_update_apply_clicked` 先经 `confirmDialog` 确认，确认后调用 `UpdateManager::apply_update_and_restart()` |
 
@@ -233,6 +254,20 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 - 上述组件均无 `onXxx` / `Connections`，交互统一由 `UiConnector` 按 `objectName` 建立。
 - 新增展示组件优先放入 `components/`，专属组件放页面目录；样式一律引用令牌。
+
+### 组件库补充（骨架批次新增）
+
+| 控件 | 用途 | 关键属性 / 信号 |
+| --- | --- | --- |
+| `AppSwitch` | 主题化开关（继承 `Switch`） | `checked`、`toggled()`（继承自 `Switch` / `AbstractButton`） |
+| `AppSlider` | 连续值滑杆，可在右侧显示当前值 | `value` / `from` / `to`（`Slider` 别名）、`step`、`showValue`、`valueText`、`moved()` |
+| `AppTabs` | 顶部标签页切换条（`Row` + `Repeater`） | `model`、`currentIndex`、`tabClicked(index)` |
+| `AppChip` | 可选中标签片，用于筛选或状态片段 | `text`、`checked`、`clicked()` |
+| `AppCard` | 带横幅 / 标题 / 副标题 / 标签 / 状态与操作区的卡片 | `title`、`subtitle`、`banner`、`tags`、`status`、默认属性槽 `actions`、`hasBanner`（由 `banner` 派生，决定横幅布局） |
+| `AppField` | 表单行：标签 + 提示 + 内容槽 | `label`、`hint`、默认属性槽 `contentData` |
+| `AppSparkline` | 迷你曲线，接受原始点或帧数据 | `points`、`frames`、`maxValue`、`showAxisLabels` |
+| `AppStatusButton` | 带状态点的按钮（0 信息 / 1 成功 / 2 警示 / 3 危险） | `statusLevel`、`clicked()`（继承 `Button`） |
+| `AppSegment` | 分段选择器 | `model`、`currentIndex`、`selected(index)` |
 
 ## 信号连接约定
 

@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 主窗口：左侧导航 + 中央页面栈 + 底部状态栏。
-// 本文件不写任何信号处理器，交互与样式约定见 src/ui/README.md。
+// 主窗口：左侧导航（图标 + 文字）+ 内容区 + 底部状态栏。
+// 交互约定：本文件不写信号处理器，导航与左下角面板入口由 C++（UiConnector）按 objectName 连接。
 ApplicationWindow {
     id: root
 
@@ -18,7 +18,14 @@ ApplicationWindow {
 
     readonly property bool compactNav: Responsive.isCompactNav(width)
 
-    // 左侧导航
+    // 页面索引与 AppBridge::Page 的枚举值逐项对应，同时决定 pageStack 的条目顺序
+    readonly property int pageHome: 0
+    readonly property int pagePluginCenter: 4
+    readonly property int pageWave: 5
+    readonly property int pageMiniGame: 6
+    readonly property int pageLog: 7
+
+    // 左侧导航：页头钉顶、面板钉底，导航项夹在两者之间（空间不足时滚动）
     Rectangle {
         id: navigationBar
 
@@ -28,84 +35,200 @@ ApplicationWindow {
         width: root.compactNav ? Metrics.navWidthCompact : Metrics.navWidth
         color: Theme.surfaceAlt
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Metrics.spacingMd
-            spacing: Metrics.spacingXs
+        // 应用名与版本
+        RowLayout {
+            id: navHeader
 
-            RowLayout {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: Metrics.spacingMd
+            height: Metrics.navHeaderHeight
+            spacing: Metrics.spacingSm
+
+            Image {
+                source: "qrc:/icon/assets/icon/dglab-client-128.png"
+                sourceSize.width: 40
+                sourceSize.height: 40
+                Layout.preferredWidth: 40
+                Layout.preferredHeight: 40
+                fillMode: Image.PreserveAspectFit
+            }
+
+            ColumnLayout {
                 Layout.fillWidth: true
-                Layout.preferredHeight: Metrics.navHeaderHeight
+                Layout.preferredWidth: 0
+                spacing: 0
+
+                Text {
+                    text: app.appName
+                    color: Theme.textPrimary
+                    font.pixelSize: Typography.fontSubtitle
+                    font.bold: true
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: "v" + app.appVersion
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontBody
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+            }
+        }
+
+        // 导航项：图标暂用几何字符前缀，待图标资源落地后替换为图标列
+        Flickable {
+            id: navScroll
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: navHeader.bottom
+            anchors.bottom: panelFooter.top
+            anchors.margins: Metrics.spacingMd
+            contentWidth: width
+            contentHeight: navColumn.implicitHeight
+            interactive: contentHeight > height
+            boundsBehavior: Flickable.StopAtBounds
+            clip: true
+
+            Column {
+                id: navColumn
+
+                width: navScroll.width
+                spacing: Metrics.spacingXs
+
+                NavButton {
+                    objectName: "navHomeButton"
+                    text: "⌂  " + qsTr("主页")
+                    selected: app.currentPage === root.pageHome
+                    width: parent.width
+                }
+
+                NavButton {
+                    objectName: "navPluginCenterButton"
+                    text: "▦  " + qsTr("插件中心")
+                    selected: app.currentPage === root.pagePluginCenter
+                    width: parent.width
+                }
+
+                NavButton {
+                    objectName: "navWaveButton"
+                    text: "∿  " + qsTr("波形设置")
+                    selected: app.currentPage === root.pageWave
+                    width: parent.width
+                }
+
+                NavButton {
+                    objectName: "navMiniGameButton"
+                    text: "▷  " + qsTr("小游戏")
+                    selected: app.currentPage === root.pageMiniGame
+                    width: parent.width
+                }
+
+                NavButton {
+                    objectName: "navLogButton"
+                    text: "▤  " + qsTr("日志")
+                    selected: app.currentPage === root.pageLog
+                    width: parent.width
+                }
+            }
+        }
+
+        // 左下角常驻面板：设备连接状态 + 设置 / 关于 / 检查更新
+        Rectangle {
+            id: panelFooter
+
+            objectName: "panelFooter"
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            anchors.margins: Metrics.spacingMd
+            height: implicitHeight
+            implicitHeight: footerColumn.implicitHeight + Metrics.spacingLg * 2
+            radius: Metrics.radiusMd
+            color: Theme.surface
+            border.width: Metrics.borderWidth
+            border.color: Theme.divider
+
+            ColumnLayout {
+                id: footerColumn
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: Metrics.spacingLg
                 spacing: Metrics.spacingSm
 
-                Image {
-                    source: "qrc:/icon/assets/icon/dglab-client-128.png"
-                    sourceSize.width: 40
-                    sourceSize.height: 40
-                    Layout.preferredWidth: 40
-                    Layout.preferredHeight: 40
-                    fillMode: Image.PreserveAspectFit
-                }
+                // 设备连接状态（只读展示）
+                RowLayout {
+                    objectName: "deviceStatusRow"
 
-                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.preferredWidth: 0
-                    spacing: 0
+                    spacing: Metrics.spacingSm
 
-                    Text {
-                        text: app.appName
-                        color: Theme.textPrimary
-                        font.pixelSize: Typography.fontSubtitle
-                        font.bold: true
-                        elide: Text.ElideRight
-                        Layout.fillWidth: true
+                    Rectangle {
+                        objectName: "deviceStatusDot"
+
+                        Layout.alignment: Qt.AlignVCenter
+                        implicitWidth: Metrics.spacingMd
+                        implicitHeight: Metrics.spacingMd
+                        radius: width / 2
+                        color: ble.connected ? Theme.success : Theme.textMuted
                     }
 
-                    Text {
-                        text: "v" + app.appVersion
-                        color: Theme.textMuted
-                        font.pixelSize: Typography.fontBody
-                        elide: Text.ElideRight
+                    ColumnLayout {
                         Layout.fillWidth: true
+                        Layout.preferredWidth: 0
+                        spacing: 0
+
+                        Text {
+                            objectName: "deviceStatusName"
+
+                            Layout.fillWidth: true
+                            text: (ble.connected && ble.deviceName !== "") ? ble.deviceName : qsTr("未连接设备")
+                            color: Theme.textPrimary
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            objectName: "deviceStatusState"
+
+                            Layout.fillWidth: true
+                            text: ble.connected ? qsTr("已连接") : qsTr("未连接")
+                            color: ble.connected ? Theme.success : Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
                     }
                 }
-            }
 
-            NavButton {
-                objectName: "navHomeButton"
-                text: qsTr("首页")
-                selected: app.currentPage === 0
-                Layout.fillWidth: true
-            }
+                AppButton {
+                    objectName: "panelSettingsButton"
+                    text: qsTr("设置")
+                    Layout.fillWidth: true
+                }
 
-            NavButton {
-                objectName: "navConfigButton"
-                text: qsTr("配置")
-                selected: app.currentPage === 1
-                Layout.fillWidth: true
-            }
+                AppButton {
+                    objectName: "panelAboutButton"
+                    text: qsTr("关于")
+                    Layout.fillWidth: true
+                }
 
-            NavButton {
-                objectName: "navModuleButton"
-                text: qsTr("模块")
-                selected: app.currentPage === 2
-                Layout.fillWidth: true
-            }
-
-            NavButton {
-                objectName: "navAboutButton"
-                text: qsTr("关于")
-                selected: app.currentPage === 3
-                Layout.fillWidth: true
-            }
-
-            Item {
-                Layout.fillHeight: true
+                AppButton {
+                    objectName: "panelCheckUpdateButton"
+                    text: updateBridge.checking ? qsTr("检查中...") : qsTr("检查更新")
+                    enabled: !updateBridge.checking && !updateBridge.downloading
+                    Layout.fillWidth: true
+                }
             }
         }
     }
 
-    // 中央页面栈：C++ 侧通过 app.currentPage 完成导航
+    // 内容区页面栈：条目顺序与 AppBridge::Page 一致，C++ 侧通过 app.currentPage 完成导航
     StackLayout {
         id: pageStack
 
@@ -130,6 +253,22 @@ ApplicationWindow {
 
         AboutPage {
             id: aboutPage
+        }
+
+        PluginCenterPage {
+            id: pluginCenterPage
+        }
+
+        WavePage {
+            id: wavePage
+        }
+
+        MiniGamePage {
+            id: miniGamePage
+        }
+
+        LogPage {
+            id: logPage
         }
     }
 

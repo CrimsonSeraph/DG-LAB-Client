@@ -32,13 +32,16 @@
 
 namespace {
 
-    /// @brief 导航按钮 objectName -> 页面索引
+    /// @brief 页面切换按钮 objectName -> 页面索引（左侧导航与左下角面板入口共用）
     const QHash<QString, int>& nav_bindings() {
         static const QHash<QString, int> bindings = {
             {QStringLiteral("navHomeButton"), AppBridge::HomePage},
-            {QStringLiteral("navConfigButton"), AppBridge::ConfigPage},
-            {QStringLiteral("navModuleButton"), AppBridge::ModulePage},
-            {QStringLiteral("navAboutButton"), AppBridge::AboutPage}};
+            {QStringLiteral("navPluginCenterButton"), AppBridge::PluginCenterPage},
+            {QStringLiteral("navWaveButton"), AppBridge::WavePage},
+            {QStringLiteral("navMiniGameButton"), AppBridge::MiniGamePage},
+            {QStringLiteral("navLogButton"), AppBridge::LogPage},
+            {QStringLiteral("panelSettingsButton"), AppBridge::ConfigPage},
+            {QStringLiteral("panelAboutButton"), AppBridge::AboutPage}};
         return bindings;
     }
 
@@ -212,7 +215,7 @@ void UiConnector::attach(QObject* root_object) {
     for (auto it = nav_bindings().constBegin(); it != nav_bindings().constEnd(); ++it) {
         auto* button = root_object->findChild<QObject*>(it.key());
         if (button == nullptr) {
-            LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到导航按钮: " + it.key().toStdString());
+            LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到页面切换按钮: " + it.key().toStdString());
             continue;
         }
         QObject::connect(button, SIGNAL(clicked()), this, SLOT(on_nav_button_clicked()));
@@ -326,6 +329,7 @@ void UiConnector::attach(QObject* root_object) {
 
     // 更新模块
     connect_clicked(root_object, "configCheckUpdateButton", SLOT(on_check_update_clicked()));
+    connect_clicked(root_object, "panelCheckUpdateButton", SLOT(on_check_update_clicked()));
     connect_clicked(root_object, "updateDownloadButton", SLOT(on_update_download_clicked()));
     connect_clicked(root_object, "updateApplyButton", SLOT(on_update_apply_clicked()));
 
