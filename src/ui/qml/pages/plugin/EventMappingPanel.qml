@@ -128,14 +128,14 @@ Item {
             clip: true
             boundsBehavior: Flickable.StopAtBounds
 
-            ColumnLayout {
+            Column {
                 id: formColumn
 
                 width: parent.width
                 spacing: Metrics.cardSpacing
 
                 RowLayout {
-                    Layout.fillWidth: true
+                    width: parent.width
                     spacing: Metrics.spacingMd
 
                     Text {
@@ -158,11 +158,12 @@ Item {
                 }
 
                 RowLayout {
-                    Layout.fillWidth: true
+                    width: parent.width
                     spacing: Metrics.spacingXl
 
                     AppField {
-                        Layout.fillWidth: true
+                        Layout.preferredWidth: Metrics.navWidth
+                        Layout.minimumWidth: Metrics.navWidth
                         label: qsTr("启用事件")
 
                         AppSwitch {
@@ -178,6 +179,7 @@ Item {
 
                     AppField {
                         Layout.fillWidth: true
+                        Layout.minimumWidth: Metrics.navWidth * 2
                         label: qsTr("波形")
                         hint: qsTr("默认即不附加波形")
 
@@ -197,7 +199,8 @@ Item {
                     }
 
                     AppField {
-                        Layout.fillWidth: true
+                        Layout.preferredWidth: Metrics.navWidth
+                        Layout.minimumWidth: Metrics.navWidth
                         label: qsTr("激活窗口（秒）")
                         hint: qsTr("1 秒 = 10 帧")
 
@@ -225,7 +228,7 @@ Item {
                     delegate: Rectangle {
                         required property var modelData
 
-                        Layout.fillWidth: true
+                        width: parent.width
                         implicitHeight: optionColumn.implicitHeight + Metrics.cardPadding * 2
                         radius: Metrics.cardRadius
                         color: Theme.surface
@@ -256,6 +259,8 @@ Item {
 
                                 AppField {
                                     Layout.fillWidth: true
+                                    Layout.preferredWidth: 0
+                                    Layout.minimumWidth: Metrics.navWidth
                                     label: qsTr("事件通道")
                                     hint: qsTr("跟随默认时按模块默认通道展开，AB 会在两个通道各生效一次")
 
@@ -275,7 +280,8 @@ Item {
                                 }
 
                                 AppField {
-                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: Metrics.navWidth
+                                    Layout.minimumWidth: Metrics.navWidth
                                     label: qsTr("数值模式")
 
                                     AppSegment {
@@ -292,7 +298,8 @@ Item {
                                 }
 
                                 AppField {
-                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: Metrics.navWidth
+                                    Layout.minimumWidth: Metrics.navWidth
                                     label: qsTr("强度数值")
                                     hint: qsTr("百分比取 0-100，数值取绝对值")
 
@@ -320,7 +327,7 @@ Item {
                 }
 
                 AppField {
-                    Layout.fillWidth: true
+                    width: parent.width
                     label: qsTr("强度预览")
                     hint: qsTr("示例曲线")
 
