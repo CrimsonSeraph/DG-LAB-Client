@@ -202,7 +202,7 @@ Item {
         id: moduleValuesDialog
 
         objectName: "moduleValuesDialog"
-        title: qsTr("模块数值 - %1").arg(moduleBridge.selectedModule)
+        title: qsTr("模块数值 - %1").arg(moduleBridge.selectedDisplayName)
         modal: true
         anchors.centerIn: Overlay.overlay
         width: 540

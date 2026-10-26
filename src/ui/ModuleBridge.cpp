@@ -143,6 +143,21 @@ int ModuleBridge::base_period_ms() const {
     return ModuleManager::instance().get_base_period_ms();
 }
 
+QString ModuleBridge::selected_display_name() const {
+    if (selected_.isEmpty()) {
+        return selected_;
+    }
+    const std::string selected = selected_.toStdString();
+    for (const auto& plugin : ModuleManager::instance().get_plugins()) {
+        if (plugin.module_name != selected || plugin.display_name.empty()) {
+            continue;
+        }
+        return QString::fromStdString(plugin.display_name);
+    }
+    // 内置模块与未匹配场景回退模块标识，行为与旧版一致
+    return selected_;
+}
+
 QVariantList ModuleBridge::selected_values() const {
     QVariantList list;
     if (selected_.isEmpty()) {
