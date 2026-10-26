@@ -48,7 +48,7 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 ## 二、功能特性
 
-- **QML 界面层** `Dglab` QML 模块包含主窗口、页面、组件与对话框，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 16 套预设与自定义主/副色，令牌与对比度说明见 [docs/theme.md](docs/theme.md)）；QML 默认不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接（画布类手势为登记在案的例外）。详见 [src/ui/README.md](src/ui/README.md)。
+- **QML 界面层** `Dglab` QML 模块包含主窗口、页面、组件与对话框，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 17 套预设与自定义主/副色，令牌与对比度说明见 [docs/theme.md](docs/theme.md)）；QML 默认不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接（画布类手势为登记在案的例外）。详见 [src/ui/README.md](src/ui/README.md)。
 
 - **内置 WebSocket 中转服务** `DglabRelayServer` 基于 `Qt WebSockets` 在应用内托管 DG-LAB 中转服务（V3 / V4）：分配 clientId、处理 bind 配对与心跳、转发强度/波形/清除指令、解析 APP 回传；V4 额外维护被控方设备列表并下发 `device.op` / `device.op.clear`。配对二维码由内嵌 `qrcodegen`（MIT）经 `QrImageProvider` 提供给 QML。
 
@@ -64,9 +64,9 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 - **数值模块（Module）** 提供 `ModuleManager` 单例与 `ModuleValue`/`Module` 数据模型，管理可查询数值（参照 CS2 官方 GSI 规范，如 `health`、`armor`、`team_num`、`money` 等）。每个数值可独立设置查询周期（每秒/每两秒/每四秒/每半秒/四分之一秒），模块页面提供统一设置入口；调度器以所有数值中最短的查询周期为基准进行轮询，数值变化时通过 `value_changed` 信号推送，供规则引擎等下游消费。数值支持可选最小/最大值配置（写入自动钳制到范围）。模块页点击模块卡片可弹出数值展示窗口（显示名称、当前值、最小/最大值及底层字段名）。
 
-- **插件系统（IPlugin）** 提供插件化模块接口 `IPlugin`（纯虚基类）：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明与错误码返回；统一跨平台导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性），约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 工厂导出，主程序加载时校验 API 版本（`PLUGIN_API_VERSION`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`，类名/方法名自动为插件自身名称与函数名）；内存隔离约定插件自行 `new`/`delete`（宿主仅调用 `destroy_plugin`）。`ModuleManager` 作为插件宿主：启动时扫描 `<程序目录>/module/`（路径由 `config/main.json` 的 `app.module.path` 配置，`app.module.scan_load` 控制"扫描即加载"），通过 `QLibrary` 动态加载、校验 API 版本与依赖、注入日志回调与宿主上下文（`IPluginHost`：数值注册/写入、共享 `DataListener`），并管理加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。示例空壳插件（`module/example/`）演示完整接口实现与数值注册，构建后自动复制到 `<程序目录>/module/` 供扫描加载。
+- **插件系统（IPlugin）** 提供插件化模块接口 `IPlugin`（纯虚基类）：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明与错误码返回；统一跨平台导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性），约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 工厂导出，主程序加载时校验 API 版本（`PLUGIN_API_VERSION`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`，类名/方法名自动为插件自身名称与函数名）；内存隔离约定插件自行 `new`/`delete`（宿主仅调用 `destroy_plugin`）。`ModuleManager` 作为插件宿主：启动时扫描 `<程序目录>/module/`（路径由 `config/main.json` 的 `app.module.path` 配置，`app.module.scan_load` 控制"扫描即加载"），通过 `QLibrary` 动态加载、校验 API 版本与依赖、注入日志回调与宿主上下文（`IPluginHost`：数值注册/写入、共享 `DataListener`），并管理加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。社区插件模板（`docs/community_plugin_template/`）演示完整的接口实现、导出与侧车样例；已注册的插件（`gsi`/`warthunder`/`buckshot`）构建后自动复制到 `<程序目录>/module/` 供扫描加载，展示元数据侧车随动态库放入 `module/<目标名>/plugin.json`。
 
-- **主题系统（QML）** 颜色集中在 C++ 单例 `Theme`（`ThemeManager`）：16 套预设 + 自定义主/副色，运行时按主/副色派生 `surface` / `surfaceAlt` / `border` / `textPrimary` / `accent` 等语义令牌，并按 WCAG 对比度下限逐主题校正；配置页提供预设网格与取色对话框切换，即时生效。令牌清单、预设色值与扩展方式见 [docs/theme.md](docs/theme.md)。
+- **主题系统（QML）** 颜色集中在 C++ 单例 `Theme`（`ThemeManager`）：17 套预设 + 自定义主/副色，运行时按主/副色派生 `surface` / `surfaceAlt` / `border` / `textPrimary` / `accent` 等语义令牌，并按 WCAG 对比度下限逐主题校正；配置页提供预设网格与取色对话框切换，即时生效。令牌清单、预设色值与扩展方式见 [docs/theme.md](docs/theme.md)。
 
 - **日志与调试** `DebugLog` 提供模块化日志等级控制，可输出到控制台、Qt 界面等不同的 `LogSink`；通过 `Console` 类可在 Windows 上创建调试控制台。
 
@@ -338,7 +338,7 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 ### 9. 主题切换
 
-程序内置了 **16 套**预设主题，涵盖亮色、暗色及多种彩色风格（如炭黑甜粉、深海奶白、克莱因黄、午夜蓝、森野绿等）。颜色由 C++ 单例 `Theme` 提供，切换后 QML 属性绑定即时刷新，无需重启或重载样式表。用户可通过以下方式切换主题:
+程序内置了 **17 套**预设主题，涵盖亮色、暗色及多种彩色风格（如炭黑甜粉、深海奶白、克莱因黄、午夜蓝、森野绿等）。颜色由 C++ 单例 `Theme` 提供，切换后 QML 属性绑定即时刷新，无需重启或重载样式表。用户可通过以下方式切换主题:
 
 1. 打开“配置”页面的“主题”卡片，点击“选择主题”按钮，弹出预设主题对话框。
 2. 对话框逐行列出所有预设，每行显示主色块、副色块、中文名称与英文模式名（如 `light`、`charcoal_pink`）。
@@ -364,9 +364,9 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 #### 11.1 目录与现有插件
 
-- **源码目录**: `module/`（每个插件一个子目录，如 `module/example/`、`module/gsi/`）。
+- **源码目录**: `module/`（每个插件一个子目录，如 `module/gsi/`、`module/warthunder/`、`module/buckshot/`）。
 - **运行时扫描目录**: 默认 `<程序目录>/module/`，构建后插件 DLL 自动复制至此；路径可由 `config/main.json` 的 `app.module.path` 更改。
-- **现有插件**: `module/example/`（示例空壳插件，演示接口与导出）、`module/gsi/`（CS2 GSI 插件，完整功能示例）。
+- **现有插件**: `module/gsi/`（CS2 GSI 插件）、`module/warthunder/`（战争雷霆遥测插件）、`module/buckshot/`（恶魔轮盘桥接插件）；社区模板见 [`docs/community_plugin_template/`](docs/community_plugin_template/README.md)。
 
 #### 11.2 接口（IPlugin，`include/plugin/IPlugin.h`）
 

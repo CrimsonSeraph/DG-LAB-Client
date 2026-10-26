@@ -8,7 +8,7 @@
 .
 ├── include/      # C++ 头文件（.h, .hpp 等）
 ├── src/          # C++ 源文件（.cpp）与 QML 界面（src/ui/qml/）
-├── module/       # 动态库插件源码（example、gsi）
+├── module/       # 动态库插件源码（gsi、warthunder、buckshot）
 ├── assets/       # 资源文件（图片、字体、音频等）
 ├── config/       # 配置文件（.json）
 ├── docs/         # 开发文档（主题令牌等）
