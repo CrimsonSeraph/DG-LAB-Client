@@ -220,11 +220,15 @@ set(EVENT
 	# 源文件
 	src/event/EventDefinition.cpp
 	src/event/EventMapping.cpp
+	src/event/EventConflict.cpp
 	src/event/EventEngine.cpp
+	src/event/EventMath.cpp
 	# 头文件
 	include/event/EventDefinition.h
 	include/event/EventMapping.h
+	include/event/EventConflict.h
 	include/event/EventEngine.h
+	include/event/EventMath.h
 )
 
 # 蓝牙（ble）：郊狼 V3 直连
@@ -705,6 +709,24 @@ dgl_add_plugin(dgl_gsi_plugin
 		Qt::Core
 		Qt::Network
 )
+
+# -------------------- 单元测试 --------------------
+# 纯函数测试只链接 Qt::Core，不含 ModuleManager / AppConfig / WaveLibrary
+enable_testing()
+add_executable(event_engine_test
+	tests/event_engine_test.cpp
+	src/event/EventMath.cpp
+	src/event/EventConflict.cpp
+)
+target_link_libraries(event_engine_test
+	PRIVATE Qt::Core
+)
+target_include_directories(event_engine_test
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+)
+add_test(NAME event_engine_test COMMAND event_engine_test)
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；

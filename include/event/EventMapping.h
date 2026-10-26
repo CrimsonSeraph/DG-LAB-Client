@@ -184,27 +184,6 @@ void write_option_output(const std::string& module_name, const std::string& even
 /// @return 子选项条目列表
 std::vector<OptionBinding> collect_option_bindings(const std::map<std::string, EventConfig>& configs);
 
-/// @brief 子选项标识转展示文本
-/// @param key 子选项标识
-/// @return "事件id/子选项id"
-std::string option_key_display(const OptionKey& key);
-
-/// @brief 检测同一通道上的「设为」互斥
-/// @param channel 通道（"A"/"B"）
-/// @param bindings 子选项条目列表
-/// @return 该通道上已启用且操作为 set 的条目
-std::vector<OptionBinding> detect_set_conflicts(const std::string& channel,
-    const std::vector<OptionBinding>& bindings);
-
-/// @brief 清理同一通道上的「设为」互斥（纯计算）
-/// @param channel 通道（"A"/"B"）
-/// @param bindings 子选项条目列表，被关闭项置为 enabled=false
-/// @return 被关闭项的展示标识列表
-/// @note 保留 edited_at 最大者，相同时保留标识字典序较小者
-/// @note 不读写配置文件；需要落盘删除时用 apply_set_conflicts
-std::vector<std::string> resolve_set_conflicts(const std::string& channel,
-    std::vector<OptionBinding>& bindings);
-
 /// @brief 删除单个子选项映射条目（写入 user 配置层）
 /// @param module_name 模块名称
 /// @param event_id 事件标识
@@ -221,3 +200,6 @@ void remove_option_output(const std::string& module_name, const std::string& eve
 /// @note 先按 resolve_set_conflicts 得出被关闭项，再删除 user.json 中对应映射条目（回落默认映射）
 std::vector<std::string> apply_set_conflicts(const std::string& module_name, const std::string& channel,
     std::vector<OptionBinding>& bindings);
+
+// 互斥检测与清理
+#include "EventConflict.h"
