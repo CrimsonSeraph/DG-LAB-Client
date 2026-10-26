@@ -40,6 +40,9 @@
 | `app.log.console_level` | int | 控制台日志输出等级：0-DEBUG / 1-INFO / 2-WARN / 3-ERROR / 4-NONE |
 | `app.log.only_type_info` | bool | 是否仅输出单个类型日志（用于精简输出） |
 | `app.log.ui_log_level` | int | UI 界面日志输出等级（同 console_level 枚举） |
+| `app.log.file_enabled` | bool | 是否启用文件日志（默认 `false`）；启用后写入可执行文件目录下的 `log/dglab-YYYYMMDD.log`，按天切分 |
+| `app.log.file_level` | int | 文件日志写入等级（同 console_level 枚举），低于该等级的日志不落盘 |
+| `app.log.file_max_mb` | int | 单个日志文件大小上限（MB，默认 5）；写满后滚动为 `*.1`，只保留一份备份 |
 | `app.module.path` | string | 插件扫描目录（默认 `./module`，相对路径按可执行文件所在目录解析） |
 | `app.module.scan_load` | bool | 是否“扫描即加载”：扫描到插件后立即加载（默认 `false`，仅扫描并在界面显示“暂未加载”；开启用于调试或特定场景） |
 | `python.path` | string | Python 解释器路径或可执行文件名 |

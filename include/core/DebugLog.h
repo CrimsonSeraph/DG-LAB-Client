@@ -7,6 +7,8 @@
 
 #include "DebugLog_utils.hpp"
 
+#include <QFile>
+
 #include <functional>
 #include <map>
 #include <mutex>
@@ -77,6 +79,17 @@ public:
     /// @return 成功返回 true，Sink 不存在或等级无效返回 false
     bool set_log_sink_level(const std::string& name, LogLevel level);
 
+    // 文件 Sink
+    /// @brief 启用文件日志：写入 dir 下按天切分的 dglab-YYYYMMDD.log
+    /// @param dir 日志目录（不存在则创建）
+    /// @param level 写入等级下限，低于该等级的日志不落盘
+    /// @param max_mb 单个文件大小上限（MB，小于 1 按 1 处理），超出滚动为 *.1
+    /// @return 启用成功返回 true，目录或文件无法创建返回 false
+    bool enable_file_sink(const std::string& dir, LogLevel level, int max_mb);
+
+    /// @brief 关闭文件日志：注销文件通道并刷新、关闭文件句柄
+    void disable_file_sink();
+
     // 工具函数
     /// @brief 将日志等级枚举转换为字符串
     const char* level_to_string(LogLevel level);
@@ -89,7 +102,9 @@ public:
 
 private:
     DebugLog() = default;
-    ~DebugLog() = default;
+
+    /// @brief 析构时刷新并关闭文件日志
+    ~DebugLog();
 
     // 成员变量
     mutable std::mutex mutex_;                          ///< 保护 module_log_levels_ 等
@@ -99,6 +114,30 @@ private:
 
     std::map<std::string, LogSink> log_sinks_; ///< 注册的 Sink
     mutable std::mutex sinks_mutex_;           ///< 保护 log_sinks_
+
+    mutable std::mutex file_mutex_;             ///< 保护文件日志状态与写入
+    QFile file_;                                ///< 按天切分的日志文件
+    QString file_dir_;                          ///< 日志目录
+    QString file_date_;                         ///< 当前文件对应的日期（yyyyMMDD）
+    qint64 file_max_bytes_ = 5LL * 1024 * 1024; ///< 单个文件大小上限（字节）
+    qint64 file_bytes_ = 0;                     ///< 当前文件已写入字节数
+    bool file_enabled_ = false;                 ///< 是否启用文件日志
+    bool file_failed_ = false;                  ///< 写入失败后是否已降级为不写文件
+
+    /// @brief 打开指定日期的日志文件（调用方需持有 file_mutex_）
+    /// @param date_tag 日期标签（yyyyMMDD）
+    /// @param error 失败原因（成功时不变）
+    bool open_file_locked(const QString& date_tag, std::string& error);
+
+    /// @brief 将当前文件滚动为 *.1 备份并重新打开（调用方需持有 file_mutex_）
+    /// @param error 失败原因（成功时不变）
+    bool rotate_file_locked(std::string& error);
+
+    /// @brief 记录一次失败原因并降级为不写文件（调用方需持有 file_mutex_）
+    void report_file_failure_locked(const std::string& reason);
+
+    /// @brief 写入一行日志，按需切换日期文件、滚动并处理失败降级
+    void write_file_line(const std::string& line);
 };
 
 // 日志宏（便捷调用）

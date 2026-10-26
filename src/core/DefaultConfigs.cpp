@@ -26,7 +26,10 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
                 {"log", {
                     {"console_level", 0},
                     {"only_type_info", false},
-                    {"ui_log_level", 0}
+                    {"ui_log_level", 0},
+                    {"file_enabled", false},
+                    {"file_level", 0},
+                    {"file_max_mb", 5}
                 }},
                 {"module", {
                     {"path", "./module"},

@@ -5,6 +5,9 @@
 
 #include "DebugLog.h"
 
+#include <QDateTime>
+#include <QDir>
+
 #include <functional>
 #include <iostream>
 #include <map>
@@ -18,6 +21,30 @@
 #include <windows.h>
 #endif
 
+namespace {
+// 统一日志行格式：模块、方法、等级三段定宽对齐，后接消息
+std::string format_log_line(const std::string& module, const std::string& method, LogLevel level,
+    const std::string& message) {
+    const std::string tag1 = "[" + module + "]";
+    const std::string tag2 = "<" + method + ">";
+    const std::string tag3 = "(" + std::string(DebugLog::instance().level_to_string(level)) + ")";
+
+    const int TAG1_WIDTH = 30;
+    const int TAG2_WIDTH = 35;
+    const int TAG3_WIDTH = 10;
+
+    auto pad_right = [](const std::string& text, int width) {
+        if (text.length() >= static_cast<std::size_t>(width)) {
+            return text.substr(0, static_cast<std::size_t>(width));
+        }
+        return text + std::string(static_cast<std::size_t>(width) - text.length(), ' ');
+    };
+
+    return pad_right(tag1, TAG1_WIDTH) + " " + pad_right(tag2, TAG2_WIDTH) + " "
+        + pad_right(tag3, TAG3_WIDTH) + ": " + message;
+}
+} // namespace
+
 // 单例（public）
 
 DebugLog& DebugLog::instance() {
@@ -29,20 +56,7 @@ DebugLog& DebugLog::instance() {
                                    const std::string& method,
                                    LogLevel level,
                                    const std::string& message) {
-            std::string tag1 = "[" + module + "]";
-            std::string tag2 = "<" + method + ">";
-            std::string tag3 = "(" + std::string(DebugLog::instance().level_to_string(level)) + ")";
-
-            const int TAG1_WIDTH = 30;
-            const int TAG2_WIDTH = 35;
-            const int TAG3_WIDTH = 10;
-
-            auto padRight = [](const std::string& s, int width) {
-                if (s.length() >= width) return s.substr(0, width);
-                return s + std::string(width - s.length(), ' ');
-            };
-
-            std::string formatted = padRight(tag1, TAG1_WIDTH) + " " + padRight(tag2, TAG2_WIDTH) + " " + padRight(tag3, TAG3_WIDTH) + ": " + message;
+            const std::string formatted = format_log_line(module, method, level, message);
 
 #ifdef _WIN32
             HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -147,6 +161,55 @@ bool DebugLog::set_log_sink_level(const std::string& name, LogLevel level) {
     return true;
 }
 
+// 文件 Sink（public）
+
+bool DebugLog::enable_file_sink(const std::string& dir, LogLevel level, int max_mb) {
+    if (dir.empty()) {
+        return false;
+    }
+    const LogLevel sink_level = (level < LOG_DEBUG || level > LOG_NONE) ? LOG_DEBUG : level;
+    {
+        std::lock_guard<std::mutex> lock(file_mutex_);
+        if (file_enabled_) {
+            return true;
+        }
+        const int clamped_max_mb = (max_mb < 1) ? 1 : max_mb;
+        std::string error;
+        file_dir_ = QString::fromStdString(dir);
+        file_max_bytes_ = static_cast<qint64>(clamped_max_mb) * 1024LL * 1024LL;
+        file_date_.clear();
+        file_bytes_ = 0;
+        file_failed_ = false;
+        if (!open_file_locked(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd")), error)) {
+            return false;
+        }
+        file_enabled_ = true;
+    }
+    LogSink fileSink;
+    fileSink.min_level = sink_level;
+    fileSink.callback = [this](const std::string& module,
+                               const std::string& method,
+                               LogLevel log_level,
+                               const std::string& message) {
+        write_file_line(format_log_line(module, method, log_level, message));
+    };
+    register_log_sink("file", fileSink);
+    return true;
+}
+
+void DebugLog::disable_file_sink() {
+    unregister_log_sink("file");
+    std::lock_guard<std::mutex> lock(file_mutex_);
+    if (file_.isOpen()) {
+        file_.flush();
+        file_.close();
+    }
+    file_enabled_ = false;
+    file_failed_ = false;
+    file_date_.clear();
+    file_bytes_ = 0;
+}
+
 // 工具函数（public）
 
 const char* DebugLog::level_to_string(LogLevel level) {
@@ -168,4 +231,86 @@ LogLevel DebugLog::int_to_log_level(int level) {
     case 4: return LOG_NONE;
     default: return LOG_DEBUG;
     }
+}
+
+// 内部实现（private）
+
+DebugLog::~DebugLog() {
+    disable_file_sink();
+}
+
+bool DebugLog::open_file_locked(const QString& date_tag, std::string& error) {
+    if (file_.isOpen()) {
+        file_.flush();
+        file_.close();
+    }
+    QDir dir(file_dir_);
+    if (!dir.exists() && !QDir().mkpath(file_dir_)) {
+        error = "日志目录创建失败: " + file_dir_.toStdString();
+        return false;
+    }
+    file_.setFileName(dir.filePath(QStringLiteral("dglab-%1.log").arg(date_tag)));
+    if (!file_.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        error = file_.errorString().toStdString();
+        return false;
+    }
+    file_date_ = date_tag;
+    file_bytes_ = file_.size();
+    return true;
+}
+
+bool DebugLog::rotate_file_locked(std::string& error) {
+    const QString current_path = file_.fileName();
+    const QString backup_path = current_path + QStringLiteral(".1");
+    file_.flush();
+    file_.close();
+    QFile::remove(backup_path);
+    if (!QFile::rename(current_path, backup_path)) {
+        error = "日志文件滚动失败: " + current_path.toStdString();
+        return false;
+    }
+    if (!file_.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        error = file_.errorString().toStdString();
+        return false;
+    }
+    file_bytes_ = 0;
+    return true;
+}
+
+void DebugLog::report_file_failure_locked(const std::string& reason) {
+    file_failed_ = true;
+    if (file_.isOpen()) {
+        file_.close();
+    }
+    std::cerr << "[DebugLog] 文件日志写入失败，已停止写入文件: " << reason << std::endl;
+}
+
+void DebugLog::write_file_line(const std::string& line) {
+    std::lock_guard<std::mutex> lock(file_mutex_);
+    if (!file_enabled_ || file_failed_) {
+        return;
+    }
+    const QString date_tag = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd"));
+    std::string error;
+    if (!file_.isOpen() || date_tag != file_date_) {
+        if (!open_file_locked(date_tag, error)) {
+            report_file_failure_locked(error);
+            return;
+        }
+    }
+    const qint64 line_bytes = static_cast<qint64>(line.size()) + 1;
+    if (file_bytes_ > 0 && file_bytes_ + line_bytes > file_max_bytes_) {
+        if (!rotate_file_locked(error)) {
+            report_file_failure_locked(error);
+            return;
+        }
+    }
+    const qint64 written = file_.write(line.c_str(), static_cast<qint64>(line.size()));
+    if (written != static_cast<qint64>(line.size()) || file_.write("\n", 1) != 1) {
+        error = file_.errorString().toStdString();
+        report_file_failure_locked(error);
+        return;
+    }
+    file_.flush();
+    file_bytes_ += line_bytes;
 }

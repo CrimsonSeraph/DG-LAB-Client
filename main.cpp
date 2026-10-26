@@ -24,6 +24,7 @@
 #include "WaveBridge.h"
 #include "WaveLibrary.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -108,6 +109,24 @@ int main(int argc, char* argv[]) {
     LOG_MODULE("main", "main", LOG_DEBUG, "控制台日志级别设置为: " << console_log_level);
     const bool is_only_type_info = config.get_value<bool>("app.log.only_type_info", false);
     DebugLog::instance().set_only_type_info(is_only_type_info);
+
+    // 文件日志：启用后写入可执行文件目录下的 log/
+    const bool file_log_enabled = config.get_value<bool>("app.log.file_enabled", false);
+    if (file_log_enabled) {
+        const int file_log_level = config.get_value<int>("app.log.file_level", 0);
+        const int file_log_max_mb = config.get_value<int>("app.log.file_max_mb", 5);
+        const std::string file_log_dir = QDir(QCoreApplication::applicationDirPath())
+            .filePath(QStringLiteral("log")).toStdString();
+        const bool file_log_ok = DebugLog::instance().enable_file_sink(
+            file_log_dir, static_cast<LogLevel>(file_log_level), file_log_max_mb);
+        if (file_log_ok) {
+            LOG_MODULE("main", "main", LOG_DEBUG, "文件日志已启用: " << file_log_dir
+                << " level=" << file_log_level << " max_mb=" << file_log_max_mb);
+        }
+        else {
+            LOG_MODULE("main", "main", LOG_WARN, "文件日志启用失败，已降级为不写文件: " << file_log_dir);
+        }
+    }
 
     // 主题令牌（QML 单例 Theme）
     ThemeManager theme;
