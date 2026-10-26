@@ -62,7 +62,7 @@ struct EventConfig {
     std::string wave;                            ///< 事件附加波形
     MergeRule merge = MergeRule::MULTIPLY;       ///< 与其它波形的合并规则
     double weight = 1.0;                         ///< 合并权重
-    std::map<std::string, OptionOutput> options; ///< 子选项映射（键为子选项 id）
+    std::map<std::string, OptionOutput> options; ///< 子选项映射（键为子选项 id；无声明子选项的事件固定为 default）
     int frames = DEFAULT_EVENT_FRAMES;           ///< 激活窗口帧数（0 及以下按 1 帧，超过 MAX_EVENT_FRAMES 截断）
 };
 
@@ -131,6 +131,7 @@ OutputConfig read_output_config(const std::string& module_name);
 /// @param module_name 模块名称
 /// @param definition 事件声明
 /// @return 事件映射
+/// @note 声明无子选项（options 为空数组）时，映射固定使用隐式键 default
 EventConfig read_event_config(const std::string& module_name, const EventDefinition& definition);
 
 /// @brief 读取全部事件映射

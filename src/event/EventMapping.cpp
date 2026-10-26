@@ -19,6 +19,7 @@ namespace {
 
     const char* const PLUGINS_KEY_PREFIX = "app.plugins."; ///< 映射键前缀
     const char* const USER_CONFIG_NAME = "user";           ///< 写入的配置层
+    const char* const IMPLICIT_OPTION_ID = "default";      ///< 无声明子选项事件的隐式映射键
 
     // 拼接映射键：app.plugins.<模块名>.<后缀>
     std::string mapping_key(const std::string& module_name, const std::string& suffix) {
@@ -241,6 +242,16 @@ EventConfig read_event_config(const std::string& module_name, const EventDefinit
     const nlohmann::json::const_iterator options_it = object.find("options");
     if (options_it != object.end() && options_it->is_object()) {
         options_object = *options_it;
+    }
+    // 声明无子选项时映射固定使用隐式键 default（契约中「无子选项事件直接输出」的落点）
+    if (definition.options.empty()) {
+        const nlohmann::json::const_iterator it = options_object.find(IMPLICIT_OPTION_ID);
+        if (it != options_object.end() && it->is_object()) {
+            config.options[IMPLICIT_OPTION_ID] = parse_option_output(*it);
+        } else {
+            config.options[IMPLICIT_OPTION_ID] = OptionOutput();
+        }
+        return config;
     }
     for (const auto& option : definition.options) {
         const nlohmann::json::const_iterator it = options_object.find(option.id);
