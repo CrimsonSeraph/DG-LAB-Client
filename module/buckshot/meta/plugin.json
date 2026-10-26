@@ -3,7 +3,7 @@
     "name": "恶魔轮盘",
     "version": "0.1.0",
     "author": "CrimsonSeraph",
-    "description": "接收外部桥接的 WebSocket 事件并输出数值",
+    "description": "预留的 WebSocket 桥接示例，接收外部 JSON 事件并输出数值",
     "banner": "",
     "tags": ["外部桥接", "WebSocket"],
     "events": [

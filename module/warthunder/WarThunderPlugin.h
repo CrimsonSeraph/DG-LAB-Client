@@ -17,7 +17,7 @@
 #include <vector>
 
 // WarThunderPlugin - 战争雷霆空战遥测插件
-// 周期轮询本地 127.0.0.1:8111 遥测接口，把空速、高度与数据有效性写入 warthunder 模块
+// 周期轮询本地 127.0.0.1:8111 遥测接口，把速度、高度、姿态、动力与构型等遥测写入 warthunder 模块
 class WarThunderPlugin : public IPlugin {
 public:
     // 自描述
@@ -27,7 +27,7 @@ public:
 
     /// @brief 获取插件版本号
     /// @return 版本号
-    std::string version() const override { return "0.1.0"; }
+    std::string version() const override { return "0.2.0"; }
 
     /// @brief 获取插件 API 版本
     /// @return API 版本号
@@ -51,7 +51,7 @@ public:
 
 private:
     // 数值与配置解析
-    /// @brief 创建数值列表（speed / altitude / valid）
+    /// @brief 创建数值列表（数值表与定标见 module/warthunder/README.md）
     /// @return 数值列表
     static std::vector<ModuleValue> create_default_values();
 
@@ -64,7 +64,7 @@ private:
     /// @brief 发起一次遥测请求（在途请求未完成时跳过本次）
     void request_state();
 
-    /// @brief 处理遥测响应：解析 JSON 写入数值，失败仅限流记录调试日志
+    /// @brief 处理遥测响应：按数值表写入当帧出现的字段，失败仅限流记录调试日志
     /// @param reply 已完成的应答
     void on_state_reply(QNetworkReply* reply);
 
@@ -80,4 +80,4 @@ private:
     int period_ms_ = 500;                            ///< 轮询周期（毫秒）
     qint64 last_log_ms_ = 0;                         ///< 上次调试日志时间戳
     bool initialized_ = false;                       ///< 初始化标志
-};
+});

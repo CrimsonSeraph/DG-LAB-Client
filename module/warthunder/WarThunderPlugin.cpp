@@ -6,12 +6,14 @@
 #include "WarThunderPlugin.h"
 
 #include <QDateTime>
+#include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QJsonValue>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QString>
 #include <QUrl>
 
 #include <cmath>
@@ -19,52 +21,135 @@
 // 调试日志限流间隔（毫秒）
 static const qint64 k_log_interval_ms = 1000;
 
-// 在遥测数据中按键名大小写不敏感取值
-static bool find_field(const QJsonObject& state, const QString& key, double* out) {
-    for (auto it = state.constBegin(); it != state.constEnd(); ++it) {
-        if (it.key().compare(key, Qt::CaseInsensitive) != 0) {
+// 遥测数值来源与定标描述（与 README 数值表逐项对应）
+struct FieldSpec {
+    const char* value_id;     ///< 注册的数值 ID（侧车事件按此引用）
+    const char* display_name; ///< 数值中文名称（模块页展示）
+    const char* primary_key;  ///< 来源主键（规范化后比较）
+    const char* fallback_key; ///< 后备键，空串表示无后备
+    double factor;            ///< 定标倍数：原值 × factor 后四舍五入
+    int min_value;            ///< 写入下限（越界钳制）
+    int max_value;            ///< 写入上限（越界钳制）
+};
+
+// 数值表：主键取不到数值时尝试后备键，两者都取不到就跳过该数值，保留上一次的值
+static const FieldSpec k_fields[] = {
+    {"speed", "空速", "IAS, km/h", "TAS, km/h", 1.0, 0, 5000},
+    {"tas", "真空速", "TAS, km/h", "IAS, km/h", 1.0, 0, 5000},
+    {"mach", "马赫数", "M", "MACH", 1000.0, 0, 5000},
+    {"altitude", "高度", "altitude, m", "H, m", 1.0, -1000, 30000},
+    {"climb", "垂直速度", "Vy, m/s", "vertical speed, m/s", 10.0, -10000, 10000},
+    {"aoa", "迎角", "AoA, deg", "AoA", 10.0, -900, 900},
+    {"g_load", "过载", "Ny", "Ny, g", 10.0, -500, 500},
+    {"throttle", "油门", "throttle 1, %", "throttle, %", 1.0, 0, 100},
+    {"rpm", "转速", "RPM 1, %", "RPM 1", 1.0, 0, 100},
+    {"gear", "起落架", "gear, %", "gear", 1.0, 0, 1},
+    {"flaps", "襟翼", "flaps, %", "flaps", 1.0, 0, 100},
+    {"valid", "数据有效", "valid", "", 1.0, 0, 1},
+};
+
+// 数值表条目数
+static const int k_field_count = static_cast<int>(sizeof(k_fields) / sizeof(k_fields[0]));
+
+// 键名规范化：转小写并去掉空白，用于大小写与空格不敏感匹配
+static QString normalize_key(const QString& key) {
+    QString normalized;
+    normalized.reserve(key.size());
+    for (int i = 0; i < key.size(); ++i) {
+        const QChar character = key.at(i);
+        if (character.isSpace()) {
             continue;
         }
-        if (it.value().isDouble()) {
-            *out = it.value().toDouble();
-            return true;
+        normalized.append(character.toLower());
+    }
+    return normalized;
+}
+
+// 建立规范化键名索引；同一规范化键名重复出现时保留首个
+static QHash<QString, QJsonValue> build_index(const QJsonObject& state) {
+    QHash<QString, QJsonValue> index;
+    index.reserve(state.size());
+    for (auto it = state.constBegin(); it != state.constEnd(); ++it) {
+        const QString key = normalize_key(it.key());
+        if (key.isEmpty() || index.contains(key)) {
+            continue;
         }
-        return false;
+        index.insert(key, it.value());
+    }
+    return index;
+}
+
+// 取数值：接受数字、布尔（false → 0，true → 1）与数字字符串，其它类型视为缺失
+static bool read_number(const QJsonValue& value, double* out) {
+    if (value.isDouble()) {
+        const double number = value.toDouble();
+        if (!std::isfinite(number)) {
+            return false;
+        }
+        *out = number;
+        return true;
+    }
+    if (value.isBool()) {
+        *out = value.toBool() ? 1.0 : 0.0;
+        return true;
+    }
+    if (value.isString()) {
+        bool ok = false;
+        const double number = value.toString().trimmed().toDouble(&ok);
+        if (!ok || !std::isfinite(number)) {
+            return false;
+        }
+        *out = number;
+        return true;
     }
     return false;
 }
 
-// 提取空速（优先 IAS，缺失回退 TAS）
-static double read_airspeed(const QJsonObject& state) {
-    double value = 0.0;
-    if (find_field(state, QStringLiteral("IAS, km/h"), &value)) {
-        return value;
+// 按主键、后备键顺序取值；主键存在但不是数值时继续尝试后备键
+static bool find_number(const QHash<QString, QJsonValue>& index, const char* primary_key,
+    const char* fallback_key, double* out) {
+    const char* keys[] = {primary_key, fallback_key};
+    for (const char* key : keys) {
+        if (!key || key[0] == '\0') {
+            continue;
+        }
+        const auto it = index.constFind(normalize_key(QString::fromLatin1(key)));
+        if (it == index.constEnd()) {
+            continue;
+        }
+        if (read_number(it.value(), out)) {
+            return true;
+        }
     }
-    if (find_field(state, QStringLiteral("TAS, km/h"), &value)) {
-        return value;
-    }
-    return 0.0;
+    return false;
 }
 
-// 提取高度（缺失按 0）
-static double read_altitude(const QJsonObject& state) {
-    double value = 0.0;
-    if (find_field(state, QStringLiteral("altitude, m"), &value)) {
-        return value;
+// 定标：原值乘倍数四舍五入后钳到写入范围
+static int scale_value(double raw, const FieldSpec& spec) {
+    if (!std::isfinite(raw)) {
+        return 0;
     }
-    return 0.0;
+    const double scaled = raw * spec.factor;
+    if (scaled <= static_cast<double>(spec.min_value)) {
+        return spec.min_value;
+    }
+    if (scaled >= static_cast<double>(spec.max_value)) {
+        return spec.max_value;
+    }
+    return static_cast<int>(std::lround(scaled));
 }
 
-// 提取数据有效性（布尔或数值，缺失按 0）
-static int read_valid(const QJsonObject& state) {
-    const QJsonValue value = state.value(QStringLiteral("valid"));
-    if (value.isBool()) {
-        return value.toBool() ? 1 : 0;
+// 按数值表写入一帧遥测：仅更新当帧出现的字段，缺失字段保留上一次的值
+static void write_telemetry(IPluginHost* host, const std::string& module_name,
+    const QHash<QString, QJsonValue>& index) {
+    for (int i = 0; i < k_field_count; ++i) {
+        const FieldSpec& spec = k_fields[i];
+        double raw = 0.0;
+        if (!find_number(index, spec.primary_key, spec.fallback_key, &raw)) {
+            continue;
+        }
+        host->set_value(module_name, spec.value_id, scale_value(raw, spec));
     }
-    if (value.isDouble()) {
-        return value.toDouble() != 0.0 ? 1 : 0;
-    }
-    return 0;
 }
 
 // 生命周期实现（public）
@@ -124,9 +209,11 @@ void WarThunderPlugin::uninitialize() {
 
 std::vector<ModuleValue> WarThunderPlugin::create_default_values() {
     std::vector<ModuleValue> values;
-    values.emplace_back("speed", "空速", QueryPeriod::HALF_SECOND, "IAS, km/h", 0, 5000);
-    values.emplace_back("altitude", "高度", QueryPeriod::HALF_SECOND, "altitude, m", -1000, 30000);
-    values.emplace_back("valid", "数据有效", QueryPeriod::HALF_SECOND, "valid", 0, 1);
+    for (int i = 0; i < k_field_count; ++i) {
+        const FieldSpec& spec = k_fields[i];
+        values.emplace_back(spec.value_id, spec.display_name, QueryPeriod::HALF_SECOND,
+            spec.primary_key, spec.min_value, spec.max_value);
+    }
     return values;
 }
 
@@ -176,12 +263,9 @@ void WarThunderPlugin::on_state_reply(QNetworkReply* reply) {
         host_->set_value(name(), "valid", 0);
         return;
     }
+    // 只写当帧出现的字段：缺失的键不写 0，避免把上一次的值清零
     const QJsonObject state = document.object();
-    const int speed = static_cast<int>(std::lround(read_airspeed(state)));
-    const int altitude = static_cast<int>(std::lround(read_altitude(state)));
-    host_->set_value(name(), "speed", speed);
-    host_->set_value(name(), "altitude", altitude);
-    host_->set_value(name(), "valid", read_valid(state));
+    write_telemetry(host_, name(), build_index(state));
 }
 
 void WarThunderPlugin::log_throttled(const std::string& message) {

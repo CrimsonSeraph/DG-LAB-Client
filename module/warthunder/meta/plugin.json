@@ -1,9 +1,9 @@
 {
     "id": "warthunder",
     "name": "战争雷霆",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "CrimsonSeraph",
-    "description": "读取 127.0.0.1:8111 空战遥测，输出速度、高度与有效性",
+    "description": "读取 127.0.0.1:8111 空战遥测，输出速度、高度、姿态、动力与构型等数值",
     "banner": "",
     "tags": ["游戏遥测", "HTTP"],
     "events": [
@@ -17,19 +17,46 @@
             ]
         },
         {
-            "id": "speed_surge",
-            "label": "速度跃升",
-            "trigger": { "value": "speed", "compare": "increase", "amount": 50 },
+            "id": "stall_warning",
+            "label": "速度下穿 60 km/h",
+            "trigger": { "value": "speed", "compare": "cross_below", "amount": 60 },
+            "options": []
+        },
+        {
+            "id": "g_overload",
+            "label": "过载增加 3.0G",
+            "trigger": { "value": "g_load", "compare": "increase", "amount": 30 },
             "options": [
-                { "id": "boost", "label": "加速" },
-                { "id": "afterburner", "label": "加力" }
+                { "id": "gray_out", "label": "灰视" },
+                { "id": "blackout", "label": "黑视" }
             ]
         },
         {
-            "id": "speed_stall",
-            "label": "速度骤降",
-            "trigger": { "value": "speed", "compare": "decrease", "amount": 50 },
+            "id": "climb_surge",
+            "label": "爬升加快 10 m/s",
+            "trigger": { "value": "climb", "compare": "increase", "amount": 100 },
+            "options": [{ "id": "climb_warn", "label": "爬升提示" }]
+        },
+        {
+            "id": "dive_surge",
+            "label": "俯冲加快 10 m/s",
+            "trigger": { "value": "climb", "compare": "decrease", "amount": 100 },
             "options": []
+        },
+        {
+            "id": "throttle_up",
+            "label": "油门增加 10%",
+            "trigger": { "value": "throttle", "compare": "increase", "amount": 10 },
+            "options": [{ "id": "afterburner", "label": "加力" }]
+        },
+        {
+            "id": "mach_high",
+            "label": "马赫数上穿 0.80",
+            "trigger": { "value": "mach", "compare": "cross_above", "amount": 800 },
+            "options": [
+                { "id": "transonic", "label": "跨音速" },
+                { "id": "supersonic", "label": "超音速" }
+            ]
         },
         {
             "id": "telemetry_update",
