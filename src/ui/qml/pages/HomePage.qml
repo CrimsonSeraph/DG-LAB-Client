@@ -2,70 +2,133 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 首页：A/B 通道面板（强度 / 模块 / 规则 / 波形）与规则编辑器、模块管理入口。
-// 交互约定：本文件不写任何信号处理器，交互控件由 C++（UiConnector）按 objectName 连接。
+// 主页看板：设备状态与通道启停、通道模块/规则绑定、已启用插件、近期触发流水、快捷入口。
+// 强度增减与波形选择已移出本页（迷你窗 / 波形设置页负责），卡内只留只读数值与说明。
+// 交互约定：页内导航按钮用 app.navigate，其余交互控件仍由 C++（UiConnector）按 objectName 连接。
 Item {
     id: page
 
     objectName: "homePage"
 
-    ColumnLayout {
+    // 页面索引与 AppBridge::Page 一致（与 MainWindow 的页面常量同源）
+    readonly property int pagePluginCenter: 4
+    readonly property int pageWave: 5
+
+    // 内容区宽度 = 窗口宽度 - 导航栏宽度，导航栏按窄态取值即可反推窗口临界宽度：
+    // 内容区一旦窄于该临界宽度就降为单列，避免两列各占一半后被压到换行。
+    readonly property bool singleColumn: page.width < Responsive.compactNavWidth - Metrics.navWidthCompact
+
+    ScrollView {
+        id: pageScroll
+
+        objectName: "homeScrollView"
         anchors.fill: parent
-        anchors.margins: Metrics.pageMargin
-        spacing: Metrics.cardSpacing
+        clip: true
+        contentWidth: availableWidth
+        padding: Metrics.pageMargin
+        ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-        PageHeader {
-            Layout.fillWidth: true
-            title: qsTr("首页")
-            subtitle: device.outputReady ? qsTr("输出可用")
-                : (device.connected ? qsTr("已连接 · 等待输出") : qsTr("未连接设备"))
-
-            AppButton {
-                objectName: "homeModuleEntryButton"
-                text: qsTr("模块管理")
-            }
-
-            AppButton {
-                objectName: "homeRuleEditorButton"
-                text: qsTr("规则编辑器")
-            }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+        ColumnLayout {
+            width: pageScroll.availableWidth
             spacing: Metrics.cardSpacing
 
-            ChannelPanel {
+            PageHeader {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumWidth: ComponentStyle.channelCardMinWidth
-                // 卡片内容（规则/模块名、上限值）的隐含宽度不得参与分配：
-                // 显式置 0 后 fillWidth 平分整个 RowLayout，A/B 才真正等宽。
-                Layout.preferredWidth: 0
-                channel: "A"
-                strength: home.strengthA
-                limit: home.limitA
-                running: home.runningA
-                modules: home.modulesA
-                rules: home.rulesA
-                waveName: home.waveA
-                wavePoints: waveBridge.pointsA
+                title: qsTr("主页")
+                subtitle: (device.outputReady ? qsTr("输出可用") : qsTr("输出不可用"))
+                    + " · " + (ble.connected ? qsTr("蓝牙已连接") : qsTr("蓝牙未连接"))
+                    + " · " + (home.channelAState === "idle" && home.channelBState === "idle"
+                        ? qsTr("通道空闲") : qsTr("通道运行中"))
+
+                AppButton {
+                    objectName: "homeModuleEntryButton"
+                    text: qsTr("模块管理")
+                }
+
+                AppButton {
+                    objectName: "homeRuleEditorButton"
+                    text: qsTr("规则编辑器")
+                }
             }
 
-            ChannelPanel {
+            // 快捷入口：迷你窗尚未实现，按钮置灰并标注即将上线
+            RowLayout {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumWidth: ComponentStyle.channelCardMinWidth
-                Layout.preferredWidth: 0
-                channel: "B"
-                strength: home.strengthB
-                limit: home.limitB
-                running: home.runningB
-                modules: home.modulesB
-                rules: home.rulesB
-                waveName: home.waveB
-                wavePoints: waveBridge.pointsB
+                spacing: Metrics.spacingMd
+
+                AppButton {
+                    objectName: "homePluginCenterEntryButton"
+                    text: qsTr("插件中心")
+                    onClicked: app.navigate(page.pagePluginCenter)
+                }
+
+                AppButton {
+                    objectName: "homeWaveEntryButton"
+                    text: qsTr("波形设置")
+                    onClicked: app.navigate(page.pageWave)
+                }
+
+                AppButton {
+                    objectName: "homeMiniWindowEntryButton"
+                    text: qsTr("迷你窗 · 即将上线")
+                    enabled: false
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+            }
+
+            // 两列看板：左列设备与通道，右列插件与流水；窄窗口降为单列
+            GridLayout {
+                objectName: "homeDashboardGrid"
+                Layout.fillWidth: true
+                columns: page.singleColumn ? 1 : 2
+                columnSpacing: Metrics.cardSpacing
+                rowSpacing: Metrics.cardSpacing
+
+                ColumnLayout {
+                    objectName: "homeDashboardLeftColumn"
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.alignment: Qt.AlignTop
+                    spacing: Metrics.cardSpacing
+
+                    DashboardDeviceCard {
+                        Layout.fillWidth: true
+                    }
+
+                    DashboardChannelCard {
+                        Layout.fillWidth: true
+                        channel: "A"
+                        modules: home.modulesA
+                        rules: home.rulesA
+                    }
+
+                    DashboardChannelCard {
+                        Layout.fillWidth: true
+                        channel: "B"
+                        modules: home.modulesB
+                        rules: home.rulesB
+                    }
+                }
+
+                ColumnLayout {
+                    objectName: "homeDashboardRightColumn"
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.alignment: Qt.AlignTop
+                    spacing: Metrics.cardSpacing
+
+                    DashboardPluginCard {
+                        Layout.fillWidth: true
+                        pluginCenterPage: page.pagePluginCenter
+                    }
+
+                    DashboardTriggerFeed {
+                        Layout.fillWidth: true
+                    }
+                }
             }
         }
     }
