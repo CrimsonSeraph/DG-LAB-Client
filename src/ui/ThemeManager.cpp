@@ -237,7 +237,8 @@ void ThemeManager::build_presets() {
         { QStringLiteral("vandyke_brown_khaki"), QStringLiteral("凡戴克棕卡其"), QColor(0x49, 0x2D, 0x22), QColor(0xD8, 0xC7, 0xB5), false },
         { QStringLiteral("prussian_blue_fog"), QStringLiteral("普鲁士雾灰"), QColor(0x00, 0x31, 0x53), QColor(0xE5, 0xDD, 0xD7), false },
         { QStringLiteral("midnight_blue"), QStringLiteral("午夜蓝"), QColor(0x14, 0x22, 0x40), QColor(0x5B, 0x8D, 0xEF), true },
-        { QStringLiteral("forest_green"), QStringLiteral("森野绿"), QColor(0x16, 0x33, 0x2A), QColor(0x7B, 0xC9, 0x8A), true }
+        { QStringLiteral("forest_green"), QStringLiteral("森野绿"), QColor(0x16, 0x33, 0x2A), QColor(0x7B, 0xC9, 0x8A), true },
+        { QStringLiteral("classic"), QStringLiteral("经典"), QColor(0x11, 0x11, 0x11), QColor(0xF1, 0xE3, 0xA6), true }
     };
 }
 

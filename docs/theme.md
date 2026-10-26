@@ -51,7 +51,7 @@
 
 ---
 
-## 三、内置预设（16 套）
+## 三、内置预设（17 套）
 
 每个预设只需定义 `primary` / `secondary` 与明暗，其余令牌由 `recompute()` 派生。
 
@@ -73,6 +73,7 @@
 | 普鲁士雾灰   | `prussian_blue_fog`     | `#003153` | `#E5DDD7` | 浅色 |
 | 午夜蓝       | `midnight_blue`         | `#142240` | `#5B8DEF` | 深色 |
 | 森野绿       | `forest_green`          | `#16332A` | `#7BC98A` | 深色 |
+| 经典         | `classic`               | `#111111` | `#F1E3A6` | 深色 |
 
 > 「午夜蓝」「森野绿」为主题扩展新增；自定义主/副色不进入 `presets`（`custom` 为独立模式）。
 
@@ -91,7 +92,7 @@
 7. 派生焦点与禁用令牌：`focusRing` = 校正后的 `accent`（对两个表面 ≥3:1）；`surfaceDisabled`、`textDisabled`、`borderDisabled` 依次派生并在底色上校验。
 8. 派生危险态填充：`dangerText` 取黑/白中在 `danger` 上达标者（任意底色至少一端可达标）；`dangerHover` 混 10%；`dangerPressed` 先向 `surface` 混 12%，若不达 AA 再朝远离文字的方向推移。
 
-下表为 16 套预设计算后的关键令牌（近似整数值，实际以运行时 `QColor` 为准）：
+下表为 17 套预设计算后的关键令牌（近似整数值，实际以运行时 `QColor` 为准）：
 
 | mode | surface | surfaceAlt | textPrimary | textSecondary | textMuted | accent | border | textPrimary/surface |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -111,6 +112,7 @@
 | `prussian_blue_fog` | `#F5F2F0` | `#F1ECE9` | `#001625` | `#0D3B5C` | `#4B6D84` | `#003153` | `#ADBDC8` | 16.50 |
 | `midnight_blue` | `#142240` | `#27344F` | `#EBF1FD` | `#BACFF8` | `#99B8F5` | `#6F9BF1` | `#48536A` | 13.94 |
 | `forest_green` | `#16332A` | `#29433B` | `#EFF9F1` | `#C8E8CE` | `#ADDEB6` | `#7BC98A` | `#496059` | 12.61 |
+| `classic` | `#111111` | `#242424` | `#FDFCF4` | `#F9F3DA` | `#F6EEC8` | `#F1E3A6` | `#454545` | 18.32 |
 
 ---
 
@@ -140,7 +142,7 @@
 
 ### 5.1 实测达成值
 
-按 `recompute()` 复现计算后的关键组合（16 套预设全部 ≥ 下限，下表取三套代表）：
+按 `recompute()` 复现计算后的关键组合（17 套预设全部 ≥ 下限，下表取三套代表）：
 
 | 组合 | 下限 | 浅色模式 | 深色模式 | 炭黑甜粉 |
 | --- | --- | --- | --- | --- |
@@ -161,17 +163,18 @@
 | `focusRing` / `surface` | 3.0 | 4.66 | 5.74 | 5.68 |
 | `borderDisabled` / `surfaceDisabled` | 1.35 | 1.43 | 1.97 | 1.97 |
 
-16 套预设扫描结论：上述组合**全部达标**；主文字令牌（`textPrimary` / `textSecondary` / `textMuted` / `accent` 对 `surface`）的派生未改动，浅色模式 7.10 / 4.71 / 4.71 / 4.66、深色模式 12.65 / 6.93 / 5.76 / 5.74 与改造前一致。
+17 套预设扫描结论：上述组合**全部达标**；主文字令牌（`textPrimary` / `textSecondary` / `textMuted` / `accent` 对 `surface`）的派生未改动，浅色模式 7.10 / 4.71 / 4.71 / 4.66、深色模式 12.65 / 6.93 / 5.76 / 5.74 与改造前一致。
 
-选中态由**两个令牌成对**承担：`selectionBg`（着色带）+`selectionText`（选中文字）。`selectionBg` 上只画 `textPrimary`（下拉委托）或 `selectionText`（导航选中），不再出现 `accentText`，因此无需让同一个背景同时对两极达标。三套代表主题的取值：
+选中态由**两个令牌成对**承担：`selectionBg`（着色带）+`selectionText`（选中文字）。`selectionBg` 上只画 `textPrimary`（下拉委托）或 `selectionText`（导航选中），不再出现 `accentText`，因此无需让同一个背景同时对两极达标。四套代表主题的取值：
 
 | mode | `selectionBg` | `selectionText` | `textPrimary` | `accent` | `pressed` |
 | --- | --- | --- | --- | --- | --- |
 | `light` | `#E0E4E9` | `#5E656A` | `#4F565A` | `#697277` | `#3D4245` |
 | `night` | `#3F4953` | `#B2B8BF` | `#E6E8EA` | `#959EA7` | `#C2C7CC` |
 | `charcoal_pink` | `#593142` | `#F088B1` | `#FCE7EF` | `#EC6599` | `#F4A6C4` |
+| `classic` | `#54503E` | `#F1E3A6` | `#FDFCF4` | `#F1E3A6` | `#F7EFCB` |
 
-按下态：`pressed` 朝背离 `accentText` 的方向混 42%，`accentText` 在按下态的对比度随之升到 7.5:1 以上，且按下比悬停明显更深/更亮一档（三套代表主题 `hover`/`pressed` 对比度 1.64 / 1.35 / 1.38）。16 套中最紧的是克莱因黄、藤紫钛绿、马尔斯玫瑰（1.06–1.10）：它们的 `accent` 本就接近白色，`accentText` 为深色，「背离文字」的方向很快撞到白色上限；再往深处走会跌破 4.5:1，故取物理可达的最大步进。
+按下态：`pressed` 朝背离 `accentText` 的方向混 42%，`accentText` 在按下态的对比度随之升到 7.5:1 以上，且按下比悬停明显更深/更亮一档（三套代表主题 `hover`/`pressed` 对比度 1.64 / 1.35 / 1.38）。17 套中最紧的是克莱因黄、藤紫钛绿、马尔斯玫瑰、经典（1.06–1.10）：它们的 `accent` 本就接近白色，`accentText` 为深色，「背离文字」的方向很快撞到白色上限；再往深处走会跌破 4.5:1，故取物理可达的最大步进。
 
 ---
 

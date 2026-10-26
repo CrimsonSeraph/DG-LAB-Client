@@ -71,7 +71,7 @@ src/ui/
 | `waveBridge` | `WaveBridge` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
-| `Theme` | `ThemeManager`（QML 单例） | 主题令牌（16 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
+| `Theme` | `ThemeManager`（QML 单例） | 主题令牌（17 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
 | `updateBridge` | `UpdateBridge` | 检查更新、下载更新包（进度 / 错误）、重启并安装；安装经 `confirmDialog` 确认 |
 
 ## objectName 契约表
@@ -133,7 +133,7 @@ src/ui/
 | `modulePeriodCombo` | 统一查询周期下拉（`periodOptions`，文案为毫秒数值）；`activated` 与「应用」共用同一槽 |
 | `modulePeriodApplyButton` | 把所选周期应用到全部数值 |
 | `moduleCardFlow` | 模块卡片流式容器；委托热区由 `watch_items` 扫描 |
-| `moduleCardClick` | 卡片热区（`moduleName` 属性）：打开数值弹窗（仅已启用模块可点） |
+| `moduleCardClick` | 卡片热区（`moduleName` 属性，取模块标识而非展示名）：打开数值弹窗（仅已启用模块可点） |
 | `pluginToggleClick` | 插件卡启用/禁用（`fileName` 属性）：成功不弹 Toast（徽标变化），失败 `ModuleBridge::pluginToggled` 弹 danger |
 | `moduleStateBadge` | 卡片状态徽标（`StatusBadge`）：内置模块/已启用 level 1、未启用 level 0、加载失败 level 3 |
 | `moduleEmptyStateText` | 模块列表空态文案（`moduleBridge.modules` 为空时可见）：未发现模块（检查 plugins 目录） |
