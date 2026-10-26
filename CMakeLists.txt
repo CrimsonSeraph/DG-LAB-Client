@@ -223,12 +223,14 @@ set(EVENT
 	src/event/EventConflict.cpp
 	src/event/EventEngine.cpp
 	src/event/EventMath.cpp
+	src/event/EventRuntime.cpp
 	# 头文件
 	include/event/EventDefinition.h
 	include/event/EventMapping.h
 	include/event/EventConflict.h
 	include/event/EventEngine.h
 	include/event/EventMath.h
+	include/event/EventRuntime.h
 )
 
 # 蓝牙（ble）：郊狼 V3 直连
@@ -287,6 +289,7 @@ set(UI_QML
 	src/ui/QrImageProvider.cpp
 	src/ui/RuleGraphBridge.cpp
 	src/ui/LogBridge.cpp
+	src/ui/EventBridge.cpp
 	# 头文件
 	include/ui/ThemeManager.h
 	include/ui/AppBridge.h
@@ -298,6 +301,7 @@ set(UI_QML
 	include/ui/QrImageProvider.h
 	include/ui/RuleGraphBridge.h
 	include/ui/LogBridge.h
+	include/ui/EventBridge.h
 )
 
 # 更新桥接

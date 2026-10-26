@@ -9,6 +9,8 @@
 #include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DeviceController.h"
+#include "EventBridge.h"
+#include "EventRuntime.h"
 #include "HomeBridge.h"
 #include "LogBridge.h"
 #include "ModuleBridge.h"
@@ -144,6 +146,11 @@ int main(int argc, char* argv[]) {
     home.initialize();
     ModuleBridge module_bridge;
     module_bridge.initialize();
+    // 事件运行时与事件桥接（QML 上下文属性 eventBridge）
+    EventRuntime event_runtime;
+    event_runtime.initialize();
+    EventBridge event_bridge(&event_runtime);
+    event_bridge.initialize();
     WaveLibrary::instance().initialize();
     WaveBridge wave(&device);
     wave.initialize();
@@ -168,6 +175,7 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("device"), &device);
     engine.rootContext()->setContextProperty(QStringLiteral("home"), &home);
     engine.rootContext()->setContextProperty(QStringLiteral("moduleBridge"), &module_bridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("eventBridge"), &event_bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("waveBridge"), &wave);
     engine.rootContext()->setContextProperty(QStringLiteral("ble"), &ble);
     engine.rootContext()->setContextProperty(QStringLiteral("ruleGraph"), &rule_graph);
