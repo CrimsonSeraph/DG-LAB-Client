@@ -5,5 +5,37 @@
     "author": "CrimsonSeraph",
     "description": "读取 127.0.0.1:8111 空战遥测，输出速度、高度与有效性",
     "banner": "",
-    "tags": ["游戏遥测", "HTTP"]
+    "tags": ["游戏遥测", "HTTP"],
+    "events": [
+        {
+            "id": "altitude_low",
+            "label": "高度下穿 1000 米",
+            "trigger": { "value": "altitude", "compare": "cross_below", "amount": 1000 },
+            "options": [
+                { "id": "warn", "label": "低空警告" },
+                { "id": "danger", "label": "危险低空" }
+            ]
+        },
+        {
+            "id": "speed_surge",
+            "label": "速度跃升",
+            "trigger": { "value": "speed", "compare": "increase", "amount": 50 },
+            "options": [
+                { "id": "boost", "label": "加速" },
+                { "id": "afterburner", "label": "加力" }
+            ]
+        },
+        {
+            "id": "speed_stall",
+            "label": "速度骤降",
+            "trigger": { "value": "speed", "compare": "decrease", "amount": 50 },
+            "options": []
+        },
+        {
+            "id": "telemetry_update",
+            "label": "遥测状态更新",
+            "trigger": { "value": "valid", "compare": "any" },
+            "options": [{ "id": "lost", "label": "数据中断" }]
+        }
+    ]
 }

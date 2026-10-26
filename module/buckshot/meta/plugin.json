@@ -5,5 +5,31 @@
     "author": "CrimsonSeraph",
     "description": "接收外部桥接的 WebSocket 事件并输出数值",
     "banner": "",
-    "tags": ["外部桥接", "WebSocket"]
+    "tags": ["外部桥接", "WebSocket"],
+    "events": [
+        {
+            "id": "hurt",
+            "label": "受伤",
+            "trigger": { "value": "hp", "compare": "decrease", "amount": 1 },
+            "options": [
+                { "id": "heart", "label": "小心心" },
+                { "id": "rose", "label": "玫瑰" }
+            ]
+        },
+        {
+            "id": "damage_surge",
+            "label": "伤害增加",
+            "trigger": { "value": "damage", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "rocket", "label": "火箭" },
+                { "id": "shield_break", "label": "护盾击破" }
+            ]
+        },
+        {
+            "id": "shield_down",
+            "label": "护盾减少",
+            "trigger": { "value": "shield", "compare": "decrease", "amount": 1 },
+            "options": []
+        }
+    ]
 }
