@@ -30,7 +30,8 @@ src/ui/
 │   │   ├── WaveSelectDialog.qml
 │   │   └── WaveEditorDialog.qml
 │   ├── pages/
-│   │   ├── HomePage.qml        # 主页：A/B 通道面板（导航第 1 项）
+│   │   ├── HomePage.qml        # 主页看板：设备 / 通道 / 插件 / 触发流水（导航第 1 项）
+│   │   ├── home/              # 看板卡片：设备状态、通道行与通道卡、已启用插件、触发流水
 │   │   ├── PluginCenterPage.qml # 插件中心（导航第 2 项，当前为骨架）
 │   │   ├── WavePage.qml        # 波形设置（导航第 3 项，当前为骨架）
 │   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
@@ -39,7 +40,7 @@ src/ui/
 │   │   ├── ModulePage.qml      # 模块页（不在导航中，仅经首页入口可达）
 │   │   └── AboutPage.qml       # 关于（仅经左下角面板入口可达）
 │   ├── home/
-│   │   └── ChannelPanel.qml    # 单通道面板（强度 / 模块 / 规则 / 波形 / 启停）
+│   │   └── ChannelPanel.qml    # 单通道面板（强度 / 模块 / 规则 / 波形 / 启停）；主页看板重写后已不再被引用
 │   ├── components/
 │   │   ├── GlassCard.qml       # 卡片容器
 │   │   ├── AppButton.qml       # 通用按钮（primary / danger / outline）
@@ -107,16 +108,20 @@ src/ui/
 | `homeModuleEntryButton` | 跳转模块页 |
 | `homeRuleEditorButton` / `configRuleEditorButton` | 打开规则编辑器 |
 
-首页通道（`ChannelPanel`，`channel` 为 A/B）：
+主页看板（`pages/HomePage.qml` 与 `pages/home/`）：
+
+主页已改为看板：设备状态、A/B 通道启停与模块/规则摘要、已启用插件、近期触发流水、页内快捷入口。强度调节与波形选择不在本页，后续分别由迷你窗与波形设置页提供。
 
 | objectName | 行为 |
 | --- | --- |
-| `channel{A,B}Card` | 通道卡根节点（`GlassCard`），用于几何度量 |
-| `channel{A,B}StartButton` | 切换通道启用状态（同步规则引擎通道变量）；位于卡头右侧，运行态为 `danger` + `outline` |
-| `channel{A,B}StatusBadge` | 状态徽标（`components/StatusBadge.qml`）：未运行 / 运行中 / 无输出，只展示不给交互 |
-| `channel{A,B}StrengthSpin` | 设置目标强度（`valueModified`）；`showIndicator: false` |
-| `channel{A,B}StrengthIncrease` / `Decrease` | 强度 ±1 |
-| `channel{A,B}SelectWaveButton` | 选择波形 |
+| `dashboardDeviceCard` / `dashboardDeviceName` | 设备状态卡与其中的设备名（`ble.deviceName`，未连接时为「未连接设备」）：只读绑定 |
+| `dashboardChannel{A,B}Card` | 通道卡根节点（`GlassCard`）：只读展示该通道已挂载模块与直连规则 |
+| `dashboardChannel{A,B}Name` / `dashboardChannel{A,B}Badge` | 通道状态行（`pages/home/DashboardChannelRow.qml`）的通道名与状态徽标（未运行 / 运行中 / 无输出）：只展示不给交互 |
+| `channel{A,B}StartButton` | 切换通道启用状态（同步规则引擎通道变量）；位置已移到设备状态卡的通道行，沿用旧 `objectName`，运行态为 `danger` + `outline` |
+| `dashboardPluginCard` / `dashboardPluginCount` | 已启用插件卡与其中的计数（`moduleBridge.modules` 中 `kind` 为 plugin 且已启用的项）：只读 |
+| `dashboardTriggerCard` / `dashboardTriggerEmpty` | 近期触发流水卡（最近 8 条）与无记录时的空态文案：只读 |
+| `homePluginCenterEntryButton` / `homeWaveEntryButton` | 页内快捷入口：分别跳转插件中心与波形设置 |
+| `homeMiniWindowEntryButton` | 迷你窗入口，尚未实现：按钮置灰（`enabled: false`），不产生交互 |
 
 配置页：
 
@@ -274,7 +279,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 - QML 不写 `onClicked` / `Connections` / `onXxx`；所有交互由 `UiConnector` 在 `engine.load()` 之后按 `objectName` 连接。
 - 新增交互控件必须同步更新 `UiConnector` 与本文件的 objectName 表。
 - 列表/中继器动态生成的委托（如 `themePresetList` 的 `themePresetClick`）不在 `QObject::children()` 中：`UiConnector::watch_items()` 沿 `QQuickItem::childItems()` 扫描热区并在 `childrenChanged` 后重扫。
-- 用户可编辑但需要回灌的控件（如强度 `SpinBox`）使用 `Binding` 元素回写，避免用户操作破坏绑定。
+- 用户可编辑但需要回灌的控件（如波形段落参数 `SpinBox`）使用 `Binding` 元素回写，避免用户操作破坏绑定。
 
 桥接信号 → 反馈路由（`UiConnector` 构造期连接，QML 不参与）：
 

@@ -64,9 +64,6 @@ private slots:
     void on_confirm_canceled();
     // 首页通道
     void on_channel_toggle_clicked();
-    void on_strength_modified();
-    void on_strength_adjust_clicked();
-    void on_wave_select_clicked();
     // 配置：连接
     void on_config_connect_clicked();
     // 配置：主题
@@ -82,7 +79,8 @@ private slots:
     void on_module_period_applied();
     void on_plugin_toggle_clicked();
     void on_module_card_clicked();
-    // 波形库与编辑器（on_wave_select_clicked 见"首页通道"）
+    // 波形库与编辑器
+    void on_wave_select_clicked();
     void on_wave_channel_clicked();
     void on_wave_create_clicked();
     void on_wave_library_item_clicked();

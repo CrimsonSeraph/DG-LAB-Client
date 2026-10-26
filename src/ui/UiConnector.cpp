@@ -87,7 +87,7 @@ namespace {
         return value.isValid() ? value.toReal() : fallback;
     }
 
-    /// @brief 从 "channelAStrengthSpin" 这类名字中解析通道（A/B）
+    /// @brief 从 "channelAStartButton" 这类名字中解析通道（A/B）
     QString channel_of(const QString& object_name) {
         const qsizetype index = object_name.indexOf(QStringLiteral("channel"));
         if (index < 0 || index + 8 >= object_name.size()) {
@@ -235,21 +235,9 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "confirmAcceptButton", SLOT(on_confirm_accepted()));
     connect_clicked(root_object, "confirmCancelButton", SLOT(on_confirm_canceled()));
 
+    // 主页看板只留通道启停：强度调节与波形选择已移出本页，不在此处连接
     connect_clicked(root_object, "channelAStartButton", SLOT(on_channel_toggle_clicked()));
     connect_clicked(root_object, "channelBStartButton", SLOT(on_channel_toggle_clicked()));
-    connect_clicked(root_object, "channelAStrengthIncrease", SLOT(on_strength_adjust_clicked()));
-    connect_clicked(root_object, "channelAStrengthDecrease", SLOT(on_strength_adjust_clicked()));
-    connect_clicked(root_object, "channelBStrengthIncrease", SLOT(on_strength_adjust_clicked()));
-    connect_clicked(root_object, "channelBStrengthDecrease", SLOT(on_strength_adjust_clicked()));
-    connect_clicked(root_object, "channelASelectWaveButton", SLOT(on_wave_select_clicked()));
-    connect_clicked(root_object, "channelBSelectWaveButton", SLOT(on_wave_select_clicked()));
-    const char* spins[] = {"channelAStrengthSpin", "channelBStrengthSpin"};
-    for (const char* name : spins) {
-        auto* spin = root_object->findChild<QObject*>(QString::fromLatin1(name));
-        if (spin != nullptr) {
-            QObject::connect(spin, SIGNAL(valueModified()), this, SLOT(on_strength_modified()));
-        }
-    }
 
     connect_clicked(root_object, "configConnectButton", SLOT(on_config_connect_clicked()));
     connect_clicked(root_object, "configThemeSelectButton", SLOT(on_theme_select_clicked()));
@@ -647,22 +635,6 @@ void UiConnector::on_channel_toggle_clicked() {
         });
 }
 
-void UiConnector::on_strength_modified() {
-    auto* spin = sender();
-    if (spin != nullptr && home_ != nullptr) {
-        home_->setChannelStrength(channel_of(spin->objectName()), spin->property("value").toInt());
-    }
-}
-
-void UiConnector::on_strength_adjust_clicked() {
-    auto* button = sender();
-    if (button == nullptr || home_ == nullptr) {
-        return;
-    }
-    const QString name = button->objectName();
-    home_->adjustChannelStrength(channel_of(name), name.contains(QStringLiteral("Increase")) ? 1 : -1);
-}
-
 void UiConnector::on_wave_channel_clicked() {
     auto* button = sender();
     if (button == nullptr || wave_ == nullptr) {
@@ -673,14 +645,6 @@ void UiConnector::on_wave_channel_clicked() {
 }
 
 void UiConnector::on_wave_select_clicked() {
-    auto* button = sender();
-    if (button == nullptr || wave_ == nullptr) {
-        return;
-    }
-    // 首页通道按钮会先指定目标通道，再打开波形库
-    if (button->objectName().startsWith(QStringLiteral("channel"))) {
-        wave_->setTargetChannel(channel_of(button->objectName()));
-    }
     open_dialog("waveSelectDialog");
 }
 
