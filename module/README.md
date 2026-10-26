@@ -67,6 +67,37 @@ dgl_add_plugin(dgl_warthunder_plugin
 
 `dgl_add_plugin` 用 `copy_directory` 把 `META_DIR` 的内容整体复制到 `<exe>/module/<目标名>/`；若把插件源码目录当作 `META_DIR`，源码会被一起复制进部署目录。`META_DIR` 可写多个目录，未指定时只复制动态库。
 
+### 事件声明（events）
+
+侧车的 `events` 数组声明「什么数值变化算一次事件」，事件下的 `options` 是输出变体（子选项）；用户在 `user.json` 的 `app.plugins.<模块名>` 里决定每个子选项输出到哪个通道、加多少。字段全部可选，缺省表示该插件不产生事件。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `events` | object[] | 事件声明数组 |
+| `events[].id` | string | 事件标识，`user.json` 的 `events` 键引用它 |
+| `events[].label` | string | 事件展示名 |
+| `events[].trigger.value` | string | 引用本插件已注册的数值 id |
+| `events[].trigger.compare` | string | `any` / `increase` / `decrease` / `cross_above` / `cross_below` |
+| `events[].trigger.amount` | number | 比较阈值或最小变化量，`compare=any` 时忽略 |
+| `events[].options` | object[] | 子选项数组，可为空数组（为空时映射按隐式子选项 `default` 读取） |
+| `events[].options[].id` | string | 子选项标识，映射配置的 `options` 键引用它 |
+| `events[].options[].label` | string | 子选项展示名 |
+
+```json
+{
+    "events": [
+        {
+            "id": "hurt",
+            "label": "受伤",
+            "trigger": { "value": "hp", "compare": "decrease", "amount": 1 },
+            "options": [{ "id": "light", "label": "轻伤" }]
+        }
+    ]
+}
+```
+
+触发判定（`increase` / `decrease` 比较最小变化量，`cross_above` / `cross_below` 为严格穿越且首次写入不触发）、映射结构与输出合成规则见 [`docs/event-mapping.md`](../docs/event-mapping.md)。
+
 ## 插件快速上手
 
 ### 接口与宿主能力

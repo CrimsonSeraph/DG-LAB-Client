@@ -10,7 +10,7 @@ docs/community_plugin_template/
 ├── ExamplePlugin.h      # 插件类声明
 ├── ExamplePlugin.cpp    # 实现 + 导出三件套
 └── meta/
-    └── plugin.json      # 展示元数据侧车（字段示例）
+    └── plugin.json      # 展示元数据与事件声明侧车（字段示例）
 ```
 
 ## 快速开始
@@ -40,6 +40,26 @@ docs/community_plugin_template/
 | `description` | string | 一句话简介 |
 | `banner` | string | 头图文件名，相对侧车目录；留空则不显示头图 |
 | `tags` | string[] | 标签，模块页显示为徽标 |
+| `events` | object[] | 事件声明（触发容器与子选项），示例见下文 |
+
+### 事件声明示例（events）
+
+模板插件注册的数值 id 是 `example_value`，可在侧车里声明该数值的变化事件，`options` 是事件下的输出变体（子选项），留空数组表示该事件没有子选项（映射中按子选项 id `default` 读取）：
+
+```json
+{
+    "events": [
+        {
+            "id": "manual_change",
+            "label": "数值变化",
+            "trigger": { "value": "example_value", "compare": "increase", "amount": 1 },
+            "options": [{ "id": "small", "label": "小幅" }]
+        }
+    ]
+}
+```
+
+`compare` 取 `any` / `increase` / `decrease` / `cross_above` / `cross_below`，`compare=any` 时 `amount` 忽略；`increase` / `decrease` 的 `amount` 是最小变化量，`cross_above` / `cross_below` 为严格穿越（等于阈值或首次写入都不触发）。事件如何映射到输出通道、输出强度如何合成，见 [事件与映射配置](../event-mapping.md)。
 
 ## CMake 注册
 

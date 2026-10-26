@@ -5,5 +5,13 @@
     "author": "你的名字",
     "description": "一句话说明插件输出的数值",
     "banner": "",
-    "tags": ["示例", "模板"]
+    "tags": ["示例", "模板"],
+    "events": [
+        {
+            "id": "manual_change",
+            "label": "数值变化",
+            "trigger": { "value": "example_value", "compare": "increase", "amount": 1 },
+            "options": [{ "id": "small", "label": "小幅" }]
+        }
+    ]
 }
