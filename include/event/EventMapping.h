@@ -35,6 +35,9 @@ enum class MergeRule {
     WEIGHTED = 3  ///< 按权重加权
 };
 
+// 模块级默认输出通道（app.plugins.<模块>.channel）
+constexpr const char* DEFAULT_MODULE_CHANNEL = "AB"; ///< 缺省值：A 与 B 各一次
+
 /// @brief 通道配置（app.plugins.<模块>.channels.<通道>）
 struct EventChannelConfig {
     int limit = 200;  ///< 通道上限
@@ -43,7 +46,7 @@ struct EventChannelConfig {
 
 /// @brief 子选项输出映射（events.<事件>.options.<子选项>）
 struct OptionOutput {
-    std::string channel = "A";                           ///< 目标通道（"A"/"B"）
+    std::string channel = "A";                           ///< 目标通道（"A"/"B"，空串表示跟随模块默认通道）
     EventOperation operation = EventOperation::INCREASE; ///< 操作
     OptionMode mode = OptionMode::VALUE;                 ///< 数值模式
     int value = 0;                                       ///< 绝对值（mode=value 时使用）
@@ -127,6 +130,11 @@ EventChannelConfig read_channel_config(const std::string& module_name, const std
 /// @return 输出端配置
 OutputConfig read_output_config(const std::string& module_name);
 
+/// @brief 读取模块级默认输出通道（app.plugins.<模块>.channel）
+/// @param module_name 模块名称
+/// @return "A" / "B" / "AB"；键缺失、类型不符或取值非法时返回 DEFAULT_MODULE_CHANNEL
+std::string read_default_channel(const std::string& module_name);
+
 /// @brief 读取单个事件映射（字段缺失取默认值，子选项以声明为基准）
 /// @param module_name 模块名称
 /// @param definition 事件声明
@@ -165,6 +173,12 @@ void write_channel_config(const std::string& module_name, const std::string& cha
 /// @param config 输出端配置
 void write_output_config(const std::string& module_name, const OutputConfig& config);
 
+/// @brief 写入模块级默认输出通道（写入 user 配置层）
+/// @param module_name 模块名称
+/// @param channel 通道（"A"/"B"/"AB"）
+/// @note 取值非法时按 DEFAULT_MODULE_CHANNEL 落盘
+void write_default_channel(const std::string& module_name, const std::string& channel);
+
 /// @brief 写入事件映射（写入 user 配置层，子选项原样落盘）
 /// @param module_name 模块名称
 /// @param event_id 事件标识
@@ -195,12 +209,13 @@ void remove_option_output(const std::string& module_name, const std::string& eve
 
 /// @brief 计算并落盘「设为」互斥清理
 /// @param module_name 模块名称
-/// @param channel 通道（"A"/"B"）
+/// @param channel 请求清理的通道（"A"/"B"）
+/// @param default_channel 模块默认通道（"A"/"B"/"AB"；存储为空串的条目按它展开）
 /// @param bindings 子选项条目列表，被关闭项置为 enabled=false
 /// @return 被关闭项的展示标识列表
 /// @note 先按 resolve_set_conflicts 得出被关闭项，再删除 user.json 中对应映射条目（回落默认映射）
 std::vector<std::string> apply_set_conflicts(const std::string& module_name, const std::string& channel,
-    std::vector<OptionBinding>& bindings);
+    const std::string& default_channel, std::vector<OptionBinding>& bindings);
 
 // 互斥检测与清理
 #include "EventConflict.h"

@@ -102,8 +102,13 @@ namespace {
     }
 
     // 被关闭项的首个展示标识（空列表返回空串）
-    std::string first_disabled(const std::vector<std::string>& disabled) {
-        return disabled.empty() ? std::string() : disabled.front();
+    std::string first_disabled(const std::vector<SetConflictLoss>& losses) {
+        return losses.empty() ? std::string() : option_key_display(losses.front().key);
+    }
+
+    // 被关闭项的首个落败通道数（空列表返回 0）
+    int first_channel_count(const std::vector<SetConflictLoss>& losses) {
+        return losses.empty() ? 0 : static_cast<int>(losses.front().channels.size());
     }
 
     // 冲突条目的首个展示标识（空列表返回空串）
@@ -160,7 +165,7 @@ namespace {
         bindings.push_back(make_binding("gift_a", "x", make_set_output("a", 100)));
         bindings.push_back(make_binding("gift_b", "x", make_set_output("B", 100)));
         bindings.push_back(make_binding("gift_c", "x", make_increase_output("A")));
-        const std::vector<OptionBinding> conflicts = detect_set_conflicts("A", bindings);
+        const std::vector<OptionBinding> conflicts = detect_set_conflicts("A", "AB", bindings);
         CHECK_INT(name, 1, static_cast<int>(conflicts.size()));
         CHECK_STRING(name, "gift_a/x", first_conflict(conflicts));
     }
@@ -170,7 +175,7 @@ namespace {
         std::vector<OptionBinding> bindings;
         bindings.push_back(make_binding("gift_a", "x", make_set_output("A", 100)));
         bindings.push_back(make_binding("gift_b", "x", make_set_output("A", 200)));
-        const std::vector<std::string> disabled = resolve_set_conflicts("A", bindings);
+        const std::vector<SetConflictLoss> disabled = resolve_set_conflicts("A", "AB", bindings);
         CHECK_INT(name, 1, static_cast<int>(disabled.size()));
         CHECK_STRING(name, "gift_a/x", first_disabled(disabled));
         CHECK_TRUE(name, !bindings[0].enabled);
@@ -182,7 +187,7 @@ namespace {
         std::vector<OptionBinding> bindings;
         bindings.push_back(make_binding("gift_b", "x", make_set_output("A", 100)));
         bindings.push_back(make_binding("gift_a", "x", make_set_output("A", 100)));
-        const std::vector<std::string> disabled = resolve_set_conflicts("A", bindings);
+        const std::vector<SetConflictLoss> disabled = resolve_set_conflicts("A", "AB", bindings);
         CHECK_INT(name, 1, static_cast<int>(disabled.size()));
         CHECK_STRING(name, "gift_b/x", first_disabled(disabled));
         CHECK_TRUE(name, bindings[1].enabled);
@@ -193,7 +198,7 @@ namespace {
         std::vector<OptionBinding> bindings;
         bindings.push_back(make_binding("gift", "z", make_set_output("A", 100)));
         bindings.push_back(make_binding("gift", "a", make_set_output("A", 100)));
-        const std::vector<std::string> disabled = resolve_set_conflicts("A", bindings);
+        const std::vector<SetConflictLoss> disabled = resolve_set_conflicts("A", "AB", bindings);
         CHECK_INT(name, 1, static_cast<int>(disabled.size()));
         CHECK_STRING(name, "gift/z", first_disabled(disabled));
         CHECK_TRUE(name, bindings[1].enabled);
@@ -204,7 +209,7 @@ namespace {
         std::vector<OptionBinding> bindings;
         bindings.push_back(make_binding("gift_a", "x", make_set_output("A", 100)));
         bindings.push_back(make_binding("gift_b", "x", make_set_output("B", 200)));
-        const std::vector<std::string> disabled = resolve_set_conflicts("a", bindings);
+        const std::vector<SetConflictLoss> disabled = resolve_set_conflicts("a", "AB", bindings);
         CHECK_INT(name, 0, static_cast<int>(disabled.size()));
         CHECK_TRUE(name, bindings[0].enabled);
         CHECK_TRUE(name, bindings[1].enabled);
@@ -216,7 +221,7 @@ namespace {
         bindings.push_back(make_binding("gift_a", "x", make_set_output("A", 100)));
         bindings.push_back(make_binding("gift_b", "x", make_increase_output("A")));
         bindings[1].output.edited_at = 500;
-        const std::vector<std::string> disabled = resolve_set_conflicts("A", bindings);
+        const std::vector<SetConflictLoss> disabled = resolve_set_conflicts("A", "AB", bindings);
         CHECK_INT(name, 0, static_cast<int>(disabled.size()));
         CHECK_TRUE(name, bindings[0].enabled);
         CHECK_TRUE(name, bindings[1].enabled);
@@ -227,11 +232,103 @@ namespace {
         std::vector<OptionBinding> bindings;
         bindings.push_back(make_binding("gift_a", "x", make_set_output("A", 100)));
         bindings.push_back(make_binding("gift_b", "x", make_set_output("A", 200)));
-        const std::vector<std::string> first = resolve_set_conflicts("A", bindings);
-        const std::vector<std::string> second = resolve_set_conflicts("A", bindings);
+        const std::vector<SetConflictLoss> first = resolve_set_conflicts("A", "AB", bindings);
+        const std::vector<SetConflictLoss> second = resolve_set_conflicts("A", "AB", bindings);
         CHECK_INT(name, 1, static_cast<int>(first.size()));
         CHECK_INT(name, 0, static_cast<int>(second.size()));
         CHECK_TRUE(name, bindings[1].enabled);
+    }
+
+    void test_detect_follow_default() {
+        const char* name = "detect_set_conflicts/follow_default";
+        std::vector<OptionBinding> bindings;
+        bindings.push_back(make_binding("gift_a", "x", make_set_output("", 100)));
+        const std::vector<OptionBinding> on_a = detect_set_conflicts("A", "AB", bindings);
+        const std::vector<OptionBinding> on_b = detect_set_conflicts("B", "ab", bindings);
+        CHECK_INT(name, 1, static_cast<int>(on_a.size()));
+        CHECK_STRING(name, "gift_a/x", first_conflict(on_a));
+        CHECK_INT(name, 1, static_cast<int>(on_b.size()));
+        CHECK_STRING(name, "gift_a/x", first_conflict(on_b));
+        const std::vector<OptionBinding> default_a = detect_set_conflicts("A", "A", bindings);
+        const std::vector<OptionBinding> default_a_on_b = detect_set_conflicts("B", "A", bindings);
+        CHECK_INT(name, 1, static_cast<int>(default_a.size()));
+        CHECK_INT(name, 0, static_cast<int>(default_a_on_b.size()));
+        const std::vector<OptionBinding> invalid_channel = detect_set_conflicts("C", "AB", bindings);
+        CHECK_INT(name, 0, static_cast<int>(invalid_channel.size()));
+    }
+
+    void test_resolve_follow_default_ab() {
+        const char* name = "resolve_set_conflicts/follow_default_ab";
+        std::vector<OptionBinding> on_a;
+        on_a.push_back(make_binding("gift_a", "x", make_set_output("", 100)));
+        on_a.push_back(make_binding("gift_b", "x", make_set_output("", 200)));
+        const std::vector<SetConflictLoss> losses_a = resolve_set_conflicts("A", "AB", on_a);
+        CHECK_INT(name, 1, static_cast<int>(losses_a.size()));
+        CHECK_STRING(name, "gift_a/x", first_disabled(losses_a));
+        CHECK_INT(name, 2, first_channel_count(losses_a));
+        CHECK_TRUE(name, !on_a[0].enabled);
+        CHECK_TRUE(name, on_a[1].enabled);
+
+        std::vector<OptionBinding> on_b;
+        on_b.push_back(make_binding("gift_a", "x", make_set_output("", 100)));
+        on_b.push_back(make_binding("gift_b", "x", make_set_output("", 200)));
+        const std::vector<SetConflictLoss> losses_b = resolve_set_conflicts("B", "AB", on_b);
+        CHECK_INT(name, 1, static_cast<int>(losses_b.size()));
+        CHECK_STRING(name, "gift_a/x", first_disabled(losses_b));
+        CHECK_INT(name, 2, first_channel_count(losses_b));
+        CHECK_TRUE(name, !on_b[0].enabled);
+        CHECK_TRUE(name, on_b[1].enabled);
+    }
+
+    void test_resolve_follow_default_a() {
+        const char* name = "resolve_set_conflicts/follow_default_a";
+        std::vector<OptionBinding> on_b;
+        on_b.push_back(make_binding("gift_a", "x", make_set_output("", 100)));
+        on_b.push_back(make_binding("gift_b", "x", make_set_output("", 200)));
+        const std::vector<SetConflictLoss> none_on_b = resolve_set_conflicts("B", "A", on_b);
+        CHECK_INT(name, 0, static_cast<int>(none_on_b.size()));
+        CHECK_TRUE(name, on_b[0].enabled);
+        CHECK_TRUE(name, on_b[1].enabled);
+
+        std::vector<OptionBinding> on_a;
+        on_a.push_back(make_binding("gift_a", "x", make_set_output("", 100)));
+        on_a.push_back(make_binding("gift_b", "x", make_set_output("", 200)));
+        const std::vector<SetConflictLoss> losses = resolve_set_conflicts("A", "A", on_a);
+        CHECK_INT(name, 1, static_cast<int>(losses.size()));
+        CHECK_STRING(name, "gift_a/x", first_disabled(losses));
+        CHECK_INT(name, 1, first_channel_count(losses));
+        CHECK_TRUE(name, on_a[1].enabled);
+    }
+
+    void test_resolve_follow_default_tie() {
+        const char* name = "resolve_set_conflicts/follow_default_tie";
+        std::vector<OptionBinding> bindings;
+        bindings.push_back(make_binding("gift_b", "x", make_set_output("", 100)));
+        bindings.push_back(make_binding("gift_a", "x", make_set_output("", 100)));
+        const std::vector<SetConflictLoss> losses = resolve_set_conflicts("A", "AB", bindings);
+        CHECK_INT(name, 1, static_cast<int>(losses.size()));
+        CHECK_STRING(name, "gift_b/x", first_disabled(losses));
+        CHECK_TRUE(name, bindings[1].enabled);
+    }
+
+    void test_resolve_explicit_vs_follow_default() {
+        const char* name = "resolve_set_conflicts/explicit_vs_follow";
+        std::vector<OptionBinding> on_a;
+        on_a.push_back(make_binding("gift_a", "x", make_set_output("A", 100)));
+        on_a.push_back(make_binding("gift_b", "x", make_set_output("", 200)));
+        const std::vector<SetConflictLoss> losses_a = resolve_set_conflicts("A", "AB", on_a);
+        CHECK_INT(name, 1, static_cast<int>(losses_a.size()));
+        CHECK_STRING(name, "gift_a/x", first_disabled(losses_a));
+        CHECK_INT(name, 1, first_channel_count(losses_a));
+        CHECK_TRUE(name, on_a[1].enabled);
+
+        std::vector<OptionBinding> on_b;
+        on_b.push_back(make_binding("gift_a", "x", make_set_output("A", 100)));
+        on_b.push_back(make_binding("gift_b", "x", make_set_output("", 200)));
+        const std::vector<SetConflictLoss> losses_b = resolve_set_conflicts("B", "AB", on_b);
+        CHECK_INT(name, 0, static_cast<int>(losses_b.size()));
+        CHECK_TRUE(name, on_b[0].enabled);
+        CHECK_TRUE(name, on_b[1].enabled);
     }
 
 } // namespace
@@ -249,6 +346,11 @@ int main() {
     test_resolve_other_channel();
     test_resolve_non_set();
     test_resolve_idempotent();
+    test_detect_follow_default();
+    test_resolve_follow_default_ab();
+    test_resolve_follow_default_a();
+    test_resolve_follow_default_tie();
+    test_resolve_explicit_vs_follow_default();
     if (failures != 0) {
         std::printf("event_engine_test: %d assertion(s) failed\n", failures);
         return EXIT_FAILURE;

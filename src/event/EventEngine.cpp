@@ -85,6 +85,7 @@ void EventEngine::configure(const std::string& module_name, const std::vector<Ev
     }
     ModuleState module;
     module.name = module_name;
+    module.default_channel = read_default_channel(module_name);
     for (int index = 0; index < 2; ++index) {
         const EventChannelConfig channel_config = read_channel_config(module_name, CHANNELS[index]);
         module.limits[index] = channel_config.limit;
@@ -144,11 +145,11 @@ void EventEngine::configure(const std::string& module_name, const std::vector<Ev
             }
         }
         for (const RuntimeOption& option : event.options) {
-            std::string channel;
-            if (!normalize_channel_text(option.output.channel, channel)) {
-                continue;
+            int indices[2] = {-1, -1};
+            const int count = option_channels(option, module, indices);
+            for (int index = 0; index < count; ++index) {
+                event.on_channel[indices[index]] = true;
             }
-            event.on_channel[channel_index(channel)] = true;
         }
         module.events[event.id] = event;
     }
@@ -206,26 +207,26 @@ void EventEngine::on_value_changed(const std::string& module_name, const std::st
             if (option.output.operation != EventOperation::SET) {
                 continue;
             }
-            std::string channel;
-            if (!normalize_channel_text(option.output.channel, channel)) {
-                continue;
-            }
-            const RuntimeOption*& chosen = set_choices[channel_index(channel)];
-            if (chosen == nullptr || option.output.edited_at > chosen->output.edited_at
-                || (option.output.edited_at == chosen->output.edited_at && option.id < chosen->id)) {
-                chosen = &option;
+            int indices[2] = {-1, -1};
+            const int count = option_channels(option, module, indices);
+            for (int position = 0; position < count; ++position) {
+                const RuntimeOption*& chosen = set_choices[indices[position]];
+                if (chosen == nullptr || option.output.edited_at > chosen->output.edited_at
+                    || (option.output.edited_at == chosen->output.edited_at && option.id < chosen->id)) {
+                    chosen = &option;
+                }
             }
         }
         for (const RuntimeOption& option : event.options) {
-            std::string channel;
-            if (!normalize_channel_text(option.output.channel, channel)) {
-                continue;
+            int indices[2] = {-1, -1};
+            const int count = option_channels(option, module, indices);
+            for (int position = 0; position < count; ++position) {
+                const int index = indices[position];
+                if (option.output.operation == EventOperation::SET && set_choices[index] != &option) {
+                    continue;
+                }
+                apply_option(module, event, option, CHANNELS[index]);
             }
-            if (option.output.operation == EventOperation::SET
-                && set_choices[channel_index(channel)] != &option) {
-                continue;
-            }
-            apply_option(module, event, option, channel);
         }
     }
 }
@@ -310,6 +311,28 @@ std::vector<TriggerRecord> EventEngine::recent_triggers(int limit) const {
         records.push_back(triggers_[index]);
     }
     return records;
+}
+
+int EventEngine::option_channels(const RuntimeOption& option, const ModuleState& module, int indices[2]) const {
+    std::string channel;
+    if (normalize_channel_text(option.output.channel, channel)) {
+        indices[0] = channel_index(channel);
+        return 1;
+    }
+    if (!option.output.channel.empty()) {
+        return 0;
+    }
+    // 空串表示跟随模块默认通道：A/B 单个通道，AB 两个通道各一次
+    int count = 0;
+    if (module.default_channel != "B") {
+        indices[count] = 0;
+        ++count;
+    }
+    if (module.default_channel != "A") {
+        indices[count] = 1;
+        ++count;
+    }
+    return count;
 }
 
 double EventEngine::option_mode_value(const RuntimeEvent& event, const OptionOutput& output, int limit) const {

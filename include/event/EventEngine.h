@@ -123,12 +123,13 @@ private:
 
     /// @brief 模块运行期状态
     struct ModuleState {
-        std::string name;                                ///< 模块标识
-        std::map<std::string, RuntimeEvent> events;      ///< 事件运行期状态（键为事件 id）
-        int limits[2] = {200, 200};                      ///< 通道上限（0=A，1=B）
-        int safeties[2] = {150, 150};                    ///< 通道安全上限（0=A，1=B）
-        QStringList output_frames;                       ///< 输出端附加波形帧
-        MergeRule output_merge = MergeRule::MULTIPLY;    ///< 输出端合并规则
+        std::string name;                                     ///< 模块标识
+        std::string default_channel = DEFAULT_MODULE_CHANNEL; ///< 默认输出通道（"A"/"B"/"AB"）
+        std::map<std::string, RuntimeEvent> events;           ///< 事件运行期状态（键为事件 id）
+        int limits[2] = {200, 200};                           ///< 通道上限（0=A，1=B）
+        int safeties[2] = {150, 150};                         ///< 通道安全上限（0=A，1=B）
+        QStringList output_frames;                            ///< 输出端附加波形帧
+        MergeRule output_merge = MergeRule::MULTIPLY;         ///< 输出端合并规则
     };
 
     /// @brief 单个 (模块, 数值) 的上一次值
@@ -149,6 +150,12 @@ private:
     std::int64_t frame_index_ = 0;                                        ///< 帧计数（波形帧推进）
 
     // 私有辅助函数
+    /// @brief 解析子选项实际生效的通道
+    /// @param option 子选项（channel 为空串时跟随模块默认通道）
+    /// @param module 模块运行期状态
+    /// @param indices 生效通道索引（0=A，1=B）
+    /// @return 生效通道个数（0~2，AB 时两个）
+    int option_channels(const RuntimeOption& option, const ModuleState& module, int indices[2]) const;
     /// @brief 子选项按映射模式折算为强度值
     /// @param event 事件运行期状态
     /// @param output 输出映射

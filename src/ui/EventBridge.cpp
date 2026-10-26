@@ -153,6 +153,7 @@ QVariantList EventBridge::events() const {
         item.insert(QStringLiteral("displayName"),
             to_qstring(plugin.display_name.empty() ? plugin.module_name : plugin.display_name));
         item.insert(QStringLiteral("channels"), channels);
+        item.insert(QStringLiteral("defaultChannel"), to_qstring(read_default_channel(plugin.module_name)));
         item.insert(QStringLiteral("events"), events);
         list.append(item);
     }
@@ -210,6 +211,17 @@ void EventBridge::setChannelConfig(const QString& module, const QString& channel
     apply_change();
 }
 
+void EventBridge::setDefaultChannel(const QString& module, const QString& channel) {
+    const std::string module_name = module.toStdString();
+    if (module_name.empty()) {
+        return;
+    }
+    write_default_channel(module_name, channel.toStdString());
+    LOG_MODULE("EventBridge", "setDefaultChannel", LOG_INFO,
+        "默认输出通道已写入: 模块=" << module_name << " 通道=" << read_default_channel(module_name));
+    apply_change();
+}
+
 void EventBridge::setEventConfig(const QString& module, const QString& event_id, bool enabled, const QString& wave,
     const QString& merge, double weight, int frames) {
     const std::string module_name = module.toStdString();
@@ -246,9 +258,10 @@ void EventBridge::setOptionOutput(const QString& module, const QString& event_id
     const std::string target_event = event_id.toStdString();
     const std::string target_option = option_id.toStdString();
     const std::string channel_name = channel.toStdString();
-    if (module_name.empty() || target_event.empty() || target_option.empty() || channel_name.empty()) {
+    if (module_name.empty() || target_event.empty() || target_option.empty()) {
         return;
     }
+    // 空通道表示跟随模块默认通道，原样落盘
     OptionOutput output;
     output.channel = channel_name;
     output.operation = event_operation_from_string(operation.toStdString());
@@ -274,12 +287,15 @@ QVariantList EventBridge::resolveConflicts(const QString& module, const QString&
     if (definitions.empty()) {
         return cleared;
     }
+    // 跟随默认（空 channel）的条目按模块默认通道展开后再判定互斥
+    const std::string default_channel = read_default_channel(module_name);
     std::vector<OptionBinding> bindings = collect_option_bindings(read_event_configs(module_name, definitions));
-    for (const std::string& display : apply_set_conflicts(module_name, channel_name, bindings)) {
+    for (const std::string& display : apply_set_conflicts(module_name, channel_name, default_channel, bindings)) {
         cleared.append(to_qstring(display));
     }
     LOG_MODULE("EventBridge", "resolveConflicts", LOG_INFO,
-        "互斥清理完成: 模块=" << module_name << " 通道=" << channel_name << " 清理数=" << cleared.size());
+        "互斥清理完成: 模块=" << module_name << " 通道=" << channel_name << " 默认通道=" << default_channel
+                             << " 清理数=" << cleared.size());
     apply_change();
     return cleared;
 }

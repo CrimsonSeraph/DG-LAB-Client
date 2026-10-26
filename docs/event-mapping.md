@@ -86,6 +86,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
+| `channel` | string | 模块级默认输出通道：`A` / `B` / `AB`，缺省 `AB`；子选项 `channel` 为空串时按它展开，见「默认通道与跟随默认」 |
 | `channels.A` / `channels.B` | object | 每个输出通道一份配置 |
 | `channels.<通道>.limit` | number | 通道上限 |
 | `channels.<通道>.safety` | number | 安全上限，输出强度的硬钳制 |
@@ -95,7 +96,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 | `events.<事件id>.weight` | number | 合并权重，`merge=weighted` 时使用 |
 | `events.<事件id>.frames` | number | 事件激活窗口帧数（1 帧 = 100ms），默认 10（1 秒）；`0` 视为 1 帧，超过 600 截断为 600 |
 | `events.<事件id>.options.<子选项id>` | object | 该子选项的输出配置 |
-| `option.channel` | string | 输出通道：`A` / `B` |
+| `option.channel` | string | 输出通道：`A` / `B`；空串表示跟随模块默认通道 `channel` |
 | `option.operation` | string | 操作：`increase` / `set` / `decrease` / `ramp_up` / `ramp_down` |
 | `option.mode` | string | 取值模式：`value` / `percent` |
 | `option.value` | number | `mode=value` 时使用的数值 |
@@ -107,6 +108,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 
 ```json
 {
+    "channel": "AB",
     "channels": { "A": { "limit": 200, "safety": 150 }, "B": { "limit": 200, "safety": 150 } },
     "events": {
         "gift": {
@@ -123,6 +125,16 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
     "output": { "wave": "", "merge": "multiply" }
 }
 ```
+
+### 默认通道与「跟随默认」
+
+模块级 `channel` 决定子选项没有显式指定通道时的落点：
+
+- `A`：只落到 A 通道；`B`：只落到 B 通道；`AB`（缺省）：A 与 B 各一份，两个通道各自独立累计，各自受自己的 `channels.<通道>.limit` 与 `channels.<通道>.safety` 约束。
+- 子选项 `option.channel` 留空串表示「跟随默认」：按模块 `channel` 展开，`AB` 时该子选项在两个通道各生效一次，触发流水记两条（`channel` 字段分别为 `A` 与 `B`）。
+- 子选项显式写 `A` / `B` 时以子选项为准，与模块 `channel` 的取值无关；空串映射不会被改写为具体通道，仍是「跟随」。
+- `channel` 取 `A` / `B` / `AB` 之外的值一律按 `AB` 处理。
+- 「设为」互斥按实际生效的通道分别判定：一条跟随默认且默认 `AB` 的 `set`，要在 A、B 两个通道上各自与同通道的其它 `set` 竞争。
 
 ## 五、输出语义
 

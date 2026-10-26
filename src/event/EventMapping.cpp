@@ -21,6 +21,15 @@ namespace {
     const char* const USER_CONFIG_NAME = "user";           ///< 写入的配置层
     const char* const IMPLICIT_OPTION_ID = "default";      ///< 无声明子选项事件的隐式映射键
 
+    // 模块默认通道归一（"A"/"B"/"AB"，其它回落 AB）
+    std::string normalize_default_channel(const std::string& channel) {
+        const std::string upper = normalize_channel(channel);
+        if (upper == "A" || upper == "B" || upper == "AB") {
+            return upper;
+        }
+        return DEFAULT_MODULE_CHANNEL;
+    }
+
     // 拼接映射键：app.plugins.<模块名>.<后缀>
     std::string mapping_key(const std::string& module_name, const std::string& suffix) {
         std::string key = PLUGINS_KEY_PREFIX;
@@ -224,6 +233,14 @@ OutputConfig read_output_config(const std::string& module_name) {
     return config;
 }
 
+std::string read_default_channel(const std::string& module_name) {
+    if (module_name.empty()) {
+        return DEFAULT_MODULE_CHANNEL;
+    }
+    const nlohmann::json object = read_subtree(mapping_key(module_name, std::string()));
+    return normalize_default_channel(read_string(object, "channel", DEFAULT_MODULE_CHANNEL));
+}
+
 EventConfig read_event_config(const std::string& module_name, const EventDefinition& definition) {
     EventConfig config;
     if (module_name.empty() || definition.id.empty()) {
@@ -305,6 +322,13 @@ void write_output_config(const std::string& module_name, const OutputConfig& con
     write_subtree(mapping_key(module_name, "output"), object);
 }
 
+void write_default_channel(const std::string& module_name, const std::string& channel) {
+    if (module_name.empty()) {
+        return;
+    }
+    write_subtree(mapping_key(module_name, "channel"), normalize_default_channel(channel));
+}
+
 void write_event_config(const std::string& module_name, const std::string& event_id,
     const EventConfig& config) {
     if (module_name.empty() || event_id.empty()) {
@@ -364,19 +388,12 @@ void remove_option_output(const std::string& module_name, const std::string& eve
 }
 
 std::vector<std::string> apply_set_conflicts(const std::string& module_name, const std::string& channel,
-    std::vector<OptionBinding>& bindings) {
-    // 记录清理前状态，用于定位本次被关闭的条目
-    std::vector<bool> enabled_before;
-    enabled_before.reserve(bindings.size());
-    for (const auto& binding : bindings) {
-        enabled_before.push_back(binding.enabled);
-    }
-    const std::vector<std::string> cleared = resolve_set_conflicts(channel, bindings);
-    for (size_t index = 0; index < bindings.size(); ++index) {
-        if (!enabled_before[index] || bindings[index].enabled) {
-            continue;
-        }
-        remove_option_output(module_name, bindings[index].key.event_id, bindings[index].key.option_id);
+    const std::string& default_channel, std::vector<OptionBinding>& bindings) {
+    std::vector<std::string> cleared;
+    const std::vector<SetConflictLoss> losses = resolve_set_conflicts(channel, default_channel, bindings);
+    for (const SetConflictLoss& loss : losses) {
+        remove_option_output(module_name, loss.key.event_id, loss.key.option_id);
+        cleared.push_back(option_key_display(loss.key));
     }
     return cleared;
 }

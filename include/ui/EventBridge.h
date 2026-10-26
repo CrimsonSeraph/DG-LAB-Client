@@ -47,6 +47,10 @@ public:
     /// @param limit 通道上限
     /// @param safety 通道安全上限
     Q_INVOKABLE void setChannelConfig(const QString& module, const QString& channel, int limit, int safety);
+    /// @brief 写入模块级默认输出通道
+    /// @param module 模块标识
+    /// @param channel 默认通道（"A"/"B"/"AB"，非法值按 "AB" 落盘）
+    Q_INVOKABLE void setDefaultChannel(const QString& module, const QString& channel);
     /// @brief 写入事件映射，已存的子选项映射原样保留
     /// @param module 模块标识
     /// @param event_id 事件标识
@@ -61,7 +65,7 @@ public:
     /// @param module 模块标识
     /// @param event_id 事件标识
     /// @param option_id 子选项标识
-    /// @param channel 目标通道（"A"/"B"）
+    /// @param channel 目标通道（"A"/"B"，空串表示跟随模块默认通道）
     /// @param operation 操作文本
     /// @param mode 数值模式文本
     /// @param value 绝对强度
