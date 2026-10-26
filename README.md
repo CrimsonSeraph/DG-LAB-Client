@@ -419,32 +419,42 @@ PLUGIN_EXPORT void destroy_plugin(IPlugin*); // 销毁实例（插件内部 dele
 - **内存隔离**: 插件实例在插件内 `new`，宿主仅调用 `destroy_plugin` 销毁；**禁止跨模块 new/delete**、**禁止静态全局变量**。
 - **错误处理**: 可能失败的操作返回 `PluginError` 错误码而非抛出异常。
 - **命名**: 插件类名以 `Plugin` 结尾（如 `CS2GsiPlugin`）；导出函数使用标准三件套固定名。
-- **ABI 兼容**: 插件必须与主程序使用同一工具链构建（本项目 MinGW g++ + Qt 6.9.3），否则无法加载。
+- **ABI 兼容**: 插件必须与主程序使用同一工具链与同一 Qt 版本构建，否则无法加载。
 - **API 版本**: 接口不兼容变更时递增 `PLUGIN_API_VERSION`，主程序加载时校验。
 
 #### 11.6 构建示例（CMake）
 
+插件统一通过 `cmake/Plugins.cmake` 的 `dgl_add_plugin(<目标名> ...)` 注册，参数三项：`SOURCES`（插件源文件，必填）、`QT_LIBS`（按需链接的 Qt 模块）、`META_DIR`（展示元数据侧车目录）。
+
 ```cmake
-# 插件目标：SHARED + PLUGIN_BUILD + 接口头文件路径
-add_library(my_plugin SHARED
-    module/my/MyPlugin.h
-    module/my/MyPlugin.cpp
-    src/module/ModuleValue.cpp   # ModuleValue 为纯 C++ 模型，编入插件以构造数值
+dgl_add_plugin(dgl_my_plugin
+    SOURCES
+        module/my/MyPlugin.h
+        module/my/MyPlugin.cpp
+    QT_LIBS
+        Qt::Core
+        Qt::Network        # 按需
+        Qt::WebSockets     # 按需，WebSocket 类插件追加
+    META_DIR module/my/meta
 )
-target_compile_definitions(my_plugin PRIVATE PLUGIN_BUILD)
-target_include_directories(my_plugin PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/module
-)
-target_link_libraries(my_plugin PRIVATE Qt::Core Qt::Network)  # 按需
-if(WIN32)
-    set_target_properties(my_plugin PROPERTIES PREFIX "")     # 去掉 lib 前缀
-endif()
-# 构建后复制到插件扫描目录
-add_custom_command(TARGET my_plugin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:my_plugin>"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
-)
+```
+
+`META_DIR` 指向存放 `plugin.json` 的侧车目录：配置期解析为绝对路径，构建后连同动态库复制到 `<程序目录>/module/<目标名>/`，安装时同样随动态库落位；宿主按 `<插件目录>/<动态库主干名>/plugin.json` 读取。
+
+include 路径（`include/plugin`、`include/module`）、`PLUGIN_BUILD` 编译定义、`ModuleValue` 编译、`PREFIX ""`（动态库主干名恒等于目标名，侧车目录名才与之对应），以及构建后复制到 `module/` 目录，全部由 `dgl_add_plugin` 处理，插件作者无需手写。
+
+侧车 `plugin.json` 最小示例（字段均可选，缺失时回退到插件自描述的名称）：
+
+```json
+{
+    "id": "my_plugin",
+    "name": "我的插件",
+    "version": "0.1.0",
+    "author": "你的名字",
+    "description": "一句话说明插件输出的数值",
+    "banner": "",
+    "tags": ["示例"]
+}
 ```
 
 #### 11.7 加载流程与状态
