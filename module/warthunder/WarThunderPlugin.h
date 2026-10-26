@@ -80,4 +80,4 @@ private:
     int period_ms_ = 500;                            ///< 轮询周期（毫秒）
     qint64 last_log_ms_ = 0;                         ///< 上次调试日志时间戳
     bool initialized_ = false;                       ///< 初始化标志
-});
+};
