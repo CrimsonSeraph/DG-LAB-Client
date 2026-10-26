@@ -407,6 +407,9 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/pages/WavePage.qml
 		src/ui/qml/pages/MiniGamePage.qml
 		src/ui/qml/pages/LogPage.qml
+		src/ui/qml/pages/plugin/PluginCard.qml
+		src/ui/qml/pages/plugin/PluginDetail.qml
+		src/ui/qml/pages/plugin/EventMappingPanel.qml
 		src/ui/qml/home/ChannelPanel.qml
 		src/ui/qml/dialogs/WaveSelectDialog.qml
 		src/ui/qml/dialogs/WaveEditorDialog.qml
