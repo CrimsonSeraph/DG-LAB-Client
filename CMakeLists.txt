@@ -728,6 +728,7 @@ dgl_add_plugin(dgl_gsi_plugin
 	QT_LIBS
 		Qt::Core
 		Qt::Network
+	META_DIR module/gsi/meta
 )
 
 # -------------------- 单元测试 --------------------

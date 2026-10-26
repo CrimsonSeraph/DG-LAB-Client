@@ -1,0 +1,34 @@
+{
+    "id": "gsi",
+    "name": "反恐精英 2",
+    "version": "0.6.0",
+    "author": "CrimsonSeraph",
+    "description": "通过游戏状态集成读取 CS2 对局数据，输出血量、护甲、金钱与回合信息",
+    "banner": "",
+    "tags": ["游戏遥测", "GSI"],
+    "events": [
+        {
+            "id": "health_drop",
+            "label": "血量下降",
+            "trigger": { "value": "health", "compare": "decrease", "amount": 20 },
+            "options": [
+                { "id": "light", "label": "轻伤" },
+                { "id": "heavy", "label": "重伤" }
+            ]
+        },
+        {
+            "id": "armor_break",
+            "label": "护甲耗尽",
+            "trigger": { "value": "armor", "compare": "cross_below", "amount": 1 },
+            "options": [
+                { "id": "cracked", "label": "护甲击破" }
+            ]
+        },
+        {
+            "id": "money_surge",
+            "label": "金钱增加",
+            "trigger": { "value": "money", "compare": "increase", "amount": 1000 },
+            "options": []
+        }
+    ]
+}
