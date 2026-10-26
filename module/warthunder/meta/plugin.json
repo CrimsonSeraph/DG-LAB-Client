@@ -1,0 +1,9 @@
+{
+    "id": "warthunder",
+    "name": "战争雷霆",
+    "version": "0.1.0",
+    "author": "CrimsonSeraph",
+    "description": "读取 127.0.0.1:8111 空战遥测，输出速度、高度与有效性",
+    "banner": "",
+    "tags": ["游戏遥测", "HTTP"]
+}

@@ -1,0 +1,9 @@
+{
+    "id": "buckshot",
+    "name": "恶魔轮盘",
+    "version": "0.1.0",
+    "author": "CrimsonSeraph",
+    "description": "接收外部桥接的 WebSocket 事件并输出数值",
+    "banner": "",
+    "tags": ["外部桥接", "WebSocket"]
+}

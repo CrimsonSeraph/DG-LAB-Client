@@ -4,22 +4,27 @@
 
 > 运行时扫描目录为 **可执行文件旁的 `module/` 目录**（不是本源码目录）；构建后插件 DLL 由 CMake `POST_BUILD` 自动复制到该目录。扫描路径可通过 `config/main.json` 的 `app.module.path` 更改。
 
----
-
 ## 目录结构
 
-```
+```text
 module/
-├── example/            # 示例空壳插件（验证接口与导出约定，注册 1 个演示数值）
 ├── gsi/                # CS2 GSI 插件（完整功能示例：路径查找、配置生成、SteamID 归属区分）
+├── warthunder/         # 战争雷霆遥测插件（轮询 127.0.0.1:8111 空战遥测）
+├── buckshot/           # 恶魔轮盘桥接插件（WebSocket 服务端接收 JSON 事件）
 └── README.md           # 本说明文件
 ```
 
----
+社区插件模板（不参与构建）位于 [`docs/community_plugin_template/`](../docs/community_plugin_template/README.md)，复制到本目录下即可改成新插件。
 
-## 插件快速上手
+## 插件清单
 
-### 1. 源码组织
+| 源码目录 | CMake 目标名 | 链接库 | 说明 |
+| --- | --- | --- | --- |
+| `module/gsi/` | `dgl_gsi_plugin` | `Qt::Core Qt::Network` | CS2 GSI 数据接收与数值输出 |
+| `module/warthunder/` | `dgl_warthunder_plugin` | `Qt::Core Qt::Network` | 轮询本地空战遥测，输出速度/高度/有效性 |
+| `module/buckshot/` | `dgl_buckshot_plugin` | `Qt::Core Qt::Network Qt::WebSockets` | WebSocket 服务端接收外部桥接事件 |
+
+## 源码组织与命名约定
 
 每个插件一个子目录，包含：
 
@@ -27,14 +32,50 @@ module/
 | --- | --- |
 | `XxxPlugin.h` | 插件类声明（类名以 `Plugin` 结尾，继承 `IPlugin`） |
 | `XxxPlugin.cpp` | 实现 + `extern "C"` 导出三件套（`get_plugin_api_version`/`create_plugin`/`destroy_plugin`） |
+| `meta/plugin.json` | 展示元数据侧车（可选） |
+| `README.md` | 插件自身说明（可选） |
 
-### 2. 接口与宿主能力
+- **插件名即模块标识**：`IPlugin::name()` 返回纯 ASCII 模块标识（如 `warthunder`），供规则引用与模块查询；展示名（可为中文）放侧车 `plugin.json` 的 `name` 字段，两者解耦。
+- **CMake 目标名**：`dgl_<插件名>_plugin`；`dgl_add_plugin` 会设置 `PREFIX ""`，使动态库主干名等于目标名（Windows/Linux 都不带 `lib` 前缀）。
+- **插件类不继承 `QObject`**、不使用 `Q_OBJECT`：插件构建不经过 moc，定时器/网络/WebSocket 用 lambda 连接（`QObject::connect(sender, signal, context, lambda)`，`context` 传对应的 `QObject` 指针）。
+
+## 展示元数据侧车（plugin.json）
+
+模块页的名称、作者、简介、头图、版本与标签来自侧车 `plugin.json`，源码侧固定放在 `module/<插件名>/meta/plugin.json`，部署后位于 `<exe>/module/<目标名>/plugin.json`（宿主按动态库主干名定位该目录）。字段全部可选，缺失或 JSON 损坏时回退到既有展示名称。
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 插件标识，约定与 `name()` 一致 |
+| `name` | string | 展示名 |
+| `version` | string | 插件版本 |
+| `author` | string | 作者 |
+| `description` | string | 一句话简介 |
+| `banner` | string | 头图文件名（相对侧车目录），留空则不显示 |
+| `tags` | string[] | 标签 |
+
+侧车随插件在 `CMakeLists.txt` 中注册，`META_DIR` 必须指向 **侧车子目录**（不是插件源码目录）：
+
+```cmake
+dgl_add_plugin(dgl_warthunder_plugin
+	SOURCES
+		module/warthunder/WarThunderPlugin.h
+		module/warthunder/WarThunderPlugin.cpp
+	QT_LIBS Qt::Core Qt::Network
+	META_DIR module/warthunder/meta
+)
+```
+
+`dgl_add_plugin` 用 `copy_directory` 把 `META_DIR` 的内容整体复制到 `<exe>/module/<目标名>/`；若把插件源码目录当作 `META_DIR`，源码会被一起复制进部署目录。`META_DIR` 可写多个目录，未指定时只复制动态库。
+
+## 插件快速上手
+
+### 接口与宿主能力
 
 - **插件接口**: `include/plugin/IPlugin.h` —— 生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（`name`/`version`/`api_version`/`capabilities`/`dependencies`）、线程安全声明、`on_host_period_changed` 周期通知。
 - **宿主上下文**: `include/plugin/PluginHost.h` —— `IPluginHost` 提供数值注册/写入、数据接收（`listen_data`/`register_data_handler`）、配置读写（`get_config_value`/`set_config_value`）、基础周期与用户通知（`notify`）。
 - **导出宏**: `include/plugin/plugin_export.h` —— `PLUGIN_EXPORT`/`PLUGIN_API` 与 `PLUGIN_API_VERSION`。
 
-### 3. 最小示例（骨架）
+### 最小示例（骨架）
 
 ```cpp
 // MyPlugin.h
@@ -42,19 +83,20 @@ module/
 
 class MyPlugin : public IPlugin {
 public:
-    std::string name() const override { return "我的插件"; }
+    std::string name() const override { return "myplugin"; }
     std::string version() const override { return "0.1.0"; }
-    PluginError initialize() override;   // 注册数值、注册数据处理器
-    void uninitialize() override;        // 注销数值与处理器
+    PluginError initialize() override;   // 注册数值、启动数据来源
+    void uninitialize() override;        // 注销数值与数据来源
 };
 
 // MyPlugin.cpp
 PluginError MyPlugin::initialize() {
-    if (host_) {
-        std::vector<ModuleValue> values;
-        values.emplace_back("my_value", "我的数值", QueryPeriod::SECOND, "field");
-        host_->register_module_values(name(), values, {"A", "B"});
+    if (!host_) {
+        return PluginError::NotInitialized;
     }
+    std::vector<ModuleValue> values;
+    values.emplace_back("my_value", "我的数值", QueryPeriod::SECOND, "field");
+    host_->register_module_values(name(), values, {"A", "B"});
     PLUGIN_LOG(this, PluginLogLevel::Info, "插件初始化完成");
     return PluginError::Ok;
 }
@@ -66,37 +108,28 @@ PLUGIN_EXPORT void destroy_plugin(IPlugin* plugin) { delete plugin; }
 }
 ```
 
-### 4. CMake 构建（参考根 CMakeLists.txt）
+### CMake 注册
+
+在根 `CMakeLists.txt` 的「插件」小节追加一块（Tab 缩进与既有块一致）：
 
 ```cmake
-add_library(my_plugin SHARED
-    module/my/MyPlugin.h
-    module/my/MyPlugin.cpp
-    src/module/ModuleValue.cpp        # ModuleValue 为纯 C++ 模型，编入插件以构造数值
-)
-target_compile_definitions(my_plugin PRIVATE PLUGIN_BUILD)
-target_include_directories(my_plugin PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/module
-)
-target_link_libraries(my_plugin PRIVATE Qt::Core Qt::Network)  # 按需
-if(WIN32)
-    set_target_properties(my_plugin PROPERTIES PREFIX "")
-endif()
-add_custom_command(TARGET my_plugin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:my_plugin>"
-        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/module"
+dgl_add_plugin(dgl_my_plugin
+	SOURCES
+		module/myplugin/MyPlugin.h
+		module/myplugin/MyPlugin.cpp
+	QT_LIBS Qt::Core Qt::Network
+	META_DIR module/myplugin/meta
 )
 ```
 
-### 5. 扫描与加载
+`dgl_add_plugin`（`cmake/Plugins.cmake`）负责：编译时定义 `PLUGIN_BUILD`、加入 `include/plugin` 与 `include/module` 包含路径、编入 `src/module/ModuleValue.cpp`、设置无前缀主干名、构建后复制动态库与侧车、登记安装规则。
+
+### 扫描与加载
 
 - 主程序扫描 `*.dll`/`*.so`/`*.dylib` 文件作为插件候选，**默认只扫描不加载**（模块页显示“暂未加载”，右侧“启用”按钮加载）。
 - `app.module.scan_load=true` 时扫描即加载（调试用）。
 - 加载流程: `QLibrary` → API 版本校验 → 依赖校验 → `create_plugin` → `attach_host` + `set_log_callback` → `initialize()`。
 - 卸载流程: `can_unload()` → `uninitialize()` → `cleanup()` → `destroy_plugin()` → `QLibrary::unload`。
-
----
 
 ## 规范要求
 
@@ -106,8 +139,6 @@ add_custom_command(TARGET my_plugin POST_BUILD
 - **ABI 兼容**: 必须与主程序使用同一工具链（MinGW g++ + Qt）构建。
 - **API 版本**: 接口变更时递增 `PLUGIN_API_VERSION`。
 
----
-
 ## 详细说明
 
-完整的插件接口说明、导出约定、宿主能力表格、构建示例与加载流程，请参阅根目录 [README.md](../README.md) 的“六.10 插件开发指南”。
+完整的插件接口说明、导出约定、宿主能力表格、构建示例与加载流程，请参阅根目录 [README.md](../README.md) 的“插件开发指南”小节；起步模板见 [`docs/community_plugin_template/`](../docs/community_plugin_template/README.md)。

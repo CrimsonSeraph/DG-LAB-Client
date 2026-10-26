@@ -1,0 +1,9 @@
+{
+    "id": "example",
+    "name": "示例插件",
+    "version": "0.1.0",
+    "author": "你的名字",
+    "description": "一句话说明插件输出的数值",
+    "banner": "",
+    "tags": ["示例", "模板"]
+}
