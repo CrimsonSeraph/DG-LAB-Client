@@ -65,6 +65,7 @@ include/
 | `Module.h`        | 模块（数值集合与通道挂载）                    |
 | `ModuleManager.h` | 数值调度、变化推送、插件宿主（`IPluginHost`） |
 | `DataListener.h`  | 通用数据接收器与解析器接口                    |
+| `PluginMeta.h`  | 展示元数据侧车（`plugin.json`）读取             |
 
 ## 四、wave/ · ble/ · net/
 

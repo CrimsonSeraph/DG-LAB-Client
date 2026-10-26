@@ -178,7 +178,7 @@ Item {
                                 objectName: "moduleCardClick"
                                 anchors.fill: parent
                                 enabled: modelData.enabled
-                                property string moduleName: modelData.name
+                                property string moduleName: modelData.moduleName
                             }
 
                             AppButton {

@@ -7,6 +7,7 @@
 
 #include "Module.h"
 #include "PluginHost.h"
+#include "PluginMeta.h"
 
 #include <QObject>
 #include <QString>
@@ -42,10 +43,15 @@ public:
     struct PluginInfo {
         std::string file_name;                              ///< 插件文件名（唯一标识）
         std::string file_path;                              ///< 插件完整路径
-        std::string display_name;                           ///< 显示名称（加载后为插件 name()，未加载为文件名）
+        std::string display_name;                           ///< 显示名称（侧车 name -> 已加载插件的 name() -> 动态库主干名）
         std::string version;                                ///< 插件版本（未加载为空）
         PluginLoadState state = PluginLoadState::NotLoaded; ///< 加载状态
         std::string error;                                  ///< 加载失败原因（成功为空）
+        std::string banner;                                 ///< 头图文件名（侧车，无侧车为空）
+        std::string author;                                 ///< 作者（侧车）
+        std::string description;                            ///< 一句话简介（侧车）
+        std::vector<std::string> tags;                      ///< 标签列表（侧车）
+        std::string module_name;                            ///< 模块标识（= 已加载插件的 IPlugin::name()，规则引用与模块查询使用；未加载时为空）
     };
 
     // 单例
@@ -246,6 +252,7 @@ private:
         std::string error;                                  ///< 加载失败原因
         std::string display_name;                           ///< 显示名称（加载后为插件 name()）
         std::string version;                                ///< 插件版本
+        PluginMeta meta;                                    ///< 展示元数据（侧车 plugin.json）
     };
 
     // 构造/析构（单例私有）

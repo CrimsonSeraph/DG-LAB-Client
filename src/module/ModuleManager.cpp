@@ -12,6 +12,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 #include <QLibrary>
 
 #include <algorithm>
@@ -313,11 +314,24 @@ std::vector<ModuleManager::PluginInfo> ModuleManager::get_plugins() const {
         PluginInfo info;
         info.file_name = entry.file_name;
         info.file_path = entry.file_path;
-        info.display_name = (entry.state == PluginLoadState::Loaded) ? entry.display_name
-                                                                     : entry.file_name;
+        // 展示名称优先级：侧车 name -> 已加载插件的 name() -> 动态库主干名
+        if (!entry.meta.display_name.empty()) {
+            info.display_name = entry.meta.display_name;
+        } else if (entry.state == PluginLoadState::Loaded) {
+            info.display_name = entry.display_name;
+        } else {
+            const QString stem = QFileInfo(QString::fromStdString(entry.file_name)).completeBaseName();
+            info.display_name = stem.toStdString();
+        }
         info.version = entry.version;
         info.state = entry.state;
         info.error = entry.error;
+        info.banner = entry.meta.banner;
+        info.author = entry.meta.author;
+        info.description = entry.meta.description;
+        info.tags = entry.meta.tags;
+        // 模块标识仅加载后有效（load_plugin_entry 已用 plugin->name() 赋值），未加载为空
+        info.module_name = (entry.state == PluginLoadState::Loaded) ? entry.display_name : std::string();
         infos.push_back(std::move(info));
     }
     return infos;
@@ -578,11 +592,23 @@ void ModuleManager::scan_plugins() {
     // 动态库文件即插件候选（*.dll / *.so / *.dylib）
     const QStringList filters = {"*.dll", "*.so", "*.dylib"};
     const QStringList files = dir.entryList(filters, QDir::Files, QDir::Name);
+    int missing_meta = 0;
     for (const QString& file : files) {
         PluginEntry entry;
         entry.file_name = file.toStdString();
         entry.file_path = dir.filePath(file).toStdString();
+        // 侧车目录名与动态库主干名一致，按主干名定位 <插件目录>/<主干名>/plugin.json
+        const QString stem = QFileInfo(file).completeBaseName();
+        entry.meta = read_plugin_meta(plugin_dir_, stem.toStdString());
+        if (!entry.meta.found) {
+            ++missing_meta;
+        }
         plugins_.push_back(std::move(entry));
+    }
+    // 侧车缺失或解析失败只作单次调试记录，避免逐个插件刷屏
+    if (missing_meta > 0) {
+        LOG_MODULE("ModuleManager", "scan_plugins", LOG_DEBUG,
+            "未读取到展示元数据侧车的插件数: " << missing_meta);
     }
     LOG_MODULE("ModuleManager", "scan_plugins", LOG_INFO,
         "插件目录扫描完成: " << plugin_dir_ << "，候选: " << plugins_.size());

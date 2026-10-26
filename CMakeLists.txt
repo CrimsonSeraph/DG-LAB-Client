@@ -206,11 +206,13 @@ set(MODULE
 	src/module/Module.cpp
 	src/module/ModuleManager.cpp
 	src/module/DataListener.cpp
+	src/module/PluginMeta.cpp
 	# 头文件
 	include/module/ModuleValue.h
 	include/module/Module.h
 	include/module/ModuleManager.h
 	include/module/DataListener.h
+	include/module/PluginMeta.h
 )
 
 # 蓝牙（ble）：郊狼 V3 直连
@@ -659,13 +661,6 @@ target_include_directories(${PROJECT_NAME}
 # （无额外编译宏）
 
 # 插件
-
-dgl_add_plugin(dgl_example_plugin
-	SOURCES
-		module/example/ExamplePlugin.h
-		module/example/ExamplePlugin.cpp
-	QT_LIBS Qt::Core
-)
 
 dgl_add_plugin(dgl_gsi_plugin
 	SOURCES

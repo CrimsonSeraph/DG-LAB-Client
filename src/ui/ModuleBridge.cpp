@@ -9,10 +9,13 @@
 #include "ModuleManager.h"
 
 #include <QSet>
+#include <QStringList>
 #include <QVariantMap>
 
 #include <iterator>
+#include <string>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -24,6 +27,15 @@ namespace {
         { "2000 ms", 2000 },
         { "4000 ms", 4000 }
     };
+
+    // 标签列表转换为 QStringList（QML 直接消费）
+    QStringList to_qstring_list(const std::vector<std::string>& values) {
+        QStringList list;
+        for (const auto& value : values) {
+            list.append(QString::fromStdString(value));
+        }
+        return list;
+    }
 
 } // namespace
 
@@ -49,12 +61,18 @@ QVariantList ModuleBridge::modules() const {
 
     for (const auto& plugin : manager.get_plugins()) {
         const QString name = QString::fromStdString(plugin.display_name);
+        const QString module_name = QString::fromStdString(plugin.module_name);
         QVariantMap item;
         item.insert(QStringLiteral("kind"), QStringLiteral("plugin"));
         item.insert(QStringLiteral("fileName"), QString::fromStdString(plugin.file_name));
         item.insert(QStringLiteral("name"), name);
         item.insert(QStringLiteral("version"), QString::fromStdString(plugin.version));
         item.insert(QStringLiteral("error"), QString::fromStdString(plugin.error));
+        item.insert(QStringLiteral("banner"), QString::fromStdString(plugin.banner));
+        item.insert(QStringLiteral("author"), QString::fromStdString(plugin.author));
+        item.insert(QStringLiteral("description"), QString::fromStdString(plugin.description));
+        item.insert(QStringLiteral("tags"), to_qstring_list(plugin.tags));
+        item.insert(QStringLiteral("moduleName"), module_name);
 
         QString state_text;
         QString state;
@@ -64,7 +82,10 @@ QVariantList ModuleBridge::modules() const {
             state_text = QStringLiteral("已加载");
             state = QStringLiteral("loaded");
             enabled = true;
-            loaded_names.insert(name);
+            // 去重按模块标识，displayName 只用于展示
+            if (!module_name.isEmpty()) {
+                loaded_names.insert(module_name);
+            }
             break;
         case ModuleManager::PluginLoadState::Failed:
             state_text = QStringLiteral("加载失败");
@@ -78,7 +99,11 @@ QVariantList ModuleBridge::modules() const {
         item.insert(QStringLiteral("state"), state);
         item.insert(QStringLiteral("stateText"), state_text);
         item.insert(QStringLiteral("enabled"), enabled);
-        item.insert(QStringLiteral("periodMs"), enabled ? manager.get_module_min_period_ms(plugin.display_name) : 0);
+        int period_ms = 0;
+        if (enabled && !module_name.isEmpty()) {
+            period_ms = manager.get_module_min_period_ms(plugin.module_name);
+        }
+        item.insert(QStringLiteral("periodMs"), period_ms);
         list.append(item);
     }
 
@@ -91,6 +116,7 @@ QVariantList ModuleBridge::modules() const {
         item.insert(QStringLiteral("kind"), QStringLiteral("module"));
         item.insert(QStringLiteral("fileName"), QString());
         item.insert(QStringLiteral("name"), name);
+        item.insert(QStringLiteral("moduleName"), name);
         item.insert(QStringLiteral("version"), QString());
         item.insert(QStringLiteral("error"), QString());
         item.insert(QStringLiteral("state"), QStringLiteral("builtin"));
