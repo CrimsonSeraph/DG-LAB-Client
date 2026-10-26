@@ -93,6 +93,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 | `events.<事件id>.wave` | string | 事件波形名，空串表示不附加波形 |
 | `events.<事件id>.merge` | string | 该事件多路结果的合并规则：`multiply` / `max` / `min` / `weighted` |
 | `events.<事件id>.weight` | number | 合并权重，`merge=weighted` 时使用 |
+| `events.<事件id>.frames` | number | 事件激活窗口帧数（1 帧 = 100ms），默认 10（1 秒）；`0` 视为 1 帧，超过 600 截断为 600 |
 | `events.<事件id>.options.<子选项id>` | object | 该子选项的输出配置 |
 | `option.channel` | string | 输出通道：`A` / `B` |
 | `option.operation` | string | 操作：`increase` / `set` / `decrease` / `ramp_up` / `ramp_down` |
@@ -135,7 +136,11 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 | `ramp_up` | 每个 100ms 帧对累加器增加 `step`，直到到达目标值，仅 `mode=value` |
 | `ramp_down` | 每个 100ms 帧对累加器减少 `step`，直到到达目标值，仅 `mode=value` |
 
-`ramp_up` / `ramp_down` 的帧固定 100ms；ramp 的目标值是该子选项按 `mode` 算出的值，每帧对累加器 ±`step`，到达目标即结束该 ramp 并归零。单个 ramp 激活最多 100 帧（10 秒）作保护，超时同样结束并归零；事件触发结束即停止累加，并把该事件的累加贡献归零。
+`ramp_up` / `ramp_down` 的帧固定 100ms；ramp 的目标值是该子选项按 `mode` 算出的值，每帧对累加器 ±`step`，到达目标即结束该 ramp 并归零。单个 ramp 激活最多 100 帧（10 秒）作保护，超时同样结束并归零。
+
+事件触发后进入激活窗口（`events.<事件>.frames` 帧，1 帧 = 100ms）：窗口内累加器保持；窗口到期时该事件在通道上的基底与累加器（含未完成 ramp）整体归零；窗口内再次触发只重置窗口，不清零累加器。
+
+窗口剩余帧数按 `events.<事件>.frames` 逐帧递减；但该事件任一通道上仍有未完成的 ramp（未到达目标且未触发 100 帧保护）时，本帧不递减窗口，ramp 结束后窗口从剩余值继续递减，到期照常归零。窗口以事件为单位，两通道共用同一份剩余帧数。
 
 ### mode
 
@@ -170,7 +175,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 合成按 事件内 → 通道内 → 输出端 → 终值 的顺序固定执行：
 
 1. 事件内：同通道最多一条 `set` 作为基底，叠加 `increase` 之和、减去 `decrease` 之和、加上 ramp 累加器；先把结果按通道上限钳到 `[0, limit]`，再乘该事件的波形包络（未绑定波形时包络为 1）。
-2. 通道内多事件：按各事件的 `merge` 规则合成 —— `multiply` 作用于归一值（`e_i / limit`），结果再乘 `limit`；`max` / `min` 直接取强度值；`weighted` 按 `Σ(weight_i × v_i) / Σ(weight_i)`。
+2. 通道内多事件：该通道上参与合成的事件按事件 id 字典序排序，第一个事件的归一值作初值；之后逐个折叠 `acc = merge(rule_i, [acc, v_i], [1.0, weight_i])`，`rule_i` 与 `weight_i` 取当前事件自身的字段，`v_i` 为该事件的归一值（事件内结果 ÷ `limit`）。折叠得到 0~1 的比例后再乘通道上限；`multiply` / `max` / `min` 的折叠与顺序无关，只有同一通道上混用不同规则时顺序才影响结果。
 3. 输出端附加波形：与合成结果逐帧相乘，规则取 `output.merge`（默认 `multiply`）。
 4. 终值：`Clamp(结果, 0, min(limit, safety))`，输出整数。
 
