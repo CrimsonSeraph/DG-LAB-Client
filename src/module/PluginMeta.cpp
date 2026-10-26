@@ -74,6 +74,7 @@ PluginMeta read_plugin_meta(const std::string& plugin_dir, const std::string& st
     meta.banner = read_string_field(object, "banner");
     meta.version = read_string_field(object, "version");
     meta.tags = read_string_list_field(object, "tags");
+    meta.events = parse_event_definitions(object);
     meta.found = true;
     return meta;
 }

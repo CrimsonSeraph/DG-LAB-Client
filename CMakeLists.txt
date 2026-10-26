@@ -215,6 +215,18 @@ set(MODULE
 	include/module/PluginMeta.h
 )
 
+# 事件（event）：插件事件声明与用户映射
+set(EVENT
+	# 源文件
+	src/event/EventDefinition.cpp
+	src/event/EventMapping.cpp
+	src/event/EventEngine.cpp
+	# 头文件
+	include/event/EventDefinition.h
+	include/event/EventMapping.h
+	include/event/EventEngine.h
+)
+
 # 蓝牙（ble）：郊狼 V3 直连
 set(BLE
 	# 源文件
@@ -313,6 +325,7 @@ set(PROJECT_SOURCES
 	${CORE_UPDATE}
 	${RULE}
 	${MODULE}
+	${EVENT}
 	${BLE}
 	${NET}
 	${WAVE}
@@ -650,6 +663,7 @@ target_include_directories(${PROJECT_NAME}
 		${CMAKE_CURRENT_SOURCE_DIR}/include/core
 		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
 		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
 		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
 		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
 		${CMAKE_CURRENT_SOURCE_DIR}/include/net

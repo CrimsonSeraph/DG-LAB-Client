@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "EventDefinition.h"
+
 #include <string>
 #include <vector>
 
@@ -12,13 +14,14 @@
 // 侧车位于 <插件目录>/<动态库主干名>/plugin.json，头图等资源与该文件同目录；
 // 所有字段均为可选，缺失即为空
 struct PluginMeta {
-    std::string display_name;      ///< 展示名称（JSON 字段 name）
-    std::string author;            ///< 作者
-    std::string description;       ///< 一句话简介
-    std::string banner;            ///< 头图文件名（相对侧车目录）
-    std::string version;           ///< 插件版本
-    std::vector<std::string> tags; ///< 标签列表
-    bool found = false;            ///< 侧车存在且解析成功
+    std::string display_name;            ///< 展示名称（JSON 字段 name）
+    std::string author;                  ///< 作者
+    std::string description;             ///< 一句话简介
+    std::string banner;                  ///< 头图文件名（相对侧车目录）
+    std::string version;                 ///< 插件版本
+    std::vector<std::string> tags;       ///< 标签列表
+    std::vector<EventDefinition> events; ///< 事件声明列表（缺失为空）
+    bool found = false;                  ///< 侧车存在且解析成功
 };
 
 /// @brief 读取插件展示元数据侧车

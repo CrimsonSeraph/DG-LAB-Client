@@ -52,6 +52,7 @@ public:
         std::string description;                            ///< 一句话简介（侧车）
         std::vector<std::string> tags;                      ///< 标签列表（侧车）
         std::string module_name;                            ///< 模块标识（= 已加载插件的 IPlugin::name()，规则引用与模块查询使用；未加载时为空）
+        std::vector<EventDefinition> events;                ///< 事件声明列表（侧车，缺失为空）
     };
 
     // 单例

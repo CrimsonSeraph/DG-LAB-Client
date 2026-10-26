@@ -332,6 +332,7 @@ std::vector<ModuleManager::PluginInfo> ModuleManager::get_plugins() const {
         info.tags = entry.meta.tags;
         // 模块标识仅加载后有效（load_plugin_entry 已用 plugin->name() 赋值），未加载为空
         info.module_name = (entry.state == PluginLoadState::Loaded) ? entry.display_name : std::string();
+        info.events = entry.meta.events;
         infos.push_back(std::move(info));
     }
     return infos;
