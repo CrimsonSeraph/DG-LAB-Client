@@ -2,8 +2,9 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 
-// 卡片容器：深色表面 + 细描边；banner 为空时标题居中，banner 非空时图片铺满卡片、
-// 标题叠在图片底部，并在图片上叠加自卡片高度约 55% 起由透明过渡到 90% 深底的渐变遮罩。
+// 卡片容器：深色表面 + 细描边；头图解码完成时图片铺满卡片、标题叠在图片底部，并在图片上
+// 叠加自卡片高度约 55% 起由透明过渡到 90% 深底的渐变遮罩；banner 为空或图片加载失败时
+// 退回无图的居中态（与从来没有 banner 的卡片一致，不留空白头图槽）。
 // 用法：AppCard { title: "礼物"; banner: "qrc:/img/gift.png"; status: "进行中" }
 
 Rectangle {
@@ -18,11 +19,13 @@ Rectangle {
     default property alias actions: actionsRow.data
 
     readonly property bool hasBanner: root.banner.toString().length > 0
+    // 头图只有真正解码完成才占槽：坏图停在 Error 状态，卡片与无图时同一套居中布局
+    readonly property bool bannerReady: root.hasBanner && bannerImage.status === Image.Ready
     readonly property int bannerMinHeight: 140
     readonly property real scrimOpacity: 0.9
 
     implicitWidth: 240
-    implicitHeight: root.hasBanner
+    implicitHeight: root.bannerReady
         ? Math.max(root.bannerMinHeight, content.implicitHeight + Metrics.cardPadding * 2)
         : content.implicitHeight + Metrics.cardPadding * 2
     radius: Metrics.cardRadius
@@ -42,6 +45,8 @@ Rectangle {
     }
 
     Image {
+        id: bannerImage
+
         anchors.fill: parent
         visible: root.hasBanner
         source: root.hasBanner ? root.banner : ""
@@ -52,7 +57,7 @@ Rectangle {
 
     Rectangle {
         anchors.fill: parent
-        visible: root.hasBanner
+        visible: root.bannerReady
         opacity: root.scrimOpacity
         gradient: Gradient {
             GradientStop { position: 0.0; color: Theme.transparentFill }
@@ -77,7 +82,7 @@ Rectangle {
             color: Theme.textPrimary
             font.pixelSize: Typography.fontSubtitle
             font.bold: true
-            horizontalAlignment: root.hasBanner ? Text.AlignLeft : Text.AlignHCenter
+            horizontalAlignment: root.bannerReady ? Text.AlignLeft : Text.AlignHCenter
             elide: Text.ElideRight
         }
 
@@ -87,7 +92,7 @@ Rectangle {
             text: root.subtitle
             color: Theme.textSecondary
             font.pixelSize: Typography.fontBody
-            horizontalAlignment: root.hasBanner ? Text.AlignLeft : Text.AlignHCenter
+            horizontalAlignment: root.bannerReady ? Text.AlignLeft : Text.AlignHCenter
             elide: Text.ElideRight
         }
 

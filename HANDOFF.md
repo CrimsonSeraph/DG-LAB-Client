@@ -89,8 +89,14 @@
 - 日志页扩展：暴露配置文件里已有的日志选项（导出目录、单文件大小上限、导出级别、仅导出某级别等），按实用性挑选。
 - 关于页：移除软件更新卡片（左下角已有检查更新入口）、软件信息改为用户能懂的中文介绍、修 `release_notes` 4 行截断与 150px 硬编码间距。
 - 迷你窗 + 托盘常驻：无边框、置顶、可拖动、锁定按钮、A/B 大数字与百分比、透明度与大小滑块、近 N 条触发流水、波形滚动播放；× 隐藏到托盘、退出走托盘菜单；接管强度调节与通道启停。
-- 功能尾巴：`EventEngine::remove_module()`、100ms B0 总线接线、插件卡点击定位到具体插件（需参数化导航）、侧车头图渲染（需图片提供器）、「当前值」实时刷新（`ModuleManager::value_changed` → `events`）。
-- 小尾巴：`ChannelPanel.qml` 已无引用仍在 `QML_FILES`；`on_download_finished` 重复 `deleteLater()`；`on_download_ready_read` 每次开关文件；`updateApplyButton` 的 primary+danger 组合待确认；UiConnector 的 `setStrength` 魔数、`watch_items` 全量重扫。
+- 功能尾巴：`EventEngine::remove_module()`、事件运行时每帧结果到设备下发的接线（B0 的 100ms 写入已完成，缺的是这一步；且需先定事件输出与规则命令在同一通道上的合并 / 优先级规则，待产品口径确认）、插件卡点击定位到具体插件（需参数化导航）、「当前值」实时刷新（`ModuleManager::value_changed` → `events`）。
+- 小尾巴：`updateApplyButton` 的 primary+danger 组合待确认；`watch_items` 全量重扫评估后不做（重扫只在容器 `childrenChanged` 时触发、不是每帧，且 `connected_items_` 已按控件去重；改成增量要额外维护委托反查索引，收益不抵复杂度）。
+
+### 7.3 打磨与已知局限
+- 主题化边界：`ColorDialog` 是 Windows 原生取色框，由系统绘制，无法套用 `Theme` 令牌。
+- 换行：仓库部分文件 LF/CRLF 不一致（同一目录内也有混用），统一要单独排一次批量格式化。
+- 退出耗时约 5.6s，全部落在 QML 引擎析构阶段，与应用逻辑无关。
+- Windows 11 托盘图标默认收在折叠区，需用户手动拖到任务栏可见位置。
 
 ## 八、已知坑（血泪清单）
 

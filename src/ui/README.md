@@ -61,6 +61,7 @@ src/ui/
 │   │   ├── AppStatusButton.qml # 带状态点的按钮
 │   │   ├── AppSegment.qml      # 分段选择器
 │   │   ├── AppDialog.qml       # 对话框基类（主题化底色 / 遮罩 / 标题行 / 视口内尺寸钳制）
+│   │   ├── AppMenu.qml         # 主题化菜单（底色 / 描边 / 圆角 / 内边距 + 项配色经 palette 下传）
 │   │   ├── ConfirmDialog.qml   # 通用确认弹层（ask_confirm 复用）
 │   │   ├── PageHeader.qml      # 页面标题行（标题 + 副标题 + 右侧操作区）
 │   │   ├── StatusBadge.qml     # 状态徽标（info / success / warning / danger）
@@ -236,7 +237,7 @@ src/ui/
 
 已启用栏条目没有新增 objectName：「配置 →」热区同样调用 `app.openPluginDetail(fileName)`，走与首页看板相同的解析与降级路径；网格卡片的热区仍走页面内的 `openDetail()`（已在本页，无需再切页）。
 
-插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。
+插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。「模式与输出」页签的「通道上限（全局）」面板一律读 `eventBridge.channels`（即 `app.channels.<A|B>` 的全局 `limit` / `safety`），与当前插件是否声明事件无关，未启用或未声明事件的插件同样显示真实全局值；插件未声明事件时只有「输出通道」下拉禁用并提示「该插件未声明事件，默认输出通道不可用」。
 
 | objectName | 行为 |
 | --- | --- |
@@ -294,6 +295,7 @@ src/ui/
 | `updateDialog` | 软件更新对话框（`dialogs/UpdateDialog.qml`）：`modal`，可经 Esc / 点击遮罩 / 「关闭」收起；关闭只隐藏窗口，下载状态保存在 `UpdateBridge`，重开后继续显示进度 |
 | `updateDialogVersionText` / `updateDialogUpdateBadge` | 当前版本行，以及「新版本 v<remote_version>」徽标（`hasUpdate` 时可见）：只读 |
 | `updateDialogReleaseNotes` / `updateDialogReleaseNotesEmpty` | `release_notes` 全文（放在 `Flickable` 里，`contentHeight` 取内部 `Column` 位置器，不设最大行数也不 elide）与空说明占位文案：只读 |
+| `updateDialogNotesScrollBar` | 更新说明的竖向滚动条（`ScrollBar` 附属在同一 `Flickable` 上，`policy: AsNeeded`），句柄取 `Theme.textSecondary` / 按下 `Theme.accent`、宽度与圆角取 `Metrics`（默认 Basic 样式句柄静止时透明），无交互 |
 | `updateDialogErrorText` | `error_message` 非空时以危险色显示错误行 |
 | `updateDialogProgress` | 下载进度条：`downloading` 时可见，值取 `progress` |
 | `updateDialogCheckButton` / `updateDialogDownloadButton` / `updateDialogApplyButton` | 检查更新 / 下载更新（`hasUpdate` 且未就绪时可见，下载中置灰）/ 重启并安装（`ready_to_install` 时可见，`danger` + `outline` 组合，沿用「先经 `confirmDialog` 确认」的既有槽） |
@@ -342,6 +344,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `StatusBadge` | `Rectangle` | 状态徽标：level 0 信息 / 1 成功 / 2 警示 / 3 危险，纯展示 |
 | `Toast` | `Rectangle` | 右下角一次性反馈浮层，绑定 `app.toastText` / `app.toastLevel` |
 | `AppDialog` | `Dialog` | 对话框基类：`surface` 底色 + `border` 描边、`Metrics.scrimOpacity` 模态遮罩、`spacingMd` 内边距、共用标题行（取 `title`，`fontSubtitle` + `textPrimary`）；理想尺寸用 `preferredWidth` / `preferredHeight`，实际尺寸按 `Overlay.overlay` 钳制，窗口缩小时不裁切 |
+| `AppMenu` | `Menu` | 主题化菜单：底色 / 描边 / 圆角 / 内边距取 `Theme` 与 `Metrics`；项文字色、高亮色、按下色与分隔线经 `palette`（`windowText` / `light` / `midlight` / `mid`）下传，声明式 `MenuItem` 与 `MenuSeparator` 无需逐项改样式。`Menu.delegate` 只用于 `Action`，不参与声明式菜单项，故项目走 palette 而不是自建委托 |
 | `ConfirmDialog` | `AppDialog` | 通用确认弹层，`closePolicy: NoAutoClose`，供 `ask_confirm` 复用 |
 | `WavePreview` | `Item` | 波形预览：强度曲线（`accent`）+ 频率曲线（`secondary`），空态显示「无波形」 |
 
@@ -357,7 +360,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `AppSlider` | 连续值滑杆，可在右侧显示当前值 | `value` / `from` / `to`（`Slider` 别名）、`step`、`showValue`、`valueText`、`moved()` |
 | `AppTabs` | 顶部标签页切换条（`Row` + `Repeater`） | `model`、`currentIndex`、`tabClicked(index)` |
 | `AppChip` | 可选中标签片，用于筛选或状态片段 | `text`、`checked`、`clicked()` |
-| `AppCard` | 带横幅 / 标题 / 副标题 / 标签 / 状态与操作区的卡片 | `title`、`subtitle`、`banner`、`tags`、`status`、默认属性槽 `actions`、`hasBanner`（由 `banner` 派生，决定横幅布局） |
+| `AppCard` | 带横幅 / 标题 / 副标题 / 标签 / 状态与操作区的卡片 | `title`、`subtitle`、`banner`、`tags`、`status`、默认属性槽 `actions`、`hasBanner`（`banner` 非空）、`bannerReady`（`banner` 非空且 `Image` 真正 `Ready`，决定是否占头图槽与左右对齐；坏图或加载中退回无图的居中态，不留空白头图槽） |
 | `AppField` | 表单行：标签 + 提示 + 内容槽 | `label`、`hint`、默认属性槽 `contentData` |
 | `AppSparkline` | 迷你曲线，接受原始点或帧数据 | `points`、`frames`、`maxValue`、`showAxisLabels` |
 | `AppStatusButton` | 带状态点的按钮（0 信息 / 1 成功 / 2 警示 / 3 危险） | `statusLevel`、`clicked()`（继承 `Button`） |

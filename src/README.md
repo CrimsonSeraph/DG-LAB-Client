@@ -113,6 +113,7 @@ C++ 侧提供桥接对象与连接集中点，QML 只做绑定与渲染；界面
 | `RuleGraphBridge.cpp` | 规则图节点/连线数据、模块数值面板、节点编辑与保存写回 |
 | `LogBridge.cpp` | 界面日志收集、级别过滤与导出 |
 | `QrImageProvider.cpp` | 由内嵌 `qrcodegen` 生成配对二维码（`image://dglabqr`） |
+| `ModuleBannerImageProvider.cpp` | 插件侧车头图提供者：按 `image://modulebanner/<插件文件名>/<头图文件名>` 解析 `<插件扫描目录>/<dll 主干名>/<头图文件名>`（扫描目录取 `ModuleManager::get_plugin_dir()`）；id 只接受两段纯文件名，含盘符、路径分隔符、`..` 或多余段一律返回空图，文件缺失或不是图片同样按空态处理 |
 | `UiConnector.cpp` | 按 `objectName` 集中建立 QML↔C++ 连接（含动态委托热区扫描） |
 | `UpdateBridge.cpp` | 更新界面桥接：检查 / 下载 / 安装状态、下载进度与错误；安装经 `confirmDialog` 二次确认后调用 `UpdateManager` |
 | `qml/` | QML 界面：`MainWindow`、`pages/`、`home/`、`dialogs/`、`components/`、`style/` |

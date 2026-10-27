@@ -93,6 +93,7 @@ include/
 | `RuleGraphBridge.h`  | 规则图编辑器桥接                              |
 | `LogBridge.h`        | 界面日志收集与导出                            |
 | `QrImageProvider.h`  | 二维码图像提供者                              |
+| `ModuleBannerImageProvider.h` | 插件侧车头图提供者（`image://modulebanner`，id 只接受「插件文件名 + 纯文件名」两段） |
 | `UiConnector.h`      | QML↔C++ 连接集中点                            |
 | `UpdateBridge.h`     | 更新界面桥接（QML 上下文属性 `updateBridge`） |
 | `TrayController.h`   | 系统托盘：图标与三项菜单（显示主窗口 / 显示迷你窗 / 退出）、主窗口关闭落点 |

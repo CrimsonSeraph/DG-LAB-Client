@@ -823,7 +823,7 @@ AppDialog {
                     }
                 }
 
-                Menu {
+                AppMenu {
                     id: contextMenu
 
                     MenuItem {

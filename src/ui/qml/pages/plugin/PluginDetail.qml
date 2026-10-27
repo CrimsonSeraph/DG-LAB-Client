@@ -51,22 +51,11 @@ Item {
         ? 0
         : (root.defaultChannelValue === "B" ? 1 : 2)
 
-    // 通道上限是全局值：当前插件没有事件项时，从任一事件项取同一份全局通道配置
-    readonly property var fallbackChannels: {
-        const list = eventBridge.events;
-        for (let i = 0; i < list.length; ++i) {
-            if (list[i].channels !== undefined) {
-                return list[i].channels;
-            }
-        }
-        return null;
-    }
-
+    // 通道上限与安全上限是全局设置：一律取 eventBridge.channels（app.channels.<A|B>），
+    // 与当前插件是否声明事件无关
     function channelConfig(channel) {
-        const source = (root.eventsItem !== null && root.eventsItem.channels !== undefined)
-            ? root.eventsItem.channels
-            : root.fallbackChannels;
-        if (source === null || source[channel] === undefined) {
+        const source = eventBridge.channels;
+        if (source === undefined || source === null || source[channel] === undefined) {
             return null;
         }
         return source[channel];

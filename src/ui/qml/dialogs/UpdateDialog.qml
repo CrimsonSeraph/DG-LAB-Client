@@ -58,8 +58,21 @@ AppDialog {
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
 
+                // 竖向滚动条：说明过长时可滚动提示，句柄取 Theme 令牌、尺寸取 Metrics
                 ScrollBar.vertical: ScrollBar {
+                    id: notesScrollBar
+
+                    objectName: "updateDialogNotesScrollBar"
                     policy: ScrollBar.AsNeeded
+                    width: Metrics.spacingSm
+                    padding: 0
+
+                    contentItem: Rectangle {
+                        implicitWidth: Metrics.spacingXs
+                        implicitHeight: Metrics.spacingXs
+                        radius: Metrics.radiusXs
+                        color: notesScrollBar.pressed ? Theme.accent : Theme.textSecondary
+                    }
                 }
 
                 Column {

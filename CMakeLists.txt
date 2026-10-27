@@ -444,6 +444,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/components/AppStatusButton.qml
 		src/ui/qml/components/AppSegment.qml
 		src/ui/qml/components/AppDialog.qml
+		src/ui/qml/components/AppMenu.qml
 		src/ui/qml/components/ConfirmDialog.qml
 		src/ui/qml/components/WavePreview.qml
 		src/ui/qml/components/StatusBadge.qml
