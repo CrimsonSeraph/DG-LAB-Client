@@ -56,6 +56,7 @@ void DeviceController::initialize() {
     connect(relay_, &DglabRelayServer::errorOccurred, this, &DeviceController::report_error);
     connect(relay_, &DglabRelayServer::strengthFeedback, this, &DeviceController::strengthFeedback);
     connect(relay_, &DglabRelayServer::deviceFeedback, this, &DeviceController::deviceFeedback);
+    connect(relay_, &DglabRelayServer::clientCountChanged, this, &DeviceController::appClientCountChanged);
     connect(relay_, &DglabRelayServer::pairingChanged, this, [this]() {
         update_pairing_url();
         emit pairingChanged();
@@ -116,6 +117,10 @@ QString DeviceController::qr_image_url() const {
 
 bool DeviceController::v3_paired() const {
     return relay_ != nullptr && relay_->v3_paired();
+}
+
+int DeviceController::app_client_count() const {
+    return relay_ != nullptr ? relay_->client_count() : 0;
 }
 
 bool DeviceController::v4_attached() const {

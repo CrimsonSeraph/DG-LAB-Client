@@ -33,6 +33,7 @@ class DeviceController : public QObject {
     Q_PROPERTY(bool v3Paired READ v3_paired NOTIFY pairingChanged)
     Q_PROPERTY(bool v4Attached READ v4_attached NOTIFY pairingChanged)
     Q_PROPERTY(QVariantList v4Devices READ v4_devices NOTIFY pairingChanged)
+    Q_PROPERTY(int appClientCount READ app_client_count NOTIFY appClientCountChanged)
     Q_PROPERTY(QString lastError READ last_error NOTIFY lastErrorChanged)
     Q_PROPERTY(bool outputReady READ output_ready NOTIFY outputReadyChanged)
     Q_PROPERTY(int pairingStage READ pairing_stage NOTIFY pairingStageChanged)
@@ -58,6 +59,8 @@ public:
     QString qr_image_url() const;
     bool v3_paired() const;
     bool v4_attached() const;
+    /// @brief APP 在线客户端数（镜像中转服务上已建立的 WebSocket 连接数）
+    int app_client_count() const;
     QVariantList v4_devices() const;
     /// @brief 最近一次错误文案（所有 errorOccurred 出口同步写入）
     QString last_error() const { return last_error_; }
@@ -92,6 +95,7 @@ signals:
     void endpointChanged();
     void qrUrlChanged();
     void pairingChanged();
+    void appClientCountChanged();
     void strengthFeedback(int aStrength, int bStrength, int aLimit, int bLimit);
     void deviceFeedback(int channel, int button);
     void errorOccurred(const QString& message);

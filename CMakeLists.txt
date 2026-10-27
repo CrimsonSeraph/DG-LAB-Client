@@ -419,6 +419,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/dialogs/WaveSelectDialog.qml
 		src/ui/qml/dialogs/WaveEditorDialog.qml
 		src/ui/qml/dialogs/RuleEditorDialog.qml
+		src/ui/qml/components/AppIcon.qml
 		src/ui/qml/components/NavButton.qml
 		src/ui/qml/components/GlassCard.qml
 		src/ui/qml/components/AppButton.qml

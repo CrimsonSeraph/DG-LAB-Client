@@ -31,6 +31,8 @@ public:
     bool start();
     void stop();
     bool running() const { return running_; }
+    /// @brief 在线 WebSocket 客户端数（V3 控制端 + V4 被控方）
+    int client_count() const { return v3_connections_.size() + v4_connections_.size(); }
 
     QString controller_id() const { return controller_id_; }
     int v3_port() const { return v3_port_; }
@@ -54,6 +56,7 @@ public:
 
 signals:
     void runningChanged();
+    void clientCountChanged();
     void pairingChanged();
     void strengthFeedback(int aStrength, int bStrength, int aLimit, int bLimit);
     void deviceFeedback(int channel, int button);

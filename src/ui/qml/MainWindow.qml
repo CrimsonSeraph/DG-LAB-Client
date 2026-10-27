@@ -25,6 +25,40 @@ ApplicationWindow {
     readonly property int pageMiniGame: 6
     readonly property int pageLog: 7
 
+    // 连接状态统一口径：蓝牙连接（0/1）+ APP 在线客户端数（来源 device.appClientCount）
+    readonly property int bleCount: ble.connected ? 1 : 0
+    readonly property int appCount: device.appClientCount
+    readonly property int connectionCount: bleCount + appCount
+
+    // 导航项内容：图标 + 文字。NavButton 默认只渲染文字，这里统一覆盖 contentItem。
+    component NavItemContent: RowLayout {
+        id: navContent
+
+        property string glyph: ""
+        property string label: ""
+        property bool highlighted: false
+
+        spacing: Metrics.spacingSm
+
+        AppIcon {
+            Layout.alignment: Qt.AlignVCenter
+            Layout.leftMargin: Metrics.spacingLg
+            icon: navContent.glyph
+            size: Typography.fontHeading
+            color: navContent.highlighted ? Theme.selectionText : Theme.textSecondary
+        }
+
+        Text {
+            Layout.alignment: Qt.AlignVCenter
+            Layout.fillWidth: true
+            text: navContent.label
+            color: navContent.highlighted ? Theme.selectionText : Theme.textSecondary
+            font.pixelSize: Typography.fontSubtitle
+            font.bold: navContent.highlighted
+            elide: Text.ElideRight
+        }
+    }
+
     // 左侧导航：页头钉顶、面板钉底，导航项夹在两者之间（空间不足时滚动）
     Rectangle {
         id: navigationBar
@@ -101,38 +135,73 @@ ApplicationWindow {
                 spacing: Metrics.spacingXs
 
                 NavButton {
+                    id: navHomeButton
+
                     objectName: "navHomeButton"
-                    text: "⌂  " + qsTr("主页")
+                    text: qsTr("主页")
                     selected: app.currentPage === root.pageHome
                     width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f015" // house
+                        label: navHomeButton.text
+                        highlighted: navHomeButton.selected
+                    }
                 }
 
                 NavButton {
+                    id: navPluginCenterButton
+
                     objectName: "navPluginCenterButton"
-                    text: "▦  " + qsTr("插件中心")
+                    text: qsTr("插件中心")
                     selected: app.currentPage === root.pagePluginCenter
                     width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f12e" // puzzle-piece
+                        label: navPluginCenterButton.text
+                        highlighted: navPluginCenterButton.selected
+                    }
                 }
 
                 NavButton {
+                    id: navWaveButton
+
                     objectName: "navWaveButton"
-                    text: "∿  " + qsTr("波形设置")
+                    text: qsTr("波形设置")
                     selected: app.currentPage === root.pageWave
                     width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f83e" // wave-square
+                        label: navWaveButton.text
+                        highlighted: navWaveButton.selected
+                    }
                 }
 
                 NavButton {
+                    id: navMiniGameButton
+
                     objectName: "navMiniGameButton"
-                    text: "▷  " + qsTr("小游戏")
+                    text: qsTr("小游戏")
                     selected: app.currentPage === root.pageMiniGame
                     width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f11b" // gamepad
+                        label: navMiniGameButton.text
+                        highlighted: navMiniGameButton.selected
+                    }
                 }
 
                 NavButton {
+                    id: navLogButton
+
                     objectName: "navLogButton"
-                    text: "▤  " + qsTr("日志")
+                    text: qsTr("日志")
                     selected: app.currentPage === root.pageLog
                     width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f15c" // file-lines
+                        label: navLogButton.text
+                        highlighted: navLogButton.selected
+                    }
                 }
             }
         }
@@ -162,7 +231,7 @@ ApplicationWindow {
                 anchors.margins: Metrics.spacingLg
                 spacing: Metrics.spacingSm
 
-                // 设备连接状态（只读展示）
+                // 设备连接状态（只读展示）：蓝牙与 APP 两种连接口径并列
                 RowLayout {
                     objectName: "deviceStatusRow"
 
@@ -172,11 +241,11 @@ ApplicationWindow {
                     Rectangle {
                         objectName: "deviceStatusDot"
 
-                        Layout.alignment: Qt.AlignVCenter
+                        Layout.alignment: Qt.AlignTop
                         implicitWidth: Metrics.spacingMd
                         implicitHeight: Metrics.spacingMd
                         radius: width / 2
-                        color: ble.connected ? Theme.success : Theme.textMuted
+                        color: root.connectionCount > 0 ? Theme.success : Theme.textMuted
                     }
 
                     ColumnLayout {
@@ -188,18 +257,41 @@ ApplicationWindow {
                             objectName: "deviceStatusName"
 
                             Layout.fillWidth: true
-                            text: (ble.connected && ble.deviceName !== "") ? ble.deviceName : qsTr("未连接设备")
+                            text: root.connectionCount > 0
+                                ? qsTr("已连接设备 ×%1").arg(root.connectionCount)
+                                : qsTr("未连接设备")
                             color: Theme.textPrimary
                             font.pixelSize: Typography.fontBody
                             elide: Text.ElideRight
                         }
 
                         Text {
-                            objectName: "deviceStatusState"
+                            objectName: "deviceStatusBle"
 
                             Layout.fillWidth: true
-                            text: ble.connected ? qsTr("已连接") : qsTr("未连接")
+                            text: ble.connected ? qsTr("蓝牙已连接") : qsTr("蓝牙未连接")
                             color: ble.connected ? Theme.success : Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            objectName: "deviceStatusApp"
+
+                            Layout.fillWidth: true
+                            text: root.appCount > 0 ? qsTr("App 已连接 ×%1").arg(root.appCount) : qsTr("App 未连接")
+                            color: root.appCount > 0 ? Theme.success : Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            objectName: "deviceStatusDevice"
+
+                            Layout.fillWidth: true
+                            visible: ble.connected && ble.deviceName !== ""
+                            text: ble.deviceName
+                            color: Theme.textMuted
                             font.pixelSize: Typography.fontBody
                             elide: Text.ElideRight
                         }
@@ -317,9 +409,9 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.leftMargin: Metrics.spacingLg
             anchors.verticalCenter: parent.verticalCenter
-            text: qsTr("中转：%1 · 蓝牙：%2 · 通道：%3")
-                .arg(device.connected ? qsTr("已连接") : qsTr("未连接"))
+            text: qsTr("蓝牙：%1 · App：%2 · 通道：%3")
                 .arg(ble.connected ? qsTr("已连接") : qsTr("未连接"))
+                .arg(root.appCount > 0 ? qsTr("已连接 ×%1").arg(root.appCount) : qsTr("未连接"))
                 .arg(home.channelAState === "idle" && home.channelBState === "idle" ? qsTr("空闲") : qsTr("运行中"))
             color: Theme.textSecondary
             font.pixelSize: Typography.fontBody

@@ -155,6 +155,7 @@ void DglabRelayServer::stop() {
     v4_connections_.clear();
     v3_target_id_.clear();
     emit runningChanged();
+    emit clientCountChanged();
     emit pairingChanged();
     emit devicesChanged();
     LOG_MODULE("DglabRelayServer", "stop", LOG_INFO, "内置中转服务已停止");
@@ -218,6 +219,7 @@ void DglabRelayServer::on_v3_connection() {
         connection.ws = ws;
         connection.id = new_id();
         v3_connections_.append(connection);
+        emit clientCountChanged();
 
         QJsonObject bind;
         bind["type"] = "bind";
@@ -234,6 +236,7 @@ void DglabRelayServer::on_v3_connection() {
                 if (v3_connections_.at(i).ws == ws) {
                     removed_id = v3_connections_.at(i).id;
                     v3_connections_.removeAt(i);
+                    emit clientCountChanged();
                     break;
                 }
             }
@@ -380,6 +383,7 @@ void DglabRelayServer::on_v4_connection() {
         connection.ws = ws;
         connection.id = new_id();
         v4_connections_.append(connection);
+        emit clientCountChanged();
 
         QJsonObject hello;
         hello["type"] = "hello";
@@ -397,6 +401,7 @@ void DglabRelayServer::on_v4_connection() {
             for (int i = 0; i < v4_connections_.size(); ++i) {
                 if (v4_connections_.at(i).ws == ws) {
                     v4_connections_.removeAt(i);
+                    emit clientCountChanged();
                     break;
                 }
             }

@@ -8,17 +8,22 @@ GlassCard {
     objectName: "dashboardDeviceCard"
     title: qsTr("设备状态")
 
+    // 连接状态统一口径：蓝牙连接（0/1）+ APP 在线客户端数（来源 device.appClientCount）
+    readonly property int bleCount: ble.connected ? 1 : 0
+    readonly property int appCount: device.appClientCount
+    readonly property int connectionCount: bleCount + appCount
+
     RowLayout {
         width: parent.width
         spacing: Metrics.spacingMd
 
         Rectangle {
             objectName: "dashboardDeviceDot"
-            Layout.alignment: Qt.AlignVCenter
+            Layout.alignment: Qt.AlignTop
             implicitWidth: Metrics.spacingMd
             implicitHeight: Metrics.spacingMd
             radius: width / 2
-            color: ble.connected ? Theme.success : Theme.textMuted
+            color: root.connectionCount > 0 ? Theme.success : Theme.textMuted
         }
 
         ColumnLayout {
@@ -29,7 +34,9 @@ GlassCard {
             Text {
                 objectName: "dashboardDeviceName"
                 Layout.fillWidth: true
-                text: (ble.connected && ble.deviceName !== "") ? ble.deviceName : qsTr("未连接设备")
+                text: root.connectionCount > 0
+                    ? qsTr("已连接设备 ×%1").arg(root.connectionCount)
+                    : qsTr("未连接设备")
                 color: Theme.textPrimary
                 font.pixelSize: Typography.fontSubtitle
                 font.bold: true
@@ -41,6 +48,25 @@ GlassCard {
                 Layout.fillWidth: true
                 text: ble.connected ? qsTr("蓝牙已连接") : qsTr("蓝牙未连接")
                 color: ble.connected ? Theme.success : Theme.textMuted
+                font.pixelSize: Typography.fontBody
+                elide: Text.ElideRight
+            }
+
+            Text {
+                objectName: "dashboardDeviceAppState"
+                Layout.fillWidth: true
+                text: root.appCount > 0 ? qsTr("App 已连接 ×%1").arg(root.appCount) : qsTr("App 未连接")
+                color: root.appCount > 0 ? Theme.success : Theme.textMuted
+                font.pixelSize: Typography.fontBody
+                elide: Text.ElideRight
+            }
+
+            Text {
+                objectName: "dashboardDeviceBleName"
+                Layout.fillWidth: true
+                visible: ble.connected && ble.deviceName !== ""
+                text: ble.deviceName
+                color: Theme.textMuted
                 font.pixelSize: Typography.fontBody
                 elide: Text.ElideRight
             }
