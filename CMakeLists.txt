@@ -287,6 +287,7 @@ set(UI_QML
 	src/ui/DeviceController.cpp
 	src/ui/HomeBridge.cpp
 	src/ui/ModuleBridge.cpp
+	src/ui/ModuleBannerImageProvider.cpp
 	src/ui/WaveBridge.cpp
 	src/ui/QrImageProvider.cpp
 	src/ui/RuleGraphBridge.cpp
@@ -300,6 +301,7 @@ set(UI_QML
 	include/ui/DeviceController.h
 	include/ui/HomeBridge.h
 	include/ui/ModuleBridge.h
+	include/ui/ModuleBannerImageProvider.h
 	include/ui/WaveBridge.h
 	include/ui/QrImageProvider.h
 	include/ui/RuleGraphBridge.h

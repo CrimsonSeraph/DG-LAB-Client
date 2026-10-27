@@ -526,11 +526,25 @@ bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() != QEvent::KeyPress || root_.isNull() || watched != root_.data()) {
         return QObject::eventFilter(watched, event);
     }
-    // 确认弹层盖在最上面时，键位归它自己的按钮路径，不穿透到底下的编辑器
+    auto* key_event = static_cast<QKeyEvent*>(event);
+    // 确认弹层盖在最上面时键位归它：Esc = 取消、Enter = 确认（弹层是 NoAutoClose，自己不处理键位），
+    // 也不穿透到底下的编辑器
     if (dialog_visible("confirmDialog")) {
+        if (key_event->key() == Qt::Key_Escape) {
+            on_confirm_canceled();
+            return true;
+        }
+        if (key_event->key() == Qt::Key_Return || key_event->key() == Qt::Key_Enter) {
+            auto* confirm_window = qobject_cast<QQuickWindow*>(watched);
+            // 弹层内目前没有输入控件；将来加入时仍让输入框先拿到 Enter
+            if (is_text_entry((confirm_window == nullptr) ? nullptr : confirm_window->activeFocusItem())) {
+                return false;
+            }
+            on_confirm_accepted();
+            return true;
+        }
         return false;
     }
-    auto* key_event = static_cast<QKeyEvent*>(event);
     if (key_event->key() == Qt::Key_Escape) {
         // Esc = 取消：未保存改动先弹确认，未改动直接关（三个对话框都是 NoAutoClose，这里是唯一入口）
         if (dialog_visible("ruleEditorDialog")) {

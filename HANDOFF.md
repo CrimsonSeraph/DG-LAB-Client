@@ -98,7 +98,7 @@
 2. 用位置器作 `Flickable.contentHeight` 的来源时才可靠；读布局的 implicit 尺寸会得到 0 或时序不确定值。
 3. 布局内子项用 `Layout.*` 附加属性，位置器内子项必须用 `width: parent.width` —— 换容器时要逐个核对。
 4. 导航是 C++ 驱动的：`AppBridge::Page` + `UiConnector::nav_bindings()` 的 objectName 映射；QML 导航按钮不写 onClicked。页内按钮可以写。
-5. 侧车 `banner` 只是文件名，尚无图片提供器 → 一律无图居中态，不要自己拼路径。
+5. 侧车 `banner` 只是文件名（QML 不要自己拼路径）：头图统一走 `image://modulebanner/<插件文件名>/<banner>`，由 `ModuleBannerImageProvider` 按 `<插件扫描目录>/<dll 主干名>/<banner>` 解析；带路径分隔符或文件不可读时返回空图，卡片与详情页保持空态。
 6. 启用 CS2 插件会往本机 Steam 的 CS2 cfg 目录写 `gamestate_integration_dglab.cfg`（插件既有副作用，需提示用户）。
 7. 用户自己的提交曾整段删掉 `is_newer_version` 函数体导致 LNK2019；接手大改动后先构建一次确认 HEAD 可编译。
 8. 两个子代理同时构建同一 `build-agent` 会互相抢 exe（LNK1104）。同一产物只允许一个代理构建。

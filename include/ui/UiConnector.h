@@ -51,9 +51,10 @@ public:
         std::function<void()> on_accept);
 
 protected:
-    /// @brief 主窗口事件过滤器：把 Esc（取消）与 Enter（主操作）接到三个对话框上
-    /// @note QML 不为键位写处理器；三个对话框都是 closePolicy: Popup.NoAutoClose，
+    /// @brief 主窗口事件过滤器：把 Esc（取消）与 Enter（主操作）接到四个对话框上
+    /// @note QML 不为键位写处理器；四个对话框都是 closePolicy: Popup.NoAutoClose，
     ///       Esc 不会由 Popup 自己处理，本过滤器是唯一入口
+    /// @note 确认弹层可见时只认 Esc = 取消、Enter = 确认，且不穿透到底下的编辑器
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:

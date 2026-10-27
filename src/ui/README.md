@@ -92,6 +92,13 @@ src/ui/
 | `updateBridge` | `UpdateBridge` | 检查更新、下载更新包（进度 / 错误）、重启并安装；安装经 `confirmDialog` 确认 |
 | `tray` | `TrayController` | 系统托盘：图标与三项菜单（显示主窗口 / 显示迷你窗 / 退出）、双击图标恢复主窗口，以及主窗口关闭的落点（托盘可用则隐藏到托盘，不可用则退出） |
 
+图像提供器（由 `main.cpp` 注册到 `QQmlApplicationEngine`）：
+
+| 协议 | 提供器 | 说明 |
+| --- | --- | --- |
+| `image://dglabqr/<rev>` | `QrImageProvider` | 配对链接二维码，由 `DeviceController` 持有 |
+| `image://modulebanner/<插件文件名>/<头图文件名>` | `ModuleBannerImageProvider` | 插件侧车头图：按 id 解析 `<插件扫描目录>/<dll 主干名>/<头图文件名>`（扫描目录取自 `ModuleManager::get_plugin_dir()`，不按程序目录另拼）；id 只允许「插件文件名 + 纯文件名」两段，含 `..`、盘符、路径分隔符或多余段一律拒绝；文件缺失或不是图片时返回空图，QML 侧保持空态 |
+
 ## objectName 契约表
 
 > 历史条目 `navConfigButton` / `navModuleButton` / `navAboutButton` 已随导航重排移除；下表一律以代码中的实际 `objectName` 为准。
@@ -229,7 +236,7 @@ src/ui/
 
 已启用栏条目没有新增 objectName：「配置 →」热区同样调用 `app.openPluginDetail(fileName)`，走与首页看板相同的解析与降级路径；网格卡片的热区仍走页面内的 `openDetail()`（已在本页，无需再切页）。
 
-插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。
+插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。
 
 | objectName | 行为 |
 | --- | --- |
@@ -268,7 +275,7 @@ src/ui/
 | `ruleCanvas` / `ruleZoomLabel` | 画布根项（C++ 通过它读写 `panX`/`panY`/`zoom`）与左下缩放百分比标签（纯绑定 `zoom`） |
 | `ruleFitViewButton` | 适配视图：点击由 C++ 连接，按节点包围盒重置缩放与平移；无节点时回到 1.0 居中 |
 | `ruleDeleteEdgeMenu` | 右键菜单「删除此连线」：仅当右键命中连线（`canvas.contextEdgeId > 0`）时可见，`onTriggered` 调用 `ruleGraph.deleteEdge()` |
-| `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层（`components/ConfirmDialog.qml`）：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭；弹层是主窗口内的 `Popup`，主窗口隐藏到托盘或最小化时 `ask_confirm()` 先把主窗口 `show()` / `showNormal()` + `raise()` + `requestActivate()` 再打开，否则迷你窗触发的确认（如「关闭运行中的通道」）落在不可见的窗口里无法确认 |
+| `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层（`components/ConfirmDialog.qml`）：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭；键盘由 `UiConnector::eventFilter` 在弹层可见时接管——Enter 确认、Esc 取消（弹层内出现输入框时 Enter 仍归输入），默认焦点按危险性分配：危险操作落在取消上、普通操作落在确认上，空白键只作用于默认焦点按钮；弹层是主窗口内的 `Popup`，主窗口隐藏到托盘或最小化时 `ask_confirm()` 先把主窗口 `show()` / `showNormal()` + `raise()` + `requestActivate()` 再打开，否则迷你窗触发的确认（如「关闭运行中的通道」）落在不可见的窗口里无法确认 |
 | `waveSelectDialog` / `waveLibraryList` | 波形库对话框与列表；`waveSelectCloseButton` 关闭 |
 | `waveSelectClick` | 行热区（`waveName` 属性）：指派该波形到目标通道并关闭对话框；委托热区由 `watch_items` 扫描 |
 | `waveDeleteClick` | 行内删除（`waveName` 属性，`AppButton.danger`）：先经 `confirmDialog` 确认不可恢复，确认后按名字删除 |

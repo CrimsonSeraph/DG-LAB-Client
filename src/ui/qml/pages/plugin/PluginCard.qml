@@ -33,16 +33,18 @@ Item {
         return root.item.author === undefined ? "" : String(root.item.author);
     }
     readonly property var cardTags: (root.item !== null && root.item.tags !== undefined) ? root.item.tags : []
-    // 侧车 banner 只是文件名，没有可解析路径：带分隔符或协议头的才当作图片来源
+    // 侧车 banner 只是文件名：交给 modulebanner 提供器按 <插件文件名>/<头图文件名> 解析，带路径的一律不渲染
     readonly property string bannerSource: {
-        if (root.item === null || root.item.banner === undefined) {
+        if (root.item === null || root.item.banner === undefined || root.item.fileName === undefined) {
             return "";
         }
-        const value = String(root.item.banner);
-        if (value.indexOf("/") < 0 && value.indexOf(":") < 0) {
+        const file = String(root.item.fileName);
+        const banner = String(root.item.banner);
+        if (file.length === 0 || banner.length === 0
+            || banner.indexOf("/") >= 0 || banner.indexOf(":") >= 0) {
             return "";
         }
-        return value;
+        return "image://modulebanner/" + file + "/" + banner;
     }
 
     implicitWidth: Metrics.navWidth + Metrics.spacing3xl * 2

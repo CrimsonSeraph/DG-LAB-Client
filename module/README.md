@@ -50,7 +50,7 @@ module/
 | `version` | string | 插件版本 |
 | `author` | string | 作者 |
 | `description` | string | 一句话简介 |
-| `banner` | string | 头图文件名（相对侧车目录），留空则不显示 |
+| `banner` | string | 头图文件名（只写文件名，文件与该插件的侧车同目录），留空则不显示；宿主按 `image://modulebanner/<插件文件名>/<banner>` 读取 |
 | `tags` | string[] | 标签 |
 
 侧车随插件在 `CMakeLists.txt` 中注册，`META_DIR` 必须指向 **侧车子目录**（不是插件源码目录）：
@@ -66,6 +66,10 @@ dgl_add_plugin(dgl_warthunder_plugin
 ```
 
 `dgl_add_plugin` 用 `copy_directory` 把 `META_DIR` 的内容整体复制到 `<exe>/module/<目标名>/`；若把插件源码目录当作 `META_DIR`，源码会被一起复制进部署目录。`META_DIR` 可写多个目录，未指定时只复制动态库。
+
+头图是侧车同目录的普通图片文件：放进 `module/<插件名>/meta/` 就会随整目录一起部署到 `<exe>/module/<目标名>/`（`copy_directory` 复制的是目录内容，不只 `plugin.json`），侧车只写文件名。宿主用 `image://modulebanner/<插件文件名>/<banner>` 读取该文件，文件缺失、不是图片或 `banner` 里带路径分隔符时按无图处理（插件卡与详情页都保持空态）。
+
+`module/gsi/meta/banner.png` 是本仓库自带的侧车头图样例（1200×400，程序绘制的反恐精英 2 头图），用于端到端验证头图渲染与整目录部署。
 
 ### 事件声明（events）
 

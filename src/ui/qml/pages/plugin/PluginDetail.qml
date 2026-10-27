@@ -19,6 +19,21 @@ Item {
         : ""
     readonly property bool enabledState: root.item !== null && root.item.enabled === true
     readonly property bool hasEventData: root.eventsItem !== null
+    // 头图遮罩不透明度：压暗图片左侧，保证叠在上面的文字可读
+    readonly property real bannerScrimOpacity: 0.9
+    // 头图源：侧车 banner 只是文件名，交给 modulebanner 提供器按 <插件文件名>/<头图文件名> 解析
+    readonly property string bannerSource: {
+        if (root.item === null || root.item.banner === undefined || root.item.fileName === undefined) {
+            return "";
+        }
+        const file = String(root.item.fileName);
+        const banner = String(root.item.banner);
+        if (file.length === 0 || banner.length === 0
+            || banner.indexOf("/") >= 0 || banner.indexOf(":") >= 0) {
+            return "";
+        }
+        return "image://modulebanner/" + file + "/" + banner;
+    }
     readonly property var channelAConfig: root.channelConfig("A")
     readonly property var channelBConfig: root.channelConfig("B")
     readonly property int limitA: root.channelAConfig === null ? 0 : Number(root.channelAConfig.limit)
@@ -111,7 +126,7 @@ Item {
             }
         }
 
-        // 头图区：banner 无解析路径，统一用 surfaceAlt 铺底
+        // 头图区：头图铺满并按需裁切，无图或加载失败时保持 surfaceAlt 铺底
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: headerColumn.implicitHeight + Metrics.spacing3xl * 2
@@ -119,6 +134,33 @@ Item {
             color: Theme.surfaceAlt
             border.width: Metrics.borderWidth
             border.color: Theme.border
+            clip: true
+
+            // 头图：加载完成前与失败时都不显示，避免出现破图
+            Image {
+                id: headerBanner
+
+                anchors.fill: parent
+                source: root.bannerSource
+                visible: root.bannerSource.length > 0 && status === Image.Ready
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: true
+            }
+
+            // 头图上的水平渐变遮罩：保证左侧标题与副标题在任意图片上仍可读
+            Rectangle {
+                anchors.fill: parent
+                visible: headerBanner.visible
+                opacity: root.bannerScrimOpacity
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+
+                    GradientStop { position: 0.0; color: Theme.windowBg }
+                    GradientStop { position: 0.6; color: Theme.windowBg }
+                    GradientStop { position: 1.0; color: Theme.transparentFill }
+                }
+            }
 
             ColumnLayout {
                 id: headerColumn

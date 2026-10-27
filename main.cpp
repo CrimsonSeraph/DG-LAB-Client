@@ -13,6 +13,7 @@
 #include "EventRuntime.h"
 #include "HomeBridge.h"
 #include "LogBridge.h"
+#include "ModuleBannerImageProvider.h"
 #include "ModuleBridge.h"
 #include "ModuleManager.h"
 #include "RuleGraphBridge.h"
@@ -198,6 +199,8 @@ int main(int argc, char* argv[]) {
     UpdateBridge update_bridge(&update_manager);
 
     QQmlApplicationEngine engine;
+    // 插件侧车头图：image://modulebanner/<插件文件名>/<头图文件名>，提供器由引擎接管生命周期
+    engine.addImageProvider(QStringLiteral("modulebanner"), new ModuleBannerImageProvider());
     engine.addImageProvider(QStringLiteral("dglabqr"), device.qr_image_provider());
     engine.rootContext()->setContextProperty(QStringLiteral("app"), &bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("device"), &device);

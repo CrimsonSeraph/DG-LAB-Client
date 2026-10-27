@@ -4,7 +4,7 @@
     "version": "0.7.0",
     "author": "CrimsonSeraph",
     "description": "通过游戏状态集成读取 CS2 对局数据，输出血量、护甲、金钱、回合、炸弹与比赛阶段等数值",
-    "banner": "",
+    "banner": "banner.png",
     "tags": ["游戏遥测", "GSI"],
     "events": [
         {
