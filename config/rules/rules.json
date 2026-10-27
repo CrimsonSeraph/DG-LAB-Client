@@ -1,26 +1,40 @@
 {
-    "rules": {
-        "strength_up_A": {
-            "channel": "A",
-            "mode": 1,
-            "valuePattern": "{}"
-        },
-        "strength_down_B": {
-            "channel": "B",
-            "mode": 0,
-            "valuePattern": "{}"
-        },
-        "set_10_A": {
-            "channel": "A",
-            "mode": 2,
-            "valuePattern": "10"
-        },
-        "continuous_decrease_B": {
-            "channel": "B",
-            "mode": 3,
-            "valuePattern": "{}+{}"
-        }
+    "DGLABClient": "DG-LAB-Client",
+    "graph": {
+        "edges": [
+            {
+                "from": 1,
+                "id": 1,
+                "port": 0,
+                "to": 2
+            }
+        ],
+        "nextEdgeId": 2,
+        "nextNodeId": 3,
+        "nodes": [
+            {
+                "id": 1,
+                "name": "恶魔轮盘 输出",
+                "pluginId": "buckshot",
+                "references": [
+                    "plugin:buckshot"
+                ],
+                "type": "pluginOutput",
+                "x": 120.0,
+                "y": 80.0
+            },
+            {
+                "channel": "A",
+                "id": 2,
+                "name": "通道 A",
+                "type": "channel",
+                "x": 520.0,
+                "y": 80.0
+            }
+        ],
+        "plugin": "",
+        "version": "1.0"
     },
-    "version": "1.0",
-    "DGLABClient": "DG-LAB-Client"
+    "rules": {},
+    "version": "1.0"
 }

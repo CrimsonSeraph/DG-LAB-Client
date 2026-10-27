@@ -18,6 +18,8 @@
 
 #include <algorithm>
 #include <map>
+#include <optional>
+#include <string>
 
 namespace {
 
@@ -75,6 +77,12 @@ namespace {
         return QString();
     }
 
+    /// @brief 去重并排序（依赖集合输出稳定）
+    void sort_unique(std::vector<std::string>& values) {
+        std::sort(values.begin(), values.end());
+        values.erase(std::unique(values.begin(), values.end()), values.end());
+    }
+
 } // namespace
 
 QString graph_node_type_to_string(GraphNodeType type) {
@@ -84,6 +92,8 @@ QString graph_node_type_to_string(GraphNodeType type) {
     case GraphNodeType::Operator: return QStringLiteral("operator");
     case GraphNodeType::Advanced: return QStringLiteral("advanced");
     case GraphNodeType::Channel: return QStringLiteral("channel");
+    case GraphNodeType::PluginOutput: return QStringLiteral("pluginOutput");
+    case GraphNodeType::DefaultOutput: return QStringLiteral("defaultOutput");
     }
     return QStringLiteral("rule");
 }
@@ -93,7 +103,34 @@ GraphNodeType graph_node_type_from_string(const QString& text) {
     if (text == QStringLiteral("operator")) return GraphNodeType::Operator;
     if (text == QStringLiteral("advanced")) return GraphNodeType::Advanced;
     if (text == QStringLiteral("channel")) return GraphNodeType::Channel;
+    if (text == QStringLiteral("pluginOutput")) return GraphNodeType::PluginOutput;
+    if (text == QStringLiteral("defaultOutput")) return GraphNodeType::DefaultOutput;
     return GraphNodeType::Rule;
+}
+
+QString rule_graph_top_ref() {
+    return QStringLiteral("top");
+}
+
+QString rule_graph_plugin_ref(const QString& plugin_id) {
+    return QStringLiteral("plugin:") + plugin_id;
+}
+
+bool rule_graph_ref_is_top(const QString& ref) {
+    return ref == rule_graph_top_ref();
+}
+
+QString rule_graph_ref_plugin(const QString& ref) {
+    const QString prefix = QStringLiteral("plugin:");
+    return ref.startsWith(prefix) ? ref.mid(prefix.size()) : QString();
+}
+
+QString rule_graph_ref_display(const QString& ref) {
+    if (rule_graph_ref_is_top(ref)) {
+        return QStringLiteral("总规则图");
+    }
+    const QString plugin_id = rule_graph_ref_plugin(ref);
+    return plugin_id.isEmpty() ? QString() : QStringLiteral("%1 规则图").arg(plugin_id);
 }
 
 GraphNode* RuleGraph::find_node(int id) {
@@ -129,6 +166,8 @@ int RuleGraph::input_count(int id) const {
             return std::max(1, static_cast<int>(parse_placeholders(node->expression).size()));
         }
         return 1;
+    case GraphNodeType::DefaultOutput:
+        return 1;
     default:
         return 0;
     }
@@ -153,10 +192,20 @@ QString RuleGraph::input_label(int id, int port) const {
     if (node->type == GraphNodeType::Advanced) {
         return QStringLiteral("输入%1").arg(port + 1);
     }
+    if (node->type == GraphNodeType::DefaultOutput) {
+        return QStringLiteral("输入");
+    }
     return QString();
 }
 
 int RuleGraph::add_node(const GraphNode& node) {
+    // 插件图的默认输出节点唯一：已存在时返回既有节点，不新增
+    if (node.type == GraphNodeType::DefaultOutput) {
+        const int existing = default_output_node();
+        if (existing > 0) {
+            return existing;
+        }
+    }
     GraphNode copy = node;
     copy.id = next_node_id_++;
     nodes_.push_back(copy);
@@ -166,6 +215,11 @@ int RuleGraph::add_node(const GraphNode& node) {
 bool RuleGraph::remove_node(int id) {
     const auto it = std::find_if(nodes_.begin(), nodes_.end(), [id](const GraphNode& n) { return n.id == id; });
     if (it == nodes_.end()) {
+        return false;
+    }
+    // 默认输出节点是插件图的出口，不可手动删除
+    if (it->type == GraphNodeType::DefaultOutput) {
+        LOG_MODULE("RuleGraph", "remove_node", LOG_WARN, "默认输出节点不可删除");
         return false;
     }
     nodes_.erase(it);
@@ -194,8 +248,14 @@ int RuleGraph::connect_nodes(int from, int to, int port) {
         return -1;
     }
     const GraphNode* target = find_node(to);
-    // 通道输出只允许一个来源
-    if (target != nullptr && target->type == GraphNodeType::Channel) {
+    // 插件输出节点代表插件图的最终输出，没有输入端口
+    if (target != nullptr && target->type == GraphNodeType::PluginOutput) {
+        LOG_MODULE("RuleGraph", "connect_nodes", LOG_WARN, "插件输出节点不接受输入");
+        return -1;
+    }
+    // 通道 / 默认输出只允许一个来源
+    if (target != nullptr
+        && (target->type == GraphNodeType::Channel || target->type == GraphNodeType::DefaultOutput)) {
         port = 0;
         edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
                          [to](const GraphEdge& e) { return e.to == to; }),
@@ -247,6 +307,185 @@ int RuleGraph::source_at_port(int to, int port) const {
         }
     }
     return -1;
+}
+
+int RuleGraph::default_output_node() const {
+    for (const auto& node : nodes_) {
+        if (node.type == GraphNodeType::DefaultOutput) {
+            return node.id;
+        }
+    }
+    return -1;
+}
+
+int RuleGraph::ensure_default_output(const QString& plugin_id) {
+    normalize_output_nodes();
+    const QString owner = plugin_id.isEmpty() ? plugin_id_ : plugin_id;
+    const int existing = default_output_node();
+    if (existing > 0) {
+        GraphNode* node = find_node(existing);
+        if (node != nullptr && node->plugin_id.isEmpty()) {
+            node->plugin_id = owner;
+        }
+        return existing;
+    }
+    GraphNode node;
+    node.type = GraphNodeType::DefaultOutput;
+    node.plugin_id = owner;
+    node.name = QStringLiteral("默认输出");
+    node.x = 620;
+    node.y = 60;
+    return add_node(node);
+}
+
+std::vector<int> RuleGraph::plugin_output_nodes() const {
+    std::vector<int> ids;
+    for (const auto& node : nodes_) {
+        if (node.type == GraphNodeType::PluginOutput) {
+            ids.push_back(node.id);
+        }
+    }
+    return ids;
+}
+
+QStringList RuleGraph::output_references() const {
+    const GraphNode* node = find_node(default_output_node());
+    return node == nullptr ? QStringList() : node->references;
+}
+
+void RuleGraph::set_output_references(const QStringList& references) {
+    GraphNode* node = find_node(default_output_node());
+    if (node != nullptr) {
+        node->references = references;
+    }
+}
+
+void RuleGraph::add_output_reference(const QString& reference) {
+    if (reference.isEmpty()) {
+        return;
+    }
+    GraphNode* node = find_node(default_output_node());
+    if (node == nullptr || node->references.contains(reference)) {
+        return;
+    }
+    node->references.append(reference);
+}
+
+void RuleGraph::normalize_output_nodes() {
+    int first = -1;
+    std::vector<int> duplicates;
+    for (const auto& node : nodes_) {
+        if (node.type != GraphNodeType::DefaultOutput) {
+            continue;
+        }
+        if (first < 0) {
+            first = node.id;
+        }
+        else {
+            duplicates.push_back(node.id);
+        }
+    }
+    if (duplicates.empty()) {
+        return;
+    }
+    LOG_MODULE("RuleGraph", "normalize_output_nodes", LOG_WARN,
+        "规则图存在多个默认输出节点，保留首个并丢弃 " << duplicates.size() << " 个重复项");
+    nodes_.erase(std::remove_if(nodes_.begin(), nodes_.end(),
+                     [&duplicates](const GraphNode& node) {
+                         return std::find(duplicates.begin(), duplicates.end(), node.id) != duplicates.end();
+                     }),
+        nodes_.end());
+    edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
+                     [&duplicates](const GraphEdge& edge) {
+                         return std::find(duplicates.begin(), duplicates.end(), edge.from) != duplicates.end()
+                             || std::find(duplicates.begin(), duplicates.end(), edge.to) != duplicates.end();
+                     }),
+        edges_.end());
+}
+
+GraphDependency RuleGraph::dependencies(int from_node_id) const {
+    GraphDependency result;
+    QList<int> stack;
+    if (from_node_id > 0) {
+        stack.append(from_node_id);
+    }
+    else {
+        // 整图：以输出/通道节点为起点；没有输出节点时退化为全部节点
+        for (const auto& node : nodes_) {
+            if (node.type == GraphNodeType::Channel || node.type == GraphNodeType::PluginOutput
+                || node.type == GraphNodeType::DefaultOutput) {
+                stack.append(node.id);
+            }
+        }
+        if (stack.isEmpty()) {
+            for (const auto& node : nodes_) {
+                stack.append(node.id);
+            }
+        }
+    }
+
+    QSet<int> visited;
+    while (!stack.isEmpty()) {
+        const int id = stack.takeLast();
+        if (visited.contains(id)) {
+            continue;
+        }
+        visited.insert(id);
+        const GraphNode* node = find_node(id);
+        if (node == nullptr) {
+            continue;
+        }
+        switch (node->type) {
+        case GraphNodeType::Rule:
+            if (!node->rule_name.isEmpty()) {
+                result.rules.push_back(node->rule_name.toStdString());
+            }
+            break;
+        case GraphNodeType::Module:
+            if (!node->value_id.isEmpty()) {
+                result.value_ids.push_back(node->value_id.toStdString());
+            }
+            break;
+        case GraphNodeType::Channel:
+            if (!node->channel.isEmpty()) {
+                result.channels.push_back(node->channel.toStdString());
+            }
+            break;
+        case GraphNodeType::PluginOutput:
+            if (!node->plugin_id.isEmpty()) {
+                result.plugins.push_back(node->plugin_id.toStdString());
+            }
+            for (const auto& reference : node->references) {
+                const QString plugin_id = rule_graph_ref_plugin(reference);
+                if (!plugin_id.isEmpty()) {
+                    result.plugins.push_back(plugin_id.toStdString());
+                }
+            }
+            break;
+        case GraphNodeType::DefaultOutput: {
+            const QString plugin_id = node->plugin_id.isEmpty() ? plugin_id_ : node->plugin_id;
+            if (!plugin_id.isEmpty()) {
+                result.plugins.push_back(plugin_id.toStdString());
+            }
+            break;
+        }
+        default:
+            break;
+        }
+        // 上游：连到本节点端口上的来源节点
+        for (const auto& edge : edges_) {
+            if (edge.to == id) {
+                stack.append(edge.from);
+            }
+        }
+    }
+
+    sort_unique(result.rules);
+    sort_unique(result.value_ids);
+    sort_unique(result.channels);
+    sort_unique(result.plugins);
+    sort_unique(result.events);
+    return result;
 }
 
 void RuleGraph::import_from_rules() {
@@ -366,6 +605,34 @@ void RuleGraph::import_from_rules() {
         "已从规则集导入 " << nodes_.size() << " 个节点");
 }
 
+void RuleGraph::import_from_plugin(const QString& plugin_id) {
+    nodes_.clear();
+    edges_.clear();
+    next_node_id_ = 1;
+    next_edge_id_ = 1;
+    plugin_id_ = plugin_id;
+
+    // 插件已登记的数值各生成一个数值源节点，输出节点用于承接后续连线
+    const Module* module = ModuleManager::instance().get_module(plugin_id.toStdString());
+    if (module != nullptr) {
+        int row = 0;
+        for (const auto& value : module->get_values()) {
+            GraphNode node;
+            node.type = GraphNodeType::Module;
+            node.value_id = QString::fromStdString(value.get_id());
+            node.label = QString::fromStdString(value.get_name());
+            node.name = node.label.isEmpty() ? node.value_id : node.label;
+            node.x = 40;
+            node.y = 60 + row * 90;
+            ++row;
+            add_node(node);
+        }
+    }
+    ensure_default_output(plugin_id);
+    LOG_MODULE("RuleGraph", "import_from_plugin", LOG_INFO,
+        "已为插件 " << plugin_id.toStdString() << " 生成默认规则图，节点数 " << nodes_.size());
+}
+
 nlohmann::json RuleGraph::to_rules_json() const {
     nlohmann::json rules = nlohmann::json::object();
 
@@ -422,11 +689,16 @@ nlohmann::json RuleGraph::to_rules_json() const {
 nlohmann::json RuleGraph::to_json() const {
     nlohmann::json json;
     json["version"] = "1.0";
+    json["plugin"] = plugin_id_.toStdString();
     json["nextNodeId"] = next_node_id_;
     json["nextEdgeId"] = next_edge_id_;
 
     nlohmann::json node_array = nlohmann::json::array();
     for (const auto& node : nodes_) {
+        nlohmann::json references = nlohmann::json::array();
+        for (const auto& reference : node.references) {
+            references.push_back(reference.toStdString());
+        }
         node_array.push_back({{"id", node.id},
             {"type", graph_node_type_to_string(node.type).toStdString()},
             {"name", node.name.toStdString()},
@@ -440,7 +712,9 @@ nlohmann::json RuleGraph::to_json() const {
             {"mode", node.mode},
             {"enabled", node.enabled},
             {"x", node.x},
-            {"y", node.y}});
+            {"y", node.y},
+            {"pluginId", node.plugin_id.toStdString()},
+            {"references", references}});
     }
     json["nodes"] = node_array;
 
@@ -455,6 +729,7 @@ nlohmann::json RuleGraph::to_json() const {
 void RuleGraph::from_json(const nlohmann::json& json) {
     nodes_.clear();
     edges_.clear();
+    plugin_id_ = QString::fromStdString(json.value("plugin", ""));
     next_node_id_ = json.value("nextNodeId", 1);
     next_edge_id_ = json.value("nextEdgeId", 1);
 
@@ -475,6 +750,14 @@ void RuleGraph::from_json(const nlohmann::json& json) {
             node.enabled = item.value("enabled", true);
             node.x = item.value("x", 0.0);
             node.y = item.value("y", 0.0);
+            node.plugin_id = QString::fromStdString(item.value("pluginId", ""));
+            if (item.contains("references") && item["references"].is_array()) {
+                for (const auto& reference : item["references"]) {
+                    if (reference.is_string()) {
+                        node.references.append(QString::fromStdString(reference.get<std::string>()));
+                    }
+                }
+            }
             if (node.id <= 0) {
                 continue;
             }
@@ -497,6 +780,9 @@ void RuleGraph::from_json(const nlohmann::json& json) {
             next_edge_id_ = std::max(next_edge_id_, edge.id + 1);
         }
     }
+
+    // 默认输出节点唯一：历史文件里出现多个时保留首个
+    normalize_output_nodes();
 }
 
 QString RuleGraph::sidecar_path(const QString& rule_file) {
@@ -505,6 +791,16 @@ QString RuleGraph::sidecar_path(const QString& rule_file) {
 }
 
 bool RuleGraph::load(const QString& rule_file) {
+    auto& manager = RuleManager::instance();
+    // 新格式：规则图与规则同文件（规则文件的 "graph" 字段）
+    const std::optional<nlohmann::json> graph_json = manager.read_rule_graph_json(rule_file.toStdString());
+    if (graph_json.has_value()) {
+        from_json(graph_json.value());
+        LOG_MODULE("RuleGraph", "load", LOG_INFO,
+            "已从规则文件载入规则图: " << rule_file.toStdString());
+        return true;
+    }
+    // 旧格式：规则图侧车文件（<规则文件>.graph.json）
     QFile sidecar(sidecar_path(rule_file));
     if (sidecar.exists() && sidecar.open(QIODevice::ReadOnly)) {
         const QByteArray data = sidecar.readAll();
@@ -523,13 +819,12 @@ bool RuleGraph::load(const QString& rule_file) {
 }
 
 bool RuleGraph::save(const QString& rule_file) {
-    QFile sidecar(sidecar_path(rule_file));
-    if (sidecar.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        sidecar.write(QString::fromStdString(to_json().dump(2)).toUtf8());
-        sidecar.close();
-    }
-    const nlohmann::json rules = to_rules_json();
-    const bool ok = RuleManager::instance().modify_rule_file(rule_file.toStdString(), rules);
+    auto& manager = RuleManager::instance();
+    const bool graph_ok = manager.write_rule_graph_json(rule_file.toStdString(), to_json());
+    const bool rules_ok = manager.modify_rule_file(rule_file.toStdString(), to_rules_json());
+    // 保存后重建引用关系（插件图默认输出节点上的「被谁引用」）
+    manager.sync_output_references();
+    const bool ok = graph_ok && rules_ok;
     LOG_MODULE("RuleGraph", "save", ok ? LOG_INFO : LOG_ERROR,
         (ok ? "规则图已写回规则文件" : "规则图写回失败"));
     return ok;

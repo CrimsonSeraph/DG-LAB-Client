@@ -9,6 +9,7 @@
 #include "ModuleManager.h"
 #include "RuleManager.h"
 
+#include <QMap>
 #include <QVariantMap>
 
 #include <algorithm>
@@ -20,6 +21,15 @@ namespace {
     constexpr double kHeaderHeight = 28.0;
     constexpr double kPortSpacing = 18.0;
     constexpr double kPortInset = 16.0;
+
+    /// @brief 字符串列表转换（依赖集合输出）
+    QStringList to_qstring_list(const std::vector<std::string>& values) {
+        QStringList list;
+        for (const auto& value : values) {
+            list.append(QString::fromStdString(value));
+        }
+        return list;
+    }
 
 } // namespace
 
@@ -48,6 +58,7 @@ void RuleGraphBridge::initialize() {
     rebuild_module_values();
     emit graphChanged();
     emit ruleFilesChanged();
+    emit pluginGraphsChanged();
     LOG_MODULE("RuleGraphBridge", "initialize", LOG_INFO, "规则图编辑器桥接已就绪");
 }
 
@@ -95,6 +106,56 @@ QVariantList RuleGraphBridge::module_values() const {
     return module_values_;
 }
 
+QVariantList RuleGraphBridge::plugin_graphs() const {
+    auto& modules = ModuleManager::instance();
+    auto& rules = RuleManager::instance();
+
+    QStringList plugins;
+    QMap<QString, QString> labels;
+    for (const auto& info : modules.get_plugins()) {
+        if (info.module_name.empty()) {
+            continue;
+        }
+        const QString plugin_id = QString::fromStdString(info.module_name);
+        if (!labels.contains(plugin_id)) {
+            labels.insert(plugin_id, QString::fromStdString(info.display_name));
+            plugins.append(plugin_id);
+        }
+    }
+    // 已有图文件但对应插件未加载时也要列出
+    for (const auto& plugin_id : rules.get_plugin_rule_graphs()) {
+        const QString id = QString::fromStdString(plugin_id);
+        if (!plugins.contains(id)) {
+            plugins.append(id);
+            labels.insert(id, id);
+        }
+    }
+    plugins.sort();
+
+    QVariantList list;
+    for (const auto& plugin_id : plugins) {
+        QVariantMap item;
+        item.insert(QStringLiteral("plugin"), plugin_id);
+        item.insert(QStringLiteral("label"), labels.value(plugin_id, plugin_id));
+        item.insert(QStringLiteral("hasGraph"),
+            rules.has_plugin_rule_graph(plugin_id.toStdString()));
+        list.append(item);
+    }
+    return list;
+}
+
+QVariantList RuleGraphBridge::output_references() const {
+    QVariantList list;
+    for (const auto& reference : graph_.output_references()) {
+        QVariantMap item;
+        item.insert(QStringLiteral("graph"), reference);
+        item.insert(QStringLiteral("label"), rule_graph_ref_display(reference));
+        item.insert(QStringLiteral("plugin"), rule_graph_ref_plugin(reference));
+        list.append(item);
+    }
+    return list;
+}
+
 QVariantMap RuleGraphBridge::selected_node() const {
     const GraphNode* node = graph_.find_node(selected_node_id_);
     return node == nullptr ? QVariantMap() : node_to_map(*node);
@@ -112,6 +173,7 @@ void RuleGraphBridge::loadRuleFile(const QString& file_name) {
         return;
     }
     current_rule_file_ = file_name;
+    current_graph_plugin_.clear();
     graph_.load(file_name);
     selected_node_id_ = 0;
     dirty_ = false;
@@ -122,15 +184,55 @@ void RuleGraphBridge::loadRuleFile(const QString& file_name) {
 }
 
 bool RuleGraphBridge::save() {
-    if (current_rule_file_.isEmpty()) {
+    if (current_graph_plugin_.isEmpty() && current_rule_file_.isEmpty()) {
         return false;
     }
-    const bool ok = graph_.save(current_rule_file_);
+    const bool ok = current_graph_plugin_.isEmpty()
+        ? graph_.save(current_rule_file_)
+        : RuleManager::instance().save_plugin_rule_graph(current_graph_plugin_.toStdString(), graph_);
     dirty_ = !ok;
     emit dirtyChanged();
     emit graphChanged();
+    emit pluginGraphsChanged();
     emit statusMessage(ok ? QStringLiteral("规则图已保存") : QStringLiteral("规则图保存失败"));
     return ok;
+}
+
+void RuleGraphBridge::loadPluginGraph(const QString& plugin_id) {
+    if (plugin_id.isEmpty()) {
+        return;
+    }
+    graph_ = RuleManager::instance().get_plugin_rule_graph(plugin_id.toStdString());
+    current_graph_plugin_ = plugin_id;
+    selected_node_id_ = 0;
+    dirty_ = false;
+    emit dirtyChanged();
+    emit selectionChanged();
+    emit graphChanged();
+    emit statusMessage(QStringLiteral("已载入插件规则图：") + plugin_id);
+}
+
+QVariantMap RuleGraphBridge::graphDependencies() const {
+    return graphDependencies(0);
+}
+
+QVariantMap RuleGraphBridge::graphDependencies(int from_node_id) const {
+    const GraphDependency dependency = RuleManager::instance().get_graph_dependencies(graph_, from_node_id);
+    QVariantMap result;
+    result.insert(QStringLiteral("rules"), to_qstring_list(dependency.rules));
+    result.insert(QStringLiteral("valueIds"), to_qstring_list(dependency.value_ids));
+    result.insert(QStringLiteral("channels"), to_qstring_list(dependency.channels));
+    result.insert(QStringLiteral("plugins"), to_qstring_list(dependency.plugins));
+    result.insert(QStringLiteral("events"), to_qstring_list(dependency.events));
+    return result;
+}
+
+QStringList RuleGraphBridge::outputReferrers(const QString& plugin_id) const {
+    QStringList labels;
+    for (const auto& reference : RuleManager::instance().get_output_referrers(plugin_id.toStdString())) {
+        labels.append(rule_graph_ref_display(QString::fromStdString(reference)));
+    }
+    return labels;
 }
 
 void RuleGraphBridge::refreshModuleValues() {
@@ -406,6 +508,13 @@ QVariantMap RuleGraphBridge::node_to_map(const GraphNode& node) const {
     item.insert(QStringLiteral("enabled"), node.enabled);
     item.insert(QStringLiteral("x"), node.x);
     item.insert(QStringLiteral("y"), node.y);
+    item.insert(QStringLiteral("pluginId"), node.plugin_id);
+    item.insert(QStringLiteral("references"), node.references);
+    QStringList reference_labels;
+    for (const auto& reference : node.references) {
+        reference_labels.append(rule_graph_ref_display(reference));
+    }
+    item.insert(QStringLiteral("referenceLabels"), reference_labels);
     item.insert(QStringLiteral("inputCount"), graph_.input_count(node.id));
 
     QStringList labels;

@@ -6,6 +6,7 @@
 #pragma once
 
 #include "Rule.h"
+#include "RuleGraph.h"
 
 #include <nlohmann/json.hpp>
 
@@ -60,6 +61,63 @@ public:
 
     /// @brief 获取当前加载的规则文件名
     inline std::string get_current_rule_file() const { return current_file_; }
+
+    // 规则图（总规则图 + 插件级规则图）
+    // 总规则图存放在规则文件的 "graph" 字段（默认 rules.json）；
+    // 每个插件的规则图独立落盘为 config/rules/plugin_<插件标识>.json，内容为
+    // { version, plugin, kind: "pluginRuleGraph", graph, rules }。
+    /// @brief 插件级规则图文件名
+    /// @param plugin_id 插件（模块）标识
+    /// @return 文件名（如 "plugin_buckshot.json"）
+    std::string get_plugin_graph_file(const std::string& plugin_id) const;
+
+    /// @brief 列出已有插件级规则图的插件标识
+    /// @return 插件标识列表（按标识排序）
+    std::vector<std::string> get_plugin_rule_graphs() const;
+
+    /// @brief 判断某插件是否已有规则图文件
+    /// @param plugin_id 插件（模块）标识
+    /// @return 规则图文件存在返回 true
+    bool has_plugin_rule_graph(const std::string& plugin_id) const;
+
+    /// @brief 读取插件级规则图
+    /// @param plugin_id 插件（模块）标识
+    /// @return 规则图；文件缺失或损坏时按插件已登记的数值生成默认图（不落盘）
+    RuleGraph get_plugin_rule_graph(const std::string& plugin_id) const;
+
+    /// @brief 保存插件级规则图（写 plugin_<插件标识>.json 的 graph 与 rules）
+    /// @param plugin_id 插件（模块）标识
+    /// @param graph 规则图
+    /// @return 保存成功返回 true；成功后重建默认输出节点的引用列表
+    bool save_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph);
+
+    /// @brief 读取规则文件内的规则图 JSON（"graph" 字段）
+    /// @param filename 规则文件名
+    /// @return 规则图 JSON；文件缺失、无 "graph" 字段或字段非对象时返回空
+    std::optional<nlohmann::json> read_rule_graph_json(const std::string& filename) const;
+
+    /// @brief 写入规则文件内的规则图 JSON（"graph" 字段，保留其它字段）
+    /// @param filename 规则文件名
+    /// @param graph_json 规则图 JSON
+    /// @return 写入成功返回 true
+    bool write_rule_graph_json(const std::string& filename, const nlohmann::json& graph_json);
+
+    /// @brief 重建全部插件图默认输出节点的引用列表（总图与插件图里的插件输出节点 → 被引用方）
+    /// @return 全部写入成功返回 true
+    bool sync_output_references();
+
+    /// @brief 查询某插件输出节点被哪些图引用
+    /// @param plugin_id 插件（模块）标识
+    /// @return 图标识列表（"top" 为总规则图，"plugin:<插件标识>" 为插件规则图；显示文本见
+    /// rule_graph_ref_display）
+    std::vector<std::string> get_output_referrers(const std::string& plugin_id) const;
+
+    /// @brief 查询规则图的依赖集合（启用级联：子规则、数值、通道、插件与事件）
+    /// @param graph 规则图
+    /// @param from_node_id 起点节点 id；0 表示整图
+    /// @return 依赖集合；总规则图会并入其插件输出节点对应插件图的依赖（只展开一层）；
+    /// 事件取依赖插件声明的事件（"<插件标识>/<事件 ID>"）
+    GraphDependency get_graph_dependencies(const RuleGraph& graph, int from_node_id = 0) const;
 
     // 规则加载（从配置管理器）
     /// @brief 从指定的配置管理器加载规则
@@ -245,6 +303,8 @@ private:
     static constexpr int MAX_COMPUTE_DEPTH = 16;       ///< 最大级联深度
 
     // 私有辅助函数
+    std::vector<std::string> plugin_graph_plugins_locked() const;                           ///< 扫描插件图文件（需已持有锁）
+    nlohmann::json read_rule_graph_json_locked(const std::string& filename) const;          ///< 读取规则图 JSON（需已持有锁）
     void scan_directory();                                                                 ///< 扫描目录获取可用文件
     std::string get_full_path(const std::string& filename) const;                          ///< 获取完整路径
     bool save_json_file(const std::string& filename, const nlohmann::json& content) const; ///< 保存 JSON 文件

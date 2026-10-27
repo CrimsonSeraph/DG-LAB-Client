@@ -20,6 +20,17 @@
 
 namespace fs = std::filesystem;
 
+namespace {
+
+    /// @brief 合并并去重（依赖集合输出稳定）
+    void merge_unique(std::vector<std::string>& target, const std::vector<std::string>& values) {
+        target.insert(target.end(), values.begin(), values.end());
+        std::sort(target.begin(), target.end());
+        target.erase(std::unique(target.begin(), target.end()), target.end());
+    }
+
+} // namespace
+
 // 单例（public）
 
 RuleManager& RuleManager::instance() {
@@ -174,6 +185,293 @@ bool RuleManager::save_current_rule_file() {
             {"valuePattern", rule.get_value_pattern()}};
     }
     return modify_rule_file(current_file_, rules_json);
+}
+
+// 规则图（总规则图 + 插件级规则图）（public）
+
+std::string RuleManager::get_plugin_graph_file(const std::string& plugin_id) const {
+    return "plugin_" + plugin_id + ".json";
+}
+
+std::vector<std::string> RuleManager::get_plugin_rule_graphs() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return plugin_graph_plugins_locked();
+}
+
+bool RuleManager::has_plugin_rule_graph(const std::string& plugin_id) const {
+    if (plugin_id.empty()) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    return fs::exists(get_full_path(get_plugin_graph_file(plugin_id)));
+}
+
+RuleGraph RuleManager::get_plugin_rule_graph(const std::string& plugin_id) const {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const nlohmann::json graph_json = read_rule_graph_json_locked(get_plugin_graph_file(plugin_id));
+        if (graph_json.is_object()) {
+            RuleGraph graph;
+            graph.from_json(graph_json);
+            graph.set_plugin_id(QString::fromStdString(plugin_id));
+            graph.ensure_default_output(QString::fromStdString(plugin_id));
+            return graph;
+        }
+    }
+    // 没有图文件：按插件已登记的数值生成默认图，保存时才落盘
+    RuleGraph graph;
+    graph.import_from_plugin(QString::fromStdString(plugin_id));
+    return graph;
+}
+
+bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph) {
+    if (plugin_id.empty()) {
+        LOG_MODULE("RuleManager", "save_plugin_rule_graph", LOG_WARN, "插件标识为空，无法保存插件规则图");
+        return false;
+    }
+    bool saved = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const std::string filename = get_plugin_graph_file(plugin_id);
+        nlohmann::json json;
+        try {
+            json = load_json_file(filename);
+        }
+        catch (const std::exception&) {
+            // 文件不存在：新建
+        }
+        if (!json.is_object()) {
+            json = nlohmann::json::object();
+        }
+        nlohmann::json graph_json = graph.to_json();
+        graph_json["plugin"] = plugin_id;
+        json["version"] = "1.0";
+        json["plugin"] = plugin_id;
+        json["kind"] = "pluginRuleGraph";
+        json["graph"] = graph_json;
+        json["rules"] = graph.to_rules_json();
+        saved = save_json_file(filename, json);
+        if (saved) {
+            scan_directory();
+            LOG_MODULE("RuleManager", "save_plugin_rule_graph", LOG_INFO,
+                "插件规则图已保存: " << filename);
+        }
+    }
+    if (saved) {
+        sync_output_references();
+    }
+    return saved;
+}
+
+std::optional<nlohmann::json> RuleManager::read_rule_graph_json(const std::string& filename) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const nlohmann::json graph_json = read_rule_graph_json_locked(filename);
+    if (!graph_json.is_object()) {
+        return std::nullopt;
+    }
+    return graph_json;
+}
+
+bool RuleManager::write_rule_graph_json(const std::string& filename, const nlohmann::json& graph_json) {
+    if (filename.empty()) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    nlohmann::json json;
+    try {
+        json = load_json_file(filename);
+    }
+    catch (const std::exception&) {
+        // 文件不存在：新建
+    }
+    if (!json.is_object()) {
+        json = nlohmann::json::object();
+    }
+    if (!json.contains("version")) {
+        json["version"] = "1.0";
+    }
+    json["graph"] = graph_json;
+    const bool saved = save_json_file(filename, json);
+    if (saved) {
+        scan_directory();
+    }
+    return saved;
+}
+
+bool RuleManager::sync_output_references() {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    // 目标插件标识 -> 引用它的图标识列表
+    std::map<std::string, std::vector<std::string>> referrers;
+    const auto collect = [&referrers](const nlohmann::json& graph_json, const std::string& source_ref) {
+        if (!graph_json.is_object() || !graph_json.contains("nodes") || !graph_json["nodes"].is_array()) {
+            return;
+        }
+        for (const auto& item : graph_json["nodes"]) {
+            if (!item.is_object() || item.value("type", "") != "pluginOutput") {
+                continue;
+            }
+            std::string plugin_id = item.value("pluginId", "");
+            // 兼容只写引用列表、未写 pluginId 的图
+            if (plugin_id.empty() && item.contains("references") && item["references"].is_array()) {
+                for (const auto& reference : item["references"]) {
+                    if (!reference.is_string()) {
+                        continue;
+                    }
+                    const QString referenced = rule_graph_ref_plugin(
+                        QString::fromStdString(reference.get<std::string>()));
+                    if (!referenced.isEmpty()) {
+                        plugin_id = referenced.toStdString();
+                        break;
+                    }
+                }
+            }
+            if (plugin_id.empty()) {
+                continue;
+            }
+            auto& list = referrers[plugin_id];
+            if (std::find(list.begin(), list.end(), source_ref) == list.end()) {
+                list.push_back(source_ref);
+            }
+        }
+    };
+
+    collect(read_rule_graph_json_locked("rules.json"), rule_graph_top_ref().toStdString());
+    const std::vector<std::string> plugins = plugin_graph_plugins_locked();
+    for (const auto& plugin_id : plugins) {
+        collect(read_rule_graph_json_locked(get_plugin_graph_file(plugin_id)),
+            rule_graph_plugin_ref(QString::fromStdString(plugin_id)).toStdString());
+    }
+
+    bool ok = true;
+    for (const auto& plugin_id : plugins) {
+        const std::string filename = get_plugin_graph_file(plugin_id);
+        nlohmann::json json;
+        try {
+            json = load_json_file(filename);
+        }
+        catch (const std::exception& e) {
+            LOG_MODULE("RuleManager", "sync_output_references", LOG_WARN,
+                "读取插件规则图失败: " << filename << " (" << e.what() << ")");
+            ok = false;
+            continue;
+        }
+        if (!json.contains("graph") || !json["graph"].is_object()) {
+            continue;
+        }
+        nlohmann::json& graph = json["graph"];
+        if (!graph.contains("nodes") || !graph["nodes"].is_array()) {
+            continue;
+        }
+
+        // 引用列表：总规则图在前，插件图按标识排序
+        bool has_top = false;
+        std::vector<std::string> plugin_refs;
+        const auto it = referrers.find(plugin_id);
+        if (it != referrers.end()) {
+            for (const auto& reference : it->second) {
+                if (rule_graph_ref_is_top(QString::fromStdString(reference))) {
+                    has_top = true;
+                }
+                else {
+                    plugin_refs.push_back(reference);
+                }
+            }
+        }
+        std::sort(plugin_refs.begin(), plugin_refs.end());
+        nlohmann::json references = nlohmann::json::array();
+        if (has_top) {
+            references.push_back(rule_graph_top_ref().toStdString());
+        }
+        for (const auto& reference : plugin_refs) {
+            references.push_back(reference);
+        }
+
+        // 只维护首个默认输出节点（重复节点在载入时已归一）
+        bool found = false;
+        bool changed = false;
+        for (auto& node : graph["nodes"]) {
+            if (!node.is_object() || node.value("type", "") != "defaultOutput") {
+                continue;
+            }
+            found = true;
+            if (!node.contains("references") || node["references"] != references) {
+                node["references"] = references;
+                changed = true;
+            }
+            break;
+        }
+        if (!found) {
+            LOG_MODULE("RuleManager", "sync_output_references", LOG_WARN,
+                "插件规则图缺少默认输出节点: " << filename);
+            continue;
+        }
+        if (changed && !save_json_file(filename, json)) {
+            ok = false;
+        }
+    }
+    return ok;
+}
+
+std::vector<std::string> RuleManager::get_output_referrers(const std::string& plugin_id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::string> result;
+    if (plugin_id.empty()) {
+        return result;
+    }
+    const nlohmann::json graph_json = read_rule_graph_json_locked(get_plugin_graph_file(plugin_id));
+    if (!graph_json.is_object() || !graph_json.contains("nodes") || !graph_json["nodes"].is_array()) {
+        return result;
+    }
+    for (const auto& item : graph_json["nodes"]) {
+        if (!item.is_object() || item.value("type", "") != "defaultOutput") {
+            continue;
+        }
+        if (!item.contains("references") || !item["references"].is_array()) {
+            break;
+        }
+        for (const auto& reference : item["references"]) {
+            if (reference.is_string()) {
+                result.push_back(reference.get<std::string>());
+            }
+        }
+        break;
+    }
+    return result;
+}
+
+GraphDependency RuleManager::get_graph_dependencies(const RuleGraph& graph, int from_node_id) const {
+    GraphDependency dependency = graph.dependencies(from_node_id);
+    // 总规则图：插件输出节点代表该插件图的最终输出，把插件图的依赖并入（只展开一层，避免环形引用）
+    if (graph.plugin_id().isEmpty() && !dependency.plugins.empty()) {
+        const std::vector<std::string> plugins = dependency.plugins;
+        for (const auto& plugin_id : plugins) {
+            const GraphDependency sub = get_plugin_rule_graph(plugin_id).dependencies(0);
+            merge_unique(dependency.rules, sub.rules);
+            merge_unique(dependency.value_ids, sub.value_ids);
+            merge_unique(dependency.channels, sub.channels);
+            merge_unique(dependency.plugins, sub.plugins);
+        }
+    }
+    // 事件来自依赖插件的侧车声明（"<插件标识>/<事件 ID>"）
+    if (!dependency.plugins.empty()) {
+        for (const auto& plugin : ModuleManager::instance().get_plugins()) {
+            if (plugin.module_name.empty()) {
+                continue;
+            }
+            if (std::find(dependency.plugins.begin(), dependency.plugins.end(), plugin.module_name)
+                == dependency.plugins.end()) {
+                continue;
+            }
+            for (const auto& event : plugin.events) {
+                dependency.events.push_back(plugin.module_name + "/" + event.id);
+            }
+        }
+        std::sort(dependency.events.begin(), dependency.events.end());
+        dependency.events.erase(std::unique(dependency.events.begin(), dependency.events.end()),
+            dependency.events.end());
+    }
+    return dependency;
 }
 
 // 规则加载（从配置管理器）（public）
@@ -674,18 +972,63 @@ void RuleManager::on_module_value_changed(const QString& module_name, const QStr
 
 // 私有辅助函数实现（private）
 
+std::vector<std::string> RuleManager::plugin_graph_plugins_locked() const {
+    std::vector<std::string> plugins;
+    if (!fs::exists(rules_dir_)) {
+        return plugins;
+    }
+    const std::string prefix = "plugin_";
+    const std::string suffix = ".json";
+    for (const auto& entry : fs::directory_iterator(rules_dir_)) {
+        if (!entry.is_regular_file() || entry.path().extension() != suffix) {
+            continue;
+        }
+        const std::string filename = entry.path().filename().string();
+        if (filename.rfind(prefix, 0) != 0) {
+            continue;
+        }
+        if (filename.size() <= prefix.size() + suffix.size()) {
+            continue;
+        }
+        plugins.push_back(filename.substr(prefix.size(),
+            filename.size() - prefix.size() - suffix.size()));
+    }
+    std::sort(plugins.begin(), plugins.end());
+    return plugins;
+}
+
+nlohmann::json RuleManager::read_rule_graph_json_locked(const std::string& filename) const {
+    try {
+        const nlohmann::json json = load_json_file(filename);
+        if (json.is_object() && json.contains("graph") && json["graph"].is_object()) {
+            return json["graph"];
+        }
+    }
+    catch (const std::exception&) {
+        // 文件不存在或无图字段：由调用方退化处理
+    }
+    return nlohmann::json();
+}
+
 void RuleManager::scan_directory() {
     available_files_.clear();
     if (!fs::exists(rules_dir_)) return;
+    const std::string sidecar_suffix = ".graph.json";
     for (const auto& entry : fs::directory_iterator(rules_dir_)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".json") {
-            std::string filename = entry.path().filename().string();
-            if (filename == "rules.json") continue;
-            if (filename.find(keyword_) != std::string::npos) {
-                available_files_.push_back(filename);
-            }
+        if (!entry.is_regular_file() || entry.path().extension() != ".json") continue;
+        const std::string filename = entry.path().filename().string();
+        if (filename == "rules.json") continue;
+        // 插件规则图与旧版侧车图不是规则文件，不进入规则文件列表
+        if (filename.rfind("plugin_", 0) == 0) continue;
+        if (filename.size() >= sidecar_suffix.size()
+            && filename.compare(filename.size() - sidecar_suffix.size(), sidecar_suffix.size(), sidecar_suffix) == 0) {
+            continue;
+        }
+        if (filename.find(keyword_) != std::string::npos) {
+            available_files_.push_back(filename);
         }
     }
+    std::sort(available_files_.begin(), available_files_.end());
 }
 
 std::string RuleManager::get_full_path(const std::string& filename) const {

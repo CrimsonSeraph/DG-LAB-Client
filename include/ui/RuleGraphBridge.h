@@ -28,6 +28,9 @@ class RuleGraphBridge : public QObject {
     Q_PROPERTY(int selectedNodeId READ selected_node_id NOTIFY selectionChanged)
     Q_PROPERTY(QVariantMap selectedNode READ selected_node NOTIFY selectionChanged)
     Q_PROPERTY(bool dirty READ dirty NOTIFY dirtyChanged)
+    Q_PROPERTY(QVariantList pluginGraphs READ plugin_graphs NOTIFY pluginGraphsChanged)
+    Q_PROPERTY(QString currentGraphPlugin READ current_graph_plugin NOTIFY graphChanged)
+    Q_PROPERTY(QVariantList outputReferences READ output_references NOTIFY graphChanged)
 
 public:
     explicit RuleGraphBridge(QObject* parent = nullptr);
@@ -43,10 +46,26 @@ public:
     int selected_node_id() const { return selected_node_id_; }
     QVariantMap selected_node() const;
     bool dirty() const { return dirty_; }
+    QVariantList plugin_graphs() const;
+    QString current_graph_plugin() const { return current_graph_plugin_; }
+    QVariantList output_references() const;
 
     Q_INVOKABLE void loadRuleFile(const QString& file_name);
     Q_INVOKABLE bool save();
     Q_INVOKABLE void refreshModuleValues();
+
+    // 插件级规则图（数据与求值侧；编辑器界面在后续批次接入）
+    /// @brief 载入某插件的规则图（文件缺失时按插件数值生成默认图，保存后落盘）
+    /// @param plugin_id 插件（模块）标识
+    Q_INVOKABLE void loadPluginGraph(const QString& plugin_id);
+    /// @brief 当前图的依赖集合（rules / valueIds / channels / plugins / events），整图
+    Q_INVOKABLE QVariantMap graphDependencies() const;
+    /// @brief 当前图中某节点上游的依赖集合
+    /// @param from_node_id 起点节点 id
+    Q_INVOKABLE QVariantMap graphDependencies(int from_node_id) const;
+    /// @brief 某插件输出节点被哪些图引用（显示文本，如 "总规则图"、"buckshot 规则图"）
+    /// @param plugin_id 插件（模块）标识
+    Q_INVOKABLE QStringList outputReferrers(const QString& plugin_id) const;
 
     // 节点编辑
     Q_INVOKABLE int addRuleNode(double x, double y);
@@ -76,6 +95,7 @@ signals:
     void moduleValuesChanged();
     void selectionChanged();
     void dirtyChanged();
+    void pluginGraphsChanged();
     void statusMessage(const QString& message);
 
 private:
@@ -87,6 +107,7 @@ private:
 
     RuleGraph graph_;
     QString current_rule_file_;
+    QString current_graph_plugin_; ///< 当前图所属插件（空表示总规则图）
     QVariantList module_values_;
     int selected_node_id_ = 0;
     bool dirty_ = false;
