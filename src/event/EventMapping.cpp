@@ -18,6 +18,8 @@
 namespace {
 
     const char* const PLUGINS_KEY_PREFIX = "app.plugins."; ///< 映射键前缀
+    const char* const CHANNELS_KEY_PREFIX = "app.channels."; ///< 全局通道配置键前缀
+    const char* const PLUGINS_ROOT_KEY = "app.plugins";     ///< 旧通道配置所在的键（迁移来源）
     const char* const USER_CONFIG_NAME = "user";           ///< 写入的配置层
     const char* const IMPLICIT_OPTION_ID = "default";      ///< 无声明子选项事件的隐式映射键
 
@@ -39,6 +41,18 @@ namespace {
             key += suffix;
         }
         return key;
+    }
+
+    // 拼接全局通道键：app.channels.<通道>
+    std::string channel_key(const std::string& channel) {
+        std::string key = CHANNELS_KEY_PREFIX;
+        key += channel;
+        return key;
+    }
+
+    // 通道合法性（归一大写后仅接受 "A"/"B"）
+    bool is_output_channel(const std::string& channel) {
+        return channel == "A" || channel == "B";
     }
 
     // 读取配置子树（缺失或非对象返回空对象）
@@ -82,15 +96,6 @@ namespace {
             return default_value;
         }
         return it->get<double>();
-    }
-
-    // 读取布尔字段（缺失或类型不符返回默认值）
-    bool read_bool(const nlohmann::json& object, const char* key, bool default_value) {
-        const nlohmann::json::const_iterator it = object.find(key);
-        if (it == object.end() || !it->is_boolean()) {
-            return default_value;
-        }
-        return it->get<bool>();
     }
 
     // 读取字符串字段（缺失或类型不符返回默认值）
@@ -140,6 +145,29 @@ namespace {
         object["step"] = output.step;
         object["edited_at"] = output.edited_at;
         return object;
+    }
+
+    // 从旧 app.plugins.<模块>.channels.<通道> 迁移首个存在的配置到全局键（键按字典序遍历）
+    bool migrate_channel_config(const std::string& channel, EventChannelConfig& config) {
+        const nlohmann::json plugins = read_subtree(PLUGINS_ROOT_KEY);
+        for (nlohmann::json::const_iterator plugin_it = plugins.begin(); plugin_it != plugins.end(); ++plugin_it) {
+            if (!plugin_it->is_object()) {
+                continue;
+            }
+            const nlohmann::json::const_iterator channels_it = plugin_it->find("channels");
+            if (channels_it == plugin_it->end() || !channels_it->is_object()) {
+                continue;
+            }
+            const nlohmann::json::const_iterator entry_it = channels_it->find(channel);
+            if (entry_it == channels_it->end() || !entry_it->is_object()) {
+                continue;
+            }
+            config.limit = read_int(*entry_it, "limit", config.limit);
+            config.safety = read_int(*entry_it, "safety", config.safety);
+            write_channel_config(channel, config);
+            return true;
+        }
+        return false;
     }
 
     // 当前毫秒时间戳
@@ -208,12 +236,37 @@ MergeRule merge_rule_from_string(const std::string& text) {
     return MergeRule::MULTIPLY;
 }
 
-EventChannelConfig read_channel_config(const std::string& module_name, const std::string& channel) {
+std::string event_data_type_to_string(EventDataType type) {
+    switch (type) {
+    case EventDataType::PERCENT: return "percent";
+    case EventDataType::WAVE: return "wave";
+    case EventDataType::STRENGTH: break;
+    }
+    return "strength";
+}
+
+EventDataType event_data_type_from_string(const std::string& text) {
+    if (text == "percent") {
+        return EventDataType::PERCENT;
+    }
+    if (text == "wave") {
+        return EventDataType::WAVE;
+    }
+    return EventDataType::STRENGTH;
+}
+
+EventChannelConfig read_channel_config(const std::string& channel) {
     EventChannelConfig config;
-    if (module_name.empty()) {
+    const std::string normalized = normalize_channel(channel);
+    if (!is_output_channel(normalized)) {
         return config;
     }
-    const nlohmann::json object = read_subtree(mapping_key(module_name, "channels." + normalize_channel(channel)));
+    const nlohmann::json object = read_subtree(channel_key(normalized));
+    if (object.empty()) {
+        // 全局键缺失：旧键迁移一次（迁移结果写回全局键，此后只读全局键）
+        migrate_channel_config(normalized, config);
+        return config;
+    }
     config.limit = read_int(object, "limit", config.limit);
     config.safety = read_int(object, "safety", config.safety);
     return config;
@@ -247,7 +300,8 @@ EventConfig read_event_config(const std::string& module_name, const EventDefinit
         return config;
     }
     const nlohmann::json object = read_subtree(mapping_key(module_name, "events." + definition.id));
-    config.enabled = read_bool(object, "enabled", config.enabled);
+    // 事件启用只由级联集合决定（apply_cascade_enabled），不读 user.json 的开关
+    config.dataType = event_data_type_from_string(read_string(object, "dataType", std::string()));
     config.wave = read_string(object, "wave", config.wave);
     const std::string merge_text = read_string(object, "merge", std::string());
     if (!merge_text.empty()) {
@@ -293,23 +347,23 @@ std::map<std::string, EventConfig> read_event_configs(const std::string& module_
     return configs;
 }
 
-int channel_limit(const std::string& module_name, const std::string& channel) {
-    return read_channel_config(module_name, channel).limit;
+int channel_limit(const std::string& channel) {
+    return read_channel_config(channel).limit;
 }
 
-int channel_safety(const std::string& module_name, const std::string& channel) {
-    return read_channel_config(module_name, channel).safety;
+int channel_safety(const std::string& channel) {
+    return read_channel_config(channel).safety;
 }
 
-void write_channel_config(const std::string& module_name, const std::string& channel,
-    const EventChannelConfig& config) {
-    if (module_name.empty() || channel.empty()) {
+void write_channel_config(const std::string& channel, const EventChannelConfig& config) {
+    const std::string normalized = normalize_channel(channel);
+    if (!is_output_channel(normalized)) {
         return;
     }
     nlohmann::json object = nlohmann::json::object();
     object["limit"] = config.limit;
     object["safety"] = config.safety;
-    write_subtree(mapping_key(module_name, "channels." + normalize_channel(channel)), object);
+    write_subtree(channel_key(normalized), object);
 }
 
 void write_output_config(const std::string& module_name, const OutputConfig& config) {
@@ -339,7 +393,7 @@ void write_event_config(const std::string& module_name, const std::string& event
         options_object[option_id] = make_option_output_json(output);
     }
     nlohmann::json object = nlohmann::json::object();
-    object["enabled"] = config.enabled;
+    object["dataType"] = event_data_type_to_string(config.dataType);
     object["wave"] = config.wave;
     object["merge"] = merge_rule_to_string(config.merge);
     object["weight"] = config.weight;

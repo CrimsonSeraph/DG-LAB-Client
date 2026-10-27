@@ -126,8 +126,8 @@ private:
         std::string name;                                     ///< 模块标识
         std::string default_channel = DEFAULT_MODULE_CHANNEL; ///< 默认输出通道（"A"/"B"/"AB"）
         std::map<std::string, RuntimeEvent> events;           ///< 事件运行期状态（键为事件 id）
-        int limits[2] = {200, 200};                           ///< 通道上限（0=A，1=B）
-        int safeties[2] = {150, 150};                         ///< 通道安全上限（0=A，1=B）
+        int limits[2] = {200, 200};                           ///< 全局通道上限快照（0=A，1=B，各模块相同）
+        int safeties[2] = {150, 150};                         ///< 全局通道安全上限快照（0=A，1=B，各模块相同）
         QStringList output_frames;                            ///< 输出端附加波形帧
         MergeRule output_merge = MergeRule::MULTIPLY;         ///< 输出端合并规则
     };

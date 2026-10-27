@@ -21,6 +21,8 @@
 #include <QJsonObject>
 #include <QTemporaryDir>
 
+#include <nlohmann/json.hpp>
+
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -87,6 +89,11 @@ namespace {
             }
         }
         return false;
+    }
+
+    // 读取 user 层的原始 JSON 子树（缺失返回空对象）
+    nlohmann::json raw_subtree(const std::string& key) {
+        return AppConfig::instance().get_value<nlohmann::json>(key, nlohmann::json::object());
     }
 
     // 插件图样例：hp + damage → 默认输出（与 config/rules/plugin_buckshot.json 同形状）
@@ -287,6 +294,67 @@ int main(int argc, char** argv) {
         static_cast<int>(runtime.cascade_events().count("probe/hit")));
     runtime.set_cascade_events({});
     CHECK_INT("event-runtime-cleared", 0, static_cast<int>(runtime.cascade_events().size()));
+
+    // 7) 全局通道上限：键为 app.channels.<通道>，与插件无关
+    EventChannelConfig channel_a;
+    channel_a.limit = 240;
+    channel_a.safety = 180;
+    write_channel_config("A", channel_a);
+    CHECK_INT("channel-global-limit", 240, read_channel_config("A").limit);
+    CHECK_INT("channel-global-safety", 180, read_channel_config("A").safety);
+    CHECK_INT("channel-global-accessor-limit", 240, channel_limit("a"));
+    CHECK_INT("channel-global-accessor-safety", 180, channel_safety("A"));
+    CHECK_INT("channel-invalid-default-limit", 200, read_channel_config("C").limit);
+    CHECK_INT("channel-invalid-write-skipped", 0,
+        static_cast<int>(raw_subtree("app.channels.C").size()));
+
+    // 7b) 旧键迁移：全局键缺失时取 app.plugins.<模块>.channels.<通道> 的首个存在值并写回全局键
+    AppConfig::instance().set_value<nlohmann::json>("app.plugins.legacy.channels.B",
+        nlohmann::json{ { "limit", 111 }, { "safety", 99 } });
+    const EventChannelConfig migrated = read_channel_config("B");
+    CHECK_INT("channel-migrate-limit", 111, migrated.limit);
+    CHECK_INT("channel-migrate-safety", 99, migrated.safety);
+    CHECK_INT("channel-migrate-persisted", 111, raw_subtree("app.channels.B").value("limit", 0));
+
+    // 7c) 迁移只发生一次：全局键已存在后不再读旧键
+    AppConfig::instance().set_value<nlohmann::json>("app.plugins.legacy.channels.B",
+        nlohmann::json{ { "limit", 222 }, { "safety", 222 } });
+    CHECK_INT("channel-migrate-once", 111, read_channel_config("B").limit);
+    CHECK_INT("channel-migrate-once-safety", 99, read_channel_config("B").safety);
+
+    // 8) 事件输出数据类型：三个取值可读写，非法与缺失回落 strength
+    EventDefinition typed_definition;
+    typed_definition.id = "typed";
+    EventConfig typed_config;
+    typed_config.dataType = EventDataType::WAVE;
+    write_event_config("probe", "typed", typed_config);
+    CHECK_STRING("data-type-wave", "wave",
+        event_data_type_to_string(read_event_config("probe", typed_definition).dataType));
+    CHECK_STRING("data-type-wave-disk", "wave",
+        raw_subtree("app.plugins.probe.events.typed").value("dataType", std::string()));
+
+    typed_config.dataType = EventDataType::PERCENT;
+    write_event_config("probe", "typed", typed_config);
+    CHECK_STRING("data-type-percent", "percent",
+        event_data_type_to_string(read_event_config("probe", typed_definition).dataType));
+
+    typed_config.dataType = EventDataType::STRENGTH;
+    write_event_config("probe", "typed", typed_config);
+    CHECK_STRING("data-type-strength", "strength",
+        event_data_type_to_string(read_event_config("probe", typed_definition).dataType));
+
+    AppConfig::instance().set_value<std::string>("app.plugins.probe.events.typed.dataType", "bogus");
+    CHECK_STRING("data-type-invalid-fallback", "strength",
+        event_data_type_to_string(read_event_config("probe", typed_definition).dataType));
+
+    EventDefinition missing_definition;
+    missing_definition.id = "no_data_type";
+    CHECK_STRING("data-type-missing-default", "strength",
+        event_data_type_to_string(read_event_config("probe", missing_definition).dataType));
+
+    // 9) 事件启用不落盘：写事件配置不产生 enabled 字段
+    const nlohmann::json typed_raw = raw_subtree("app.plugins.probe.events.typed");
+    CHECK_TRUE("event-enabled-not-persisted", typed_raw.find("enabled") == typed_raw.end());
 
     if (failures == 0) {
         std::printf("rule_graph_eval_test: 全部用例通过\n");

@@ -9,6 +9,7 @@
 #include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DglabRelayServer.h"
+#include "EventMapping.h"
 #include "QrImageProvider.h"
 #include "RuleManager.h"
 
@@ -20,6 +21,8 @@
 #include <algorithm>
 
 namespace {
+
+    constexpr int MAX_STRENGTH = 200; ///< 设备强度上限
 
     /// @brief 选择一个可用于手机扫码的局域网 IPv4 地址（无则回退环回）
     QString detect_lan_ip() {
@@ -109,6 +112,14 @@ void DeviceController::attach_ble(CoyoteBleController* ble) {
 
 bool DeviceController::output_available() const {
     return connected_ || ble_ready();
+}
+
+int DeviceController::channel_limit(const QString& channel) const {
+    const EventChannelConfig config = read_channel_config(channel.toStdString());
+    // 展示上限取 min(limit, safety)：与详情页写入同源，安全上限是输出强度的硬钳制
+    const int limit = std::clamp(config.limit, 0, MAX_STRENGTH);
+    const int safety = std::clamp(config.safety, 0, MAX_STRENGTH);
+    return std::min(limit, safety);
 }
 
 QString DeviceController::qr_image_url() const {

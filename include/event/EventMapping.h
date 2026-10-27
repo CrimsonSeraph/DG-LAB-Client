@@ -39,7 +39,8 @@ enum class MergeRule {
 // 模块级默认输出通道（app.plugins.<模块>.channel）
 constexpr const char* DEFAULT_MODULE_CHANNEL = "AB"; ///< 缺省值：A 与 B 各一次
 
-/// @brief 通道配置（app.plugins.<模块>.channels.<通道>）
+/// @brief 通道配置（app.channels.<通道>，全局唯一，与插件无关）
+/// @note 旧键 app.plugins.<模块>.channels.<通道> 在全局键缺失时被迁移一次
 struct EventChannelConfig {
     int limit = 200;  ///< 通道上限
     int safety = 150; ///< 通道安全上限
@@ -56,13 +57,21 @@ struct OptionOutput {
     std::int64_t edited_at = 0;                          ///< 最后编辑时间（毫秒时间戳）
 };
 
+// 事件输出数据类型（events.<事件>.dataType）：决定触发数值如何折算为输出
+enum class EventDataType {
+    STRENGTH = 0, ///< 强度：数值直接作为强度值
+    PERCENT = 1,  ///< 百分比：数值按触发数值的上下限映射到 0~100
+    WAVE = 2      ///< 波形：数值绑定波形帧序列参与叠加
+};
+
 // 事件激活窗口（1 帧 = 100ms）
 constexpr int DEFAULT_EVENT_FRAMES = 10; ///< 默认窗口帧数（1 秒）
 constexpr int MAX_EVENT_FRAMES = 600;    ///< 窗口帧数上限（60 秒）
 
 /// @brief 事件映射（events.<事件>）
 struct EventConfig {
-    bool enabled = false;                        ///< 事件启用
+    bool enabled = false;                        ///< 事件启用（运行期由级联集合覆盖，不写入 user.json）
+    EventDataType dataType = EventDataType::STRENGTH; ///< 输出数据类型
     std::string wave;                            ///< 事件附加波形
     MergeRule merge = MergeRule::MULTIPLY;       ///< 与其它波形的合并规则
     double weight = 1.0;                         ///< 合并权重
@@ -120,11 +129,22 @@ std::string merge_rule_to_string(MergeRule rule);
 /// @return 对应枚举，未知文本返回 MergeRule::MULTIPLY
 MergeRule merge_rule_from_string(const std::string& text);
 
-/// @brief 读取通道配置（缺失字段取默认值）
-/// @param module_name 模块名称
+/// @brief 输出数据类型转文本
+/// @param type 数据类型枚举
+/// @return 契约中的文本值
+std::string event_data_type_to_string(EventDataType type);
+
+/// @brief 文本转输出数据类型
+/// @param text 契约中的文本值
+/// @return 对应枚举，未知文本回落 EventDataType::STRENGTH
+EventDataType event_data_type_from_string(const std::string& text);
+
+/// @brief 读取全局通道配置（缺失字段取默认值）
 /// @param channel 通道（"A"/"B"）
 /// @return 通道配置
-EventChannelConfig read_channel_config(const std::string& module_name, const std::string& channel);
+/// @note 全局键 app.channels.<通道> 缺失时，从旧 app.plugins.<任意模块>.channels.<通道>
+///       取首个存在的值写回全局键并返回；此后只读全局键
+EventChannelConfig read_channel_config(const std::string& channel);
 
 /// @brief 读取输出端配置（缺失字段取默认值）
 /// @param module_name 模块名称
@@ -166,24 +186,20 @@ inline void apply_cascade_enabled(const std::string& module_name,
     }
 }
 
-/// @brief 读取通道上限（只读访问器）
-/// @param module_name 模块名称
+/// @brief 读取通道上限（只读访问器，取全局键）
 /// @param channel 通道（"A"/"B"）
 /// @return 通道上限
-int channel_limit(const std::string& module_name, const std::string& channel);
+int channel_limit(const std::string& channel);
 
-/// @brief 读取通道安全上限（只读访问器）
-/// @param module_name 模块名称
+/// @brief 读取通道安全上限（只读访问器，取全局键）
 /// @param channel 通道（"A"/"B"）
 /// @return 通道安全上限
-int channel_safety(const std::string& module_name, const std::string& channel);
+int channel_safety(const std::string& channel);
 
-/// @brief 写入通道配置（写入 user 配置层）
-/// @param module_name 模块名称
+/// @brief 写入全局通道配置（写入 user 配置层的 app.channels.<通道>）
 /// @param channel 通道（"A"/"B"）
 /// @param config 通道配置
-void write_channel_config(const std::string& module_name, const std::string& channel,
-    const EventChannelConfig& config);
+void write_channel_config(const std::string& channel, const EventChannelConfig& config);
 
 /// @brief 写入输出端配置（写入 user 配置层）
 /// @param module_name 模块名称

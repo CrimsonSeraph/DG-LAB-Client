@@ -53,6 +53,10 @@ public:
 
     /// @brief 是否存在可用输出通道（中转服务已启动或蓝牙已连接）
     bool output_available() const;
+    /// @brief 通道展示上限（全局 app.channels.<通道> 的 min(limit, safety)，钳制在 0~200）
+    /// @param channel 通道（"A"/"B"）
+    /// @return 上限值；通道非法时返回 0
+    int channel_limit(const QString& channel) const;
     QString ip() const { return ip_; }
     int port() const { return port_; }
     QString pairing_url() const { return pairing_url_; }

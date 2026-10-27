@@ -86,8 +86,9 @@ void EventEngine::configure(const std::string& module_name, const std::vector<Ev
     ModuleState module;
     module.name = module_name;
     module.default_channel = read_default_channel(module_name);
+    // 通道上限与安全上限属于通道而非插件：同一通道上所有模块共用全局配置
     for (int index = 0; index < 2; ++index) {
-        const EventChannelConfig channel_config = read_channel_config(module_name, CHANNELS[index]);
+        const EventChannelConfig channel_config = read_channel_config(CHANNELS[index]);
         module.limits[index] = channel_config.limit;
         module.safeties[index] = channel_config.safety;
     }

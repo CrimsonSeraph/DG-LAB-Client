@@ -53,6 +53,14 @@ namespace {
         return item;
     }
 
+    // 全局通道配置转映射（A/B 各一份 limit/safety；events[] 模块项与 channels 属性共用这一处取值）
+    QVariantMap channel_map() {
+        QVariantMap channels;
+        channels.insert(QStringLiteral("A"), channel_item(read_channel_config("A")));
+        channels.insert(QStringLiteral("B"), channel_item(read_channel_config("B")));
+        return channels;
+    }
+
     // 子选项映射转展示项（label 由调用方按声明补齐，映射表独有键用键名）
     QVariantMap option_item(const std::string& option_id, const QString& label, const OptionOutput& output) {
         QVariantMap item;
@@ -113,8 +121,10 @@ namespace {
         item.insert(QStringLiteral("label"), to_qstring(definition.label.empty() ? definition.id : definition.label));
         item.insert(QStringLiteral("trigger"), trigger);
         item.insert(QStringLiteral("options"), options);
+        // 事件没有用户启用开关：启用与否只由级联集合决定
         const bool cascade_enabled = cascade_events.count(module_name + "/" + definition.id) != 0;
-        item.insert(QStringLiteral("enabled"), config.enabled || cascade_enabled);
+        item.insert(QStringLiteral("enabled"), cascade_enabled);
+        item.insert(QStringLiteral("dataType"), to_qstring(event_data_type_to_string(config.dataType)));
         item.insert(QStringLiteral("wave"), to_qstring(config.wave));
         item.insert(QStringLiteral("merge"), to_qstring(merge_rule_to_string(config.merge)));
         item.insert(QStringLiteral("weight"), config.weight);
@@ -150,18 +160,21 @@ void EventBridge::initialize() {
     LOG_MODULE("EventBridge", "initialize", LOG_INFO, "事件桥接初始化完成");
 }
 
+QVariantMap EventBridge::channels() const {
+    // 通道上限属于通道而非插件：没有插件启用时同样能取到全局值
+    return channel_map();
+}
+
 QVariantList EventBridge::events() const {
     QVariantList list;
     const std::set<std::string> cascade_events = runtime_ != nullptr ? runtime_->cascade_events()
                                                                      : std::set<std::string>();
+    // 每个模块项携带的 channels 与 channels 属性同源
+    const QVariantMap channels = channel_map();
     for (const auto& plugin : ModuleManager::instance().get_plugins()) {
         if (plugin.module_name.empty() || plugin.events.empty()) {
             continue;
         }
-        QVariantMap channels;
-        channels.insert(QStringLiteral("A"), channel_item(read_channel_config(plugin.module_name, "A")));
-        channels.insert(QStringLiteral("B"), channel_item(read_channel_config(plugin.module_name, "B")));
-
         QVariantList events;
         for (const auto& definition : plugin.events) {
             if (definition.id.empty()) {
@@ -218,19 +231,24 @@ void EventBridge::reload() {
     apply_change();
 }
 
-void EventBridge::setChannelConfig(const QString& module, const QString& channel, int limit, int safety) {
-    const std::string module_name = module.toStdString();
+void EventBridge::setChannelConfig(const QString& channel, int limit, int safety) {
     const std::string channel_name = channel.toStdString();
-    if (module_name.empty() || channel_name.empty()) {
+    if (channel_name.empty()) {
         return;
     }
     EventChannelConfig config;
     config.limit = limit;
     config.safety = safety;
-    write_channel_config(module_name, channel_name, config);
+    write_channel_config(channel_name, config);
     LOG_MODULE("EventBridge", "setChannelConfig", LOG_INFO,
-        "通道配置已写入: 模块=" << module_name << " 通道=" << channel_name << " 上限=" << limit << " 安全上限=" << safety);
+        "全局通道配置已写入: 通道=" << channel_name << " 上限=" << limit << " 安全上限=" << safety);
     apply_change();
+}
+
+void EventBridge::setChannelConfig(const QString& module, const QString& channel, int limit, int safety) {
+    // 兼容旧签名：module 参数不再参与存储，通道上限是全局值
+    Q_UNUSED(module);
+    setChannelConfig(channel, limit, safety);
 }
 
 void EventBridge::setDefaultChannel(const QString& module, const QString& channel) {
@@ -244,8 +262,8 @@ void EventBridge::setDefaultChannel(const QString& module, const QString& channe
     apply_change();
 }
 
-void EventBridge::setEventConfig(const QString& module, const QString& event_id, bool enabled, const QString& wave,
-    const QString& merge, double weight, int frames) {
+void EventBridge::setEventConfig(const QString& module, const QString& event_id, const QString& wave,
+    const QString& merge, double weight, int frames, const QString& data_type) {
     const std::string module_name = module.toStdString();
     const std::string target_event = event_id.toStdString();
     if (module_name.empty() || target_event.empty()) {
@@ -263,14 +281,15 @@ void EventBridge::setEventConfig(const QString& module, const QString& event_id,
     if (definition != nullptr) {
         config = read_event_config(module_name, *definition);
     }
-    config.enabled = enabled;
+    config.dataType = event_data_type_from_string(data_type.toStdString());
     config.wave = wave.toStdString();
     config.merge = merge_rule_from_string(merge.toStdString());
     config.weight = weight;
     config.frames = frames;
     write_event_config(module_name, target_event, config);
     LOG_MODULE("EventBridge", "setEventConfig", LOG_INFO,
-        "事件映射已写入: 模块=" << module_name << " 事件=" << target_event << " 启用=" << enabled);
+        "事件映射已写入: 模块=" << module_name << " 事件=" << target_event
+                                << " 数据类型=" << event_data_type_to_string(config.dataType));
     apply_change();
 }
 

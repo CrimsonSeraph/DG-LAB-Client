@@ -1,6 +1,6 @@
 # 事件与映射配置（events / user.json）
 
-> 本文档描述插件的**事件声明**与用户的**映射配置**：插件在侧车 `plugin.json` 的 `events` 里声明「什么数值变化算一次事件」，用户在 `user.json` 的 `app.plugins.<模块名>` 里决定「这次事件输出到哪个通道、加多少」。数值注册与插件接口见 [`module/README.md`](../module/README.md)，起步模板见 [`docs/community_plugin_template/`](community_plugin_template/README.md)。
+> 本文档描述插件的**事件声明**与用户的**映射配置**：插件在侧车 `plugin.json` 的 `events` 里声明「什么数值变化算一次事件」，用户在 `user.json` 的 `app.plugins.<模块名>` 里决定「这次事件输出到哪个通道、加多少」；通道上限与安全上限属于通道，写在全局的 `app.channels.<通道>`。数值注册与插件接口见 [`module/README.md`](../module/README.md)，起步模板见 [`docs/community_plugin_template/`](community_plugin_template/README.md)。
 
 ## 一、概念
 
@@ -87,10 +87,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `channel` | string | 模块级默认输出通道：`A` / `B` / `AB`，缺省 `AB`；子选项 `channel` 为空串时按它展开，见「默认通道与跟随默认」 |
-| `channels.A` / `channels.B` | object | 每个输出通道一份配置 |
-| `channels.<通道>.limit` | number | 通道上限 |
-| `channels.<通道>.safety` | number | 安全上限，输出强度的硬钳制 |
-| `events.<事件id>.enabled` | bool | 该事件是否参与输出 |
+| `events.<事件id>.dataType` | string | 输出数据类型：`strength` / `percent` / `wave`，缺省 `strength`，非法值按 `strength` 处理，见「输出数据类型」 |
 | `events.<事件id>.wave` | string | 事件波形名，空串表示不附加波形 |
 | `events.<事件id>.merge` | string | 该事件多路结果的合并规则：`multiply` / `max` / `min` / `weighted` |
 | `events.<事件id>.weight` | number | 合并权重，`merge=weighted` 时使用 |
@@ -106,23 +103,40 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 | `output.wave` | string | 输出端附加波形名，空串表示不附加 |
 | `output.merge` | string | 输出端的合并规则，取值同 `merge`，默认 `multiply` |
 
+事件没有 `enabled` 字段：事件是否参与输出只由级联集合（运行期启用集合）决定。写入事件映射时不写 `enabled`，读取时也不读它——手工写进 `user.json` 的 `enabled` 会被忽略。
+
+通道上限不在插件下，而在全局的 `app.channels.<通道>`，详见「通道上限」：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `app.channels.<通道>.limit` | number | 通道上限，缺省 200 |
+| `app.channels.<通道>.safety` | number | 安全上限，输出强度的硬钳制，缺省 150 |
+
+`user.json` 的片段（插件映射在 `app.plugins.<模块名>` 下，通道配置在全局的 `app.channels`）：
+
 ```json
 {
-    "channel": "AB",
-    "channels": { "A": { "limit": 200, "safety": 150 }, "B": { "limit": 200, "safety": 150 } },
-    "events": {
-        "gift": {
-            "enabled": true,
-            "wave": "",
-            "merge": "multiply",
-            "weight": 1.0,
-            "options": {
-                "heart": { "channel": "A", "operation": "increase", "mode": "value", "value": 5, "percent": 0, "step": 1, "edited_at": 0 },
-                "rose": { "channel": "A", "operation": "set", "mode": "percent", "value": 0, "percent": 20, "step": 1, "edited_at": 0 }
+    "app": {
+        "channels": { "A": { "limit": 200, "safety": 150 }, "B": { "limit": 200, "safety": 150 } },
+        "plugins": {
+            "buckshot": {
+                "channel": "AB",
+                "events": {
+                    "gift": {
+                        "dataType": "strength",
+                        "wave": "",
+                        "merge": "multiply",
+                        "weight": 1.0,
+                        "options": {
+                            "heart": { "channel": "A", "operation": "increase", "mode": "value", "value": 5, "percent": 0, "step": 1, "edited_at": 0 },
+                            "rose": { "channel": "A", "operation": "set", "mode": "percent", "value": 0, "percent": 20, "step": 1, "edited_at": 0 }
+                        }
+                    }
+                },
+                "output": { "wave": "", "merge": "multiply" }
             }
         }
-    },
-    "output": { "wave": "", "merge": "multiply" }
+    }
 }
 ```
 
@@ -130,7 +144,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 
 模块级 `channel` 决定子选项没有显式指定通道时的落点：
 
-- `A`：只落到 A 通道；`B`：只落到 B 通道；`AB`（缺省）：A 与 B 各一份，两个通道各自独立累计，各自受自己的 `channels.<通道>.limit` 与 `channels.<通道>.safety` 约束。
+- `A`：只落到 A 通道；`B`：只落到 B 通道；`AB`（缺省）：A 与 B 各一份，两个通道各自独立累计，各自受全局 `app.channels.<通道>` 的 `limit` 与 `safety` 约束。
 - 子选项 `option.channel` 留空串表示「跟随默认」：按模块 `channel` 展开，`AB` 时该子选项在两个通道各生效一次，触发流水记两条（`channel` 字段分别为 `A` 与 `B`）。
 - 子选项显式写 `A` / `B` 时以子选项为准，与模块 `channel` 的取值无关；空串映射不会被改写为具体通道，仍是「跟随」。
 - `channel` 取 `A` / `B` / `AB` 之外的值一律按 `AB` 处理。
@@ -161,6 +175,20 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 | `value` | `value` 生效，`percent` 忽略 |
 | `percent` | `percent` 生效，`value` 忽略 |
 
+### dataType
+
+事件级字段，决定触发数值以什么形态折算成输出。缺省 `strength`，读到的值非法时同样按 `strength` 处理。
+
+| 取值 | 语义 | 与百分比映射的关系 |
+| --- | --- | --- |
+| `strength` | 强度：数值直接可用的强度值，落到该通道时不再折算 | 与 `option.mode=value` 同形：数值按通道上限归一后参与合成 |
+| `percent` | 百分比：数值先按该数值的 `min` / `max` 映射到 0~100，再按通道上限折算成强度 | 与 `option.mode=percent` 对应：折算后强度 = 百分比 ÷ 100 × 通道上限 |
+| `wave` | 波形：数值绑定的波形帧序列参与叠加，逐帧按下文「波形包络」乘进结果 | 波形只改变每帧的包络系数，百分比折算规则不变 |
+
+- `percent` 的 0~100 映射区间取该事件触发数值的 `min` / `max`（数值未注册 `min` / `max` 时，`min` 按 0、`max` 按通道上限处理）。
+- 三种取值只改变数值的解释方式，不改变触发判定、「设为」互斥与激活窗口的规则。
+- 当前后端只做落盘与只读暴露（`EventBridge.events[].events[].dataType`）：强度合成仍按 `option.mode` 折算、按 `wave` 绑定波形包络，按 `dataType` 折算的接线随界面批次落地。
+
 ### merge
 
 | 取值 | 行为 |
@@ -174,7 +202,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 
 ### 强度合成
 
-最终强度 = `Clamp(通道上限 × 百分比或叠加结果, 安全上限)`：通道上限取 `channels.<通道>.limit`，百分比取 `option.percent`，叠加结果由 `merge` 得出，最后按 `channels.<通道>.safety` 钳制，下限 0，输出整数。
+最终强度 = `Clamp(通道上限 × 百分比或叠加结果, 安全上限)`：通道上限取 `app.channels.<通道>.limit`，百分比取 `option.percent`，叠加结果由 `merge` 得出，最后按 `app.channels.<通道>.safety` 钳制，下限 0，输出整数。
 
 波形包络（每帧贡献）：
 
@@ -190,6 +218,15 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 2. 通道内多事件：该通道上参与合成的事件按事件 id 字典序排序，第一个事件的归一值作初值；之后逐个折叠 `acc = merge(rule_i, [acc, v_i], [1.0, weight_i])`，`rule_i` 与 `weight_i` 取当前事件自身的字段，`v_i` 为该事件的归一值（事件内结果 ÷ `limit`）。折叠得到 0~1 的比例后再乘通道上限；`multiply` / `max` / `min` 的折叠与顺序无关，只有同一通道上混用不同规则时顺序才影响结果。
 3. 输出端附加波形：与合成结果逐帧相乘，规则取 `output.merge`（默认 `multiply`）。
 4. 终值：`Clamp(结果, 0, min(limit, safety))`，输出整数。
+
+### 通道上限
+
+通道上限与安全上限属于通道而不是插件：A、B 各一个唯一值，所有插件共用，插件停用或换成另一个插件都不影响它。
+
+- 存储位置：`user.json` 的 `app.channels.<通道>.{limit, safety}`（缺省 `limit=200`、`safety=150`）。
+- 事件引擎在载入模块时按通道读取同一份全局值，同一通道上的多个模块拿到的是同一对上限。
+- 主页与状态栏展示的上限是 `min(limit, safety)`，与详情页写入的是同一份配置。
+- 迁移：旧版本把上限写在 `app.plugins.<模块>.channels.<通道>`。读取时若全局键 `app.channels.<通道>` 缺失，就按模块名字典序取旧键中首个存在的值写回全局键并返回；写入之后只读全局键，旧键不再参与，也不再被清理或改写。
 
 ## 六、「设为」互斥
 

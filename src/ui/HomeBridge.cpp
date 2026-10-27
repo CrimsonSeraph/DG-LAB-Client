@@ -22,12 +22,11 @@ HomeBridge::HomeBridge(DeviceController* device, QObject* parent)
 
 void HomeBridge::initialize() {
     if (device_ != nullptr) {
+        // 上限不再取 APP 回传值：它属于通道配置（app.channels.<通道>），由 DeviceController 同源提供
         connect(device_, &DeviceController::strengthFeedback, this,
-            [this](int a_strength, int b_strength, int a_limit, int b_limit) {
+            [this](int a_strength, int b_strength, int, int) {
                 strength_a_ = a_strength;
                 strength_b_ = b_strength;
-                limit_a_ = a_limit;
-                limit_b_ = b_limit;
                 emit dataChanged();
             });
         connect(device_, &DeviceController::connectedChanged, this, &HomeBridge::dataChanged);
@@ -51,6 +50,14 @@ void HomeBridge::initialize() {
     connect(&WaveLibrary::instance(), &WaveLibrary::current_changed, this, &HomeBridge::dataChanged);
 
     LOG_MODULE("HomeBridge", "initialize", LOG_INFO, "首页桥接初始化完成");
+}
+
+int HomeBridge::limit_a() const {
+    return device_ == nullptr ? 0 : device_->channel_limit(QStringLiteral("A"));
+}
+
+int HomeBridge::limit_b() const {
+    return device_ == nullptr ? 0 : device_->channel_limit(QStringLiteral("B"));
 }
 
 QString HomeBridge::wave_a() const {
@@ -101,7 +108,8 @@ int HomeBridge::channel_index(const QString& channel) const {
 }
 
 int HomeBridge::clamp_strength(const QString& channel, int value) const {
-    const int limit = (channel == QStringLiteral("A")) ? limit_a_ : limit_b_;
+    // 钳制值与展示上限同源：界面看到的「上限」就是强度的硬上限
+    const int limit = (channel == QStringLiteral("A")) ? limit_a() : limit_b();
     return std::clamp(value, 0, std::min(limit, 200));
 }
 

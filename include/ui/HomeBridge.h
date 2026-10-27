@@ -39,8 +39,10 @@ public:
 
     int strength_a() const { return strength_a_; }
     int strength_b() const { return strength_b_; }
-    int limit_a() const { return limit_a_; }
-    int limit_b() const { return limit_b_; }
+    /// @brief 通道 A 展示上限（全局通道配置的 min(limit, safety)）
+    int limit_a() const;
+    /// @brief 通道 B 展示上限（全局通道配置的 min(limit, safety)）
+    int limit_b() const;
     bool running_a() const;
     bool running_b() const;
     QVariantList modules_a() const;
@@ -77,6 +79,4 @@ private:
     DeviceController* device_ = nullptr;
     int strength_a_ = 0;
     int strength_b_ = 0;
-    int limit_a_ = 200;
-    int limit_b_ = 200;
 };
