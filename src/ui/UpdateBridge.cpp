@@ -2,6 +2,9 @@
 
 #include "UpdateManager.h"
 
+#include <QDesktopServices>
+#include <QUrl>
+
 UpdateBridge::UpdateBridge(UpdateManager* manager, QObject* parent)
     : QObject(parent)
     , manager_(manager)
@@ -24,13 +27,22 @@ int UpdateBridge::progress() const { return progress_; }
 QString UpdateBridge::remote_version() const { return manager_->remote_version(); }
 QString UpdateBridge::release_notes() const { return manager_->release_notes(); }
 QString UpdateBridge::error_message() const { return error_message_; }
-
-
+QString UpdateBridge::release_url() const { return manager_->release_url(); }
 bool UpdateBridge::has_update() const { return manager_->has_update(); }
 
+void UpdateBridge::open_release_url() {
+    if (manager_ == nullptr) {
+        return;
+    }
+    const QString url = manager_->release_url();
+    if (!url.isEmpty()) {
+        QDesktopServices::openUrl(QUrl(url));
+    }
+}
+
 void UpdateBridge::on_check_update_clicked() {
+    if (checking_ || downloading_) return;
     checking_ = true;
-    downloading_ = false;
     ready_to_install_ = false;
     progress_ = 0;
     error_message_.clear();
@@ -40,6 +52,7 @@ void UpdateBridge::on_check_update_clicked() {
 }
 
 void UpdateBridge::on_start_download_clicked() {
+    if (!manager_->has_update() || downloading_) return;
     downloading_ = true;
     progress_ = 0;
     emit state_changed();
@@ -48,6 +61,7 @@ void UpdateBridge::on_start_download_clicked() {
 }
 
 void UpdateBridge::on_apply_update_clicked() {
+    if (!ready_to_install_) return;
     manager_->apply_update_and_restart();
 }
 
@@ -79,9 +93,12 @@ void UpdateBridge::on_download_finished(bool success, const QString& error) {
         emit toast_requested(tr("更新包下载完成"), 1);
     }
     else {
+        ready_to_install_ = false;
+        progress_ = 0;
         error_message_ = error;
         emit state_changed();
-        emit toast_requested(error, 3); // 3 = danger
+        emit progress_changed();
+        emit toast_requested(error, 3);
     }
 }
 

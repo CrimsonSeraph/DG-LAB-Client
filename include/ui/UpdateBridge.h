@@ -15,6 +15,7 @@ class UpdateBridge : public QObject {
     Q_PROPERTY(QString release_notes READ release_notes NOTIFY state_changed)    // 更新说明
     Q_PROPERTY(QString error_message READ error_message NOTIFY state_changed)    // 当前错误信息
     Q_PROPERTY(bool hasUpdate READ has_update NOTIFY state_changed)              // 是否存在可用更新
+    Q_PROPERTY(QString release_url READ release_url NOTIFY state_changed)        // 最新版本的下载地址
 
 public:
     /// @brief 构造更新桥接对象
@@ -50,9 +51,17 @@ public:
     /// @return 错误信息字符串
     QString error_message() const;
 
+    /// @brief 获取最新 release 下载 url
+    /// @return 最新 release 下载 url
+    QString release_url() const;
+
     /// @brief 获取是否存在可用更新
     /// @return 是否存在可用更新
     bool has_update() const;
+
+    /// @brief 在系统浏览器打开最新 Release 页面
+    /// @note release_url 为空时静默返回，不弹提示
+    Q_INVOKABLE void open_release_url();
 
 public slots:
     /// @brief 用户点击检查更新

@@ -320,6 +320,7 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "panelCheckUpdateButton", SLOT(on_check_update_clicked()));
     connect_clicked(root_object, "updateDownloadButton", SLOT(on_update_download_clicked()));
     connect_clicked(root_object, "updateApplyButton", SLOT(on_update_apply_clicked()));
+    connect_clicked(root_object, "aboutReleaseUrlButton", SLOT(on_update_open_release_clicked()));
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
@@ -504,6 +505,12 @@ void UiConnector::on_update_apply_clicked() {
             [this]() {
                 update_->on_apply_update_clicked();
             });
+    }
+}
+
+void UiConnector::on_update_open_release_clicked() {
+    if (update_ != nullptr) {
+        update_->open_release_url();
     }
 }
 

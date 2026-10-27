@@ -84,13 +84,21 @@ Item {
             // 更新日志展示
             Text {
                 width: parent.width
-                visible: updateBridge.hasUpdate
+                visible: updateBridge.hasUpdate && updateBridge.release_notes !== ""
                 text: updateBridge.release_notes
+                textFormat: Text.PlainText
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap
                 maximumLineCount: 4
                 elide: Text.ElideRight
+            }
+
+            // 完整发布页链接
+            AppButton {
+                objectName: "aboutReleaseUrlButton"
+                text: "查看完整更新说明"
+                visible: updateBridge.hasUpdate && updateBridge.release_url !== ""
             }
 
             // 下载进度条
@@ -129,7 +137,7 @@ Item {
 
                 AppButton {
                     objectName: "updateDownloadButton"
-                    text: "下载更新"
+                    text: updateBridge.downloading ? "下载中…" : "下载更新"
                     primary: true
                     visible: updateBridge.hasUpdate && !updateBridge.ready_to_install
                     enabled: !updateBridge.downloading
@@ -161,7 +169,7 @@ Item {
             Text {
                 objectName: "aboutDependenciesText"
                 width: parent.width
-                text: qsTr("依赖 Qt 6（Quick / QuickControls2 / Network / Bluetooth）")
+                text: qsTr("依赖 Qt 6（Quick / QuickControls2 / Network / Bluetooth / Concurrent）")
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap

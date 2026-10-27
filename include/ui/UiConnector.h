@@ -111,6 +111,7 @@ private slots:
     void on_check_update_clicked();
     void on_update_download_clicked();
     void on_update_apply_clicked();
+    void on_update_open_release_clicked();
 
 private:
     void connect_clicked(QObject* root_object, const char* object_name, const char* slot);

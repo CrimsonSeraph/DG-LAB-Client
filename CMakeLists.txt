@@ -682,6 +682,7 @@ target_link_libraries(${PROJECT_NAME}
 		Qt::QuickDialogs2
 		Qt::WebSockets
 		Qt::Bluetooth
+		Qt::Concurrent
 	PRIVATE nlohmann_json
 )
 target_include_directories(${PROJECT_NAME}

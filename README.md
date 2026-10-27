@@ -85,7 +85,7 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 ### 1. 系统依赖
 
 - **C++ 编译器**: 支持 C++20 标准（如 GCC 10+、Clang 12+、MSVC 2022）
-- **Qt 6**: Core、Gui、Network、Qml、Quick、QuickControls2、QuickDialogs2、WebSockets、Bluetooth
+- **Qt 6**: Core、Gui、Network、Qml、Quick、QuickControls2、QuickDialogs2、WebSockets、Bluetooth、Concurrent
 - **Python**（可选）: 仅 GSI 插件的 `PathFinder.py`（查找 CS 游戏目录）需要，不再用于 WebSocket 通信
 
 > 推荐使用 VS2022/2026（MSVC）进行 Windows 开发，Linux/macOS 可使用 GCC 或 Clang。👉 遇到依赖问题？请查看 [常见问题 - 编译与运行](#编译与运行)
@@ -816,7 +816,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 
 本项目依赖的第三方组件适用不同的许可证:
 
-- **Qt 框架**（Core, Gui, Network, Qml, Quick, QuickControls2, QuickDialogs2, WebSockets, Bluetooth）: GNU Lesser General Public License v3.0（LGPLv3）
+- **Qt 框架**（Core, Gui, Network, Qml, Quick, QuickControls2, QuickDialogs2, WebSockets, Bluetooth, Concurrent）: GNU Lesser General Public License v3.0（LGPLv3）
 - **nlohmann/json**: MIT 许可证
 - **Nayuki qrcodegen**（`third_party/qrcodegen`）: MIT 许可证
 

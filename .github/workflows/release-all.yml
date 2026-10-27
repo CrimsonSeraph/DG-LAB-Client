@@ -221,6 +221,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
           REPO: ${{ github.repository }}
           VER: ${{ steps.ver.outputs.version }}
+          NOTES_BODY: ${{ steps.notes.outputs.body }}
         run: |
           set -euo pipefail
           cd dist
@@ -245,18 +246,42 @@ jobs:
           MAC_SHA=$(sha_of "$MAC_FILE")
           LINUX_SHA=$(sha_of "$LINUX_FILE")
 
-          cat > manifest.json <<EOF
-          {
-            "version": "$VER",
-            "release_notes": "https://github.com/$REPO/releases/tag/$TAG",
-            "platforms": {
-              "windows": { "file": "$WIN_FILE", "sha256": "$WIN_SHA" },
-              "macos":   { "file": "$MAC_FILE", "sha256": "$MAC_SHA" },
-              "linux":   { "file": "$LINUX_FILE", "sha256": "$LINUX_SHA" }
-            }
+          # 所有下载 URL 都指向具体 tag
+          BASE_URL="https://github.com/$REPO/releases/download/$TAG"
+
+          # export 让下面的 python 通过 os.environ 读到
+          export BASE_URL
+          export WIN_FILE MAC_FILE LINUX_FILE
+          export WIN_SHA  MAC_SHA  LINUX_SHA
+
+          python3 - <<'PY'
+          import json, os
+          m = {
+              "version": os.environ["VER"],
+              "release_notes": os.environ.get("NOTES_BODY", "").strip(),
+              "release_url": f'https://github.com/{os.environ["REPO"]}/releases/tag/{os.environ["TAG"]}',
+              "platforms": {
+                  "windows": {
+                      "file": os.environ["WIN_FILE"],
+                      "url": f'{os.environ["BASE_URL"]}/{os.environ["WIN_FILE"]}',
+                      "sha256": os.environ["WIN_SHA"],
+                  },
+                  "macos": {
+                      "file": os.environ["MAC_FILE"],
+                      "url": f'{os.environ["BASE_URL"]}/{os.environ["MAC_FILE"]}',
+                      "sha256": os.environ["MAC_SHA"],
+                  },
+                  "linux": {
+                      "file": os.environ["LINUX_FILE"],
+                      "url": f'{os.environ["BASE_URL"]}/{os.environ["LINUX_FILE"]}',
+                      "sha256": os.environ["LINUX_SHA"],
+                  },
+              },
           }
-          EOF
-          cat manifest.json
+          with open("manifest.json", "w", encoding="utf-8") as f:
+              json.dump(m, f, ensure_ascii=False, indent=2)
+          print(open("manifest.json", encoding="utf-8").read())
+          PY
           cd ..
 
       - name: 汇总 SHA256 校验和

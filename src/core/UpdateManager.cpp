@@ -7,28 +7,47 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QFutureWatcher>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkReply>
 #include <QProcess>
 #include <QStandardPaths>
+#include <QTextStream>
 #include <QTimer>
-
+#include <QVersionNumber>
+#include <QtConcurrent>
 
 UpdateManager::UpdateManager(QObject* parent)
     : QObject(parent)
     , network_manager_(new QNetworkAccessManager(this))
     , current_download_reply_(nullptr)
+    , current_check_reply_(nullptr)
     , manifest_url_("https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json") {
 }
 
 UpdateManager::~UpdateManager() {
+    if (current_check_reply_) {
+        disconnect(current_check_reply_, nullptr, this, nullptr);
+        current_check_reply_->abort();
+        current_check_reply_ = nullptr;
+    }
     if (current_download_reply_) {
+        disconnect(current_download_reply_, nullptr, this, nullptr);
         current_download_reply_->abort();
+        current_download_reply_ = nullptr;
     }
 }
 
 void UpdateManager::check_for_updates() {
+    if (current_check_reply_ || current_download_reply_) return;
+    if (!is_self_updatable()) {
+        current_error_ = unsupported_update_hint();
+        LOG_MODULE("UpdateManager", "check_for_updates", LOG_INFO, current_error_);
+        emit error_occurred(current_error_);
+        return;
+    }
     LOG_MODULE("UpdateManager", "check_for_updates", LOG_INFO, "开始检查更新...");
     current_error_.clear();
 
@@ -38,12 +57,18 @@ void UpdateManager::check_for_updates() {
     download_url_.clear();
     expected_sha256_.clear();
     download_file_path_.clear();
+    release_url_.clear();
 
     QNetworkRequest req{QUrl(manifest_url_)};
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    req.setTransferTimeout(30'000);
+#endif
 
-    QNetworkReply* reply = network_manager_->get(req);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    current_check_reply_ = network_manager_->get(req);
+    connect(current_check_reply_, &QNetworkReply::finished, this, [this]() {
+        QNetworkReply* reply = current_check_reply_;
+        current_check_reply_ = nullptr;
         on_manifest_reply(reply);
     });
 }
@@ -67,6 +92,23 @@ void UpdateManager::on_manifest_reply(QNetworkReply* reply) {
     QJsonObject obj = doc.object();
     remote_version_ = obj["version"].toString();
     release_notes_ = obj["release_notes"].toString();
+    release_url_ = obj["release_url"].toString();
+
+    if (remote_version_.isEmpty()) {
+        current_error_ = "更新清单缺少 version 字段";
+        emit error_occurred(current_error_);
+        return;
+    }
+    if (!obj["platforms"].isObject()) {
+        current_error_ = "更新清单缺少 platforms 字段";
+        emit error_occurred(current_error_);
+        return;
+    }
+    if (release_url_.isEmpty() &&
+        (release_notes_.startsWith("http://") || release_notes_.startsWith("https://"))) {
+        release_url_ = release_notes_;
+        release_notes_ = "详细更新说明请点击下方链接查看";
+    }
 
     if (!is_newer_version(APP_VERSION, remote_version_)) {
         LOG_MODULE("UpdateManager", "on_manifest_reply", LOG_INFO, "当前已是最新版本: " + remote_version_);
@@ -74,11 +116,16 @@ void UpdateManager::on_manifest_reply(QNetworkReply* reply) {
         return;
     }
 
-    QString file_name;
-    if (extract_platform_info(obj["platforms"].toObject(), file_name, expected_sha256_)) {
-        // 动态拼接下载链接
-        QString base_url = manifest_url_.left(manifest_url_.lastIndexOf('/'));
-        download_url_ = base_url + "/" + file_name;
+    QString file_name, file_url;
+    if (extract_platform_info(obj["platforms"].toObject(),
+            file_name, file_url, expected_sha256_)) {
+        if (!file_url.isEmpty()) {
+            download_url_ = file_url;
+        }
+        else {
+            QString base_url = manifest_url_.left(manifest_url_.lastIndexOf('/'));
+            download_url_ = base_url + "/" + file_name;
+        }
         emit update_available(true);
         LOG_MODULE("UpdateManager", "on_manifest_reply", LOG_INFO, "发现新版本: " + remote_version_);
     }
@@ -89,6 +136,7 @@ void UpdateManager::on_manifest_reply(QNetworkReply* reply) {
 }
 
 void UpdateManager::start_download() {
+    download_write_error_ = false;
     if (download_url_.isEmpty()) return;
     if (current_download_reply_ != nullptr) return;
 
@@ -99,7 +147,9 @@ void UpdateManager::start_download() {
 
     // 临时文件路径
     download_file_path_ = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
-                          "/" + QFileInfo(download_url_).fileName();
+                          "/dglab_update_" +
+                          QString::number(QCoreApplication::applicationPid()) + "_" +
+                          QFileInfo(download_url_).fileName();
     QFile::remove(download_file_path_);
 
     current_download_reply_ = network_manager_->get(req);
@@ -114,6 +164,19 @@ void UpdateManager::on_download_ready_read() {
     if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
         file.write(current_download_reply_->readAll());
     }
+    else {
+        const auto err = file.error();
+        const auto desc = file.errorString();
+        const auto name = file.fileName();
+        download_write_error_ = true;
+        current_error_ = "无法写入临时文件: " + file.errorString();
+        current_download_reply_->abort();
+        LOG_MODULE("UpdateManager", "on_download_ready_read", LOG_WARN,
+            QString("以追加方式打开下载文件失败：%1，错误：%2（code=%3）")
+                .arg(name)
+                .arg(desc)
+                .arg(static_cast<int>(err)));
+    }
 }
 
 void UpdateManager::on_download_finished() {
@@ -122,23 +185,60 @@ void UpdateManager::on_download_finished() {
     current_download_reply_ = nullptr;
     reply->deleteLater();
 
+    if (download_write_error_) {
+        emit download_finished(false, current_error_);
+        return;
+    }
+
     if (reply->error() != QNetworkReply::NoError) {
         current_error_ = "下载失败: " + reply->errorString();
         emit download_finished(false, current_error_);
         return;
     }
-    if (!verify_sha256(download_file_path_, expected_sha256_)) {
-        current_error_ = "文件校验失败 (SHA256 不匹配)";
-        QFile::remove(download_file_path_);
+
+    QFile f(download_file_path_);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Append)) {
+        current_error_ = "无法写入临时文件: " + f.errorString();
         emit download_finished(false, current_error_);
         return;
     }
-    LOG_MODULE("UpdateManager", "on_download_finished", LOG_INFO, "下载完成并通过校验");
-    emit download_finished(true, "");
+    f.write(reply->readAll());
+    f.close();
+    reply->deleteLater();
+
+    // 异步校验
+    const QString path = download_file_path_;
+    const QString expected = expected_sha256_;
+    auto* watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, this, [this, watcher]() {
+        watcher->deleteLater();
+        if (!watcher->result()) {
+            current_error_ = "文件校验失败 (SHA256 不匹配)";
+            QFile::remove(download_file_path_);
+            emit download_finished(false, current_error_);
+            return;
+        }
+        LOG_MODULE("UpdateManager", "on_download_finished", LOG_INFO, "下载完成并通过校验");
+        emit download_finished(true, "");
+    });
+    watcher->setFuture(QtConcurrent::run(&UpdateManager::verify_sha256, path, expected));
 }
 
 void UpdateManager::apply_update_and_restart() {
-    if (download_file_path_.isEmpty()) return;
+    if (download_file_path_.isEmpty() ||
+        !QFileInfo::exists(download_file_path_)) {
+        current_error_ = "更新包不存在，请重新下载";
+        download_file_path_.clear();
+        emit download_finished(false, current_error_);
+        return;
+    }
+    if (!verify_sha256(download_file_path_, expected_sha256_)) {
+        current_error_ = "更新包已损坏，请重新下载";
+        QFile::remove(download_file_path_);
+        download_file_path_.clear();
+        emit download_finished(false, current_error_);
+        return;
+    }
 
     QString script_path;
 #ifdef Q_OS_WIN
@@ -148,27 +248,18 @@ void UpdateManager::apply_update_and_restart() {
 #else
     script_path = generate_linux_script(download_file_path_);
 #endif
-
+    if (script_path.isEmpty()) {
+        if (current_error_.isEmpty()) current_error_ = "生成更新脚本失败";
+        emit error_occurred(current_error_);
+        return;
+    }
     execute_script_and_quit(script_path);
 }
 
-bool UpdateManager::is_newer_version(const QString& current, const QString& remote) const {
-    QString r = remote;
-    if (r.startsWith('v') || r.startsWith('V')) r.remove(0, 1);
-
-    QStringList cur_parts = current.split('.');
-    QStringList rem_parts = r.split('.');
-
-    for (int i = 0; i < qMax(cur_parts.size(), rem_parts.size()); ++i) {
-        int c = (i < cur_parts.size()) ? cur_parts[i].toInt() : 0;
-        int rm = (i < rem_parts.size()) ? rem_parts[i].toInt() : 0;
-        if (rm > c) return true;
-        if (rm < c) return false;
-    }
-    return false;
-}
-
-bool UpdateManager::extract_platform_info(const QJsonObject& platforms_obj, QString& out_file, QString& out_sha) {
+bool UpdateManager::extract_platform_info(const QJsonObject& platforms_obj,
+    QString& out_file,
+    QString& out_url,
+    QString& out_sha) {
     QString key;
 #ifdef Q_OS_WIN
     key = "windows";
@@ -181,18 +272,18 @@ bool UpdateManager::extract_platform_info(const QJsonObject& platforms_obj, QStr
     if (!platforms_obj.contains(key)) return false;
     QJsonObject plat = platforms_obj[key].toObject();
     out_file = plat["file"].toString();
-    out_sha = plat["sha256"].toString();
-    return !out_file.isEmpty() && !out_sha.isEmpty();
+    out_url = plat["url"].toString();
+    out_sha = plat["sha256"].toString().toLower();
+    if (out_sha.size() != 64) return false;
+    return !out_file.isEmpty();
 }
 
 bool UpdateManager::verify_sha256(const QString& file_path, const QString& expected_sha) {
     QFile file(file_path);
     if (!file.open(QIODevice::ReadOnly)) return false;
     QCryptographicHash hash(QCryptographicHash::Sha256);
-    if (hash.addData(&file)) {
-        return QString(hash.result().toHex()) == expected_sha.toLower();
-    }
-    return false;
+    if (!hash.addData(&file)) return false;
+    return QString(hash.result().toHex()) == expected_sha.toLower();
 }
 
 QString UpdateManager::generate_windows_script(const QString& installer_path) {
@@ -202,7 +293,10 @@ QString UpdateManager::generate_windows_script(const QString& installer_path) {
     const qint64 self_pid = QCoreApplication::applicationPid();
 
     QFile file(script_path);
-    file.open(QIODevice::WriteOnly | QIODevice::Text);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        current_error_ = "无法写入更新脚本: " + file.errorString();
+        return QString(); // 空串，调用方检查
+    }
     QTextStream out(&file);
 
     out << "@echo off\n"
@@ -216,8 +310,9 @@ QString UpdateManager::generate_windows_script(const QString& installer_path) {
         << "\n"
         << "rem 等待旧进程退出（按 PID 精确轮询）\n"
         << ":wait_exit\n"
-        << "tasklist /FI \"PID eq %TARGET_PID%\" /NH 2>nul | find \"%TARGET_PID%\" >nul\n"
-        << "if not errorlevel 1 (\n"
+        << "set \"RUNNING=\"\n"
+        << "for /f \"tokens=2 delims=,\" %%a in (\'tasklist /FI \"PID eq %TARGET_PID%\" /FO CSV /NH 2^>nul\') do set \"RUNNING=%%~a\"\n"
+        << "if \"%RUNNING%\"==\"%TARGET_PID%\" (\n"
         << "    timeout /t 1 /nobreak >nul\n"
         << "    goto wait_exit\n"
         << ")\n"
@@ -243,6 +338,8 @@ QString UpdateManager::generate_windows_script(const QString& installer_path) {
         << "\n"
         << ":cleanup\n"
         << "del \"%~f0\"\n";
+
+    file.close();
     return script_path;
 }
 
@@ -255,10 +352,22 @@ QString UpdateManager::generate_macos_script(const QString& dmg_path) {
     const qint64 self_pid = QCoreApplication::applicationPid();
 
     QFile file(script_path);
-    file.open(QIODevice::WriteOnly | QIODevice::Text);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        current_error_ = "无法写入更新脚本: " + file.errorString();
+        return QString(); // 空串，调用方检查
+    }
     QTextStream out(&file);
 
     out << "#!/bin/bash\n"
+        << "set -euo pipefail\n"
+        << "\n"
+        << "rollback() {\n"
+        << "    rm -rf \"$APP_PATH\" 2>/dev/null\n"
+        << "    mv \"$APP_PATH.bak\" \"$APP_PATH\" 2>/dev/null\n"
+        << "    open \"$APP_PATH\" 2>/dev/null\n"
+        << "    exit 1\n"
+        << "}\n"
+        << "trap rollback ERR\n"
         << "TARGET_PID=" << self_pid << "\n"
         << "APP_PATH=\"" << app_path << "\"\n"
         << "DMG_PATH=\"" << dmg_path << "\"\n"
@@ -275,7 +384,9 @@ QString UpdateManager::generate_macos_script(const QString& dmg_path) {
         << "# 备份并替换\n"
         << "mv \"$APP_PATH\" \"$APP_PATH.bak\"\n"
         << "MOUNT_DIR=$(mktemp -d /tmp/dglab_update.XXXXXX)\n"
-        << "hdiutil attach \"$DMG_PATH\" -nobrowse -quiet -mountpoint \"$MOUNT_DIR\"\n"
+        << "if ! hdiutil attach \"$DMG_PATH\" -nobrowse -quiet -mountpoint \"$MOUNT_DIR\"; then\n"
+        << "    rollback\n"
+        << "fi\n"
         << "cp -R \"$MOUNT_DIR\"/*.app \"$APP_PATH\"\n"
         << "hdiutil detach \"$MOUNT_DIR\" -quiet\n"
         << "rmdir \"$MOUNT_DIR\"\n"
@@ -300,20 +411,42 @@ QString UpdateManager::generate_macos_script(const QString& dmg_path) {
         << "    open \"$APP_PATH\"\n"
         << "fi\n"
         << "rm -f \"$0\"\n";
-    file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+
+    file.close();
+    if (!file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner |
+                             QFileDevice::ExeOwner |
+                             QFileDevice::ReadGroup | QFileDevice::ExeGroup |
+                             QFileDevice::ReadOther | QFileDevice::ExeOther)) {
+        current_error_ = "无法为更新脚本设置可执行权限: " + file.errorString();
+        QFile::remove(script_path);
+        return QString();
+    }
     return script_path;
 }
 
 QString UpdateManager::generate_linux_script(const QString& appimage_path) {
-    const QString current_appimage = QCoreApplication::applicationFilePath();
+    QString current_appimage = qEnvironmentVariable("APPIMAGE");
+    if (current_appimage.isEmpty()) current_appimage = QCoreApplication::applicationFilePath();
     const QString script_path = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/dglab_update.sh";
     const qint64 self_pid = QCoreApplication::applicationPid();
 
     QFile file(script_path);
-    file.open(QIODevice::WriteOnly | QIODevice::Text);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        current_error_ = "无法写入更新脚本: " + file.errorString();
+        return QString(); // 空串，调用方检查
+    }
     QTextStream out(&file);
 
     out << "#!/bin/bash\n"
+        << "set -euo pipefail\n"
+        << "\n"
+        << "rollback() {\n"
+        << "    rm -f \"$CURRENT_APPIMAGE\" 2>/dev/null\n"
+        << "    mv \"$CURRENT_APPIMAGE.bak\" \"$CURRENT_APPIMAGE\" 2>/dev/null\n"
+        << "    \"$CURRENT_APPIMAGE\" &\n"
+        << "    exit 1\n"
+        << "}\n"
+        << "trap rollback ERR\n"
         << "TARGET_PID=" << self_pid << "\n"
         << "CURRENT_APPIMAGE=\"" << current_appimage << "\"\n"
         << "NEW_APPIMAGE=\"" << appimage_path << "\"\n"
@@ -352,24 +485,78 @@ QString UpdateManager::generate_linux_script(const QString& appimage_path) {
         << "    \"$CURRENT_APPIMAGE\" &\n"
         << "fi\n"
         << "rm -f \"$0\"\n";
-    file.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+
+    file.close();
+    if (!file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner |
+                             QFileDevice::ExeOwner |
+                             QFileDevice::ReadGroup | QFileDevice::ExeGroup |
+                             QFileDevice::ReadOther | QFileDevice::ExeOther)) {
+        current_error_ = "无法为更新脚本设置可执行权限: " + file.errorString();
+        QFile::remove(script_path);
+        return QString();
+    }
     return script_path;
 }
 
 void UpdateManager::execute_script_and_quit(const QString& script_path) {
     LOG_MODULE("UpdateManager", "execute_script_and_quit", LOG_INFO, "执行更新脚本并退出程序");
 #ifdef Q_OS_WIN
-    QProcess::startDetached("cmd.exe", {"/c", script_path});
+    bool ok = QProcess::startDetached("cmd.exe", {"/c", script_path});
 #else
-    QProcess::startDetached("bash", {script_path});
+    bool ok = QProcess::startDetached("bash", {script_path});
 #endif
+    if (!ok) {
+        current_error_ = "无法启动更新脚本";
+        emit error_occurred(current_error_);
+        return;
+    }
     QTimer::singleShot(100, qApp, &QCoreApplication::quit);
+}
+
+bool UpdateManager::is_self_updatable() const {
+#ifdef Q_OS_LINUX
+    // AppImage：环境变量非空
+    if (!qEnvironmentVariableIsEmpty("APPIMAGE")) return true;
+
+    // Flatpak / Snap：由各自商店管理
+    if (qEnvironmentVariableIsSet("FLATPAK_ID")) return false;
+    if (qEnvironmentVariableIsSet("SNAP")) return false;
+
+    // 落在系统包路径下（deb/rpm 安装）
+    const QString path = QFileInfo(QCoreApplication::applicationFilePath()).canonicalFilePath();
+    static const QStringList system_prefixes = {
+        "/usr/", "/opt/", "/snap/", "/var/lib/", "/nix/"};
+    for (const auto& prefix : system_prefixes) {
+        if (path.startsWith(prefix)) return false;
+    }
+    return true; // 便携版/源码运行
+#else
+    return true;
+#endif
+}
+
+QString UpdateManager::unsupported_update_hint() const {
+#ifdef Q_OS_LINUX
+    if (qEnvironmentVariableIsSet("FLATPAK_ID")) {
+        return "当前为 Flatpak 版本，请通过 flatpak update 或软件中心更新";
+    }
+    if (qEnvironmentVariableIsSet("SNAP")) {
+        return "当前为 Snap 版本，请通过 snap refresh 或软件中心更新";
+    }
+    const QString path = QFileInfo(QCoreApplication::applicationFilePath()).canonicalFilePath();
+    if (path.startsWith("/usr/") || path.startsWith("/opt/") ||
+        path.startsWith("/var/lib/") || path.startsWith("/nix/")) {
+        return "当前为系统包管理器安装，请使用 apt/dnf/pacman 等工具更新";
+    }
+#endif
+    return QString();
 }
 
 bool UpdateManager::has_update() const { return !download_url_.isEmpty(); }
 QString UpdateManager::remote_version() const { return remote_version_; }
 QString UpdateManager::release_notes() const { return release_notes_; }
 QString UpdateManager::error_message() const { return current_error_; }
+QString UpdateManager::release_url() const { return release_url_; }
 
 QString UpdateManager::update_flag_path() {
     return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/update_ok.tmp";

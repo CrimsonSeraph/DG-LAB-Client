@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QFutureWatcher>
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QString>
@@ -43,12 +44,17 @@ public:
     /// @return 错误信息字符串
     QString error_message() const;
 
+    /// @brief 获取最新 release 下载 url
+    /// @return 最新 release 下载 url
+    QString release_url() const;
+
     /// @brief 获取更新健康标记文件路径（脚本与主程序共用）
     /// @return 标记文件的绝对路径
     static QString update_flag_path();
 
 private:
     QNetworkAccessManager* network_manager_; // 网络访问管理器
+    QNetworkReply* current_check_reply_;     // 当前正在进行的请求的网络回复
     QNetworkReply* current_download_reply_;  // 当前下载请求回复
 
     QString manifest_url_;       // 更新清单 URL
@@ -58,6 +64,9 @@ private:
     QString expected_sha256_;    // 更新包期望 SHA256
     QString download_file_path_; // 更新包本地临时路径
     QString current_error_;      // 当前错误信息
+    QString release_url_;        // 最新 release 下载 url
+
+    bool download_write_error_ = false; // 写入标志位
 
     /// @brief 处理更新清单请求响应
     /// @param reply 网络回复对象
@@ -78,15 +87,16 @@ private:
     /// @brief 从平台信息对象中提取文件名与 SHA256
     /// @param platforms_obj 平台信息 JSON 对象
     /// @param out_file 输出文件名
+    /// @param out_url 输出下载链接
     /// @param out_sha 输出 SHA256
     /// @return 提取成功返回 true
-    bool extract_platform_info(const QJsonObject& platforms_obj, QString& out_file, QString& out_sha);
+    bool extract_platform_info(const QJsonObject& platforms_obj, QString& out_file, QString& out_url, QString& out_sha);
 
     /// @brief 校验文件 SHA256
     /// @param file_path 文件路径
     /// @param expected_sha 期望 SHA256
     /// @return 校验通过返回 true
-    bool verify_sha256(const QString& file_path, const QString& expected_sha);
+    static bool verify_sha256(const QString& file_path, const QString& expected_sha);
 
     /// @brief 生成 Windows 更新脚本
     /// @param installer_path 安装包路径
@@ -106,6 +116,12 @@ private:
     /// @brief 执行脚本并退出程序
     /// @param script_path 脚本路径
     void execute_script_and_quit(const QString& script_path);
+
+    /// @brief 当前安装方式是否支持应用内自更新
+    bool is_self_updatable() const;
+
+    /// @brief 获取不支持自更新时的提示文案（如“请用 apt 更新”）
+    QString unsupported_update_hint() const;
 
 signals:
     /// @brief 检查更新完成
