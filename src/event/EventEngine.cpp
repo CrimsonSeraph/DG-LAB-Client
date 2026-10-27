@@ -157,6 +157,22 @@ void EventEngine::configure(const std::string& module_name, const std::vector<Ev
     modules_[module_name] = module;
 }
 
+void EventEngine::remove_module(const std::string& module_name) {
+    if (module_name.empty()) {
+        return;
+    }
+    // 事件声明、激活窗口、斜坡与通道累计都挂在模块状态里，整项移除即全部丢弃
+    modules_.erase(module_name);
+    for (std::map<std::pair<std::string, std::string>, LastValue>::iterator value_it = last_values_.begin();
+        value_it != last_values_.end();) {
+        if (value_it->first.first == module_name) {
+            value_it = last_values_.erase(value_it);
+            continue;
+        }
+        ++value_it;
+    }
+}
+
 void EventEngine::clear() {
     for (std::map<std::string, ModuleState>::iterator module_it = modules_.begin();
         module_it != modules_.end(); ++module_it) {
@@ -176,6 +192,11 @@ void EventEngine::clear() {
 }
 
 void EventEngine::on_value_changed(const std::string& module_name, const std::string& value_id, int value) {
+    // 未载入事件声明的模块直接丢弃：卸载后不得因数值变化重建前值与运行期状态
+    const std::map<std::string, ModuleState>::iterator module_it = modules_.find(module_name);
+    if (module_it == modules_.end()) {
+        return;
+    }
     LastValue& last = last_values_[std::make_pair(module_name, value_id)];
     if (!last.valid) {
         last.valid = true;
@@ -185,10 +206,6 @@ void EventEngine::on_value_changed(const std::string& module_name, const std::st
     const int previous = last.value;
     last.value = value;
     if (previous == value) {
-        return;
-    }
-    const std::map<std::string, ModuleState>::iterator module_it = modules_.find(module_name);
-    if (module_it == modules_.end()) {
         return;
     }
     ModuleState& module = module_it->second;
@@ -312,6 +329,10 @@ std::vector<TriggerRecord> EventEngine::recent_triggers(int limit) const {
         records.push_back(triggers_[index]);
     }
     return records;
+}
+
+bool EventEngine::has_module(const std::string& module_name) const {
+    return modules_.find(module_name) != modules_.end();
 }
 
 int EventEngine::option_channels(const RuntimeOption& option, const ModuleState& module, int indices[2]) const {

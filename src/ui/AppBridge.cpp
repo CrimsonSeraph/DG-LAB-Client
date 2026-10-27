@@ -43,6 +43,15 @@ void AppBridge::navigate(int page) {
     set_current_page(page);
 }
 
+void AppBridge::openPluginDetail(const QString& plugin_key) {
+    // 先切页再请求定位：插件中心随页面栈常驻实例化，定位由 UiConnector 在页面属性上完成
+    set_current_page(PluginCenterPage);
+    if (plugin_key.isEmpty()) {
+        return;
+    }
+    emit pluginDetailRequested(plugin_key);
+}
+
 void AppBridge::showToast(const QString& text, int level) {
     toast_text_ = text;
     toast_level_ = level;

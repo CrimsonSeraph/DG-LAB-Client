@@ -118,6 +118,8 @@ src/ui/
 | `homePluginEntryButton` | 首页页头「插件管理」→ 插件中心（`UiConnector::on_home_plugin_entry_clicked()`） |
 | `homeRuleEditorButton` / `configRuleEditorButton` | 打开规则编辑器 |
 
+带插件标识的导航只有 `app.openPluginDetail(pluginKey)` 一个入口：`AppBridge` 先切到插件中心，再发 `pluginDetailRequested(pluginKey)`，`UiConnector::on_plugin_detail_requested()` 把键解析成插件文件名后写 `pluginCenterPage` 的 `selectedFile` 与 `detailVisible`（即打开该插件详情）。键可写插件文件名或模块标识，两者都匹配。目标插件未扫描到或已卸载时不打开详情：只停在插件中心列表并弹一次 `warning` Toast（`未找到插件 …，已打开插件中心`），不会留下空白详情。之所以不扩展 `navigate(int page)`：带键的语义只对插件中心成立，`navigate` 保持「纯切页」单一职责，其余 8 处调用点无需感知页面负载。
+
 主页看板（`pages/HomePage.qml` 与 `pages/home/`）：
 
 主页已改为看板：左列设备状态（内含 A/B 通道行）与 A/B 通道卡，右列已启用插件、近期触发流水与通道波形卡；页头只保留「插件管理」与「规则编辑器」两个快捷入口（模块页入口已随该页移除，波形设置入口已移除）。强度调节不在本页（后续由迷你窗提供），波形选择在波形设置页。
@@ -133,7 +135,7 @@ src/ui/
 | `dashboardChannel{A,B}Hint` | 通道卡脚注「强度调节与波形选择将在迷你窗与波形设置页提供」：只读 |
 | `dashboardChannel{A,B}Name` / `dashboardChannel{A,B}Badge` | 通道状态行（`pages/home/DashboardChannelRow.qml`）的通道名与状态徽标（未运行 / 运行中 / 无输出）：只展示不给交互 |
 | `channel{A,B}StartButton` | 切换通道启用状态（同步规则引擎通道变量）；位置已移到设备状态卡的通道行，沿用旧 `objectName`，运行态为 `danger` + `outline` |
-| `dashboardPluginCard` / `dashboardPluginCount` | 已启用插件卡与其中的计数（`moduleBridge.modules` 中 `kind` 为 plugin 且已启用的项）；行热区点击跳转插件中心（`app.navigate`），该处理器尚未迁到 C++ |
+| `dashboardPluginCard` / `dashboardPluginCount` | 已启用插件卡与其中的计数（`moduleBridge.modules` 中 `kind` 为 plugin 且已启用的项）；行热区点击经 `app.openPluginDetail(fileName)` 直达该插件详情（插件文件名缺失时退化为 `app.navigate(pluginCenterPage)` 只切页），该处理器尚未迁到 C++ |
 | `dashboardTriggerCard` / `dashboardTriggerEmpty` | 近期触发流水卡（最近 8 条）与无记录时的空态文案：只读 |
 | `dashboardWaveCard` / `dashboardWaveName{A,B}` | 通道波形卡与 A/B 当前波形名（`waveBridge.currentA/currentB`）；未绑定波形时名称行隐藏 |
 | `dashboardWaveSparkline{A,B}` | A/B 强度曲线：取 `waveBridge.amplitudeA/amplitudeB`（每帧 4 个强度字节取均值，0~100），静态绘制 |
@@ -224,6 +226,8 @@ src/ui/
 | `modulePeriodCombo` | 统一查询周期下拉（`periodOptions`，文案为毫秒数值）；`currentIndex` 绑定 `moduleBridge.uniformPeriodIndex` 回显实际周期（全部数值一致时为该周期下标，不一致为 -1、无选中项，未注册数值时按 `basePeriodMs` 回显）；`activated` 与「应用」共用同一槽 |
 | `modulePeriodMismatchHint` | 「各数值周期不一致」提示，仅 `uniformPeriodIndex < 0` 时可见：只读 |
 | `modulePeriodApplyButton` | 把所选周期应用到全部数值 |
+
+已启用栏条目没有新增 objectName：「配置 →」热区同样调用 `app.openPluginDetail(fileName)`，走与首页看板相同的解析与降级路径；网格卡片的热区仍走页面内的 `openDetail()`（已在本页，无需再切页）。
 
 插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。
 
@@ -394,7 +398,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 - `dialogs/RuleEditorDialog.qml` 30 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 5，即上表四行，逐处已登记。
 - `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 8 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
-- `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击跳转插件中心，同上待迁移。
+- `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击（行委托由 `Repeater` 动态生成，本次仍保留处理器）只调 `app.openPluginDetail(fileName)`，导航与定位全在 C++（`AppBridge` + `UiConnector::on_plugin_detail_requested()`），QML 不再自己决定导航目标；处理器本身仍属待迁移项。
 - `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表新增两行，逐处已登记。
 - `components/` 4 处（`AppTabs` / `AppSlider` / `AppSegment` / `AppChip` 各 1）：组件把自身鼠标事件转发成自己的信号（`tabClicked` / `moved` / `selected` / `clicked`），属组件内部实现，不是页面交互。
 

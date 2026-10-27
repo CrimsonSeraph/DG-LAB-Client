@@ -67,6 +67,10 @@ public:
     void set_current_page(int page);
     Q_INVOKABLE void navigate(int page);
 
+    /// @brief 打开指定插件的详情页（目标插件不存在时只切页并提示）
+    /// @param plugin_key 插件键（插件文件名或模块标识，两者都接受）
+    Q_INVOKABLE void openPluginDetail(const QString& plugin_key);
+
     /// @brief 弹出一次性反馈浮层；空文本立即隐藏
     Q_INVOKABLE void showToast(const QString& text, int level = StatusInfo);
 
@@ -78,6 +82,10 @@ signals:
     void currentPageChanged();
     void statusTextChanged();
     void toastChanged();
+
+    /// @brief 请求定位到指定插件详情（由 UiConnector 在插件中心页设置选中项）
+    /// @param plugin_key 插件键
+    void pluginDetailRequested(const QString& plugin_key);
 
 private:
     QString app_name_ = QStringLiteral("DG-LAB-Client");

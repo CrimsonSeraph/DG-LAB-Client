@@ -195,6 +195,11 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
                     AppBridge::StatusDanger);
             });
     }
+    if (app_ != nullptr) {
+        // 带插件标识的导航：切页在 AppBridge 完成，这里负责把页面选中项定位到目标插件
+        QObject::connect(app_, &AppBridge::pluginDetailRequested, this,
+            &UiConnector::on_plugin_detail_requested);
+    }
     if (device_ != nullptr) {
         QObject::connect(device_, &DeviceController::errorOccurred, this,
             [this](const QString& message) {
@@ -794,6 +799,46 @@ void UiConnector::on_nav_button_clicked() {
 
 void UiConnector::on_home_plugin_entry_clicked() {
     app_->navigate(AppBridge::PluginCenterPage);
+}
+
+// 定位到指定插件详情：解析插件键后在插件中心页设置选中项，目标不存在时只提示
+void UiConnector::on_plugin_detail_requested(const QString& plugin_key) {
+    auto* page = find("pluginCenterPage");
+    if (page == nullptr) {
+        LOG_MODULE("UiConnector", "on_plugin_detail_requested", LOG_WARN,
+            "未找到插件中心页面: pluginCenterPage");
+        return;
+    }
+    // 键可以是插件文件名或模块标识：首页看板持有文件名，插件详情的数值页签持有模块标识
+    QString file_name;
+    if (module_ != nullptr) {
+        const QVariantList items = module_->property("modules").toList();
+        for (const QVariant& entry : items) {
+            const QVariantMap item = entry.toMap();
+            if (item.value(QStringLiteral("kind")).toString() != QStringLiteral("plugin")) {
+                continue;
+            }
+            const QString candidate = item.value(QStringLiteral("fileName")).toString();
+            if (candidate.isEmpty()) {
+                continue;
+            }
+            if (candidate == plugin_key
+                || item.value(QStringLiteral("moduleName")).toString() == plugin_key) {
+                file_name = candidate;
+                break;
+            }
+        }
+    }
+    if (file_name.isEmpty()) {
+        // 目标插件未扫描到或已卸载：停留在插件中心列表，不打开空白详情
+        if (app_ != nullptr) {
+            app_->showToast(tr("未找到插件 %1，已打开插件中心").arg(plugin_key),
+                AppBridge::StatusWarning);
+        }
+        return;
+    }
+    page->setProperty("selectedFile", file_name);
+    page->setProperty("detailVisible", true);
 }
 
 void UiConnector::on_rule_editor_clicked() {

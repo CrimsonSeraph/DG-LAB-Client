@@ -40,6 +40,12 @@ void EventRuntime::initialize() {
         [this](const QString& module_name, const QString& value_id, int value) {
             engine_.on_value_changed(module_name.toStdString(), value_id.toStdString(), value);
         });
+    // 插件卸载：立即丢弃该模块的事件声明与运行期状态，不等下一次全量重建
+    connect(&modules, &ModuleManager::module_unregistered, this, [this](const QString& module_name) {
+        engine_.remove_module(module_name.toStdString());
+        LOG_MODULE("EventRuntime", "module_unregistered", LOG_INFO,
+            "已清理模块的事件声明与运行期状态: " << module_name.toStdString());
+    });
     connect(&modules, &ModuleManager::plugin_state_changed, this, &EventRuntime::reload);
 
     // 启用级联：规则层的依赖集合决定哪些事件在运行期视为启用（初始化拉取一次，此后随信号刷新）

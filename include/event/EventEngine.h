@@ -52,6 +52,11 @@ public:
     void configure(const std::string& module_name, const std::vector<EventDefinition>& definitions,
         const std::map<std::string, EventConfig>& configs);
 
+    /// @brief 移除模块的事件声明与运行期状态（激活窗口、斜坡、通道累计与前值一并丢弃）
+    /// @param module_name 模块标识
+    /// @note 移除后该模块的数值变化既不触发也不重建运行期状态；通道强度在下一帧整体重算
+    void remove_module(const std::string& module_name);
+
     /// @brief 复位运行期状态（累加器、前值、通道强度与帧计数）
     /// @note 已载入的声明与映射、触发流水保留
     void clear();
@@ -62,6 +67,7 @@ public:
     /// @param value 最新数值
     /// @note 该 (模块, 数值) 首次写入没有前值，不判定任何比较方式
     /// @note 激活窗口内重复触发只重置窗口，不清零累加器
+    /// @note 模块未载入事件声明时不登记前值、不判定触发
     void on_value_changed(const std::string& module_name, const std::string& value_id, int value);
 
     /// @brief 推进一帧（固定 100ms）并刷新通道强度
@@ -77,6 +83,11 @@ public:
     /// @param limit 最多返回条数
     /// @return 最近 limit 条记录（最新在后），limit 不大于 0 时为空
     std::vector<TriggerRecord> recent_triggers(int limit) const;
+
+    /// @brief 模块是否仍载有事件声明
+    /// @param module_name 模块标识
+    /// @return 载有返回 true
+    bool has_module(const std::string& module_name) const;
 
 private:
     /// @brief 单个 ramp 激活的运行期状态

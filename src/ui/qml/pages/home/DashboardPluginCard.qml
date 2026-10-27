@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 
-// 已启用插件卡：数量 + 列表（名称 / 加载状态），点击条目进入插件中心。
+// 已启用插件卡：数量 + 列表（名称 / 加载状态），点击条目直达该插件详情。
 // 数据取 moduleBridge.modules 中 kind 为 plugin 且 enabled 的项。
 GlassCard {
     id: root
@@ -9,7 +9,7 @@ GlassCard {
     objectName: "dashboardPluginCard"
     title: qsTr("已启用插件")
 
-    // 插件中心的页面索引（AppBridge::Page，由页面注入）
+    // 插件中心的页面索引（AppBridge::Page，由页面注入）：插件文件名缺失时退化为只切页
     property int pluginCenterPage: 0
 
     readonly property var plugins: root.enabledPlugins()
@@ -102,8 +102,12 @@ GlassCard {
                 cursorShape: Qt.PointingHandCursor
 
                 onClicked: {
-                    if (root.pluginCenterPage > 0) {
-                        app.navigate(root.pluginCenterPage);
+                    const fileName = String(pluginRow.modelData.fileName)
+                    if (fileName.length > 0) {
+                        app.openPluginDetail(fileName)
+                    }
+                    else if (root.pluginCenterPage > 0) {
+                        app.navigate(root.pluginCenterPage)
                     }
                 }
             }

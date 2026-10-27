@@ -233,6 +233,10 @@ signals:
     /// @brief 插件加载/卸载/失败时发出（用于刷新模块页与插件状态显示）
     void plugin_state_changed();
 
+    /// @brief 模块注销完成时发出（插件卸载路径，供事件层丢弃该模块的状态）
+    /// @param module_name 模块名称
+    void module_unregistered(const QString& module_name);
+
     /// @brief 插件请求用户可见通知时发出（如 GSI 配置更新需重启游戏）
     /// @param title 标题
     /// @param message 内容

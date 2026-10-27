@@ -434,6 +434,8 @@ void ModuleManager::unregister_module(const std::string& module_name) {
             return;
         }
     }
+    // 先广播注销（事件层据此刻丢弃该模块的事件声明与运行期状态），再刷新周期显示
+    emit module_unregistered(QString::fromStdString(module_name));
     emit_period_changed();
     LOG_MODULE("ModuleManager", "unregister_module", LOG_INFO,
         "已注销模块: " << module_name);

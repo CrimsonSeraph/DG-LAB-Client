@@ -793,6 +793,37 @@ target_include_directories(rule_graph_eval_test
 )
 add_test(NAME rule_graph_eval_test COMMAND rule_graph_eval_test)
 
+# 事件引擎模块移除（插件卸载清理）：需要规则、模块、事件、波形与配置层
+# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+add_executable(event_engine_module_test
+	tests/event_engine_module_test.cpp
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${WAVE}
+	${CORE_CONFIG}
+	${CORE_LOG}
+)
+target_link_libraries(event_engine_module_test
+	PRIVATE
+		Qt::Core
+		Qt::Network
+		Qt::Qml
+		nlohmann_json
+)
+target_include_directories(event_engine_module_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+)
+add_test(NAME event_engine_module_test COMMAND event_engine_module_test)
+
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；
 # 因此 Windows 把可执行文件连同它运行所需的数据（config / python / assets 等）

@@ -4,7 +4,8 @@ import QtQuick
 import QtQuick.Layouts
 
 // 插件中心：两列卡片网格 + 右侧已启用栏，点卡片或「配置」进入同页详情。
-// 卡片状态与已启用栏都读 moduleBridge.modules，启停后由桥接刷新驱动。
+// 卡片状态与已启用栏都读 moduleBridge.modules，启停后由桥接刷新驱动；
+// 详情定位统一走 app.openPluginDetail()（带插件键），页面自身不改选中项。
 Item {
     id: page
 
@@ -410,7 +411,7 @@ Item {
                                                 MouseArea {
                                                     anchors.fill: parent
                                                     cursorShape: Qt.PointingHandCursor
-                                                    onClicked: page.openDetail(modelData.fileName)
+                                                    onClicked: app.openPluginDetail(String(modelData.fileName))
                                                 }
                                             }
 

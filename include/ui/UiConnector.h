@@ -60,6 +60,7 @@ private slots:
     // 导航
     void on_nav_button_clicked();
     void on_home_plugin_entry_clicked();
+    void on_plugin_detail_requested(const QString& plugin_key);
     void on_rule_editor_clicked();
     void on_rule_editor_close_clicked();
     void on_rule_save_clicked();
