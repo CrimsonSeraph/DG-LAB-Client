@@ -88,6 +88,7 @@ void UpdateBridge::on_download_finished(bool success, const QString& error) {
     if (success) {
         ready_to_install_ = true;
         progress_ = 100;
+        error_message_.clear();
         emit state_changed();
         emit progress_changed();
         emit toast_requested(tr("更新包下载完成"), 1);
@@ -104,6 +105,7 @@ void UpdateBridge::on_download_finished(bool success, const QString& error) {
 
 void UpdateBridge::on_error_occurred(const QString& error) {
     checking_ = false;
+    downloading_ = false;
     error_message_ = error;
     emit state_changed();
     emit toast_requested(error, 3);

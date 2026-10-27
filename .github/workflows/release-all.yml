@@ -98,7 +98,6 @@ jobs:
           && !contains(needs.*.result, 'failure')
           && !contains(needs.*.result, 'cancelled') }}
 
-
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -204,7 +203,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
-          VER=$(python -c "import json; print(json.load(open('config/main.json'))['app']['version'])")
+          VER=$(python3 -c "import json; print(json.load(open('config/main.json'))['app']['version'])")
           if [ -z "$VER" ]; then
             echo "::error title=缺少版本号::config/main.json 中未读到 app.version"
             exit 1

@@ -150,7 +150,11 @@ void UpdateManager::start_download() {
                           "/dglab_update_" +
                           QString::number(QCoreApplication::applicationPid()) + "_" +
                           QFileInfo(download_url_).fileName();
-    QFile::remove(download_file_path_);
+    // 上一轮残留的临时文件会让本次追加写入旧内容，导致 SHA256 必然不匹配
+    if (!QFile::remove(download_file_path_) && QFileInfo::exists(download_file_path_)) {
+        LOG_MODULE("UpdateManager", "start_download", LOG_WARN,
+            "无法删除既有临时文件，继续下载: " + download_file_path_);
+    }
 
     current_download_reply_ = network_manager_->get(req);
     connect(current_download_reply_, &QNetworkReply::readyRead, this, &UpdateManager::on_download_ready_read);
@@ -186,6 +190,7 @@ void UpdateManager::on_download_finished() {
     reply->deleteLater();
 
     if (download_write_error_) {
+        download_write_error_ = false;
         emit download_finished(false, current_error_);
         return;
     }
@@ -254,6 +259,15 @@ void UpdateManager::apply_update_and_restart() {
         return;
     }
     execute_script_and_quit(script_path);
+}
+
+bool UpdateManager::is_newer_version(const QString& current, const QString& remote) const {
+    QString normalized = remote.trimmed();
+    if (normalized.startsWith('v', Qt::CaseInsensitive)) normalized.remove(0, 1);
+    const QVersionNumber remote_number = QVersionNumber::fromString(normalized);
+    if (remote_number.isNull()) return false;
+    const QVersionNumber current_number = QVersionNumber::fromString(current.trimmed());
+    return QVersionNumber::compare(current_number, remote_number) < 0;
 }
 
 bool UpdateManager::extract_platform_info(const QJsonObject& platforms_obj,
