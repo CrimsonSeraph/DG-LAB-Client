@@ -6,6 +6,7 @@
 #include <QString>
 
 class QNetworkReply;
+class QFile;
 class QJsonObject;
 
 class UpdateManager : public QObject {
@@ -56,6 +57,7 @@ private:
     QNetworkAccessManager* network_manager_; // 网络访问管理器
     QNetworkReply* current_check_reply_;     // 当前正在进行的请求的网络回复
     QNetworkReply* current_download_reply_;  // 当前下载请求回复
+    QFile* download_file_ = nullptr;         // 下载临时文件句柄（整个下载过程只打开一次）
 
     QString manifest_url_;       // 更新清单 URL
     QString remote_version_;     // 远程版本号
@@ -71,6 +73,10 @@ private:
     /// @brief 处理更新清单请求响应
     /// @param reply 网络回复对象
     void on_manifest_reply(QNetworkReply* reply);
+
+    /// @brief 关闭并释放下载临时文件句柄
+    /// @return 数据刷新到磁盘成功返回 true
+    bool close_download_file();
 
     /// @brief 下载数据可读时写入文件
     void on_download_ready_read();

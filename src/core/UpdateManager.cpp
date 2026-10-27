@@ -3,6 +3,7 @@
 #include "AppVersion.h"
 #include "DebugLog.h"
 
+#include <QByteArray>
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDir>
@@ -38,6 +39,7 @@ UpdateManager::~UpdateManager() {
         current_download_reply_->abort();
         current_download_reply_ = nullptr;
     }
+    close_download_file();
 }
 
 void UpdateManager::check_for_updates() {
@@ -156,28 +158,54 @@ void UpdateManager::start_download() {
             "无法删除既有临时文件，继续下载: " + download_file_path_);
     }
 
+    // 文件只在这里打开一次：readyRead 与 finished 共用同一句柄，不再每条数据块开关一次文件
+    close_download_file();
+    download_file_ = new QFile(download_file_path_, this);
+    if (!download_file_->open(QIODevice::WriteOnly | QIODevice::Append)) {
+        current_error_ = "无法写入临时文件: " + download_file_->errorString();
+        LOG_MODULE("UpdateManager", "start_download", LOG_WARN, "打开下载临时文件失败: " + current_error_);
+        close_download_file();
+        emit download_finished(false, current_error_);
+        return;
+    }
+
     current_download_reply_ = network_manager_->get(req);
     connect(current_download_reply_, &QNetworkReply::readyRead, this, &UpdateManager::on_download_ready_read);
     connect(current_download_reply_, &QNetworkReply::downloadProgress, this, &UpdateManager::download_progress);
     connect(current_download_reply_, &QNetworkReply::finished, this, &UpdateManager::on_download_finished);
 }
 
+bool UpdateManager::close_download_file() {
+    if (download_file_ == nullptr) {
+        return true;
+    }
+    const bool flushed = download_file_->flush();
+    download_file_->close();
+    download_file_->deleteLater();
+    download_file_ = nullptr;
+    return flushed;
+}
+
 void UpdateManager::on_download_ready_read() {
     if (!current_download_reply_) return;
-    QFile file(download_file_path_);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Append)) {
-        file.write(current_download_reply_->readAll());
-    }
-    else {
-        const auto err = file.error();
-        const auto desc = file.errorString();
-        const auto name = file.fileName();
+    if (download_file_ == nullptr || !download_file_->isOpen()) {
         download_write_error_ = true;
-        current_error_ = "无法写入临时文件: " + file.errorString();
+        current_error_ = "无法写入临时文件: 下载临时文件句柄不可用";
         current_download_reply_->abort();
         LOG_MODULE("UpdateManager", "on_download_ready_read", LOG_WARN,
-            QString("以追加方式打开下载文件失败：%1，错误：%2（code=%3）")
-                .arg(name)
+            "下载临时文件句柄缺失或已关闭，终止本次下载");
+        return;
+    }
+    const QByteArray chunk = current_download_reply_->readAll();
+    if (download_file_->write(chunk) != static_cast<qint64>(chunk.size())) {
+        const auto err = download_file_->error();
+        const auto desc = download_file_->errorString();
+        download_write_error_ = true;
+        current_error_ = "无法写入临时文件: " + desc;
+        current_download_reply_->abort();
+        LOG_MODULE("UpdateManager", "on_download_ready_read", LOG_WARN,
+            QString("写入下载文件失败：%1，错误：%2（code=%3）")
+                .arg(download_file_path_)
                 .arg(desc)
                 .arg(static_cast<int>(err)));
     }
@@ -191,25 +219,34 @@ void UpdateManager::on_download_finished() {
 
     if (download_write_error_) {
         download_write_error_ = false;
+        close_download_file();
         emit download_finished(false, current_error_);
         return;
     }
 
     if (reply->error() != QNetworkReply::NoError) {
         current_error_ = "下载失败: " + reply->errorString();
+        close_download_file();
         emit download_finished(false, current_error_);
         return;
     }
 
-    QFile f(download_file_path_);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Append)) {
-        current_error_ = "无法写入临时文件: " + f.errorString();
+    // 尾部残余数据写进同一句柄，随后统一 flush 并关闭，校验读到的是落盘后的完整文件
+    const QByteArray tail = reply->readAll();
+    const bool wrote = download_file_ != nullptr
+        && download_file_->write(tail) == static_cast<qint64>(tail.size());
+    if (!wrote) {
+        current_error_ = "无法写入临时文件: "
+            + (download_file_ == nullptr ? QStringLiteral("句柄缺失") : download_file_->errorString());
+        close_download_file();
         emit download_finished(false, current_error_);
         return;
     }
-    f.write(reply->readAll());
-    f.close();
-    reply->deleteLater();
+    if (!close_download_file()) {
+        current_error_ = "无法写入临时文件: 刷新到磁盘失败";
+        emit download_finished(false, current_error_);
+        return;
+    }
 
     // 异步校验
     const QString path = download_file_path_;

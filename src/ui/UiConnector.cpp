@@ -103,6 +103,14 @@ namespace {
 
     constexpr qsizetype kMiniWindowWaveFrames = 32; ///< 迷你窗滚动窗口帧数（每帧 100 ms）
 
+    // 强度指令参数取值，语义见 include/ble/CoyoteBleController.h:56：
+    // setStrength(channel: 1=A / 2=B；mode: 0 减 / 1 增 / 2 设为；value: 步数或目标值)
+    constexpr int kStrengthChannelA = 1;     ///< 通道号：A
+    constexpr int kStrengthChannelB = 2;     ///< 通道号：B
+    constexpr int kStrengthModeDecrease = 0; ///< 强度模式：减少
+    constexpr int kStrengthModeIncrease = 1; ///< 强度模式：增加
+    constexpr int kStrengthStep = 1;         ///< 单次点击的调节步数
+
     /// @brief 取以 cursor 结尾的最近若干帧，序列不足时按实际长度取
     QVariantList rolling_window(const QVariantList& series, qint64 cursor) {
         QVariantList window;
@@ -560,6 +568,19 @@ void UiConnector::ask_confirm(const QString& title, const QString& message, bool
         LOG_MODULE("UiConnector", "ask_confirm", LOG_WARN,
             "确认弹层缺失，待确认动作未执行: " + title.toStdString());
         return;
+    }
+    // 主窗口隐藏到托盘或最小化时先拉起：弹层是主窗口内的 Popup，主窗口不可见时弹层也看不见
+    auto* host_window = qobject_cast<QQuickWindow*>(root_.data());
+    if (host_window != nullptr && (!host_window->isVisible()
+        || (host_window->windowState() & Qt::WindowMinimized) != 0)) {
+        if (!host_window->isVisible()) {
+            host_window->show();
+        }
+        if ((host_window->windowState() & Qt::WindowMinimized) != 0) {
+            host_window->showNormal();
+        }
+        host_window->raise();
+        host_window->requestActivate();
     }
     confirm_dialog_->setProperty("titleText", title);
     confirm_dialog_->setProperty("messageText", message);
@@ -1126,9 +1147,11 @@ void UiConnector::on_ble_strength_clicked() {
         return;
     }
     const QString name = button->objectName();
-    const int channel = name.contains(QStringLiteral("StrengthA")) ? 1 : 2;
-    const int delta = name.contains(QStringLiteral("Increase")) ? 1 : -1;
-    ble_->setStrength(channel, delta > 0 ? 1 : 0, 1);
+    const int channel = name.contains(QStringLiteral("StrengthA"))
+        ? kStrengthChannelA : kStrengthChannelB;
+    const int mode = name.contains(QStringLiteral("Increase"))
+        ? kStrengthModeIncrease : kStrengthModeDecrease;
+    ble_->setStrength(channel, mode, kStrengthStep);
 }
 
 void UiConnector::on_config_connect_clicked() {

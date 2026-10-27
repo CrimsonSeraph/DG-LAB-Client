@@ -413,7 +413,6 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/pages/plugin/PluginCard.qml
 		src/ui/qml/pages/plugin/PluginDetail.qml
 		src/ui/qml/pages/plugin/EventMappingPanel.qml
-		src/ui/qml/home/ChannelPanel.qml
 		src/ui/qml/pages/home/DashboardDeviceCard.qml
 		src/ui/qml/pages/home/DashboardChannelRow.qml
 		src/ui/qml/pages/home/DashboardChannelCard.qml
