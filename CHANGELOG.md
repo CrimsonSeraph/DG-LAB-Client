@@ -10,8 +10,6 @@
 
 > **变动**: [v2.4.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.4.0...HEAD)
 
----
-
 ## [v2.4.0] - 2026-10-24
 
 > **变动**: [v2.3.0...v2.4.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.3.0...v2.4.0)
@@ -33,8 +31,6 @@
 - **修复下拉菜单无法显示文本**: 使用 `ComboBox` 内置的 `textAt(int index)` 直接根据索引获取显示文本，完全绕开委托内部的数据访问问题。
 - **规则图保存日志输出错误**: `RuleGraph::save` 的日志三元表达式未加括号，`<<` 优先级高于 `?:`，实际输出布尔值而非中文结果消息。
 - **编译警告清理**: `ModuleManager::set_value` 补 `override`；`RuleGraph` / `UiConnector` / `DataListener` 中 `indexOf()` 返回值改用 `qsizetype`，消除 64→32 位截断警告；CMake 显式设置 macOS 最低系统版本，消除 `LSMinimumSystemVersion` 为空警告。
-
----
 
 ## [v2.3.0] - 2026-10-23
 
@@ -79,8 +75,6 @@
 - **旧 Widgets 界面遗留截图**: 删除 `screenshot/others/` 与 `screenshot/themes/`（均为已废弃的 Widgets 界面截图）。
 - **第三方壁纸素材**: 移除 `assets/normal_image/`，导航栏左上角改复用应用图标的 128px 版本。
 
----
-
 ## [v2.2.0] - 2026-09-30
 
 > **变动**: [v2.1.0...v2.2.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.1.0...v2.2.0)
@@ -103,8 +97,6 @@
 
 - **无用配置字段**: 移除 `python.bridge_path` 字段，该键已无任何消费者；同步更新配置示例与文档。
 
----
-
 ## [v2.1.0] - 2026-09-29
 
 > **变动**: [v2.0.0...v2.1.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.0.0...v2.1.0)
@@ -126,8 +118,6 @@
 - **蓝牙权限问题**: 修复 Qt 6.9 中 `requestPermission` 非静态调用及权限状态枚举（`Qt::PermissionStatus`）的编译错误。
 - **蓝牙扫描崩溃**: 修复权限授予后递归调用 `startScan` 导致栈溢出的问题。
 - **规则编辑器交互**: 修复无法拖动节点画布及节点无法拖拽的问题。
-
----
 
 ## [v2.0.0] - 2026-09-22
 
@@ -173,8 +163,6 @@
 - 修复原生 `SpinBox` / `TextField` / `TextArea` / `ComboBox` / `CheckBox` 未跟随主题（白底黑字或黑底白字）的问题。
 - 规则编辑器画布、节点卡片、端口、连线与检查器全面改用 `Theme` 令牌，对话框背景显式使用 `Theme.surface`。
 
----
-
 ## [v1.0.0] - 2026-08-26
 
 > **变动**: [v0.6.0...v1.0.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.6.0...v1.0.0)
@@ -205,8 +193,6 @@
 - 修复日志清理分组、规则值模式编辑未应用、Python 日志换行与 `WebSocketCore.py` 导入缺失等问题。
 - 修复数据源为空时查询返回 0 导致的显示失真、首次写入不推送 `value_changed` 等问题。
 
----
-
 ## [v0.6.0] - 2026-05-03
 
 > **变动**: [v0.5.1...v0.6.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.5.1...v0.6.0)
@@ -229,8 +215,6 @@
 ### Fixed
 
 - 修复 `IpSelector` 无法自定义选择 IP 问题。
-
----
 
 ## [v0.5.1] - 2026-04-19
 
@@ -257,8 +241,6 @@
 
 - 计划移除使用 Python 模块 `WebSocketCore.py` 实现 websocket 相关功能，转向使用 Qt 提供的 Qt WebSocket 库。
 
----
-
 ## [v0.5.0] - 2026-04-19
 
 > **变动**: [v0.4.0...v0.5.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.4.0...v0.5.0)
@@ -274,8 +256,6 @@
 ### Fixed
 
 - 修复 Python 模块日志格式错误。
-
----
 
 ## [v0.4.0] - 2026-04-17
 
@@ -299,8 +279,6 @@
 ### Removed
 
 - 移除原本的主题切换按键。
-
----
 
 ## [v0.3.0] - 2026-04-16
 
@@ -326,8 +304,6 @@
 
 - 修复 Linux 系统下 Python 子进程启动时路径解析错误的问题（改用 `QCoreApplication::applicationDirPath()` 拼接绝对路径）。
 
----
-
 ## [v0.2.1] - 2026-04-12
 
 > **变动**: [v0.2.0...v0.2.1](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v0.2.0...v0.2.1)
@@ -341,8 +317,6 @@
 
 - 统一规则编辑窗口（`添加规则` 和 `编辑规则` 触发的值模式编辑统一使用新编辑窗口）。
 - 创建规则文件时检查是否包含关键字，未包含则强制包含关键字。
-
----
 
 ## [v0.2.0] - 2026-04-08
 
@@ -372,8 +346,6 @@
 
 - 修复配置系统的加载、覆盖等问题。
 
----
-
 ## [v0.1.0] - 2026-01-10
 
 ### Added
@@ -390,8 +362,6 @@
 ### Deprecated
 
 - 将不再使用内嵌 Python 解释器，转用 Qt 提供的方式调用 Python 子进程并通过 TCP 本地通讯。
-
----
 
 ## 其他
 

@@ -2,8 +2,6 @@
 
 > **注意**：本目录只保留路径查找工具 `PathFinder.py`，供 CS2 GSI 插件定位游戏安装目录。原先的 Python 通信层（`Bridge.py`、`WebSocketCore.py` 与宿主侧 `PythonSubprocessManager`）已随内置中转服务上线而移除，见 [CHANGELOG.md](../CHANGELOG.md)。
 
----
-
 ## 文件说明
 
 ### `PathFinder.py`

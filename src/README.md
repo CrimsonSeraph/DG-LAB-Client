@@ -14,8 +14,6 @@
 
 > 说明：`src/` 下除分类子目录外不再存放散落文件。
 
----
-
 ## 目录结构
 
 ```text
@@ -29,8 +27,6 @@ src/
 ├── ui/       # 界面桥接对象 + QML 界面
 └── README.md # 本说明文件
 ```
-
----
 
 ## 分层与依赖方向
 
@@ -47,8 +43,6 @@ ui     ->  core, module, rule, wave, net, ble
 ```
 
 规则引擎产生命令时只依赖 `ui/DeviceController` 暴露的下发接口（由 `main.cpp` 注入），传输实现（`net` 的 V3/V4 或 `ble`）可替换而不影响规则层。
-
----
 
 ## 一、core/ —— 核心基础设施
 
@@ -67,8 +61,6 @@ ui     ->  core, module, rule, wave, net, ble
 | `ProcessChecker.cpp` | 跨平台进程存在性检查（供 GSI 插件判断游戏是否运行） |
 | `UpdateManager.cpp` | 自动更新：拉取 GitHub Releases 的 `manifest.json`、点分段版本比较、按平台选择更新包并下载、SHA256 校验、生成并执行跨平台更新脚本 |
 
----
-
 ## 二、rule/ —— 规则引擎与规则图
 
 | 文件 | 描述 |
@@ -76,8 +68,6 @@ ui     ->  core, module, rule, wave, net, ble
 | `Rule.cpp` | 单条规则：占位符解析、`valuePattern` 求值（QJSEngine，支持 JS 表达式）、模式钳位与命令生成 |
 | `RuleManager.cpp` | 规则文件扫描/加载/保存、规则增删改查、引用索引、级联触发（含深度保护）、通道启用、结果推送 |
 | `RuleGraph.cpp` | 可视化规则图：节点（规则 / 模块源 / 运算符 / 高级 / 通道输出）与连线模型、规则 JSON 双向转换、侧车文件读写 |
-
----
 
 ## 三、module/ —— 数值模块与插件宿主
 
@@ -89,8 +79,6 @@ ui     ->  core, module, rule, wave, net, ble
 | `DataListener.cpp` | 通用数据接收器（TCP HTTP POST / UDP），按 `source+type` 分发，含解析器抽象 |
 | `PluginMeta.cpp` | 插件展示元数据侧车（`plugin.json`）：读取名称/作者/简介/头图/版本/标签，字段全部可选，缺失或坏 JSON 时回退到既有展示名称 |
 
----
-
 ## 四、wave/ —— 波形
 
 | 文件 | 描述 |
@@ -98,23 +86,17 @@ ui     ->  core, module, rule, wave, net, ble
 | `Wave.cpp` | V3 波形模型：段落（起止频率/强度）生成八字节帧、JSON 互转 |
 | `WaveLibrary.cpp` | 波形库（`config/waves/waves.json`）：列表/保存/删除、A/B 通道当前波形、内置波形 |
 
----
-
 ## 五、ble/ —— 蓝牙直连
 
 | 文件 | 描述 |
 | --- | --- |
 | `CoyoteBleController.cpp` | 郊狼 V3 蓝牙：扫描/连接、每 100ms 写 B0（强度 + 双通道波形）、BF 软上限与平衡参数、B1 强度回执与电量 |
 
----
-
 ## 六、net/ —— 应用内 WebSocket 中转服务
 
 | 文件 | 描述 |
 | --- | --- |
 | `DglabRelayServer.cpp` | 应用内托管 V3（默认 9999）/ V4（默认 9998）中转服务：clientId 分配、bind 配对、心跳、断开通知、强度/波形/清除指令与回传解析；V4 维护被控方设备列表并下发 `device.op` |
-
----
 
 ## 七、ui/ —— 界面层（C++ 侧与 QML）
 
@@ -134,8 +116,6 @@ C++ 侧提供桥接对象与连接集中点，QML 只做绑定与渲染；界面
 | `UiConnector.cpp` | 按 `objectName` 集中建立 QML↔C++ 连接（含动态委托热区扫描） |
 | `UpdateBridge.cpp` | 更新界面桥接：检查 / 下载 / 安装状态、下载进度与错误；安装经 `confirmDialog` 二次确认后调用 `UpdateManager` |
 | `qml/` | QML 界面：`MainWindow`、`pages/`、`home/`、`dialogs/`、`components/`、`style/` |
-
----
 
 ## 编译依赖
 

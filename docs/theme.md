@@ -2,16 +2,12 @@
 
 > 本文档描述 QML 界面的颜色令牌、内置预设配色、对比度约束与扩展方式。代码入口：`include/ui/ThemeManager.h` 与 `src/ui/ThemeManager.cpp`，在 `main.cpp` 中以 `qmlRegisterSingletonInstance` 注册为 QML 单例 `Theme`。
 
----
-
 ## 一、设计原则
 
 - **颜色只在 C++ 定义**：QML 只引用 `Theme.xxx` 语义令牌，页面与组件里不写 `"white"` / `"black"` / `#RRGGBB` 等颜色字面量。
 - **运行时重算**：`ThemeManager::recompute()` 由「主色 + 副色 + 明暗」派生全部令牌；切换主题只更新 `Theme`，QML 的属性绑定自动刷新，无需重建界面。
 - **可读性优先**：文字、边框与语义色逐主题做 WCAG 对比度校正，浅色主题下也不会出现浅底浅字或深底深字。
 - **令牌分工**：颜色在 `Theme`（C++）、字号在 `Typography`、通用尺寸在 `Metrics`、组件专属度量在 `ComponentStyle`。
-
----
 
 ## 二、令牌清单
 
@@ -49,8 +45,6 @@
 | `dangerOnAlt` / `warningOnAlt` / `successOnAlt` | color | 语义色在 `surfaceAlt` 上的校正版本（≥4.5:1） |
 | `presets` | list | 预设主题数组：`{ mode, name, primary, secondary, dark }` |
 
----
-
 ## 三、内置预设（17 套）
 
 每个预设只需定义 `primary` / `secondary` 与明暗，其余令牌由 `recompute()` 派生。
@@ -76,8 +70,6 @@
 | 经典         | `classic`               | `#111111` | `#F1E3A6` | 深色 |
 
 > 「午夜蓝」「森野绿」为主题扩展新增；自定义主/副色不进入 `presets`（`custom` 为独立模式）。
-
----
 
 ## 四、派生令牌与对比度
 
@@ -113,8 +105,6 @@
 | `midnight_blue` | `#142240` | `#27344F` | `#EBF1FD` | `#BACFF8` | `#99B8F5` | `#6F9BF1` | `#48536A` | 13.94 |
 | `forest_green` | `#16332A` | `#29433B` | `#EFF9F1` | `#C8E8CE` | `#ADDEB6` | `#7BC98A` | `#496059` | 12.61 |
 | `classic` | `#111111` | `#242424` | `#FDFCF4` | `#F9F3DA` | `#F6EEC8` | `#F1E3A6` | `#454545` | 18.32 |
-
----
 
 ## 五、对比度约束
 
@@ -176,8 +166,6 @@
 
 按下态：`pressed` 朝背离 `accentText` 的方向混 42%，`accentText` 在按下态的对比度随之升到 7.5:1 以上，且按下比悬停明显更深/更亮一档（三套代表主题 `hover`/`pressed` 对比度 1.64 / 1.35 / 1.38）。17 套中最紧的是克莱因黄、藤紫钛绿、马尔斯玫瑰、经典（1.06–1.10）：它们的 `accent` 本就接近白色，`accentText` 为深色，「背离文字」的方向很快撞到白色上限；再往深处走会跌破 4.5:1，故取物理可达的最大步进。
 
----
-
 ## 六、如何新增主题
 
 1. 在 `src/ui/ThemeManager.cpp` 的 `build_presets()` 中追加一行：
@@ -193,16 +181,12 @@
 
 > 选择 `dark` 时，`ensure_background` 会把底色压暗到足以承载近白文字；若主色本身偏亮，底色会比主色更深，这是为满足对比度下限的有意行为。
 
----
-
 ## 七、自定义主题入口
 
 - 配置页「自定义主题」按钮打开 `customThemeDialog`（`objectName`），通过 `ColorDialog` 选择主/副色。
 - 保存时 `UiConnector` 调用 `Theme.applyCustom(primary, secondary)`，主题名记为 `custom`。
 - 选择结果持久化到 `user.json` 的 `app.ui.custom.primary` / `app.ui.custom.secondary`；`app.ui.theme` 记录当前模式名。
 - 自定义主题与预设走同一套派生与对比度校正逻辑。
-
----
 
 ## 八、控件约定
 
@@ -226,7 +210,5 @@
 | 只读 | 输入框保留正常底色与描边，文字降为 `textSecondary`（与禁用态可区分） |
 
 新增输入控件时复用这些封装，不要直接使用 Qt 原生控件；尺寸常量放在 `ComponentStyle`。
-
----
 
 _最后更新：2026-09-18_

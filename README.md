@@ -29,8 +29,6 @@
 
 > 详细请查看: [更新日志](CHANGELOG.md)。
 
----
-
 ## 一、项目简介
 
 DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客户端工具，核心目标是从外部程序（如游戏、传感器等）获取数据，经过可配置的规则引擎计算后，向 DG-LAB 的 WebSocket 服务发送强度调节、波形输出等指令。
@@ -43,8 +41,6 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 - **数据扩展机制（插件化）**: 通过动态库插件（`module/`）从不同外部源获取数据——现已内置 CS2 GSI 插件（从 CS2 游戏读取状态数据），未来可扩展更多插件；主程序仅负责接收数值序列并按规则处理，不关心数据具体含义，实现灵活的社区扩展。
 
 > **当前状态**: 界面已整体迁移到 QML；具备配置管理、可视化规则图、波形库与编辑器、内置 V3/V4 中转服务与配对二维码、郊狼 V3 蓝牙直连、数值模块与插件化数据接入（如 CS2 GSI）等能力。
-
----
 
 ## 二、功能特性
 
@@ -78,8 +74,6 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 - **跨平台构建** 基于 CMake，支持 Windows、Linux、macOS 等平台，并通过 GitHub Actions 自动构建和打包。
 
----
-
 ## 三、依赖项
 
 ### 1. 系统依赖
@@ -97,8 +91,6 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 ### 3. Python 包依赖
 
 **不再需要**。原先的 WebSocket 通信与二维码生成已改为应用内实现（`DglabRelayServer` + 内嵌 `qrcodegen`），无需安装 `websockets` / `qrcode`。仅在使用 CS2 GSI 插件时需要系统中有 Python 解释器运行 `PathFinder.py`。
-
----
 
 ## 四、快速开始
 
@@ -146,8 +138,6 @@ cpack
 
 生成的安装包将位于 `build/` 目录下（根据平台不同，可能是 .exe、.dmg、.deb 等）。
 
----
-
 ## 五、自动化构建
 
 本项目已配置 GitHub Actions，每次推送到 `main` 分支或创建以 `v` 开头的标签时，会自动在 Ubuntu、Windows 和 macOS 上构建并打包，生成对应平台的安装包:
@@ -157,8 +147,6 @@ cpack
 - **Linux**: DEB、RPM 包以及 AppImage（自包含可执行文件）
 
 你可以在 GitHub 仓库的 **Actions** 页面下载最新构建产物，或从 **Releases** 页面获取正式发布的版本。
-
----
 
 ## 六、使用说明
 
@@ -468,8 +456,6 @@ include 路径（`include/plugin`、`include/module`）、`PLUGIN_BUILD` 编译�
 
 CS2 GSI 插件按 `player.steamid` 区分数据归属：首次收到有效数据时记录为本地玩家基准，之后比较——**一致为自身**（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），**不一致为队友**（个人数值不更新，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。字符串字段按固定集合映射为数字（如 `team` CT/T→3/2、`bomb.state`→1-4、`map.phase`→0-6），不固定的值放弃该字段。
 
----
-
 ## 七、项目结构
 
 <details>
@@ -503,8 +489,6 @@ DG-LAB-Client/
 
 </details>
 
----
-
 ## 八、截图
 
 <details>
@@ -522,8 +506,6 @@ DG-LAB-Client/
 
 </details>
 
----
-
 ## 九、编码规范
 
 - **文件编码与换行**: UTF-8 without BOM，换行符使用 CRLF（Windows 风格），文件末尾保留一个空行。
@@ -535,8 +517,6 @@ DG-LAB-Client/
 详细的编码规范请参阅项目根目录下的 **[CodingStyle.md](CodingStyle.md)**。
 
 > **注意**: 仅需最后一次提交/发布时确保符号规范即可，无需在日常开发中严格遵守。
-
----
 
 ## 十、FAQ
 
@@ -794,8 +774,6 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 
 </details>
 
----
-
 ## 十一、贡献指南
 
 欢迎提交 Issue 和 Pull Request。在贡献前请确保:
@@ -808,8 +786,6 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 
 > 详细的贡献流程、代码提交规范及 Pull Request 指南，请查阅 **[CONTRIBUTING.md](CONTRIBUTING.md)**
 
----
-
 ## 十二、许可证
 
 本项目自身源代码采用 **GNU General Public License v3.0 only**（GPL-3.0-only）开源。详情请参阅项目根目录下的 [LICENSE](LICENSE) 文件。
@@ -821,8 +797,6 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 - **Nayuki qrcodegen**（`third_party/qrcodegen`）: MIT 许可证
 
 有关第三方许可证的完整声明和文本，请查看 [NOTICE](NOTICE) 及 `licenses/` 目录。
-
----
 
 ## 十三、联系方式
 

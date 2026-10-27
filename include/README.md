@@ -15,8 +15,6 @@
 
 > 说明：`include/` 下除分类子目录外不再存放散落文件（仅保留本说明文件）。
 
----
-
 ## 目录结构
 
 ```text
@@ -31,8 +29,6 @@ include/
 ├── ui/       # 界面桥接对象
 └── README.md # 本说明文件
 ```
-
----
 
 ## 一、core/
 
@@ -100,8 +96,6 @@ include/
 | `UiConnector.h`      | QML↔C++ 连接集中点                            |
 | `UpdateBridge.h`     | 更新界面桥接（QML 上下文属性 `updateBridge`） |
 
----
-
 ## 关键协议与约定
 
 以下内容原先是各头文件里的长注释，现集中在此，代码中只保留简短说明。
@@ -147,8 +141,8 @@ include/
 | `Operator` | 基础运算节点：`+ - * /`（结果向下取整）                                        |
 | `Advanced` | 高级节点：`abs` / `square` / `sqrt` / `expression`（自定义表达式）             |
 | `Channel`  | 通道输出节点：`A` / `B`（单输入，同一通道只允许一个来源）                      |
-| `pluginOutput`  | 插件输出节点：只在总规则图出现，取值 = 对应插件图默认输出的求值结果        |
-| `defaultOutput` | 默认输出节点：每个插件规则图恰好一个，本图唯一出口（单输入）              |
+| `pluginOutput`  | 插件输出节点：只在总规则图出现、无输入端口，带 `pluginId`（归属插件）与 `references`（恒为一条 `plugin:<插件标识>`），取值 = 对应插件图默认输出的求值结果 |
+| `defaultOutput` | 默认输出节点：每个插件规则图恰好一个、单输入（本图唯一出口），带 `pluginId` 与 `references`（引用它的图标识，如 `["top"]`） |
 
 求值顺序为先插件图（默认输出节点的上游子图）、后总规则图（插件输出节点 → 通道节点，通道启用时下发绝对强度）；口径与规则节点的 `valuePattern` 一致，详见 [docs/rule-graph.md](../docs/rule-graph.md)。
 
@@ -176,8 +170,7 @@ QML 不写信号处理器（`onClicked` / `Connections`），每个交互控件�
     "linux":   { "file": "...", "sha256": "..." }
   }
 }
-
----
+```
 
 ## 依赖关系
 
@@ -185,8 +178,6 @@ QML 不写信号处理器（`onClicked` / `Connections`），每个交互控件�
 - **nlohmann/json**：配置、规则与规则图
 - **qrcodegen**（`third_party/qrcodegen`）：二维码生成
 - **C++20**：模板与概念要求（`ConfigSerializable` 等）
-
----
 
 ## 设计要点
 
@@ -196,4 +187,3 @@ QML 不写信号处理器（`onClicked` / `Connections`），每个交互控件�
 - **规则引擎**：`valuePattern` 由 QJSEngine 求值，因此支持任意 JS 表达式（规则图的高级节点即生成 `Math.*` 子表达式）；规则间通过 `{rule:xx}` 引用并级联触发，带深度保护。
 - **传输与蓝牙**：`DglabRelayServer` 由应用自身托管中转服务（无需 Node/Python）；`CoyoteBleController` 按官方 V3 蓝牙协议直连设备。
 - **界面层**：QML 只做属性绑定与渲染，交互由 `UiConnector` 在 C++ 侧按 `objectName` 连接；画布类手势为登记在案的例外。
-```
