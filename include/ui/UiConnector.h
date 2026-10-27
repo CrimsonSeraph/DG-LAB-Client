@@ -54,7 +54,7 @@ protected:
 private slots:
     // 导航
     void on_nav_button_clicked();
-    void on_home_module_entry_clicked();
+    void on_home_plugin_entry_clicked();
     void on_rule_editor_clicked();
     void on_rule_editor_close_clicked();
     void on_rule_save_clicked();
@@ -75,10 +75,8 @@ private slots:
     void on_custom_secondary_clicked();
     void on_primary_color_accepted();
     void on_secondary_color_accepted();
-    // 模块页
+    // 插件中心：统一查询周期
     void on_module_period_applied();
-    void on_plugin_toggle_clicked();
-    void on_module_card_clicked();
     // 波形库与编辑器
     void on_wave_select_clicked();
     void on_wave_channel_clicked();

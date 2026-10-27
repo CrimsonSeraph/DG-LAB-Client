@@ -339,8 +339,10 @@ ApplicationWindow {
             id: configPage
         }
 
-        ModulePage {
-            id: modulePage
+        // 模块页已移除，此处保留空占位：pageStack 的条目顺序必须与 AppBridge::Page 逐项对应，
+        // 直接删条目会让其后所有页面索引前移，与枚举值错位（ModulePage = 2 仅为兼容保留）。
+        Item {
+            objectName: "retiredModulePageSlot"
         }
 
         AboutPage {

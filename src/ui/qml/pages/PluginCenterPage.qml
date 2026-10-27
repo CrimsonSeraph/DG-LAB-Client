@@ -138,6 +138,56 @@ Item {
                 : qsTr("%1 个插件 · %2 个已启用").arg(page.pluginList().length).arg(page.enabledPlugins().length)
         }
 
+        // 查询周期：原模块页的统一周期控件，objectName 不变，UiConnector 的既有连接继续生效
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: periodRow.implicitHeight + Metrics.cardPadding * 2
+            radius: Metrics.cardRadius
+            color: Theme.surface
+            border.width: Metrics.borderWidth
+            border.color: Theme.border
+
+            RowLayout {
+                id: periodRow
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: Metrics.cardPadding
+                spacing: Metrics.spacingMd
+
+                Text {
+                    text: qsTr("统一查询周期")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                }
+
+                AppComboBox {
+                    id: periodCombo
+
+                    objectName: "modulePeriodCombo"
+                    model: moduleBridge.periodOptions
+                    textRole: "text"
+                    Layout.preferredWidth: 160
+                }
+
+                AppButton {
+                    objectName: "modulePeriodApplyButton"
+                    text: qsTr("应用到全部数值")
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                Text {
+                    text: qsTr("当前基准周期 %1ms").arg(moduleBridge.basePeriodMs)
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontBody
+                }
+            }
+        }
+
         RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true

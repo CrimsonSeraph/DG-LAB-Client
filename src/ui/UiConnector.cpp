@@ -220,7 +220,7 @@ void UiConnector::attach(QObject* root_object) {
         }
         QObject::connect(button, SIGNAL(clicked()), this, SLOT(on_nav_button_clicked()));
     }
-    connect_clicked(root_object, "homeModuleEntryButton", SLOT(on_home_module_entry_clicked()));
+    connect_clicked(root_object, "homePluginEntryButton", SLOT(on_home_plugin_entry_clicked()));
     connect_clicked(root_object, "homeRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "configRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "ruleEditorCloseButton", SLOT(on_rule_editor_close_clicked()));
@@ -254,14 +254,11 @@ void UiConnector::attach(QObject* root_object) {
     watch_items(root_object, "themePresetList", QStringLiteral("themePresetClick"),
         SLOT(on_theme_preset_clicked()));
 
+    // 统一查询周期：控件在插件中心，下拉与「应用」共用一个槽
     connect_clicked(root_object, "modulePeriodApplyButton", SLOT(on_module_period_applied()));
     if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("modulePeriodCombo"))) {
         QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_module_period_applied()));
     }
-    watch_items(root_object, "moduleCardFlow", QStringLiteral("moduleCardClick"),
-        SLOT(on_module_card_clicked()));
-    watch_items(root_object, "moduleCardFlow", QStringLiteral("pluginToggleClick"),
-        SLOT(on_plugin_toggle_clicked()));
 
     // 波形库与编辑器
     connect_clicked(root_object, "configWaveChannelAButton", SLOT(on_wave_channel_clicked()));
@@ -525,8 +522,8 @@ void UiConnector::on_nav_button_clicked() {
     }
 }
 
-void UiConnector::on_home_module_entry_clicked() {
-    app_->navigate(AppBridge::ModulePage);
+void UiConnector::on_home_plugin_entry_clicked() {
+    app_->navigate(AppBridge::PluginCenterPage);
 }
 
 void UiConnector::on_rule_editor_clicked() {
@@ -955,20 +952,4 @@ void UiConnector::on_module_period_applied() {
     }
     auto* combo = find("modulePeriodCombo");
     module_->applyAllPeriod(combo != nullptr ? combo->property("currentIndex").toInt() : 0);
-}
-
-void UiConnector::on_plugin_toggle_clicked() {
-    auto* button = sender();
-    if (button != nullptr && module_ != nullptr) {
-        module_->togglePlugin(button->property("fileName").toString());
-    }
-}
-
-void UiConnector::on_module_card_clicked() {
-    auto* item = sender();
-    if (item == nullptr || module_ == nullptr) {
-        return;
-    }
-    module_->selectModule(item->property("moduleName").toString());
-    open_dialog("moduleValuesDialog");
 }

@@ -41,8 +41,8 @@ Item {
                         ? qsTr("通道空闲") : qsTr("通道运行中"))
 
                 AppButton {
-                    objectName: "homeModuleEntryButton"
-                    text: qsTr("模块管理")
+                    objectName: "homePluginEntryButton"
+                    text: qsTr("插件管理")
                 }
 
                 AppButton {

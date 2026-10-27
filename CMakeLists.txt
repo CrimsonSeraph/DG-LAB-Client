@@ -401,7 +401,6 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/MainWindow.qml
 		src/ui/qml/pages/HomePage.qml
 		src/ui/qml/pages/ConfigPage.qml
-		src/ui/qml/pages/ModulePage.qml
 		src/ui/qml/pages/AboutPage.qml
 		src/ui/qml/pages/PluginCenterPage.qml
 		src/ui/qml/pages/WavePage.qml
