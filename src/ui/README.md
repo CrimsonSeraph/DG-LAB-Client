@@ -27,6 +27,7 @@ src/ui/
 │   ├── MainWindow.qml          # 左侧导航 + 内容区页栈 + 左下常驻面板 + 状态栏（原生标题栏；自绘标题栏与窗口控制按钮为后续任务）
 │   ├── dialogs/
 │   │   ├── RuleEditorDialog.qml # 规则可视化编辑器（画布手势例外见下）
+│   │   ├── UpdateDialog.qml     # 软件更新：版本 / 完整更新说明 / 进度 / 更新动作（左下角面板入口打开）
 │   │   ├── WaveSelectDialog.qml
 │   │   └── WaveEditorDialog.qml
 │   ├── pages/
@@ -105,7 +106,7 @@ src/ui/
 | `navMiniGameButton` | 小游戏（`MiniGamePage`） |
 | `navLogButton` | 日志（`LogPage`） |
 | `panelSettingsButton` / `panelAboutButton` | 左下角面板「设置」→ `ConfigPage`、「关于」→ `AboutPage` |
-| `panelCheckUpdateButton` | 左下角面板「检查更新」→ 既有 `UpdateBridge::on_check_update_clicked()`；`checking` / `downloading` 期间置灰，结果由 Toast 回执 |
+| `panelCheckUpdateButton` | 左下角面板「检查更新」→ `UiConnector::on_panel_check_update_clicked()`：先打开 `updateDialog`，再调用既有的 `UpdateBridge::on_check_update_clicked()`（同一入口，不复制检查逻辑）；`checking` / `downloading` 期间置灰，结果由 Toast 与对话框内状态回执 |
 | `mainWindow` / `pageStack` / `statusBar` / `panelFooter` | 窗口根项、内容区页栈、底部状态栏、左下常驻面板容器 |
 | `retiredModulePageSlot` | `pageStack` 中模块页移除后保留的空占位（保持页面索引与 `AppBridge::Page` 枚举一一对应），无交互 |
 | `deviceStatusRow` / `deviceStatusDot` | 面板连接状态行与状态点（`connectionCount > 0` 时取 `success`） |
@@ -210,18 +211,14 @@ src/ui/
 | `pluginValuesScrollBar` | 数值列表竖向滚动条（`ScrollBar` 附属在 `pluginValuesPanel` 上，`policy: AsNeeded`），句柄取 `Theme` 令牌且常驻可见（默认 Basic 样式句柄静止时透明），无交互 |
 | `pluginValuesEmpty` | 数值空态面板（「该插件尚未注册数值」），`selectedValues` 为空时可见，只读 |
 
-关于页：
+关于页（`pages/AboutPage.qml`）：只保留软件介绍与许可证说明；「软件更新」卡片已整张移除，更新入口与更新状态全部移到左下角面板与 `dialogs/UpdateDialog.qml`，本页不再有更新按钮、进度条与说明文本。
 
 | objectName | 行为 |
 | --- | --- |
-| `aboutVersionText` / `aboutDescriptionText` | 版本号与一句话说明（同色阶 `Theme.textSecondary`） |
-| `aboutLicenseText` | 许可证：GPL-3.0-only |
-| `aboutDependenciesText` | 依赖：Qt 6 |
+| `aboutVersionText` / `aboutDescriptionText` | 版本号与面向普通用户的中文介绍（说明这是什么软件、手机 App 扫码与蓝牙直连两种连接方式、规则与波形、游戏插件；与版本号同色阶 `Theme.textSecondary`）：只读 |
+| `aboutLicenseText` | 许可证叙述：GPL-3.0-only |
+| `aboutDependenciesText` | 第三方依赖叙述：Qt 6 |
 | `aboutRepositoryText` | 仓库地址 |
-| `aboutReleaseUrlButton` | 「查看完整更新说明」：`updateBridge.hasUpdate` 且 `release_url` 非空时可见，点击调 `on_update_open_release_clicked()` |
-| `configCheckUpdateButton` | 关于页「软件更新」卡片内的旧入口（`objectName` 沿用 `config` 前缀属命名遗留）：检查更新入口已移至左下角常驻面板 `panelCheckUpdateButton`，关于页不再承载该入口，两侧共用 `UpdateBridge::on_check_update_clicked()`，关于页的卡片入口随该页重写移除 |
-| `updateDownloadButton` | 下载更新包：`remote_version` 非空且未就绪时可见；`downloading` 期间置灰，进度由卡片内 ProgressBar 绑定 `progress` 展示 |
-| `updateApplyButton` | 重启并安装：`ready_to_install` 时可见；由 `UiConnector::on_update_apply_clicked` 先经 `confirmDialog` 确认，确认后调用 `UpdateManager::apply_update_and_restart()` |
 
 一次性反馈与常驻摘要分工：一次性结果文案一律走 `app.showToast()`；状态栏只显示 QML 侧组合的常驻摘要。
 
@@ -258,6 +255,13 @@ src/ui/
 | `waveSectionList` / `waveSectionClick` | 段落列表与行热区（`sectionIndex` 属性） |
 | `waveRawFramesArea` | 原始 V3 帧文本域（每行一个 8 字节 HEX） |
 | `waveSection{Duration,FreqStart,FreqEnd,StrengthStart,StrengthEnd}Spin` | 段落参数输入（`Binding` 回写选中段落） |
+| `updateDialog` | 软件更新对话框（`dialogs/UpdateDialog.qml`）：`modal`，可经 Esc / 点击遮罩 / 「关闭」收起；关闭只隐藏窗口，下载状态保存在 `UpdateBridge`，重开后继续显示进度 |
+| `updateDialogVersionText` / `updateDialogUpdateBadge` | 当前版本行，以及「新版本 v<remote_version>」徽标（`hasUpdate` 时可见）：只读 |
+| `updateDialogReleaseNotes` / `updateDialogReleaseNotesEmpty` | `release_notes` 全文（放在 `Flickable` 里，`contentHeight` 取内部 `Column` 位置器，不设最大行数也不 elide）与空说明占位文案：只读 |
+| `updateDialogErrorText` | `error_message` 非空时以危险色显示错误行 |
+| `updateDialogProgress` | 下载进度条：`downloading` 时可见，值取 `progress` |
+| `updateDialogCheckButton` / `updateDialogDownloadButton` / `updateDialogApplyButton` | 检查更新 / 下载更新（`hasUpdate` 且未就绪时可见，下载中置灰）/ 重启并安装（`ready_to_install` 时可见，`danger` + `outline` 组合，沿用「先经 `confirmDialog` 确认」的既有槽） |
+| `updateDialogReleaseUrlButton` / `updateDialogCloseButton` | 查看完整更新说明（`release_url` 非空时可见，调 `open_release_url()`）/ 关闭对话框（`UiConnector::on_update_dialog_close_clicked()`） |
 
 ## 样式令牌（style/ 单例）
 

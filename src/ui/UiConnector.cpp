@@ -333,12 +333,13 @@ void UiConnector::attach(QObject* root_object) {
         }
     }
 
-    // 更新模块
-    connect_clicked(root_object, "configCheckUpdateButton", SLOT(on_check_update_clicked()));
-    connect_clicked(root_object, "panelCheckUpdateButton", SLOT(on_check_update_clicked()));
-    connect_clicked(root_object, "updateDownloadButton", SLOT(on_update_download_clicked()));
-    connect_clicked(root_object, "updateApplyButton", SLOT(on_update_apply_clicked()));
-    connect_clicked(root_object, "aboutReleaseUrlButton", SLOT(on_update_open_release_clicked()));
+    // 更新模块：入口在左下角面板，状态与动作全部落在独立的更新对话框
+    connect_clicked(root_object, "panelCheckUpdateButton", SLOT(on_panel_check_update_clicked()));
+    connect_clicked(root_object, "updateDialogCheckButton", SLOT(on_check_update_clicked()));
+    connect_clicked(root_object, "updateDialogDownloadButton", SLOT(on_update_download_clicked()));
+    connect_clicked(root_object, "updateDialogApplyButton", SLOT(on_update_apply_clicked()));
+    connect_clicked(root_object, "updateDialogReleaseUrlButton", SLOT(on_update_open_release_clicked()));
+    connect_clicked(root_object, "updateDialogCloseButton", SLOT(on_update_dialog_close_clicked()));
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
@@ -511,6 +512,12 @@ void UiConnector::on_check_update_clicked() {
     }
 }
 
+void UiConnector::on_panel_check_update_clicked() {
+    // 面板按钮一次动作两件事：先打开更新对话框展示状态，再触发一次检查
+    open_dialog("updateDialog");
+    on_check_update_clicked();
+}
+
 void UiConnector::on_update_download_clicked() {
     if (update_ != nullptr) {
         update_->on_start_download_clicked();
@@ -530,6 +537,11 @@ void UiConnector::on_update_open_release_clicked() {
     if (update_ != nullptr) {
         update_->open_release_url();
     }
+}
+
+void UiConnector::on_update_dialog_close_clicked() {
+    // 关闭只收起对话框：下载状态在 UpdateBridge 里，重开后进度照常显示
+    close_dialog("updateDialog");
 }
 
 void UiConnector::on_nav_button_clicked() {

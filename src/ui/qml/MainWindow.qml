@@ -386,7 +386,12 @@ ApplicationWindow {
         id: ruleEditorDialog
     }
 
-    // 通用确认弹层（C++ 侧 UiConnector::ask_confirm 驱动）
+    // 软件更新对话框（左下角面板「检查更新」打开，C++ 侧按 objectName 驱动）
+    UpdateDialog {
+        id: updateDialog
+    }
+
+    // 通用确认弹层（C++ 侧 UiConnector::ask_confirm 驱动，声明在最后以便盖在更新对话框之上）
     ConfirmDialog {
         id: confirmDialog
     }

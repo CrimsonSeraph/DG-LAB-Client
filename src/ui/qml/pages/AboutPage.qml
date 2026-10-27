@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Dglab
 
-// 关于页：应用信息、许可证与依赖说明。
+// 关于页：软件介绍、许可证与依赖说明。
 Item {
     id: page
 
@@ -22,7 +22,7 @@ Item {
 
         GlassCard {
             Layout.fillWidth: true
-            title: app.appName
+            title: qsTr("软件信息")
 
             Text {
                 objectName: "aboutVersionText"
@@ -36,120 +36,10 @@ Item {
             Text {
                 objectName: "aboutDescriptionText"
                 width: parent.width
-                text: qsTr("一个基于 Qt 的 DG-Lab 桌面客户端：从外部数据源获取数值，经规则计算后控制设备输出。")
+                text: qsTr("这是一款给郊狼（DG-LAB）脉冲设备用的电脑端控制软件。手机 App 扫码即可连接，也能用蓝牙直接连上郊狼设备，连上以后由电脑统一调节输出。\n\n它能做到这些：按你设定的规则自动调整强度与波形；载入、编辑并发送波形；通过插件读取游戏和外部设备的数据，让输出跟着游戏里的情况一起变化。")
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap
-            }
-        }
-
-        GlassCard {
-            Layout.fillWidth: true
-            title: qsTr("软件更新")
-
-            // 标题行 + 状态徽标
-            Row {
-                width: parent.width
-                spacing: Metrics.spacingSm
-
-                Text {
-                    text: "当前版本：v" + app.appVersion
-                    color: Theme.textSecondary
-                    font.pixelSize: Typography.fontBody
-                }
-
-                Item {
-                    width: parent.width - 150
-                    height: 1
-                }
-
-                StatusBadge {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: updateBridge.hasUpdate
-                    text: "新版本 v" + updateBridge.remote_version
-                    level: 1 // success 级别
-                }
-            }
-
-            // 错误信息展示
-            Text {
-                width: parent.width
-                visible: updateBridge.error_message !== ""
-                text: updateBridge.error_message
-                color: Theme.danger
-                font.pixelSize: Typography.fontBody
-                wrapMode: Text.WordWrap
-            }
-
-            // 更新日志展示
-            Text {
-                width: parent.width
-                visible: updateBridge.hasUpdate && updateBridge.release_notes !== ""
-                text: updateBridge.release_notes
-                textFormat: Text.PlainText
-                color: Theme.textSecondary
-                font.pixelSize: Typography.fontBody
-                wrapMode: Text.WordWrap
-                maximumLineCount: 4
-                elide: Text.ElideRight
-            }
-
-            // 完整发布页链接
-            AppButton {
-                objectName: "aboutReleaseUrlButton"
-                text: "查看完整更新说明"
-                visible: updateBridge.hasUpdate && updateBridge.release_url !== ""
-            }
-
-            // 下载进度条
-            ProgressBar {
-                id: downloadProgress
-                width: parent.width
-                visible: updateBridge.downloading
-                value: updateBridge.progress / 100.0
-                height: 6
-
-                background: Rectangle {
-                    color: Theme.surfaceAlt
-                    radius: Metrics.radiusSm
-                }
-                contentItem: Item {
-                    Rectangle {
-                        width: downloadProgress.visualPosition * parent.width
-                        height: parent.height
-                        color: Theme.primary
-                        radius: Metrics.radiusSm
-                    }
-                }
-            }
-
-            // 操作按钮区域
-            Row {
-                width: parent.width
-                spacing: Metrics.spacingMd
-                layoutDirection: Qt.RightToLeft // 按钮靠右显示
-
-                AppButton {
-                    objectName: "configCheckUpdateButton"
-                    text: updateBridge.checking ? "检查中..." : "检查更新"
-                    enabled: !updateBridge.checking && !updateBridge.downloading
-                }
-
-                AppButton {
-                    objectName: "updateDownloadButton"
-                    text: updateBridge.downloading ? "下载中…" : "下载更新"
-                    primary: true
-                    visible: updateBridge.hasUpdate && !updateBridge.ready_to_install
-                    enabled: !updateBridge.downloading
-                }
-
-                AppButton {
-                    objectName: "updateApplyButton"
-                    text: "重启并安装"
-                    primary: true
-                    danger: true
-                    visible: updateBridge.ready_to_install
-                }
             }
         }
 
@@ -160,7 +50,7 @@ Item {
             Text {
                 objectName: "aboutLicenseText"
                 width: parent.width
-                text: qsTr("许可证 GPL-3.0-only")
+                text: qsTr("本软件以 GPL-3.0-only 许可证发布：可以自由使用、修改和分发，修改后的版本需以同一许可证开源。")
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap
@@ -169,7 +59,7 @@ Item {
             Text {
                 objectName: "aboutDependenciesText"
                 width: parent.width
-                text: qsTr("依赖 Qt 6（Quick / QuickControls2 / Network / Bluetooth / Concurrent）")
+                text: qsTr("用到的第三方组件主要是 Qt 6（界面、网络、蓝牙与并发），各自遵循原有许可证。")
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap
@@ -178,7 +68,7 @@ Item {
             Text {
                 objectName: "aboutRepositoryText"
                 width: parent.width
-                text: qsTr("仓库 github.com/CrimsonSeraph/DG-LAB-Client")
+                text: qsTr("项目地址：github.com/CrimsonSeraph/DG-LAB-Client")
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap

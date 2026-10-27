@@ -112,9 +112,11 @@ private slots:
     void on_tracked_children_changed();
     // 软件更新
     void on_check_update_clicked();
+    void on_panel_check_update_clicked();
     void on_update_download_clicked();
     void on_update_apply_clicked();
     void on_update_open_release_clicked();
+    void on_update_dialog_close_clicked();
 
 private:
     void connect_clicked(QObject* root_object, const char* object_name, const char* slot);

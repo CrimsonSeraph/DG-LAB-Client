@@ -340,7 +340,7 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 ### 10. 自动更新
 
-- **检查更新**：关于页「软件更新」卡片的 `configCheckUpdateButton` 触发 `UpdateManager::check_for_updates()`，拉取 `https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json`，与编译期注入的 `APP_VERSION` 做点分段比较。
+- **检查更新**：左下角常驻面板的「检查更新」（`panelCheckUpdateButton`）先打开独立的更新对话框（`src/ui/qml/dialogs/UpdateDialog.qml`），再立即触发 `UpdateManager::check_for_updates()`，拉取 `https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json`，与编译期注入的 `APP_VERSION` 做点分段比较。
 - **下载与校验**：`start_download()` 按当前平台（`windows` / `macos` / `linux`）从清单 `platforms` 条目取文件名与 SHA256，下载到临时目录并在完成后校验；不匹配立即删除并报错。
 - **安装与重启**：`apply_update_and_restart()` 生成平台脚本——
     - Windows：`start /wait <installer> /S` 静默安装，再以 `--updated` 拉起主程序；不做回滚（NSIS 已覆盖旧文件），失败时写 `update_failed.flag`。
@@ -348,6 +348,7 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
     - Linux：备份 AppImage → 替换 → `chmod +x` → 启动 → 失败回滚。
 - **健康检查**：带 `--updated` 启动的进程会在 5 秒后写入健康标记；macOS / Linux 脚本据此删除备份或回滚旧版。
 - **反馈**：检查结果（发现新版本 / 已是最新）、下载完成、安装前确认与错误均经 `UpdateBridge::toast_requested` 走 Toast，安装动作本身经 `confirmDialog` 确认。
+- **更新对话框**：顶部显示当前版本、有新版本时补版本徽标；中部展示 `release_notes` 全文，长文本在容器内滚动，不设最大行数也不做 elide；错误以危险色就地显示；`downloading` 时显示下载进度；底部为检查 / 下载 / 重启并安装 / 查看完整更新说明 / 关闭。关闭对话框只收起窗口，下载与进度状态保存在 `UpdateBridge`，重新打开继续显示。关于页不再承载更新入口。
 
 ### 11. 插件开发指南
 

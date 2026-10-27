@@ -264,8 +264,10 @@ Item {
                             delegate: PluginCard {
                                 required property var modelData
 
+                                // 按自身内容高度顶对齐：GridLayout 默认把同行单元格拉齐，短卡会被撑出大片空白
                                 Layout.fillWidth: true
-                                Layout.fillHeight: true
+                                Layout.alignment: Qt.AlignTop
+                                Layout.preferredHeight: implicitHeight
                                 item: modelData
                                 selected: String(page.selectedFile) === String(modelData.fileName)
                                 onOpenDetail: page.openDetail(modelData.fileName)
