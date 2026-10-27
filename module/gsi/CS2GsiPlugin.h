@@ -27,7 +27,7 @@ public:
 
     /// @brief 获取插件版本号
     /// @return 版本号
-    std::string version() const override { return "0.6.0"; }
+    std::string version() const override { return "0.7.0"; }
 
     /// @brief 获取插件 API 版本
     /// @return API 版本号
@@ -69,7 +69,7 @@ private:
     /// @param data GSI 完整数据
     void update_self_values(const QJsonObject& data);
 
-    /// @brief 更新团队/地图类数值（无论数据归属均更新）
+    /// @brief 更新团队/地图/本地状态类数值（无论数据归属均更新）
     /// @param data GSI 完整数据
     void update_team_values(const QJsonObject& data);
 

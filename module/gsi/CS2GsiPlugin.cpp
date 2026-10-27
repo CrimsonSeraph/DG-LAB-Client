@@ -38,7 +38,7 @@ std::vector<ModuleValue> CS2GsiPlugin::create_default_values() {
     values.emplace_back("assists", "总助攻数", QueryPeriod::SECOND, "assists", 0, 99999);
     values.emplace_back("deaths", "总死亡数", QueryPeriod::SECOND, "deaths", 0, 99999);
     values.emplace_back("mvps", "MVP 次数", QueryPeriod::SECOND, "mvps", 0, 99999);
-    // 团队/地图类
+    // 团队/地图/本地状态类（字符串字段映射为整数的数值单列在末尾）
     values.emplace_back("ct_score", "CT 队伍得分", QueryPeriod::SECOND, "map.team_ct.score", 0, 999);
     values.emplace_back("t_score", "T 队伍得分", QueryPeriod::SECOND, "map.team_t.score", 0, 999);
     values.emplace_back("ct_consecutive_round_losses", "CT 连续失利次数", QueryPeriod::SECOND,
@@ -47,6 +47,9 @@ std::vector<ModuleValue> CS2GsiPlugin::create_default_values() {
         "map.team_t.consecutive_round_losses", 0, 99);
     values.emplace_back("bomb_state", "炸弹状态", QueryPeriod::SECOND, "bomb.state", 0, 4);
     values.emplace_back("map_phase", "地图阶段", QueryPeriod::SECOND, "map.phase", 0, 6);
+    // 字符串/枚举映射类（映射表见 update_team_values 与 README「非数值映射」）
+    values.emplace_back("round_phase", "回合阶段", QueryPeriod::SECOND, "round.phase", 0, 2);
+    values.emplace_back("activity", "游戏活动状态", QueryPeriod::SECOND, "player.activity", 0, 2);
     return values;
 }
 
@@ -181,6 +184,7 @@ void CS2GsiPlugin::update_self_values(const QJsonObject& data) {
     write_int("deaths", "player", "match_stats", "deaths");
     write_int("mvps", "player", "match_stats", "mvps");
     // 队伍编号（team 为 "CT"/"T" 字符串映射 3/2；为数字时直接使用）
+    // 映射表：CT→3、T→2（沿用旧实现；其余取值丢弃，数字字段直接使用）
     QString team = extract_string(data, "player", "", "team");
     if (!team.isEmpty()) {
         host_->set_value(name(), "team_num", (team.toUpper() == "CT") ? 3 : 2);
@@ -194,7 +198,7 @@ void CS2GsiPlugin::update_self_values(const QJsonObject& data) {
 }
 
 void CS2GsiPlugin::update_team_values(const QJsonObject& data) {
-    // 团队/地图类数值（无论数据归属均更新）
+    // 团队/地图/本地状态类数值（无论数据归属均更新）
     const auto write_int = [this, &data](const char* id, const QString& group,
                                const QString& sub, const QString& field) {
         int value = extract_int(data, group, sub, field, -1);
@@ -207,6 +211,7 @@ void CS2GsiPlugin::update_team_values(const QJsonObject& data) {
     write_int("ct_consecutive_round_losses", "map", "team_ct", "consecutive_round_losses");
     write_int("t_consecutive_round_losses", "map", "team_t", "consecutive_round_losses");
     // 炸弹状态（bomb.state 固定字符串集合映射为数字；未知状态不更新）
+    // 映射表：planted→1、exploding→2、exploded→3、defused→4（沿用旧实现，其余取值丢弃）
     static const std::map<QString, int> bomb_map = {
         {"planted", 1}, {"exploding", 2}, {"exploded", 3}, {"defused", 4}};
     QString bomb_state = extract_string(data, "bomb", "", "state");
@@ -215,6 +220,7 @@ void CS2GsiPlugin::update_team_values(const QJsonObject& data) {
         host_->set_value(name(), "bomb_state", bomb_it->second);
     }
     // 地图阶段（map.phase 固定字符串集合映射为数字；未知阶段不更新）
+    // 映射表：warmup→0、calibration→1、teamchange→2、firsthalf→3、halftime→4、secondhalf→5、gameover→6
     static const std::map<QString, int> phase_map = {
         {"warmup", 0}, {"calibration", 1}, {"teamchange", 2},
         {"firsthalf", 3}, {"halftime", 4}, {"secondhalf", 5}, {"gameover", 6}};
@@ -222,6 +228,24 @@ void CS2GsiPlugin::update_team_values(const QJsonObject& data) {
     auto phase_it = phase_map.find(phase.toLower());
     if (phase_it != phase_map.end()) {
         host_->set_value(name(), "map_phase", phase_it->second);
+    }
+    // 回合阶段（round.phase 固定字符串集合映射为数字；未知阶段不更新）
+    // 映射表：freezetime→0、live→1、over→2
+    static const std::map<QString, int> round_phase_map = {
+        {"freezetime", 0}, {"live", 1}, {"over", 2}};
+    QString round_phase = extract_string(data, "round", "", "phase");
+    auto round_phase_it = round_phase_map.find(round_phase.toLower());
+    if (round_phase_it != round_phase_map.end()) {
+        host_->set_value(name(), "round_phase", round_phase_it->second);
+    }
+    // 游戏活动状态（player.activity 固定字符串集合映射为数字；未知活动不更新）
+    // 映射表：menu→0、playing→1、textinput→2
+    static const std::map<QString, int> activity_map = {
+        {"menu", 0}, {"playing", 1}, {"textinput", 2}};
+    QString activity = extract_string(data, "player", "", "activity");
+    auto activity_it = activity_map.find(activity.toLower());
+    if (activity_it != activity_map.end()) {
+        host_->set_value(name(), "activity", activity_it->second);
     }
 }
 

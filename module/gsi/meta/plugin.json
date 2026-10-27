@@ -1,9 +1,9 @@
 {
     "id": "gsi",
     "name": "反恐精英 2",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "author": "CrimsonSeraph",
-    "description": "通过游戏状态集成读取 CS2 对局数据，输出血量、护甲、金钱与回合信息",
+    "description": "通过游戏状态集成读取 CS2 对局数据，输出血量、护甲、金钱、回合、炸弹与比赛阶段等数值",
     "banner": "",
     "tags": ["游戏遥测", "GSI"],
     "events": [
@@ -17,6 +17,14 @@
             ]
         },
         {
+            "id": "health_critical",
+            "label": "血量濒死",
+            "trigger": { "value": "health", "compare": "cross_below", "amount": 25 },
+            "options": [
+                { "id": "near_death", "label": "濒死" }
+            ]
+        },
+        {
             "id": "armor_break",
             "label": "护甲耗尽",
             "trigger": { "value": "armor", "compare": "cross_below", "amount": 1 },
@@ -25,10 +33,229 @@
             ]
         },
         {
+            "id": "helmet_pickup",
+            "label": "拾取头盔",
+            "trigger": { "value": "has_helmet", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "helmet", "label": "头盔" }
+            ]
+        },
+        {
+            "id": "defuser_pickup",
+            "label": "拾取拆弹器",
+            "trigger": { "value": "has_defuser", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "defuser", "label": "拆弹器" }
+            ]
+        },
+        {
+            "id": "flash_blind",
+            "label": "被闪光致盲",
+            "trigger": { "value": "flashed", "compare": "cross_above", "amount": 128 },
+            "options": [
+                { "id": "blind", "label": "致盲" }
+            ]
+        },
+        {
+            "id": "flash_recover",
+            "label": "闪光消退",
+            "trigger": { "value": "flashed", "compare": "cross_below", "amount": 64 },
+            "options": []
+        },
+        {
+            "id": "smoked_start",
+            "label": "进入烟雾",
+            "trigger": { "value": "smoked", "compare": "cross_above", "amount": 1 },
+            "options": [
+                { "id": "smoked", "label": "烟雾中" }
+            ]
+        },
+        {
+            "id": "smoke_clear",
+            "label": "脱离烟雾",
+            "trigger": { "value": "smoked", "compare": "cross_below", "amount": 64 },
+            "options": []
+        },
+        {
+            "id": "burning_start",
+            "label": "开始燃烧",
+            "trigger": { "value": "burning", "compare": "cross_above", "amount": 1 },
+            "options": [
+                { "id": "burning", "label": "燃烧中" }
+            ]
+        },
+        {
+            "id": "kill",
+            "label": "回合击杀",
+            "trigger": { "value": "round_kills", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "single", "label": "单杀" },
+                { "id": "multi", "label": "多杀" }
+            ]
+        },
+        {
+            "id": "headshot",
+            "label": "爆头击杀",
+            "trigger": { "value": "round_killhs", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "headshot", "label": "爆头" }
+            ]
+        },
+        {
+            "id": "damage_dealt",
+            "label": "造成伤害",
+            "trigger": { "value": "round_totaldmg", "compare": "increase", "amount": 50 },
+            "options": []
+        },
+        {
+            "id": "death",
+            "label": "自身阵亡",
+            "trigger": { "value": "deaths", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "death", "label": "阵亡" }
+            ]
+        },
+        {
+            "id": "mvp",
+            "label": "获得 MVP",
+            "trigger": { "value": "mvps", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "mvp", "label": "MVP" }
+            ]
+        },
+        {
+            "id": "assist",
+            "label": "助攻",
+            "trigger": { "value": "assists", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "assist", "label": "助攻" }
+            ]
+        },
+        {
+            "id": "kill_total",
+            "label": "总击杀增加",
+            "trigger": { "value": "kills", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "kill", "label": "击杀" }
+            ]
+        },
+        {
+            "id": "ct_loss_streak",
+            "label": "CT 连败增加",
+            "trigger": { "value": "ct_consecutive_round_losses", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "ct_loss", "label": "CT 连续失利" }
+            ]
+        },
+        {
+            "id": "t_loss_streak",
+            "label": "T 连败增加",
+            "trigger": { "value": "t_consecutive_round_losses", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "t_loss", "label": "T 连续失利" }
+            ]
+        },
+        {
             "id": "money_surge",
             "label": "金钱增加",
             "trigger": { "value": "money", "compare": "increase", "amount": 1000 },
             "options": []
+        },
+        {
+            "id": "money_spend",
+            "label": "金钱消耗",
+            "trigger": { "value": "money", "compare": "decrease", "amount": 500 },
+            "options": []
+        },
+        {
+            "id": "equip_loss",
+            "label": "装备价值下降",
+            "trigger": { "value": "equip_value", "compare": "decrease", "amount": 1000 },
+            "options": []
+        },
+        {
+            "id": "ct_score_up",
+            "label": "CT 得分",
+            "trigger": { "value": "ct_score", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "ct_round", "label": "CT 回合得分" }
+            ]
+        },
+        {
+            "id": "t_score_up",
+            "label": "T 得分",
+            "trigger": { "value": "t_score", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "t_round", "label": "T 回合得分" }
+            ]
+        },
+        {
+            "id": "bomb_state_advance",
+            "label": "炸弹状态推进",
+            "trigger": { "value": "bomb_state", "compare": "increase", "amount": 1 },
+            "options": [
+                { "id": "planted", "label": "安放" },
+                { "id": "exploding", "label": "引爆中" },
+                { "id": "defused", "label": "拆除" },
+                { "id": "exploded", "label": "爆炸" }
+            ]
+        },
+        {
+            "id": "bomb_exploded",
+            "label": "炸弹爆炸",
+            "trigger": { "value": "bomb_state", "compare": "cross_above", "amount": 2 },
+            "options": [
+                { "id": "exploded", "label": "爆炸" }
+            ]
+        },
+        {
+            "id": "bomb_defused",
+            "label": "炸弹拆除",
+            "trigger": { "value": "bomb_state", "compare": "cross_above", "amount": 3 },
+            "options": [
+                { "id": "defused", "label": "拆除" }
+            ]
+        },
+        {
+            "id": "round_phase_change",
+            "label": "回合阶段变化",
+            "trigger": { "value": "round_phase", "compare": "any" },
+            "options": [
+                { "id": "freezetime", "label": "回合准备" },
+                { "id": "live", "label": "回合进行" },
+                { "id": "over", "label": "回合结束" }
+            ]
+        },
+        {
+            "id": "map_phase_change",
+            "label": "地图阶段变化",
+            "trigger": { "value": "map_phase", "compare": "any" },
+            "options": [
+                { "id": "warmup", "label": "热身" },
+                { "id": "firsthalf", "label": "上半场" },
+                { "id": "halftime", "label": "中场" },
+                { "id": "secondhalf", "label": "下半场" },
+                { "id": "gameover", "label": "比赛结束" }
+            ]
+        },
+        {
+            "id": "activity_change",
+            "label": "游戏活动变化",
+            "trigger": { "value": "activity", "compare": "any" },
+            "options": [
+                { "id": "menu", "label": "主菜单" },
+                { "id": "playing", "label": "对局中" },
+                { "id": "textinput", "label": "输入中" }
+            ]
+        },
+        {
+            "id": "team_switch",
+            "label": "阵营变化",
+            "trigger": { "value": "team_num", "compare": "any" },
+            "options": [
+                { "id": "ctside", "label": "CT 阵营" },
+                { "id": "tside", "label": "T 阵营" }
+            ]
         }
     ]
 }
