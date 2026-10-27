@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // 创建/编辑波形对话框：左侧段落编辑，右侧实时预览、原始 V3 帧与发送/保存。
-Dialog {
+AppDialog {
     id: dialog
 
     objectName: "waveEditorDialog"
@@ -19,27 +19,11 @@ Dialog {
         }
         return qsTr("新建波形");
     }
-    modal: true
     // 草稿可能有未保存改动：关闭只走「关闭」按钮（由 C++ 判断后弹确认），不用 Esc/点外自动关
     closePolicy: Popup.NoAutoClose
-    anchors.centerIn: Overlay.overlay
-    // 令牌值是理想尺寸，再钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
-    width: Math.min(ComponentStyle.dialogWaveEditorWidth, Overlay.overlay.width - Metrics.spacingXl * 2)
-    height: Math.min(ComponentStyle.dialogWaveEditorHeight, Overlay.overlay.height - Metrics.spacingXl * 2)
-    padding: Metrics.spacingMd
-
-    background: Rectangle {
-        radius: Metrics.radiusMd
-        color: Theme.surface
-        border.width: Metrics.borderWidth
-        border.color: Theme.border
-    }
-
-    // 遮罩：压暗底层界面，不透明度取 Metrics.scrimOpacity（与其余对话框同一个令牌）
-    Overlay.modal: Rectangle {
-        color: Theme.windowBg
-        opacity: Metrics.scrimOpacity
-    }
+    // 令牌值是理想尺寸，由 AppDialog 钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
+    preferredWidth: ComponentStyle.dialogWaveEditorWidth
+    preferredHeight: ComponentStyle.dialogWaveEditorHeight
 
     RowLayout {
         anchors.fill: parent

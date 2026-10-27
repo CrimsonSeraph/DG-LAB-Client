@@ -3,23 +3,14 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 // 选择波形对话框：列出波形库，点击行即指派到目标通道；也可创建新波形或删除。
-Dialog {
+AppDialog {
     id: dialog
 
     objectName: "waveSelectDialog"
     title: qsTr("选择波形")
-    modal: true
-    anchors.centerIn: Overlay.overlay
-    // 令牌值是理想尺寸，再钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
-    width: Math.min(ComponentStyle.dialogWaveSelectWidth, Overlay.overlay.width - Metrics.spacingXl * 2)
-    height: Math.min(ComponentStyle.dialogWaveSelectHeight, Overlay.overlay.height - Metrics.spacingXl * 2)
-    padding: Metrics.spacingMd
-
-    // 遮罩：压暗底层界面，不透明度取 Metrics.scrimOpacity（与其余对话框同一个令牌）
-    Overlay.modal: Rectangle {
-        color: Theme.windowBg
-        opacity: Metrics.scrimOpacity
-    }
+    // 令牌值是理想尺寸，由 AppDialog 钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
+    preferredWidth: ComponentStyle.dialogWaveSelectWidth
+    preferredHeight: ComponentStyle.dialogWaveSelectHeight
 
     ColumnLayout {
         anchors.fill: parent

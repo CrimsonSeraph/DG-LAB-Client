@@ -8,20 +8,17 @@ import QtQuick.Shapes
 // 信号处理器例外：本对话框的画布与节点手势（拖动、滚轮缩放、右键菜单、快捷键）
 // 属于 src/ui/README.md 中登记的"必须使用手势的视图"，允许写处理器；处理器只调用
 // ruleGraph（C++）的方法，图的增删改/复制粘贴/写回全部在 C++ 完成。
-Dialog {
+AppDialog {
     id: dialog
 
     objectName: "ruleEditorDialog"
     title: qsTr("规则编辑器")
-    modal: true
     // 关闭只能由关闭按钮（C++ 侧 UiConnector 连接，未保存改动先确认）或代码触发，
     // Esc / 点击遮罩不关闭，避免绕过未保存改动拦截
     closePolicy: Popup.NoAutoClose
-    anchors.centerIn: Overlay.overlay
-    // 令牌值是理想尺寸，再钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
-    width: Math.min(ComponentStyle.dialogRuleEditorWidth, Overlay.overlay.width - Metrics.spacingXl * 2)
-    height: Math.min(ComponentStyle.dialogRuleEditorHeight, Overlay.overlay.height - Metrics.spacingXl * 2)
-    padding: Metrics.spacingMd
+    // 令牌值是理想尺寸，由 AppDialog 钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
+    preferredWidth: ComponentStyle.dialogRuleEditorWidth
+    preferredHeight: ComponentStyle.dialogRuleEditorHeight
 
     // 当前图标题：无插件 = 总规则图，否则取插件显示名
     function currentGraphTitle() {
@@ -65,7 +62,7 @@ Dialog {
                 objectName: "ruleGraphTitle"
                 text: dialog.currentGraphTitle()
                 color: Theme.textPrimary
-                font.pixelSize: Typography.fontBody
+                font.pixelSize: Typography.fontSubtitle
                 font.bold: true
             }
 
@@ -80,19 +77,6 @@ Dialog {
                 onClicked: ruleGraph.loadPluginGraph("")
             }
         }
-    }
-
-    background: Rectangle {
-        radius: Metrics.radiusMd
-        color: Theme.surface
-        border.width: Metrics.borderWidth
-        border.color: Theme.border
-    }
-
-    // 遮罩：压暗底层界面，不透明度取 Metrics.scrimOpacity（与其余对话框同一个令牌）
-    Overlay.modal: Rectangle {
-        color: Theme.windowBg
-        opacity: Metrics.scrimOpacity
     }
 
     SplitView {

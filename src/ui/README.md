@@ -60,6 +60,7 @@ src/ui/
 │   │   ├── AppSparkline.qml    # 迷你曲线
 │   │   ├── AppStatusButton.qml # 带状态点的按钮
 │   │   ├── AppSegment.qml      # 分段选择器
+│   │   ├── AppDialog.qml       # 对话框基类（主题化底色 / 遮罩 / 标题行 / 视口内尺寸钳制）
 │   │   ├── ConfirmDialog.qml   # 通用确认弹层（ask_confirm 复用）
 │   │   ├── PageHeader.qml      # 页面标题行（标题 + 副标题 + 右侧操作区）
 │   │   ├── StatusBadge.qml     # 状态徽标（info / success / warning / danger）
@@ -232,6 +233,8 @@ src/ui/
 
 对话框：
 
+下列 6 个对话框（`dialogs/` 下 4 个、`ConfirmDialog`、`ConfigPage` 内的预设主题与自定义主题）全部继承 `components/AppDialog.qml`，底色 / 描边 / 遮罩 / 标题行 / 尺寸钳制由基类统一提供；`title` 即标题行文本。
+
 | objectName | 行为 |
 | --- | --- |
 | `ruleEditorDialog` | 规则编辑器；`ruleEditorCloseButton` 的关闭经 C++ 判断未保存改动后先弹确认 |
@@ -305,11 +308,13 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `PageHeader` | `Item` | 页面标题行：标题 + 副标题 + 右侧操作区（默认属性槽） |
 | `StatusBadge` | `Rectangle` | 状态徽标：level 0 信息 / 1 成功 / 2 警示 / 3 危险，纯展示 |
 | `Toast` | `Rectangle` | 右下角一次性反馈浮层，绑定 `app.toastText` / `app.toastLevel` |
-| `ConfirmDialog` | `Dialog` | 通用确认弹层，`closePolicy: NoAutoClose`，供 `ask_confirm` 复用 |
+| `AppDialog` | `Dialog` | 对话框基类：`surface` 底色 + `border` 描边、`Metrics.scrimOpacity` 模态遮罩、`spacingMd` 内边距、共用标题行（取 `title`，`fontSubtitle` + `textPrimary`）；理想尺寸用 `preferredWidth` / `preferredHeight`，实际尺寸按 `Overlay.overlay` 钳制，窗口缩小时不裁切 |
+| `ConfirmDialog` | `AppDialog` | 通用确认弹层，`closePolicy: NoAutoClose`，供 `ask_confirm` 复用 |
 | `WavePreview` | `Item` | 波形预览：强度曲线（`accent`）+ 频率曲线（`secondary`），空态显示「无波形」 |
 
 - 上述组件均无 `onXxx` / `Connections`，交互统一由 `UiConnector` 按 `objectName` 建立。
 - 新增展示组件优先放入 `components/`，专属组件放页面目录；样式一律引用令牌。
+- **对话框一律继承 `components/AppDialog.qml`**：不要在对话框里各写一份 `background` / `Overlay.modal` / `width` 钳制。Basic 样式的 Dialog 默认底色不随主题变化（浅灰），只有走 `AppDialog` 才会取 `Theme.surface` / `Theme.border` 并随主题切换；`ConfigPage` 内的预设主题与自定义主题两个对话框同样继承它。
 
 ### 组件库补充（骨架批次新增）
 

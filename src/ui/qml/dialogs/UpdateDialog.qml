@@ -5,42 +5,17 @@ import QtQuick.Layouts
 // 软件更新对话框：当前版本、完整更新说明、下载进度与更新动作。
 // 交互约定：QML 不写信号处理器，按钮点击由 UiConnector 按 objectName 连接；
 // 关闭只隐藏窗口，下载状态保存在 UpdateBridge，重新打开后接着显示进度。
-Dialog {
+AppDialog {
     id: dialog
 
     objectName: "updateDialog"
-    modal: true
-    anchors.centerIn: Overlay.overlay
-    // 尺寸由令牌推导再钳制到视口内：说明再长也只滚动，不撑高对话框
-    width: Math.min(Metrics.navWidth * 2 + Metrics.spacing3xl * 2, Overlay.overlay.width - Metrics.spacingXl * 2)
-    height: Math.min(Metrics.navWidth * 3 + Metrics.spacing3xl * 2, Overlay.overlay.height - Metrics.spacingXl * 2)
-    padding: Metrics.spacingMd
-
-    // 背景：Basic 样式默认底色不随主题变化，这里按令牌重绘
-    background: Rectangle {
-        radius: Metrics.radiusLg
-        color: Theme.surface
-        border.width: Metrics.borderWidth
-        border.color: Theme.border
-    }
-
-    // 遮罩：压暗底层界面，不透明度取 Metrics.scrimOpacity（与其余对话框共用同一令牌）
-    Overlay.modal: Rectangle {
-        color: Theme.windowBg
-        opacity: Metrics.scrimOpacity
-    }
+    title: qsTr("软件更新")
+    // 尺寸由令牌推导，由 AppDialog 钳制到视口内：说明再长也只滚动，不撑高对话框
+    preferredWidth: Metrics.navWidth * 2 + Metrics.spacing3xl * 2
+    preferredHeight: Metrics.navWidth * 3 + Metrics.spacing3xl * 2
 
     contentItem: ColumnLayout {
         spacing: Metrics.spacingMd
-
-        Text {
-            Layout.fillWidth: true
-            text: qsTr("软件更新")
-            color: Theme.textPrimary
-            font.pixelSize: Typography.fontSubtitle
-            font.bold: true
-            elide: Text.ElideRight
-        }
 
         // 版本行：当前版本吃满左侧，有更新时右侧补新版本徽标
         RowLayout {

@@ -452,23 +452,14 @@ Item {
     }
 
     // 预设主题对话框
-    Dialog {
+    AppDialog {
         id: themePresetDialog
 
         objectName: "themePresetDialog"
         title: qsTr("选择主题")
-        modal: true
-        anchors.centerIn: Overlay.overlay
-        width: 560
-        height: 460
-        padding: Metrics.spacingMd
-
-        background: Rectangle {
-            radius: Metrics.radiusMd
-            color: Theme.surface
-            border.width: Metrics.borderWidth
-            border.color: Theme.border
-        }
+        // 理想尺寸，由 AppDialog 钳制到视口内，避免最小窗口下对话框被裁切
+        preferredWidth: 560
+        preferredHeight: 460
 
         ListView {
             id: presetList
@@ -541,23 +532,14 @@ Item {
     }
 
     // 自定义主题对话框
-    Dialog {
+    AppDialog {
         id: customThemeDialog
 
         objectName: "customThemeDialog"
         title: qsTr("自定义主题")
-        modal: true
-        anchors.centerIn: Overlay.overlay
-        width: 420
-        height: 260
-        padding: Metrics.spacingLg
-
-        background: Rectangle {
-            radius: Metrics.radiusMd
-            color: Theme.surface
-            border.width: Metrics.borderWidth
-            border.color: Theme.border
-        }
+        // 理想尺寸，由 AppDialog 钳制到视口内，避免最小窗口下对话框被裁切
+        preferredWidth: 420
+        preferredHeight: 260
 
         property color customPrimary: Theme.primary
         property color customSecondary: Theme.secondary
