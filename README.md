@@ -492,15 +492,15 @@ DG-LAB-Client/
 ## 八、截图
 
 <details>
-<summary>点击展开查看 4 张界面截图 - 最后更新：2026-10-23</summary>
+<summary>点击展开查看 3 张界面截图 - 最后更新：2026-10-23</summary>
 
 |                     首页                     |                      配置页                      |
 | :------------------------------------------: | :----------------------------------------------: |
 | ![main_page](screenshot/pages/main_page.png) | ![config_page](screenshot/pages/config_page.png) |
 
-| 模块页 | 关于页 |
-| :-: | :-: |
-| ![module_page](screenshot/pages/module_page.png) | ![about_page](screenshot/pages/about_page.png) |
+| 关于页 |
+| :-: |
+| ![about_page](screenshot/pages/about_page.png) |
 
 > 截图说明与重新生成方式见 [`screenshot/README.md`](screenshot/README.md)。
 
