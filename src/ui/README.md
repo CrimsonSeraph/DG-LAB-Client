@@ -13,6 +13,7 @@
 | `Qt6::Quick` / `Qt6::Qml` | QML 运行时 |
 | `Qt6::QuickControls2` | 控件（应用统一样式设为 `Basic`，外观完全由样式令牌控制） |
 | `Qt6::QuickDialogs2` | `ColorDialog`（自定义主题取色）等 |
+| `Qt6::Widgets` | `QSystemTrayIcon` / `QMenu`：系统托盘图标与三项菜单（`TrayController`） |
 | `AppConfig` / `DebugLog` | 核心基础设施 |
 | `ModuleManager` / `RuleManager` | 数据与规则来源 |
 | `DeviceController` / `DglabRelayServer` / `CoyoteBleController` | 设备通信：应用内 V3 / V4 中转服务与郊狼 V3 蓝牙直连 |
@@ -25,6 +26,7 @@ src/ui/
 ├── README.md
 ├── qml/
 │   ├── MainWindow.qml          # 左侧导航 + 内容区页栈 + 左下常驻面板 + 状态栏（原生标题栏；自绘标题栏与窗口控制按钮为后续任务）
+│   ├── MiniWindow.qml         # 迷你窗：无边框置顶小窗，拖动 / 锁定 / 隐藏与 A/B 强度大数字、占比（滑块与波形为后续任务）
 │   ├── dialogs/
 │   │   ├── RuleEditorDialog.qml # 规则可视化编辑器（画布手势例外见下）
 │   │   ├── UpdateDialog.qml     # 软件更新：版本 / 完整更新说明 / 进度 / 更新动作（左下角面板入口打开）
@@ -90,6 +92,7 @@ src/ui/
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
 | `Theme` | `ThemeManager`（QML 单例） | 主题令牌（17 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
 | `updateBridge` | `UpdateBridge` | 检查更新、下载更新包（进度 / 错误）、重启并安装；安装经 `confirmDialog` 确认 |
+| `tray` | `TrayController` | 系统托盘：图标与三项菜单（显示主窗口 / 显示迷你窗 / 退出）、双击图标恢复主窗口，以及主窗口关闭的落点（托盘可用则隐藏到托盘，不可用则退出） |
 
 ## objectName 契约表
 
@@ -138,7 +141,20 @@ src/ui/
 | `dashboardWaveSparkline{A,B}` | A/B 强度曲线：取 `waveBridge.amplitudeA/amplitudeB`（每帧 4 个强度字节取均值，0~100），静态绘制 |
 | `dashboardWaveStrength{A,B}` | A/B「强度 / 上限」数字行（`home.strength{A,B}` / `home.limit{A,B}`）：只读 |
 | `dashboardWaveEmpty{A,B}` / `dashboardWaveHint` | 未绑定波形时的空态文案与卡底说明「静态预览 · 滚动播放在迷你窗提供」：只读 |
-| `homeMiniWindowEntryButton` | 迷你窗入口，尚未实现：按钮置灰（`enabled: false`），不产生交互 |
+| `homeMiniWindowEntryButton` | 首页页头「迷你窗」入口 → `UiConnector::on_home_mini_window_clicked()`：显示迷你窗并置于前台 |
+
+迷你窗（`MiniWindow.qml`：`Qt.Tool` + 无边框 + 置顶，不进任务栏；声明在 `MainWindow.qml` 内跟随应用生命周期）：
+
+| objectName | 行为 |
+| --- | --- |
+| `miniWindow` | 迷你窗根项（`Window`）：启动时从 `app.ui.mini_window.{x,y,width,height}` 恢复位置与尺寸并夹回可见屏幕；位置或尺寸变化后 400 ms 合并写回配置 |
+| `miniWindowFrame` / `miniWindowTitleBar` / `miniWindowTitleText` | 圆角底板（`Theme.surface` + `Theme.border`）、标题条与标题文字：只读；锁定态标题转 `Theme.textMuted` |
+| `miniWindowLockButton` | 锁定 / 解锁（`UiConnector::on_mini_window_lock_clicked()` → `HomeBridge::toggleMiniWindowLock()`，写 `app.ui.mini_window.locked`）：锁定后拖动热区失效，按钮文案在「锁定 / 解锁」间切换 |
+| `miniWindowCloseButton` | 关闭（×）只隐藏窗口并写回位置，不退出进程 |
+| `miniWindowChannel{A,B}Name` / `miniWindowChannel{A,B}State` | 通道徽标与运行状态（`home.running{A,B}` → 运行中 / 未运行）：只读 |
+| `miniWindowChannel{A,B}Value` / `miniWindowChannel{A,B}Limit` / `miniWindowChannel{A,B}Percent` | 强度大数字、上限（`home.strength{A,B}` / `home.limit{A,B}`）与占比（强度 / 上限，上限为 0 时显示 `--`）：只读 |
+
+主窗口关闭语义：`main.cpp` 设 `setQuitOnLastWindowClosed(false)`，主窗口 `onClosing` 只调 `tray.handleMainWindowClose()`——托盘可用时隐藏到托盘，托盘不可用时直接退出；退出只走托盘菜单的「退出」。
 
 配置页：
 
@@ -353,7 +369,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 ## 信号处理器例外
 
-默认规则不变：QML **不写** `onClicked` / `Connections` / `onXxx`。例外只有两类：**必须依赖指针手势或逐帧回调的视图**（下表逐处登记），以及插件中心批次遗留、尚待迁移的页面级处理器（见本节末尾复核口径，不属登记项）。
+默认规则不变：QML **不写** `onClicked` / `Connections` / `onXxx`。例外只有三类：**必须依赖指针手势或逐帧回调的视图**、**必须由窗口事件决定的关闭语义**（两类都在下表逐处登记），以及插件中心批次遗留、尚待迁移的页面级处理器（见本节末尾复核口径，不属登记项）。
 
 | 例外位置 | 原因 | 约束 |
 | --- | --- | --- |
@@ -361,16 +377,19 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | 同文件画布右键菜单的 6 个 `MenuItem.onTriggered`（含 `ruleDeleteEdgeMenu` 删除连线） | 菜单由手势弹出，且需要读画布当前缩放/平移换算世界坐标；删除连线依赖右键命中测试得到的连线 id | 同上，只调用 `ruleGraph` |
 | 同文件 14 个 `onClicked`：调色板 11 个 `AppButton`（`ruleAddAdd` / `ruleAddSub` / `ruleAddMul` / `ruleAddDiv` / `ruleAddAbs` / `ruleAddSquare` / `ruleAddSqrt` / `ruleAddExpr` / `ruleAddRule` / `ruleAddChannelA` / `ruleAddChannelB`）、插件输出与数值源两个列表委托的 `MouseArea`、标题栏 `ruleBackToTopButton` | 遗留：这些点击都能用 `objectName` + `connect_clicked` 迁到 C++，目前尚未迁移 | 只调用 `ruleGraph`（`addOperatorNode` / `addAdvancedNode` / `addRuleNode` / `addChannelNode` / `addPluginOutputNode` / `addModuleNode` / `loadPluginGraph`）；新增控件不得照抄此写法 |
 | 同文件检查器 5 个：`onEditingFinished`（规则名 `nameField` / 表达式 `expressionArea`）、`onActivated`（值模式 `modeCombo`）、`onClicked`（启用勾选、「应用表达式」按钮） | 遗留：输入回灌与表达式应用沿用 QML 处理器；`ruleSaveButton` 已迁到 C++ | 只调用 `ruleGraph`；不得扩大 |
+| `MiniWindow.qml` 标题条 `MouseArea` 的 `onPressed` / `onPositionChanged` | 无边框窗口的拖动只能由指针按下与位移驱动，指针轨迹无法用 `objectName` + C++ 连接表达 | 处理器只改 `Window.x/y`；锁定态由 `dragArea.enabled` 断掉拖动，位置写回配置全部在 C++（`UiConnector` 的 400 ms 合并计时器） |
+| `MainWindow.qml` 的 `onClosing` | 窗口关闭是窗口事件，`close.accepted` 与「隐藏而不是销毁」必须在事件回调内决定 | 只调 `tray.handleMainWindowClose()`；隐藏 / 退出 / 降级判定全在 `TrayController` |
 
 已迁出：规则编辑器关闭按钮（`ruleEditorCloseButton`）原先写 `onClicked: dialog.close()`，现由 `UiConnector::on_rule_editor_close_clicked()` 连接，存在未保存改动时先经 `confirmDialog` 确认。
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
-复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 60 处，按文件分组：
+复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 63 处，按文件分组：
 
 - `dialogs/RuleEditorDialog.qml` 30 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 5，即上表四行，逐处已登记。
 - `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 8 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
 - `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击跳转插件中心，同上待迁移。
+- `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表新增两行，逐处已登记。
 - `components/` 4 处（`AppTabs` / `AppSlider` / `AppSegment` / `AppChip` 各 1）：组件把自身鼠标事件转发成自己的信号（`tabClicked` / `moved` / `selected` / `clicked`），属组件内部实现，不是页面交互。
 
 `Connections {` 与 `Behavior {` 全量为 0。

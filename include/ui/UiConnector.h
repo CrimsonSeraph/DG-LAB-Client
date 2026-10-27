@@ -8,8 +8,10 @@
 #include <QList>
 #include <QObject>
 #include <QPointer>
+#include <QQuickWindow>
 #include <QSet>
 #include <QString>
+#include <QTimer>
 
 #include <functional>
 
@@ -39,6 +41,9 @@ public:
 
     /// @brief 在 engine.load 之后调用，连接根对象下的全部交互控件
     void attach(QObject* root_object);
+
+    /// @brief 迷你窗对象（attach 之后可用，供托盘控制器绑定）
+    QQuickWindow* mini_window() const { return mini_window_.data(); }
 
     /// @brief 弹出确认弹层，用户点确认后执行 on_accept；取消只关闭弹层
     /// @note 同一时刻只保留一个待确认动作：再次调用会覆盖上一次的回调
@@ -117,6 +122,11 @@ private slots:
     void on_update_apply_clicked();
     void on_update_open_release_clicked();
     void on_update_dialog_close_clicked();
+    // 迷你窗
+    void on_home_mini_window_clicked();
+    void on_mini_window_lock_clicked();
+    void on_mini_window_close_clicked();
+    void on_mini_window_geometry_changed();
 
 private:
     void connect_clicked(QObject* root_object, const char* object_name, const char* slot);
@@ -128,6 +138,10 @@ private:
     void watch_items(QObject* root_object, const char* owner_name, const QString& item_name, const char* slot);
     void scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot);
     QObject* find(const char* object_name) const;
+    /// @brief 定位迷你窗并恢复上次保存的位置与尺寸（越界时夹回可见区域）
+    void setup_mini_window(QObject* root_object);
+    /// @brief 把迷你窗当前位置与尺寸写回配置
+    void save_mini_window_geometry();
 
     struct ItemWatch {
         QQuickItem* owner = nullptr;
@@ -150,6 +164,8 @@ private:
     QPointer<QObject> log_list_;             ///< 日志列表（贴底跟随在此维护）
     qreal log_scroll_y_ = 0.0;               ///< 用户滚动停留时的 contentY
     QString wave_last_error_;                ///< 上一次已反馈过的波形错误（避免重复 Toast）
+    QPointer<QQuickWindow> mini_window_;     ///< 迷你窗（QML 侧 MiniWindow.qml）
+    QTimer mini_window_save_timer_;          ///< 迷你窗位置保存的延迟合并计时器
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
     UpdateBridge* update_ = nullptr;

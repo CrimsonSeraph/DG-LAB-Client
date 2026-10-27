@@ -115,6 +115,7 @@ set(DGLAB_QT_MODULES
 	QuickDialogs2
 	WebSockets
 	Bluetooth
+	Widgets
 )
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
@@ -282,6 +283,7 @@ set(UI_QML
 	src/ui/ThemeManager.cpp
 	src/ui/AppBridge.cpp
 	src/ui/UiConnector.cpp
+	src/ui/TrayController.cpp
 	src/ui/DeviceController.cpp
 	src/ui/HomeBridge.cpp
 	src/ui/ModuleBridge.cpp
@@ -294,6 +296,7 @@ set(UI_QML
 	include/ui/ThemeManager.h
 	include/ui/AppBridge.h
 	include/ui/UiConnector.h
+	include/ui/TrayController.h
 	include/ui/DeviceController.h
 	include/ui/HomeBridge.h
 	include/ui/ModuleBridge.h
@@ -399,6 +402,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		1.0
 		QML_FILES
 		src/ui/qml/MainWindow.qml
+		src/ui/qml/MiniWindow.qml
 		src/ui/qml/pages/HomePage.qml
 		src/ui/qml/pages/ConfigPage.qml
 		src/ui/qml/pages/AboutPage.qml
@@ -684,6 +688,7 @@ target_link_libraries(${PROJECT_NAME}
 		Qt::QuickDialogs2
 		Qt::WebSockets
 		Qt::Bluetooth
+		Qt::Widgets
 		Qt::Concurrent
 	PRIVATE nlohmann_json
 )

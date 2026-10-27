@@ -95,6 +95,7 @@ include/
 | `QrImageProvider.h`  | 二维码图像提供者                              |
 | `UiConnector.h`      | QML↔C++ 连接集中点                            |
 | `UpdateBridge.h`     | 更新界面桥接（QML 上下文属性 `updateBridge`） |
+| `TrayController.h`   | 系统托盘：图标与三项菜单（显示主窗口 / 显示迷你窗 / 退出）、主窗口关闭落点 |
 
 ## 关键协议与约定
 
@@ -174,7 +175,7 @@ QML 不写信号处理器（`onClicked` / `Connections`），每个交互控件�
 
 ## 依赖关系
 
-- **Qt 6**：Core / Gui / Network / Qml / Quick / QuickControls2 / QuickDialogs2 / WebSockets / Bluetooth
+- **Qt 6**：Core / Gui / Network / Qml / Quick / QuickControls2 / QuickDialogs2 / WebSockets / Bluetooth / Widgets（托盘菜单 `QSystemTrayIcon` / `QMenu`）
 - **nlohmann/json**：配置、规则与规则图
 - **qrcodegen**（`third_party/qrcodegen`）：二维码生成
 - **C++20**：模板与概念要求（`ConfigSerializable` 等）

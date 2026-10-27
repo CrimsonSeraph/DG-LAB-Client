@@ -18,12 +18,14 @@
 #include "RuleGraphBridge.h"
 #include "RuleManager.h"
 #include "ThemeManager.h"
+#include "TrayController.h"
 #include "UiConnector.h"
 #include "UpdateBridge.h"
 #include "UpdateManager.h"
 #include "WaveBridge.h"
 #include "WaveLibrary.h"
 
+#include <QApplication>
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
@@ -34,15 +36,18 @@
 #include <QQmlContext>
 #include <QQuickImageProvider>
 #include <QQuickStyle>
+#include <QQuickWindow>
 #include <QStandardPaths>
 #include <QTimer>
 
 #include <iostream>
 
 int main(int argc, char* argv[]) {
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
     QCoreApplication::setOrganizationName(QStringLiteral("CrimsonSeraph"));
     QCoreApplication::setApplicationName(QStringLiteral("DG-LAB-Client"));
+    // 常驻托盘：最后一个窗口关闭不退出进程，退出只走托盘菜单
+    QGuiApplication::setQuitOnLastWindowClosed(false);
 
     bool is_updated_start = false;
     for (const QString& arg : QCoreApplication::arguments()) {
@@ -146,6 +151,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // 系统托盘常驻（QML 上下文属性 tray）
+    TrayController tray;
+    tray.initialize();
+
     // 界面日志桥接（QML 上下文属性 logBridge）
     LogBridge log_bridge;
     log_bridge.initialize();
@@ -200,6 +209,7 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("ruleGraph"), &rule_graph);
     engine.rootContext()->setContextProperty(QStringLiteral("logBridge"), &log_bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("updateBridge"), &update_bridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("tray"), &tray);
 
     // QML 交互连接集中在 C++ 侧
     UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave, &ble, &rule_graph,
@@ -212,6 +222,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     connector.attach(engine.rootObjects().first());
+    tray.attach(qobject_cast<QQuickWindow*>(engine.rootObjects().first()), connector.mini_window());
     LOG_MODULE("main", "main", LOG_DEBUG, "QML 主界面已加载");
 
     return app.exec();

@@ -30,6 +30,7 @@ class HomeBridge : public QObject {
     Q_PROPERTY(QString waveB READ wave_b NOTIFY dataChanged)
     Q_PROPERTY(QString channelAState READ channel_a_state NOTIFY dataChanged)
     Q_PROPERTY(QString channelBState READ channel_b_state NOTIFY dataChanged)
+    Q_PROPERTY(bool miniWindowLocked READ mini_window_locked NOTIFY miniWindowLockedChanged)
 
 public:
     explicit HomeBridge(DeviceController* device, QObject* parent = nullptr);
@@ -54,6 +55,16 @@ public:
     /// @brief 通道状态：idle / running / runningNoOutput
     QString channel_a_state() const { return channel_state(QStringLiteral("A")); }
     QString channel_b_state() const { return channel_state(QStringLiteral("B")); }
+    /// @brief 迷你窗是否已锁定（锁定后不可拖动与调整尺寸）
+    bool mini_window_locked() const { return mini_window_locked_; }
+    /// @brief 迷你窗上次保存的位置与尺寸，未保存过时为 0
+    int mini_window_x() const { return mini_window_x_; }
+    int mini_window_y() const { return mini_window_y_; }
+    int mini_window_width() const { return mini_window_width_; }
+    int mini_window_height() const { return mini_window_height_; }
+
+    /// @brief 保存迷你窗位置与尺寸到 user.json 的 app.ui.mini_window
+    void saveMiniWindowGeometry(int x, int y, int width, int height);
 
     /// @brief 切换通道启用状态（同步到规则引擎的通道启用变量）
     Q_INVOKABLE void toggleChannel(const QString& channel);
@@ -63,9 +74,12 @@ public:
     Q_INVOKABLE void adjustChannelStrength(const QString& channel, int delta);
     /// @brief 请求选择通道波形（阶段 6 接入波形库对话框）
     Q_INVOKABLE void requestWaveSelect(const QString& channel);
+    /// @brief 切换迷你窗锁定状态并持久化
+    Q_INVOKABLE void toggleMiniWindowLock();
 
 signals:
     void dataChanged();
+    void miniWindowLockedChanged();
     void channelWaveSelectRequested(const QString& channel);
 
 private:
@@ -79,4 +93,9 @@ private:
     DeviceController* device_ = nullptr;
     int strength_a_ = 0;
     int strength_b_ = 0;
+    bool mini_window_locked_ = false;
+    int mini_window_x_ = 0;
+    int mini_window_y_ = 0;
+    int mini_window_width_ = 0;
+    int mini_window_height_ = 0;
 };

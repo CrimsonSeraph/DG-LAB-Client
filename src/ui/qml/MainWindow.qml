@@ -30,6 +30,12 @@ ApplicationWindow {
     readonly property int appCount: device.appClientCount
     readonly property int connectionCount: bleCount + appCount
 
+    // 处理器例外：主窗口关闭是窗口事件，点 × 只隐藏到托盘，退出只走托盘菜单
+    onClosing: (close) => {
+        close.accepted = false
+        tray.handleMainWindowClose()
+    }
+
     // 导航项内容：图标 + 文字。NavButton 默认只渲染文字，这里统一覆盖 contentItem。
     component NavItemContent: RowLayout {
         id: navContent
@@ -394,6 +400,12 @@ ApplicationWindow {
     // 通用确认弹层（C++ 侧 UiConnector::ask_confirm 驱动，声明在最后以便盖在更新对话框之上）
     ConfirmDialog {
         id: confirmDialog
+    }
+
+
+    // 迷你窗：跟随主窗口生命周期，显示 / 锁定 / 关闭由 C++（UiConnector）驱动
+    MiniWindow {
+        id: miniWindow
     }
 
     // 底部状态栏

@@ -4,7 +4,7 @@ import QtQuick.Layouts
 
 // 主页看板：设备状态与通道启停、通道模块/规则绑定、已启用插件、近期触发流水、A/B 波形预览。
 // 强度增减与波形选择已移出本页（迷你窗 / 波形设置页负责），卡内只留只读数值与说明。
-// 与左侧导航重复的「插件中心」「波形设置」页内入口已移除，只留尚未实现的迷你窗入口。
+// 与左侧导航重复的「插件中心」「波形设置」页内入口已移除，只留打开迷你窗的入口。
 // 交互约定：页内导航按钮用 app.navigate，其余交互控件仍由 C++（UiConnector）按 objectName 连接。
 Item {
     id: page
@@ -51,15 +51,14 @@ Item {
                 }
             }
 
-            // 迷你窗入口：尚未实现，按钮置灰并标注即将上线
+            // 迷你窗入口：打开无边框置顶的常驻小窗（可拖动 / 锁定 / 隐藏）
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Metrics.spacingMd
 
                 AppButton {
                     objectName: "homeMiniWindowEntryButton"
-                    text: qsTr("迷你窗 · 即将上线")
-                    enabled: false
+                    text: qsTr("迷你窗")
                 }
 
                 Item {

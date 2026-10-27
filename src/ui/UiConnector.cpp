@@ -18,6 +18,7 @@
 #include "WaveBridge.h"
 
 #include <QColor>
+#include <QGuiApplication>
 #include <QHash>
 #include <QJSValue>
 #include <QKeyEvent>
@@ -26,9 +27,11 @@
 #include <QQmlEngine>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QScreen>
 #include <QVariantList>
 #include <QVariantMap>
 
+#include <algorithm>
 #include <utility>
 
 namespace {
@@ -240,6 +243,12 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "channelAStartButton", SLOT(on_channel_toggle_clicked()));
     connect_clicked(root_object, "channelBStartButton", SLOT(on_channel_toggle_clicked()));
 
+    // 迷你窗：首页入口打开窗口，锁定与关闭按钮由这里连接
+    connect_clicked(root_object, "homeMiniWindowEntryButton", SLOT(on_home_mini_window_clicked()));
+    setup_mini_window(root_object);
+    connect_clicked(root_object, "miniWindowLockButton", SLOT(on_mini_window_lock_clicked()));
+    connect_clicked(root_object, "miniWindowCloseButton", SLOT(on_mini_window_close_clicked()));
+
     connect_clicked(root_object, "configConnectButton", SLOT(on_config_connect_clicked()));
     connect_clicked(root_object, "configThemeSelectButton", SLOT(on_theme_select_clicked()));
     connect_clicked(root_object, "configThemeCustomButton", SLOT(on_theme_custom_clicked()));
@@ -349,6 +358,71 @@ QObject* UiConnector::find(const char* object_name) const {
         return nullptr;
     }
     return root_->findChild<QObject*>(QString::fromLatin1(object_name));
+}
+
+void UiConnector::setup_mini_window(QObject* root_object) {
+    auto* window = root_object->findChild<QQuickWindow*>(QStringLiteral("miniWindow"));
+    if (window == nullptr) {
+        LOG_MODULE("UiConnector", "setup_mini_window", LOG_WARN,
+            "未找到迷你窗 miniWindow，迷你窗入口不可用");
+        return;
+    }
+    mini_window_ = window;
+
+    QScreen* primary = QGuiApplication::primaryScreen();
+    if (primary == nullptr) {
+        LOG_MODULE("UiConnector", "setup_mini_window", LOG_WARN, "无可用屏幕信息，迷你窗保持默认位置");
+        return;
+    }
+
+    // 位置与尺寸取上次保存值，未保存过时用 QML 默认尺寸并落在主屏右上角
+    const bool restored = home_ != nullptr && home_->mini_window_width() > 0 && home_->mini_window_height() > 0;
+    const qreal margin = qml_token(root_object, "Metrics", "spacing3xl", 28.0);
+    int width = restored ? home_->mini_window_width() : window->width();
+    int height = restored ? home_->mini_window_height() : window->height();
+
+    QPoint position(0, 0);
+    if (restored) {
+        position = QPoint(home_->mini_window_x(), home_->mini_window_y());
+    }
+    QScreen* screen = QGuiApplication::screenAt(
+        QRect(position, QSize(width, height)).center());
+    if (screen == nullptr) {
+        // 落点不在任何屏幕上（拔掉外接屏 / 分辨率变更）：回到主屏
+        screen = primary;
+    }
+    const QRect area = screen->availableGeometry();
+    width = std::min(width, area.width());
+    height = std::min(height, area.height());
+    if (!restored) {
+        position = QPoint(static_cast<int>(area.right() - width - margin * 2),
+            static_cast<int>(area.top() + margin * 2));
+    }
+    const int x = std::clamp(position.x(), area.left(), area.right() - width + 1);
+    const int y = std::clamp(position.y(), area.top(), area.bottom() - height + 1);
+
+    mini_window_save_timer_.setSingleShot(true);
+    mini_window_save_timer_.setInterval(400);
+    connect(&mini_window_save_timer_, &QTimer::timeout, this,
+        &UiConnector::save_mini_window_geometry);
+    connect(window, &QWindow::xChanged, this, &UiConnector::on_mini_window_geometry_changed);
+    connect(window, &QWindow::yChanged, this, &UiConnector::on_mini_window_geometry_changed);
+    connect(window, &QWindow::widthChanged, this, &UiConnector::on_mini_window_geometry_changed);
+    connect(window, &QWindow::heightChanged, this, &UiConnector::on_mini_window_geometry_changed);
+
+    window->setGeometry(x, y, width, height);
+    // 首次运行没有存档：把落点写回配置，下次启动从同一位置恢复
+    save_mini_window_geometry();
+    LOG_MODULE("UiConnector", "setup_mini_window", LOG_DEBUG,
+        "迷你窗几何恢复: " << x << "," << y << " " << width << "x" << height);
+}
+
+void UiConnector::save_mini_window_geometry() {
+    if (mini_window_.isNull() || home_ == nullptr) {
+        return;
+    }
+    home_->saveMiniWindowGeometry(mini_window_->x(), mini_window_->y(),
+        mini_window_->width(), mini_window_->height());
 }
 
 void UiConnector::connect_clicked(QObject* root_object, const char* object_name, const char* slot) {
@@ -542,6 +616,41 @@ void UiConnector::on_update_open_release_clicked() {
 void UiConnector::on_update_dialog_close_clicked() {
     // 关闭只收起对话框：下载状态在 UpdateBridge 里，重开后进度照常显示
     close_dialog("updateDialog");
+}
+
+void UiConnector::on_home_mini_window_clicked() {
+    if (mini_window_.isNull()) {
+        if (app_ != nullptr) {
+            app_->showToast(QStringLiteral("迷你窗不可用"), AppBridge::StatusDanger);
+        }
+        return;
+    }
+    if ((mini_window_->windowState() & Qt::WindowMinimized) != 0) {
+        mini_window_->showNormal();
+    }
+    else {
+        mini_window_->show();
+    }
+    mini_window_->raise();
+    mini_window_->requestActivate();
+}
+
+void UiConnector::on_mini_window_lock_clicked() {
+    if (home_ != nullptr) {
+        home_->toggleMiniWindowLock();
+    }
+}
+
+void UiConnector::on_mini_window_close_clicked() {
+    if (mini_window_.isNull()) {
+        return;
+    }
+    save_mini_window_geometry();
+    mini_window_->hide();
+}
+
+void UiConnector::on_mini_window_geometry_changed() {
+    mini_window_save_timer_.start();
 }
 
 void UiConnector::on_nav_button_clicked() {

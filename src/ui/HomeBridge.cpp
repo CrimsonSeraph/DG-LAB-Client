@@ -5,6 +5,7 @@
 
 #include "HomeBridge.h"
 
+#include "AppConfig.h"
 #include "DebugLog.h"
 #include "DeviceController.h"
 #include "ModuleManager.h"
@@ -49,6 +50,13 @@ void HomeBridge::initialize() {
 
     connect(&WaveLibrary::instance(), &WaveLibrary::current_changed, this, &HomeBridge::dataChanged);
 
+    auto& config = AppConfig::instance();
+    mini_window_x_ = config.get_value<int>("app.ui.mini_window.x", 0);
+    mini_window_y_ = config.get_value<int>("app.ui.mini_window.y", 0);
+    mini_window_width_ = config.get_value<int>("app.ui.mini_window.width", 0);
+    mini_window_height_ = config.get_value<int>("app.ui.mini_window.height", 0);
+    mini_window_locked_ = config.get_value<bool>("app.ui.mini_window.locked", false);
+
     LOG_MODULE("HomeBridge", "initialize", LOG_INFO, "首页桥接初始化完成");
 }
 
@@ -92,6 +100,26 @@ QVariantList HomeBridge::rules_a() const {
 
 QVariantList HomeBridge::rules_b() const {
     return build_rules(QStringLiteral("B"));
+}
+
+void HomeBridge::saveMiniWindowGeometry(int x, int y, int width, int height) {
+    if (x == mini_window_x_ && y == mini_window_y_ && width == mini_window_width_ && height == mini_window_height_) {
+        return;
+    }
+    mini_window_x_ = x;
+    mini_window_y_ = y;
+    mini_window_width_ = width;
+    mini_window_height_ = height;
+
+    auto& config = AppConfig::instance();
+    config.set_value_with_name<int>("app.ui.mini_window.x", mini_window_x_, "user");
+    config.set_value_with_name<int>("app.ui.mini_window.y", mini_window_y_, "user");
+    config.set_value_with_name<int>("app.ui.mini_window.width", mini_window_width_, "user");
+    config.set_value_with_name<int>("app.ui.mini_window.height", mini_window_height_, "user");
+    config.save_all();
+    LOG_MODULE("HomeBridge", "saveMiniWindowGeometry", LOG_DEBUG,
+        "迷你窗位置已保存: " << mini_window_x_ << "," << mini_window_y_
+                             << " " << mini_window_width_ << "x" << mini_window_height_);
 }
 
 void HomeBridge::toggleChannel(const QString& channel) {
@@ -149,6 +177,16 @@ void HomeBridge::adjustChannelStrength(const QString& channel, int delta) {
 
 void HomeBridge::requestWaveSelect(const QString& channel) {
     emit channelWaveSelectRequested(channel);
+}
+
+void HomeBridge::toggleMiniWindowLock() {
+    mini_window_locked_ = !mini_window_locked_;
+    auto& config = AppConfig::instance();
+    config.set_value_with_name<bool>("app.ui.mini_window.locked", mini_window_locked_, "user");
+    config.save_all();
+    emit miniWindowLockedChanged();
+    LOG_MODULE("HomeBridge", "toggleMiniWindowLock", LOG_INFO,
+        mini_window_locked_ ? "迷你窗已锁定" : "迷你窗已解锁");
 }
 
 QVariantList HomeBridge::build_modules(const QString& channel) const {
