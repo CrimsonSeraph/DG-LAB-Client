@@ -33,10 +33,10 @@ src/ui/
 │   │   ├── HomePage.qml        # 主页看板：设备 / 通道 / 插件 / 触发流水（导航第 1 项）
 │   │   ├── home/              # 看板卡片：设备状态、通道行与通道卡、已启用插件、触发流水
 │   │   ├── PluginCenterPage.qml # 插件中心（导航第 2 项，当前为骨架）
-│   │   ├── WavePage.qml        # 波形设置（导航第 3 项，当前为骨架）
+│   │   ├── WavePage.qml        # 波形设置：目标通道、A/B 波形预览、波形库与编辑器入口（导航第 3 项）
 │   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
-│   │   ├── LogPage.qml         # 日志（导航第 5 项，当前为骨架）
-│   │   ├── ConfigPage.qml      # 设置：连接 / 波形 / 主题 / 日志（仅经左下角面板入口可达）
+│   │   ├── LogPage.qml         # 日志：列表、级别过滤与手动导出选项（导航第 5 项）
+│   │   ├── ConfigPage.qml      # 设置：连接（中转表单 + 扫码配对 + 蓝牙直连）与主题（仅经左下角面板入口可达）
 │   │   ├── plugin/            # 插件中心：插件卡、插件详情、事件映射面板
 │   │   └── AboutPage.qml       # 关于（仅经左下角面板入口可达）
 │   ├── home/
@@ -84,6 +84,7 @@ src/ui/
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期、选中模块数值 |
 | `waveBridge` | `WaveBridge` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
+| `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
 | `Theme` | `ThemeManager`（QML 单例） | 主题令牌（17 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
 | `updateBridge` | `UpdateBridge` | 检查更新、下载更新包（进度 / 错误）、重启并安装；安装经 `confirmDialog` 确认 |
@@ -154,11 +155,31 @@ src/ui/
 | `customThemeSaveButton` | 保存并应用自定义主题 |
 | `themePresetDialog` / `customThemeDialog` | 预设主题对话框与自定义主题对话框（后者的主/副色与应用按钮即上两行的 `customTheme*` 控件） |
 | `primaryColorDialog` / `secondaryColorDialog` | 主/副色取色对话框（`ColorDialog`），由 `customThemePrimaryButton` / `customThemeSecondaryButton` 打开 |
-| `configLogList` | 日志列表；`movementEnded` 时按 `atYEnd` 维护 QML 侧 `stickToBottom`（贴底跟随 / 上滚回看） |
-| `logLevelCombo` / `logExportButton` / `logClearButton` | 日志级别过滤（`logBridge.levelFilter`）、导出日志（成功弹 Toast 带完整路径）、清空列表 |
+| `configBleColumn` | 连接卡内的蓝牙直连子区（位于扫码配对列下方，含状态 / 扫描 / 设备列表 / 强度增减） |
 | `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备 |
 | `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性） |
 | `bleStrengthA{Increase,Decrease}` / `bleStrengthB{Increase,Decrease}` | 蓝牙通道强度增减 |
+
+波形设置页（`pages/WavePage.qml`）：外层 `ScrollView` 撑满窗口，页面只在窗口高度不足时滚动；波形内容全部来自配置页迁移，行为不变。
+
+| objectName | 行为 |
+| --- | --- |
+| `waveScrollView` | 波形设置页滚动容器 |
+| `waveChannelCard` | 通道波形卡根节点（`GlassCard`）：目标通道、A/B 预览与波形库入口 |
+| `waveChannelAButton` / `waveChannelBButton` | 选择波形目标通道（对应 `waveBridge.targetChannel`） |
+| `waveSelectButton` / `waveCreateButton` | 打开波形库 / 直接新建波形（打开 `waveEditorDialog`） |
+
+日志页（`pages/LogPage.qml`）：页面用 `ColumnLayout` 撑满窗口高度，日志列表吃满面板剩余高度并自行滚动；手动导出设置写入 `user.json` 的 `app.log.manual.*`，导出时按该设置逐行过滤。
+
+| objectName | 行为 |
+| --- | --- |
+| `logPanel` | 日志面板容器（最小高度取 `ComponentStyle.logCardHeight` 令牌） |
+| `logList` | 日志列表；`movementEnded` 时按 `atYEnd` 维护 QML 侧 `stickToBottom`（贴底跟随 / 上滚回看） |
+| `logLevelCombo` | 界面日志级别过滤（`logBridge.levelFilter` → `app.log.ui_log_level`） |
+| `logExportButton` / `logClearButton` | 导出日志（成功弹 Toast 带完整路径）、清空列表 |
+| `logExportLevelCombo` | 手动导出级别（`logBridge.exportLevel` → `app.log.manual.export_level`，DEBUG / INFO / WARN / ERROR） |
+| `logExportRangeCombo` | 手动导出范围三态：0 仅该级别（`only_level=true`）、1 该级别及以上（`only_level=false, level_above=true`）、2 该级别及以下（`only_level=false, level_above=false`）；默认值取当前配置，不固定停在第 0 项 |
+| `logExportDirField` / `logExportDirApplyButton` | 手动导出目录（`logBridge.exportDirConfig` 存 `app.log.manual.export_dir` 原文，可填相对程序目录的路径）；点「应用目录」创建目录并写入配置，失败弹 Toast |
 
 页面骨架与反馈：
 
@@ -168,9 +189,7 @@ src/ui/
 | `toast` / `toastText` | `components/Toast.qml`：右下角一次性反馈浮层，`app.showToast(text, level)` 驱动，3 秒后自动消失；描边按 `toastLevel` 取 `success` / `warning` / `danger` / `border` |
 | `statusLabel` | 底部状态栏常驻摘要（中转 / 蓝牙 / 通道），**不**承载一次性消息 |
 | `homePage` / `pluginCenterPage` / `wavePage` / `miniGamePage` / `logPage` / `configPage` / `aboutPage` | 各页面根项标记，不承载交互 |
-| `logPagePlaceholder` / `wavePagePlaceholder` / `miniGamePagePlaceholder` | 三个骨架页的占位文案（页面尚未实现）：只读 |
-| `configWaveChannelAButton` / `configWaveChannelBButton` | 配置页选择波形目标通道 |
-| `configWaveSelectButton` / `configWaveCreateButton` | 打开波形库 / 直接新建波形 |
+| `miniGamePagePlaceholder` | 小游戏骨架页的占位文案（该页尚未实现）：只读 |
 
 插件中心（`pages/PluginCenterPage.qml`）：模块页已从代码移除——`pages/ModulePage.qml` 删除，`AppBridge::Page::ModulePage = 2` 与 `pageStack` 里的空占位 `retiredModulePageSlot` 只为保持页面索引与枚举对应。原来的统一查询周期控件随之迁到插件中心，其余模块页条目已随该页删除。
 

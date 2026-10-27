@@ -103,6 +103,9 @@ private slots:
     void on_log_export_clicked();
     void on_log_clear_clicked();
     void on_log_level_changed();
+    void on_log_export_level_changed();
+    void on_log_export_range_changed();
+    void on_log_export_dir_applied();
     void on_log_list_movement_ended();
     void on_log_messages_changed();
     // 动态内容变化后重扫热区

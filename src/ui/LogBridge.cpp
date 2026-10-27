@@ -7,6 +7,7 @@
 
 #include "AppConfig.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QMetaObject>
@@ -62,8 +63,93 @@ void LogBridge::initialize() {
     emit levelFilterChanged();
 }
 
+int LogBridge::export_level() const {
+    return exporter_.manual_settings().level;
+}
+
+int LogBridge::export_range() const {
+    const LogExporter::ManualSettings& settings = exporter_.manual_settings();
+    if (settings.only_level) {
+        return 0;
+    }
+    return settings.level_above ? 1 : 2;
+}
+
 QString LogBridge::export_dir() const {
     return exporter_.manual_dir_absolute();
+}
+
+QString LogBridge::export_dir_config() const {
+    return QString::fromStdString(exporter_.manual_settings().dir);
+}
+
+void LogBridge::clear() {
+    messages_.clear();
+    emit messagesChanged();
+}
+
+bool LogBridge::exportLogs() {
+    QStringList lines;
+    for (const auto& item : messages_) {
+        lines.append(item.toMap().value(QStringLiteral("text")).toString());
+    }
+    QString error;
+    const bool ok = exporter_.export_log(lines.join(QLatin1Char('\n')), &error);
+    if (!ok) {
+        emit statusMessage(QStringLiteral("日志导出失败：") + error);
+        return false;
+    }
+    // 导出器内部按时间戳生成文件名，不回传路径：取目录中最新写入的那份作为本次结果
+    last_export_path_ = newest_export_file(export_dir());
+    emit exportChanged();
+    return true;
+}
+
+void LogBridge::setLevelFilter(int level) {
+    level_filter_ = std::clamp(level, 0, 4);
+    DebugLog::instance().set_log_sink_level("qt_ui", static_cast<LogLevel>(level_filter_));
+    auto& config = AppConfig::instance();
+    config.set_value<int>("app.log.ui_log_level", level_filter_);
+    config.save_all();
+    emit levelFilterChanged();
+}
+
+void LogBridge::setExportLevel(int level) {
+    LogExporter::ManualSettings settings = exporter_.manual_settings();
+    settings.level = std::clamp(level, 0, 3);
+    exporter_.set_manual_settings(settings);
+    save_export_settings();
+}
+
+void LogBridge::setExportRange(int range) {
+    LogExporter::ManualSettings settings = exporter_.manual_settings();
+    const int clamped = std::clamp(range, 0, 2);
+    settings.only_level = (clamped == 0);
+    settings.level_above = (clamped != 2);
+    exporter_.set_manual_settings(settings);
+    save_export_settings();
+}
+
+bool LogBridge::setExportDir(const QString& dir) {
+    const QString trimmed = dir.trimmed();
+    if (trimmed.isEmpty()) {
+        emit statusMessage(QStringLiteral("导出目录不能为空"));
+        return false;
+    }
+    // 相对路径按程序目录解析，与 LogExporter 的目录解析口径一致
+    QDir target(trimmed);
+    if (target.isRelative()) {
+        target.setPath(QDir(QCoreApplication::applicationDirPath()).filePath(trimmed));
+    }
+    if (!target.exists() && !QDir().mkpath(target.absolutePath())) {
+        emit statusMessage(QStringLiteral("导出目录创建失败：") + target.absolutePath());
+        return false;
+    }
+    LogExporter::ManualSettings settings = exporter_.manual_settings();
+    settings.dir = trimmed.toStdString();
+    exporter_.set_manual_settings(settings);
+    save_export_settings();
+    return true;
 }
 
 void LogBridge::on_log(const std::string& module, const std::string& method, LogLevel level,
@@ -98,33 +184,14 @@ void LogBridge::flush_pending() {
     emit messagesChanged();
 }
 
-void LogBridge::clear() {
-    messages_.clear();
-    emit messagesChanged();
-}
-
-bool LogBridge::exportLogs() {
-    QStringList lines;
-    for (const auto& item : messages_) {
-        lines.append(item.toMap().value(QStringLiteral("text")).toString());
-    }
-    QString error;
-    const bool ok = exporter_.export_log(lines.join(QLatin1Char('\n')), &error);
-    if (!ok) {
-        emit statusMessage(QStringLiteral("日志导出失败：") + error);
-        return false;
-    }
-    // 导出器内部按时间戳生成文件名，不回传路径：取目录中最新写入的那份作为本次结果
-    last_export_path_ = newest_export_file(export_dir());
-    emit exportChanged();
-    return true;
-}
-
-void LogBridge::setLevelFilter(int level) {
-    level_filter_ = std::clamp(level, 0, 4);
-    DebugLog::instance().set_log_sink_level("qt_ui", static_cast<LogLevel>(level_filter_));
+void LogBridge::save_export_settings() {
+    // 只写手动导出的四项键：自动日志设置不归本桥接维护，避免顺带重写 app.log.auto.*
     auto& config = AppConfig::instance();
-    config.set_value<int>("app.log.ui_log_level", level_filter_);
+    const LogExporter::ManualSettings& settings = exporter_.manual_settings();
+    config.set_value_with_name<int>("app.log.manual.export_level", settings.level, "user");
+    config.set_value_with_name<bool>("app.log.manual.export_only_level", settings.only_level, "user");
+    config.set_value_with_name<bool>("app.log.manual.export_level_above", settings.level_above, "user");
+    config.set_value_with_name<std::string>("app.log.manual.export_dir", settings.dir, "user");
     config.save_all();
-    emit levelFilterChanged();
+    emit exportSettingsChanged();
 }

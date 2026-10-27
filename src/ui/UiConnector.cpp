@@ -274,10 +274,10 @@ void UiConnector::attach(QObject* root_object) {
     }
 
     // 波形库与编辑器
-    connect_clicked(root_object, "configWaveChannelAButton", SLOT(on_wave_channel_clicked()));
-    connect_clicked(root_object, "configWaveChannelBButton", SLOT(on_wave_channel_clicked()));
-    connect_clicked(root_object, "configWaveSelectButton", SLOT(on_wave_select_clicked()));
-    connect_clicked(root_object, "configWaveCreateButton", SLOT(on_wave_create_clicked()));
+    connect_clicked(root_object, "waveChannelAButton", SLOT(on_wave_channel_clicked()));
+    connect_clicked(root_object, "waveChannelBButton", SLOT(on_wave_channel_clicked()));
+    connect_clicked(root_object, "waveSelectButton", SLOT(on_wave_select_clicked()));
+    connect_clicked(root_object, "waveCreateButton", SLOT(on_wave_create_clicked()));
     connect_clicked(root_object, "waveSelectCreateButton", SLOT(on_wave_create_clicked()));
     connect_clicked(root_object, "waveSelectCloseButton", SLOT(on_wave_select_close_clicked()));
     connect_clicked(root_object, "waveAddSectionButton", SLOT(on_wave_add_section_clicked()));
@@ -311,11 +311,19 @@ void UiConnector::attach(QObject* root_object) {
     if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("logLevelCombo"))) {
         QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_log_level_changed()));
     }
+    // 手动导出选项：级别 / 范围（三态）/ 导出目录，写入 user.json 的 app.log.manual.*
+    if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("logExportLevelCombo"))) {
+        QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_log_export_level_changed()));
+    }
+    if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("logExportRangeCombo"))) {
+        QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_log_export_range_changed()));
+    }
+    connect_clicked(root_object, "logExportDirApplyButton", SLOT(on_log_export_dir_applied()));
     // 日志列表贴底跟随：用户滚动结束后按 atYEnd 维护 QML 侧 stickToBottom，
     // 上滚回看历史时不跟新日志，滚回底部后恢复跟随。
-    auto* log_list = root_object->findChild<QObject*>(QStringLiteral("configLogList"));
+    auto* log_list = root_object->findChild<QObject*>(QStringLiteral("logList"));
     if (log_list == nullptr) {
-        LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到控件: configLogList");
+        LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到控件: logList");
     }
     else {
         log_list_ = log_list;
@@ -856,6 +864,32 @@ void UiConnector::on_log_level_changed() {
     }
     auto* combo = find("logLevelCombo");
     log_->setLevelFilter(combo == nullptr ? 0 : combo->property("currentIndex").toInt());
+}
+
+void UiConnector::on_log_export_level_changed() {
+    if (log_ == nullptr) {
+        return;
+    }
+    auto* combo = find("logExportLevelCombo");
+    log_->setExportLevel(combo == nullptr ? 0 : combo->property("currentIndex").toInt());
+}
+
+void UiConnector::on_log_export_range_changed() {
+    if (log_ == nullptr) {
+        return;
+    }
+    auto* combo = find("logExportRangeCombo");
+    log_->setExportRange(combo == nullptr ? 1 : combo->property("currentIndex").toInt());
+}
+
+void UiConnector::on_log_export_dir_applied() {
+    if (log_ == nullptr) {
+        return;
+    }
+    auto* field = find("logExportDirField");
+    if (field != nullptr) {
+        log_->setExportDir(field->property("text").toString());
+    }
 }
 
 void UiConnector::on_ble_strength_clicked() {
