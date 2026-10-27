@@ -54,6 +54,9 @@ Item {
     readonly property var waveModel: [qsTr("默认（按当前设备）")].concat(root.waveNames)
     // 波形帧预览暂无接口，先给固定示例点
     readonly property var previewPoints: [8, 22, 35, 28, 46, 38, 58, 44, 62, 51, 70, 60, 74, 66, 55, 48, 36, 30, 22, 14]
+    // 输出数据类型：strength 直接给强度值，percent 把强度值按数值上下限映射到 0-100，wave 让绑定波形参与叠加
+    readonly property var dataTypeValues: ["strength", "percent", "wave"]
+    readonly property var dataTypeModel: [qsTr("强度"), qsTr("百分比"), qsTr("波形")]
 
     function findEvent(eventId) {
         for (let i = 0; i < root.eventList.length; ++i) {
@@ -73,34 +76,33 @@ Item {
         return 0;
     }
 
-    function writeEvent(enabled, wave, frames) {
+    function dataTypeIndex(dataType) {
+        const index = root.dataTypeValues.indexOf(String(dataType));
+        return index < 0 ? 0 : index;
+    }
+
+    function writeEvent(wave, frames, dataType) {
         const event = root.currentEvent;
         if (event === null || root.item === null) {
             return;
         }
         eventBridge.setEventConfig(root.item.module, event.id,
-            enabled === undefined ? event.enabled === true : enabled,
             wave === undefined ? String(event.wave) : wave,
             String(event.merge), Number(event.weight),
-            frames === undefined ? Number(event.frames) : frames);
+            frames === undefined ? Number(event.frames) : frames,
+            dataType === undefined ? String(event.dataType) : dataType);
     }
 
-    // 子选项映射只读展示：通道与强度都由事件和规则决定，界面不提供写入入口
-    function optionChannelText(channel) {
-        const value = String(channel);
-        if (value === "A") {
-            return qsTr("通道 A");
+    // 子选项只有数值模式可改：通道由规则决定，强度数值由事件决定
+    function writeOption(option, mode) {
+        const event = root.currentEvent;
+        if (event === null || root.item === null) {
+            return;
         }
-        if (value === "B") {
-            return qsTr("通道 B");
-        }
-        return qsTr("跟随默认通道");
-    }
-
-    function optionModeText(mode) {
-        return String(mode) === "percent"
-            ? qsTr("百分比（按 0-100 映射实际值）")
-            : qsTr("数值（直接使用实际值）");
+        eventBridge.setOptionOutput(root.item.module, event.id, option.id,
+            String(option.channel), String(option.operation),
+            mode === undefined ? String(option.mode) : mode,
+            Number(option.value), Number(option.percent), Number(option.step));
     }
 
     function optionValueText(option) {
@@ -189,22 +191,6 @@ Item {
                     spacing: Metrics.spacingXl
 
                     AppField {
-                        Layout.preferredWidth: Metrics.navWidth
-                        Layout.minimumWidth: Metrics.navWidth
-                        label: qsTr("启用事件")
-
-                        AppSwitch {
-                            id: eventEnabledSwitch
-
-                            Binding on checked {
-                                value: root.currentEvent !== null && root.currentEvent.enabled === true
-                                restoreMode: Binding.RestoreNone
-                            }
-                            onToggled: root.writeEvent(checked, undefined, undefined)
-                        }
-                    }
-
-                    AppField {
                         Layout.fillWidth: true
                         Layout.minimumWidth: Metrics.navWidth * 2
                         label: qsTr("波形")
@@ -244,9 +230,36 @@ Item {
                                 when: !framesSpin.activeFocus
                                 restoreMode: Binding.RestoreNone
                             }
-                            onValueModified: root.writeEvent(undefined, undefined, value * 10)
+                            onValueModified: root.writeEvent(undefined, value * 10, undefined)
                         }
                     }
+                }
+
+                AppField {
+                    width: parent.width
+                    label: qsTr("输出数据类型")
+
+                    AppSegment {
+                        id: dataTypeSegment
+
+                        width: parent.width
+                        model: root.dataTypeModel
+                        Binding on currentIndex {
+                            value: root.currentEvent === null ? 0 : root.dataTypeIndex(root.currentEvent.dataType)
+                            restoreMode: Binding.RestoreNone
+                        }
+                        onSelected: function (index) {
+                            root.writeEvent(undefined, undefined, root.dataTypeValues[index]);
+                        }
+                    }
+                }
+
+                Text {
+                    width: parent.width
+                    text: qsTr("强度：直接可用的强度值；百分比：按该数值的上下限映射到 0-100；波形：绑定波形参与叠加。")
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontBody
+                    wrapMode: Text.WordWrap
                 }
 
                 Repeater {
@@ -285,31 +298,23 @@ Item {
                                 spacing: Metrics.spacingXl
 
                                 AppField {
-                                    Layout.preferredWidth: Metrics.navWidth
-                                    Layout.minimumWidth: Metrics.navWidth
-                                    label: qsTr("事件通道")
-
-                                    Text {
-                                        width: parent.width
-                                        text: root.optionChannelText(modelData.channel)
-                                        color: Theme.textPrimary
-                                        font.pixelSize: Typography.fontBody
-                                        elide: Text.ElideRight
-                                    }
-                                }
-
-                                AppField {
                                     Layout.fillWidth: true
                                     Layout.preferredWidth: 0
                                     Layout.minimumWidth: Metrics.navWidth
                                     label: qsTr("数值模式")
 
-                                    Text {
+                                    AppSegment {
+                                        id: optionModeSegment
+
                                         width: parent.width
-                                        text: root.optionModeText(modelData.mode)
-                                        color: Theme.textPrimary
-                                        font.pixelSize: Typography.fontBody
-                                        wrapMode: Text.WordWrap
+                                        model: [qsTr("百分比"), qsTr("数值")]
+                                        Binding on currentIndex {
+                                            value: String(modelData.mode) === "percent" ? 0 : 1
+                                            restoreMode: Binding.RestoreNone
+                                        }
+                                        onSelected: function (index) {
+                                            root.writeOption(modelData, index === 0 ? "percent" : "value");
+                                        }
                                     }
                                 }
 
@@ -317,7 +322,6 @@ Item {
                                     Layout.preferredWidth: Metrics.navWidth
                                     Layout.minimumWidth: Metrics.navWidth
                                     label: qsTr("强度数值")
-                                    hint: qsTr("由事件决定，不可手动调整")
 
                                     Text {
                                         width: parent.width

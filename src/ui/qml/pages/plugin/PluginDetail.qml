@@ -33,12 +33,25 @@ Item {
         ? 0
         : (root.defaultChannelValue === "B" ? 1 : 2)
 
+    // 通道上限是全局值：当前插件没有事件项时，从任一事件项取同一份全局通道配置
+    readonly property var fallbackChannels: {
+        const list = eventBridge.events;
+        for (let i = 0; i < list.length; ++i) {
+            if (list[i].channels !== undefined) {
+                return list[i].channels;
+            }
+        }
+        return null;
+    }
+
     function channelConfig(channel) {
-        if (root.eventsItem === null || root.eventsItem.channels === undefined) {
+        const source = (root.eventsItem !== null && root.eventsItem.channels !== undefined)
+            ? root.eventsItem.channels
+            : root.fallbackChannels;
+        if (source === null || source[channel] === undefined) {
             return null;
         }
-        const config = root.eventsItem.channels[channel];
-        return config === undefined ? null : config;
+        return source[channel];
     }
 
     function channelValueForIndex(index) {
@@ -181,7 +194,7 @@ Item {
                         label: qsTr("输出通道")
                         hint: root.hasEventData
                             ? qsTr("事件的默认下发通道；子选项选「跟随默认」时按此展开，AB 会在两个通道各生效一次")
-                            : qsTr("该插件未声明事件，通道配置不可用。")
+                            : qsTr("该插件未声明事件，默认输出通道不可用。")
 
                         AppComboBox {
                             id: defaultChannelCombo
@@ -206,8 +219,6 @@ Item {
                         color: Theme.surface
                         border.width: Metrics.borderWidth
                         border.color: Theme.border
-                        enabled: root.hasEventData
-                        opacity: root.hasEventData ? 1.0 : Metrics.disabledOpacity
 
                         ColumnLayout {
                             id: channelColumn
@@ -220,9 +231,25 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("通道上限")
+                                text: qsTr("通道上限（全局）")
                                 color: Theme.textPrimary
                                 font.pixelSize: Typography.fontSubtitle
+                                font.bold: true
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("上限与安全上限都是全局通道设置，所有插件共用，改动立即对所有插件生效。")
+                                color: Theme.textMuted
+                                font.pixelSize: Typography.fontBody
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("通道 A（全局）")
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontBody
                                 font.bold: true
                             }
 
@@ -232,7 +259,8 @@ Item {
 
                                 AppField {
                                     Layout.fillWidth: true
-                                    label: qsTr("通道 A 上限")
+                                    Layout.preferredWidth: 0
+                                    label: qsTr("上限")
 
                                     AppSpinBox {
                                         id: limitASpin
@@ -245,13 +273,14 @@ Item {
                                             when: !limitASpin.activeFocus
                                             restoreMode: Binding.RestoreNone
                                         }
-                                        onValueModified: eventBridge.setChannelConfig(root.moduleName, "A", value, root.safetyA)
+                                        onValueModified: eventBridge.setChannelConfig("A", value, root.safetyA)
                                     }
                                 }
 
                                 AppField {
                                     Layout.fillWidth: true
-                                    label: qsTr("通道 A 安全上限")
+                                    Layout.preferredWidth: 0
+                                    label: qsTr("安全上限")
 
                                     AppSpinBox {
                                         id: safetyASpin
@@ -264,9 +293,17 @@ Item {
                                             when: !safetyASpin.activeFocus
                                             restoreMode: Binding.RestoreNone
                                         }
-                                        onValueModified: eventBridge.setChannelConfig(root.moduleName, "A", root.limitA, value)
+                                        onValueModified: eventBridge.setChannelConfig("A", root.limitA, value)
                                     }
                                 }
+                            }
+
+                            Text {
+                                Layout.fillWidth: true
+                                text: qsTr("通道 B（全局）")
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontBody
+                                font.bold: true
                             }
 
                             RowLayout {
@@ -275,7 +312,8 @@ Item {
 
                                 AppField {
                                     Layout.fillWidth: true
-                                    label: qsTr("通道 B 上限")
+                                    Layout.preferredWidth: 0
+                                    label: qsTr("上限")
 
                                     AppSpinBox {
                                         id: limitBSpin
@@ -288,13 +326,14 @@ Item {
                                             when: !limitBSpin.activeFocus
                                             restoreMode: Binding.RestoreNone
                                         }
-                                        onValueModified: eventBridge.setChannelConfig(root.moduleName, "B", value, root.safetyB)
+                                        onValueModified: eventBridge.setChannelConfig("B", value, root.safetyB)
                                     }
                                 }
 
                                 AppField {
                                     Layout.fillWidth: true
-                                    label: qsTr("通道 B 安全上限")
+                                    Layout.preferredWidth: 0
+                                    label: qsTr("安全上限")
 
                                     AppSpinBox {
                                         id: safetyBSpin
@@ -307,7 +346,7 @@ Item {
                                             when: !safetyBSpin.activeFocus
                                             restoreMode: Binding.RestoreNone
                                         }
-                                        onValueModified: eventBridge.setChannelConfig(root.moduleName, "B", root.limitB, value)
+                                        onValueModified: eventBridge.setChannelConfig("B", root.limitB, value)
                                     }
                                 }
                             }
@@ -331,7 +370,7 @@ Item {
 
                 Text {
                     width: parent.width
-                    text: qsTr("安全上限随通道上限生效，写入后由事件运行时按新上限折算。")
+                    text: qsTr("两个上限都是全局设置：主页与状态栏显示 min(上限, 安全上限)，写入后由事件运行时按新上限折算。")
                     color: Theme.textMuted
                     font.pixelSize: Typography.fontBody
                     wrapMode: Text.WordWrap
