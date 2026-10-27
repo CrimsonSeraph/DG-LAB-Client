@@ -77,6 +77,8 @@ private slots:
     void on_secondary_color_accepted();
     // 插件中心：统一查询周期
     void on_module_period_applied();
+    // 插件中心：详情页选中插件变化时同步数值页签的模块标识
+    void on_plugin_detail_item_changed();
     // 波形库与编辑器
     void on_wave_select_clicked();
     void on_wave_channel_clicked();

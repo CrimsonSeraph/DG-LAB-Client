@@ -19,6 +19,7 @@
 
 #include <QColor>
 #include <QHash>
+#include <QJSValue>
 #include <QKeyEvent>
 #include <QMetaObject>
 #include <QQmlContext>
@@ -258,6 +259,18 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "modulePeriodApplyButton", SLOT(on_module_period_applied()));
     if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("modulePeriodCombo"))) {
         QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_module_period_applied()));
+    }
+
+    // 插件详情：选中插件变化时把模块标识交给模块桥接，供「数值」页签读取
+    if (auto* detail = root_object->findChild<QObject*>(QStringLiteral("pluginDetail"))) {
+        if (detail->metaObject()->indexOfSignal("itemChanged()") >= 0) {
+            QObject::connect(detail, SIGNAL(itemChanged()), this,
+                SLOT(on_plugin_detail_item_changed()));
+        }
+        else {
+            LOG_MODULE("UiConnector", "attach", LOG_WARN,
+                "pluginDetail 缺少 item 变更信号，数值页签不会跟随选中插件刷新");
+        }
     }
 
     // 波形库与编辑器
@@ -952,4 +965,22 @@ void UiConnector::on_module_period_applied() {
     }
     auto* combo = find("modulePeriodCombo");
     module_->applyAllPeriod(combo != nullptr ? combo->property("currentIndex").toInt() : 0);
+}
+
+// 详情页选中插件变化时把模块标识交给模块桥接，供「数值」页签读取
+void UiConnector::on_plugin_detail_item_changed() {
+    if (module_ == nullptr) {
+        return;
+    }
+    auto* detail = sender();
+    if (detail == nullptr) {
+        return;
+    }
+    QString module_name = detail->property("moduleName").toString();
+    if (module_name.isEmpty()) {
+        // 模块标识为空时从 item 字段取同一份标识
+        const QVariantMap item = detail->property("item").value<QJSValue>().toVariant().toMap();
+        module_name = item.value(QStringLiteral("moduleName")).toString();
+    }
+    module_->selectModule(module_name);
 }

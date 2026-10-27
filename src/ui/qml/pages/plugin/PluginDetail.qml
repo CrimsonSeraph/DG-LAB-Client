@@ -1,9 +1,11 @@
 import QtQuick
 import QtQuick.Layouts
 
-// 插件详情：返回入口 + 头图区 + 两个页签（模式与输出 / 触发事件）。
+// 插件详情：返回入口 + 头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。
 Item {
     id: root
+
+    objectName: "pluginDetail"
 
     property var item: null
     property var eventsItem: null
@@ -56,6 +58,38 @@ Item {
 
     function channelValueForIndex(index) {
         return index === 0 ? "A" : (index === 1 ? "B" : "AB");
+    }
+
+    // 选中插件已注册的数值项，由 C++ 侧 selectModule 后的刷新驱动
+    readonly property var valueList: moduleBridge.selectedValues
+
+    // 数值当前值：尚未上报时给占位符，不用 0 冒充
+    function valueText(entry) {
+        if (entry === null || entry.value === undefined || entry.value === null) {
+            return qsTr("暂无");
+        }
+        return String(entry.value);
+    }
+
+    // 数值上下限：未配置的一端显示破折号，不按 0 处理
+    function rangeText(entry) {
+        if (entry === null) {
+            return qsTr("范围未知");
+        }
+        const hasMin = entry.min !== undefined && entry.min !== null;
+        const hasMax = entry.max !== undefined && entry.max !== null;
+        if (!hasMin && !hasMax) {
+            return qsTr("范围未知");
+        }
+        return (hasMin ? String(entry.min) : "—") + " ~ " + (hasMax ? String(entry.max) : "—");
+    }
+
+    // 数值查询周期文本，未注册周期时显示为空
+    function periodText(entry) {
+        if (entry === null || entry.periodText === undefined || entry.periodText === null) {
+            return "";
+        }
+        return String(entry.periodText);
     }
 
     ColumnLayout {
@@ -162,7 +196,7 @@ Item {
 
         AppTabs {
             Layout.fillWidth: true
-            model: [qsTr("模式与输出"), qsTr("触发事件")]
+            model: [qsTr("模式与输出"), qsTr("触发事件"), qsTr("数值")]
             currentIndex: root.activeTab
             onTabClicked: function (index) {
                 root.activeTab = index;
@@ -383,6 +417,142 @@ Item {
             Layout.fillHeight: true
             visible: root.activeTab === 1
             item: root.eventsItem
+        }
+
+        // 数值页签：列出选中插件已注册的数值项与当前值，空态给明确文案
+        Flickable {
+            objectName: "pluginValuesPanel"
+
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.activeTab === 2
+            contentWidth: width
+            contentHeight: valueColumn.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+
+            Column {
+                id: valueColumn
+
+                width: parent.width
+                spacing: Metrics.spacingSm
+
+                Text {
+                    width: valueColumn.width
+                    text: qsTr("%1 · 已注册 %2 个数值").arg(moduleBridge.selectedDisplayName).arg(root.valueList.length)
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                    elide: Text.ElideRight
+                    visible: root.valueList.length > 0
+                }
+
+                Repeater {
+                    model: root.valueList
+
+                    delegate: Rectangle {
+                        required property var modelData
+
+                        width: valueColumn.width
+                        implicitHeight: valueRow.implicitHeight + Metrics.spacingMd * 2
+                        radius: Metrics.radiusSm
+                        color: Theme.surfaceAlt
+                        border.width: Metrics.borderWidth
+                        border.color: Theme.divider
+
+                        RowLayout {
+                            id: valueRow
+
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.margins: Metrics.spacingMd
+                            spacing: Metrics.spacingMd
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                Layout.preferredWidth: 0
+                                spacing: Metrics.spacingXs
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: String(modelData.name)
+                                    color: Theme.textPrimary
+                                    font.pixelSize: Typography.fontBody
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: String(modelData.id)
+                                    color: Theme.textMuted
+                                    font.pixelSize: Typography.fontBody
+                                    elide: Text.ElideRight
+                                }
+                            }
+
+                            Text {
+                                text: root.valueText(modelData)
+                                color: Theme.accent
+                                font.pixelSize: Typography.fontSubtitle
+                                font.bold: true
+                            }
+
+                            Text {
+                                text: root.rangeText(modelData)
+                                color: Theme.textMuted
+                                font.pixelSize: Typography.fontBody
+                            }
+
+                            Text {
+                                Layout.preferredWidth: Metrics.navWidth
+                                text: root.periodText(modelData)
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontBody
+                                horizontalAlignment: Text.AlignRight
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    objectName: "pluginValuesEmpty"
+
+                    width: valueColumn.width
+                    implicitHeight: valueEmptyColumn.implicitHeight + Metrics.cardPadding * 2
+                    visible: root.valueList.length === 0
+                    radius: Metrics.radiusSm
+                    color: Theme.surfaceAlt
+                    border.width: Metrics.borderWidth
+                    border.color: Theme.divider
+
+                    ColumnLayout {
+                        id: valueEmptyColumn
+
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.margins: Metrics.cardPadding
+                        spacing: Metrics.spacingSm
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("该插件尚未注册数值")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontSubtitle
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: qsTr("启用插件并由数据源上报后，这里会逐项列出数值名称、当前值与查询周期。")
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
+            }
         }
     }
 }
