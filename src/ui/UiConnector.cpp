@@ -91,13 +91,31 @@ namespace {
         return value.isValid() ? value.toReal() : fallback;
     }
 
-    /// @brief 从 "channelAStartButton" 这类名字中解析通道（A/B）
+    /// @brief 从 "channelAStartButton" / "miniWindowChannelAToggleButton" 这类名字中解析通道（A/B）
+    /// @note 大小写不敏感：既有的看板按钮是 "channelA..."，迷你窗按钮是 "...ChannelA..."
     QString channel_of(const QString& object_name) {
-        const qsizetype index = object_name.indexOf(QStringLiteral("channel"));
+        const qsizetype index = object_name.indexOf(QStringLiteral("channel"), 0, Qt::CaseInsensitive);
         if (index < 0 || index + 8 >= object_name.size()) {
             return QString();
         }
-        return object_name.mid(index + 7, 1);
+        return object_name.mid(index + 7, 1).toUpper();
+    }
+
+    constexpr qsizetype kMiniWindowWaveFrames = 32; ///< 迷你窗滚动窗口帧数（每帧 100 ms）
+
+    /// @brief 取以 cursor 结尾的最近若干帧，序列不足时按实际长度取
+    QVariantList rolling_window(const QVariantList& series, qint64 cursor) {
+        QVariantList window;
+        const qsizetype total = series.size();
+        if (total <= 0) {
+            return window;
+        }
+        const qsizetype count = std::min<qsizetype>(kMiniWindowWaveFrames, total);
+        const qsizetype head = static_cast<qsizetype>(cursor % total);
+        for (qsizetype step = count; step > 0; --step) {
+            window.append(series.at((head - (step - 1) + total) % total));
+        }
+        return window;
     }
 
 } // namespace
@@ -248,6 +266,23 @@ void UiConnector::attach(QObject* root_object) {
     setup_mini_window(root_object);
     connect_clicked(root_object, "miniWindowLockButton", SLOT(on_mini_window_lock_clicked()));
     connect_clicked(root_object, "miniWindowCloseButton", SLOT(on_mini_window_close_clicked()));
+    // 迷你窗交互：强度增减复用蓝牙强度槽，通道启停复用看板启停槽（两个槽都按 objectName 解析）
+    connect_clicked(root_object, "miniWindowStrengthADecrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "miniWindowStrengthAIncrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "miniWindowStrengthBDecrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "miniWindowStrengthBIncrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "miniWindowChannelAToggleButton", SLOT(on_channel_toggle_clicked()));
+    connect_clicked(root_object, "miniWindowChannelBToggleButton", SLOT(on_channel_toggle_clicked()));
+    connect_clicked(root_object, "miniWindowSizeSmallButton", SLOT(on_mini_window_size_clicked()));
+    connect_clicked(root_object, "miniWindowSizeMediumButton", SLOT(on_mini_window_size_clicked()));
+    connect_clicked(root_object, "miniWindowSizeLargeButton", SLOT(on_mini_window_size_clicked()));
+    // 透明度滑杆没有 clicked：拖动由 AppSlider 自己的 moved() 转发，一次拖动只落盘一次
+    if (auto* opacity_slider = root_object->findChild<QObject*>(QStringLiteral("miniWindowOpacitySlider"))) {
+        QObject::connect(opacity_slider, SIGNAL(moved()), this, SLOT(on_mini_window_opacity_moved()));
+    }
+    else {
+        LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到控件: miniWindowOpacitySlider");
+    }
 
     connect_clicked(root_object, "configConnectButton", SLOT(on_config_connect_clicked()));
     connect_clicked(root_object, "configThemeSelectButton", SLOT(on_theme_select_clicked()));
@@ -375,11 +410,11 @@ void UiConnector::setup_mini_window(QObject* root_object) {
         return;
     }
 
-    // 位置与尺寸取上次保存值，未保存过时用 QML 默认尺寸并落在主屏右上角
-    const bool restored = home_ != nullptr && home_->mini_window_width() > 0 && home_->mini_window_height() > 0;
+    // 位置取上次保存值，未保存过时落在主屏右上角；宽度由大小档位、高度由内容决定
+    const bool restored = home_ != nullptr && home_->mini_window_width() > 0;
     const qreal margin = qml_token(root_object, "Metrics", "spacing3xl", 28.0);
-    int width = restored ? home_->mini_window_width() : window->width();
-    int height = restored ? home_->mini_window_height() : window->height();
+    const int width = std::max(1, window->width());
+    const int height = std::max(1, window->height());
 
     QPoint position(0, 0);
     if (restored) {
@@ -392,37 +427,56 @@ void UiConnector::setup_mini_window(QObject* root_object) {
         screen = primary;
     }
     const QRect area = screen->availableGeometry();
-    width = std::min(width, area.width());
-    height = std::min(height, area.height());
+    const int visible_width = std::min(width, area.width());
+    const int visible_height = std::min(height, area.height());
     if (!restored) {
-        position = QPoint(static_cast<int>(area.right() - width - margin * 2),
+        position = QPoint(static_cast<int>(area.right() - visible_width - margin * 2),
             static_cast<int>(area.top() + margin * 2));
     }
-    const int x = std::clamp(position.x(), area.left(), area.right() - width + 1);
-    const int y = std::clamp(position.y(), area.top(), area.bottom() - height + 1);
+    const int x = std::clamp(position.x(), area.left(),
+        std::max(area.left(), area.right() - visible_width + 1));
+    const int y = std::clamp(position.y(), area.top(),
+        std::max(area.top(), area.bottom() - visible_height + 1));
 
     mini_window_save_timer_.setSingleShot(true);
     mini_window_save_timer_.setInterval(400);
     connect(&mini_window_save_timer_, &QTimer::timeout, this,
-        &UiConnector::save_mini_window_geometry);
+        &UiConnector::save_mini_window_state);
     connect(window, &QWindow::xChanged, this, &UiConnector::on_mini_window_geometry_changed);
     connect(window, &QWindow::yChanged, this, &UiConnector::on_mini_window_geometry_changed);
     connect(window, &QWindow::widthChanged, this, &UiConnector::on_mini_window_geometry_changed);
     connect(window, &QWindow::heightChanged, this, &UiConnector::on_mini_window_geometry_changed);
 
-    window->setGeometry(x, y, width, height);
+    // 波形滚动只在窗口可见时跑：100 ms 一拍，与波形帧长度一致（QML 侧不另开计时器）
+    mini_window_wave_timer_.setInterval(100);
+    connect(&mini_window_wave_timer_, &QTimer::timeout, this, &UiConnector::on_mini_window_wave_advanced);
+    connect(window, &QWindow::visibleChanged, this, &UiConnector::on_mini_window_visibility_changed);
+    if (wave_ != nullptr) {
+        connect(wave_, &WaveBridge::dataChanged, this, &UiConnector::on_mini_window_wave_reset);
+    }
+
+    // 只挪位置：宽高由 QML 绑定（大小档位 + 内容高度）决定，setGeometry 会把绑定打断
+    window->setPosition(x, y);
     // 首次运行没有存档：把落点写回配置，下次启动从同一位置恢复
-    save_mini_window_geometry();
+    save_mini_window_state();
     LOG_MODULE("UiConnector", "setup_mini_window", LOG_DEBUG,
-        "迷你窗几何恢复: " << x << "," << y << " " << width << "x" << height);
+        "迷你窗位置恢复: " << x << "," << y << " " << width << "x" << height);
 }
 
-void UiConnector::save_mini_window_geometry() {
+void UiConnector::save_mini_window_state() {
     if (mini_window_.isNull() || home_ == nullptr) {
         return;
     }
-    home_->saveMiniWindowGeometry(mini_window_->x(), mini_window_->y(),
+    home_->saveMiniWindowState(mini_window_->x(), mini_window_->y(),
         mini_window_->width(), mini_window_->height());
+}
+
+void UiConnector::apply_mini_window_wave() {
+    if (home_ == nullptr || wave_ == nullptr) {
+        return;
+    }
+    home_->setMiniWindowWave(rolling_window(wave_->amplitude_a(), mini_window_wave_cursor_),
+        rolling_window(wave_->amplitude_b(), mini_window_wave_cursor_));
 }
 
 void UiConnector::connect_clicked(QObject* root_object, const char* object_name, const char* slot) {
@@ -645,12 +699,65 @@ void UiConnector::on_mini_window_close_clicked() {
     if (mini_window_.isNull()) {
         return;
     }
-    save_mini_window_geometry();
+    save_mini_window_state();
     mini_window_->hide();
 }
 
 void UiConnector::on_mini_window_geometry_changed() {
     mini_window_save_timer_.start();
+}
+
+void UiConnector::on_mini_window_opacity_moved() {
+    auto* slider = find("miniWindowOpacitySlider");
+    if (slider == nullptr || home_ == nullptr) {
+        return;
+    }
+    // 拖动中即时生效：QML 的 Window.opacity 绑在 home.miniWindowOpacity 上，落盘交给合并计时器
+    home_->setMiniWindowOpacity(slider->property("value").toReal());
+    mini_window_save_timer_.start();
+}
+
+void UiConnector::on_mini_window_size_clicked() {
+    auto* button = sender();
+    if (button == nullptr || home_ == nullptr) {
+        return;
+    }
+    const QString name = button->objectName();
+    if (name.endsWith(QStringLiteral("SmallButton"))) {
+        home_->setMiniWindowSize(QStringLiteral("small"));
+    }
+    else if (name.endsWith(QStringLiteral("LargeButton"))) {
+        home_->setMiniWindowSize(QStringLiteral("large"));
+    }
+    else {
+        home_->setMiniWindowSize(QStringLiteral("medium"));
+    }
+    mini_window_save_timer_.start();
+}
+
+void UiConnector::on_mini_window_visibility_changed() {
+    if (mini_window_.isNull()) {
+        return;
+    }
+    if (!mini_window_->isVisible()) {
+        mini_window_wave_timer_.stop();
+        return;
+    }
+    mini_window_wave_cursor_ = 0;
+    apply_mini_window_wave();
+    mini_window_wave_timer_.start();
+}
+
+void UiConnector::on_mini_window_wave_reset() {
+    mini_window_wave_cursor_ = 0;
+    if (!mini_window_.isNull() && mini_window_->isVisible()) {
+        apply_mini_window_wave();
+    }
+}
+
+void UiConnector::on_mini_window_wave_advanced() {
+    ++mini_window_wave_cursor_;
+    apply_mini_window_wave();
 }
 
 void UiConnector::on_nav_button_clicked() {

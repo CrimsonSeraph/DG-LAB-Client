@@ -31,6 +31,10 @@ class HomeBridge : public QObject {
     Q_PROPERTY(QString channelAState READ channel_a_state NOTIFY dataChanged)
     Q_PROPERTY(QString channelBState READ channel_b_state NOTIFY dataChanged)
     Q_PROPERTY(bool miniWindowLocked READ mini_window_locked NOTIFY miniWindowLockedChanged)
+    Q_PROPERTY(qreal miniWindowOpacity READ mini_window_opacity NOTIFY miniWindowOpacityChanged)
+    Q_PROPERTY(QString miniWindowSize READ mini_window_size NOTIFY miniWindowSizeChanged)
+    Q_PROPERTY(QVariantList miniWindowWaveA READ mini_window_wave_a NOTIFY miniWindowWaveChanged)
+    Q_PROPERTY(QVariantList miniWindowWaveB READ mini_window_wave_b NOTIFY miniWindowWaveChanged)
 
 public:
     explicit HomeBridge(DeviceController* device, QObject* parent = nullptr);
@@ -62,9 +66,23 @@ public:
     int mini_window_y() const { return mini_window_y_; }
     int mini_window_width() const { return mini_window_width_; }
     int mini_window_height() const { return mini_window_height_; }
+    /// @brief 迷你窗透明度（0.3~1.0）
+    qreal mini_window_opacity() const { return mini_window_opacity_; }
+    /// @brief 迷你窗大小档位（small / medium / large）
+    QString mini_window_size() const { return mini_window_size_; }
+    /// @brief 迷你窗 A 通道滚动波形（最近若干帧的强度均值，0~100）
+    QVariantList mini_window_wave_a() const { return mini_window_wave_a_; }
+    /// @brief 迷你窗 B 通道滚动波形
+    QVariantList mini_window_wave_b() const { return mini_window_wave_b_; }
 
-    /// @brief 保存迷你窗位置与尺寸到 user.json 的 app.ui.mini_window
-    void saveMiniWindowGeometry(int x, int y, int width, int height);
+    /// @brief 保存迷你窗位置、尺寸、透明度与大小档位到 user.json 的 app.ui.mini_window
+    void saveMiniWindowState(int x, int y, int width, int height);
+    /// @brief 更新迷你窗透明度（只改内存，落盘由 UiConnector 合并）
+    void setMiniWindowOpacity(qreal opacity);
+    /// @brief 更新迷你窗大小档位 small / medium / large（只改内存，落盘由 UiConnector 合并）
+    void setMiniWindowSize(const QString& size);
+    /// @brief 更新迷你窗 A/B 滚动波形
+    void setMiniWindowWave(const QVariantList& wave_a, const QVariantList& wave_b);
 
     /// @brief 切换通道启用状态（同步到规则引擎的通道启用变量）
     Q_INVOKABLE void toggleChannel(const QString& channel);
@@ -81,6 +99,9 @@ signals:
     void dataChanged();
     void miniWindowLockedChanged();
     void channelWaveSelectRequested(const QString& channel);
+    void miniWindowOpacityChanged();
+    void miniWindowSizeChanged();
+    void miniWindowWaveChanged();
 
 private:
     int channel_index(const QString& channel) const;
@@ -98,4 +119,9 @@ private:
     int mini_window_y_ = 0;
     int mini_window_width_ = 0;
     int mini_window_height_ = 0;
+    qreal mini_window_opacity_ = 1.0;
+    QString mini_window_size_ = QStringLiteral("medium");
+    QVariantList mini_window_wave_a_;
+    QVariantList mini_window_wave_b_;
+    bool mini_window_state_dirty_ = false;
 };

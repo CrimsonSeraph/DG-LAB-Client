@@ -26,7 +26,7 @@ src/ui/
 ├── README.md
 ├── qml/
 │   ├── MainWindow.qml          # 左侧导航 + 内容区页栈 + 左下常驻面板 + 状态栏（原生标题栏；自绘标题栏与窗口控制按钮为后续任务）
-│   ├── MiniWindow.qml         # 迷你窗：无边框置顶小窗，拖动 / 锁定 / 隐藏与 A/B 强度大数字、占比（滑块与波形为后续任务）
+│   ├── MiniWindow.qml         # 迷你窗：无边框置顶小窗，A/B 强度大数字与占比、强度增减、通道启停、透明度与大小档位、近 5 条触发流水与 A/B 滚动波形
 │   ├── dialogs/
 │   │   ├── RuleEditorDialog.qml # 规则可视化编辑器（画布手势例外见下）
 │   │   ├── UpdateDialog.qml     # 软件更新：版本 / 完整更新说明 / 进度 / 更新动作（左下角面板入口打开）
@@ -147,12 +147,20 @@ src/ui/
 
 | objectName | 行为 |
 | --- | --- |
-| `miniWindow` | 迷你窗根项（`Window`）：启动时从 `app.ui.mini_window.{x,y,width,height}` 恢复位置与尺寸并夹回可见屏幕；位置或尺寸变化后 400 ms 合并写回配置 |
+| `miniWindow` | 迷你窗根项（`Window`）：启动时从 `app.ui.mini_window.{x,y}` 恢复位置并夹回可见屏幕，宽度取大小档位、高度按内容 `implicitHeight` 计算（封顶，滑杆与列表不撑高窗口）；位置 / 尺寸 / 透明度 / 大小档位变化后 400 ms 合并写回 `app.ui.mini_window.*`（`opacity` 缺省 1.0、`size` 缺省 `medium`） |
 | `miniWindowFrame` / `miniWindowTitleBar` / `miniWindowTitleText` | 圆角底板（`Theme.surface` + `Theme.border`）、标题条与标题文字：只读；锁定态标题转 `Theme.textMuted` |
 | `miniWindowLockButton` | 锁定 / 解锁（`UiConnector::on_mini_window_lock_clicked()` → `HomeBridge::toggleMiniWindowLock()`，写 `app.ui.mini_window.locked`）：锁定后拖动热区失效，按钮文案在「锁定 / 解锁」间切换 |
 | `miniWindowCloseButton` | 关闭（×）只隐藏窗口并写回位置，不退出进程 |
 | `miniWindowChannel{A,B}Name` / `miniWindowChannel{A,B}State` | 通道徽标与运行状态（`home.running{A,B}` → 运行中 / 未运行）：只读 |
 | `miniWindowChannel{A,B}Value` / `miniWindowChannel{A,B}Limit` / `miniWindowChannel{A,B}Percent` | 强度大数字、上限（`home.strength{A,B}` / `home.limit{A,B}`）与占比（强度 / 上限，上限为 0 时显示 `--`）：只读 |
+| `miniWindowStrength{A,B}Decrease` / `miniWindowStrength{A,B}Increase` | 强度增减：直接复用 `UiConnector::on_ble_strength_clicked()`——该槽按 objectName 里的 `StrengthA`/`StrengthB` 与 `Increase`/`Decrease` 判定通道与方向，迷你窗前缀不影响判定，调用链与配置页 `bleStrength{A,B}{Increase,Decrease}` 完全一致（`CoyoteBleController::setStrength()`）。显示的强度数字来源是设备回传，未连接设备时点击不产生可见变化 |
+| `miniWindowChannel{A,B}ToggleButton` | 通道启停：直接复用看板的 `UiConnector::on_channel_toggle_clicked()`；`channel_of()` 改为大小写不敏感，`miniWindowChannelAToggleButton` 解析为 A，`channel{A,B}StartButton` 行为不变。关闭运行中的通道仍先经 `confirmDialog` 确认；按钮文案在「启动通道 / 关闭通道」间切换，运行态取 `danger` + `outline` |
+| `miniWindowOpacitySlider` | 透明度（0.3~1.0，步进 0.05，右侧显示百分比）：拖动经 `UiConnector::on_mini_window_opacity_moved()` 写 `home.miniWindowOpacity`（`Window.opacity` 绑该属性即时生效），落盘走与几何同一套 400 ms 合并计时器，写 `app.ui.mini_window.opacity` |
+| `miniWindowSizeSmallButton` / `miniWindowSizeMediumButton` / `miniWindowSizeLargeButton` | 大小三档（宽 280 / 340 / 420 逻辑像素）：`on_mini_window_size_clicked()` 按 `...SmallButton` 等后缀写 `home.miniWindowSize`（`small` / `medium` / `large`）；当前档位按钮取 `primary` 高亮，写 `app.ui.mini_window.size` |
+| `miniWindowTriggerList` / `miniWindowTriggerEmpty` | 近 5 条触发流水：取 `eventBridge.triggers`（时间正序）倒序，字段与首页流水卡一致（时间 / 通道 / 模块·事件·子选项 / Δ）；无记录显示「暂无触发」；列表高度封顶 5 行，超出在列表内滚动 |
+| `miniWindowWaveName{A,B}` / `miniWindowWaveSparkline{A,B}` / `miniWindowWaveEmpty{A,B}` | A/B 滚动波形：曲线取 `home.miniWindowWave{A,B}`（C++ 每 100 ms 把 `waveBridge.amplitude{A,B}` 的最近 32 帧推给桥接对象，循环播放），名称取 `waveBridge.current{A,B}`；未绑定波形时隐藏曲线与名称、显示「未绑定波形」 |
+
+迷你窗的交互全部按上述 objectName 由 C++ 连接，`MiniWindow.qml` 不新增任何信号处理器（仍是标题条拖动 2 处登记例外）。波形滚动不在 QML 里开计时器：`UiConnector` 持有 100 ms 计时器，只随迷你窗可见性启停，每拍把 `WaveBridge::amplitude_a()` / `amplitude_b()`（每帧 4 个强度字节取均值，0~100，帧长 100 ms）按游标截取最近 32 帧写入 `HomeBridge::setMiniWindowWave()`。
 
 主窗口关闭语义：`main.cpp` 设 `setQuitOnLastWindowClosed(false)`，主窗口 `onClosing` 只调 `tray.handleMainWindowClose()`——托盘可用时隐藏到托盘，托盘不可用时直接退出；退出只走托盘菜单的「退出」。
 

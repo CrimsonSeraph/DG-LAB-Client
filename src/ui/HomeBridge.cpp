@@ -15,6 +15,18 @@
 #include <QVariantMap>
 
 #include <algorithm>
+#include <cmath>
+
+namespace {
+
+    constexpr qreal kMiniWindowOpacityMin = 0.3; ///< 迷你窗透明度下限（与滑杆量程一致）
+
+    /// @brief 透明度量化到两位小数（滑杆按 0.05 步进，避免 0.599999… 落盘）
+    qreal quantize_opacity(qreal opacity) {
+        return std::round(std::clamp(opacity, kMiniWindowOpacityMin, 1.0) * 100.0) / 100.0;
+    }
+
+} // namespace
 
 HomeBridge::HomeBridge(DeviceController* device, QObject* parent)
     : QObject(parent)
@@ -56,6 +68,13 @@ void HomeBridge::initialize() {
     mini_window_width_ = config.get_value<int>("app.ui.mini_window.width", 0);
     mini_window_height_ = config.get_value<int>("app.ui.mini_window.height", 0);
     mini_window_locked_ = config.get_value<bool>("app.ui.mini_window.locked", false);
+    mini_window_opacity_ = quantize_opacity(config.get_value<double>("app.ui.mini_window.opacity", 1.0));
+    // 大小档位只认三档，未知值（手改配置 / 旧版本残留）回落到 medium
+    const QString size = QString::fromStdString(config.get_value<std::string>("app.ui.mini_window.size",
+        "medium"));
+    mini_window_size_ = (size == QStringLiteral("small") || size == QStringLiteral("large"))
+        ? size
+        : QStringLiteral("medium");
 
     LOG_MODULE("HomeBridge", "initialize", LOG_INFO, "首页桥接初始化完成");
 }
@@ -102,24 +121,59 @@ QVariantList HomeBridge::rules_b() const {
     return build_rules(QStringLiteral("B"));
 }
 
-void HomeBridge::saveMiniWindowGeometry(int x, int y, int width, int height) {
-    if (x == mini_window_x_ && y == mini_window_y_ && width == mini_window_width_ && height == mini_window_height_) {
+void HomeBridge::saveMiniWindowState(int x, int y, int width, int height) {
+    const bool geometry_changed = x != mini_window_x_ || y != mini_window_y_
+        || width != mini_window_width_ || height != mini_window_height_;
+    if (!geometry_changed && !mini_window_state_dirty_) {
         return;
     }
     mini_window_x_ = x;
     mini_window_y_ = y;
     mini_window_width_ = width;
     mini_window_height_ = height;
+    mini_window_state_dirty_ = false;
 
     auto& config = AppConfig::instance();
     config.set_value_with_name<int>("app.ui.mini_window.x", mini_window_x_, "user");
     config.set_value_with_name<int>("app.ui.mini_window.y", mini_window_y_, "user");
     config.set_value_with_name<int>("app.ui.mini_window.width", mini_window_width_, "user");
     config.set_value_with_name<int>("app.ui.mini_window.height", mini_window_height_, "user");
+    config.set_value_with_name<double>("app.ui.mini_window.opacity", mini_window_opacity_, "user");
+    config.set_value_with_name<std::string>("app.ui.mini_window.size", mini_window_size_.toStdString(), "user");
     config.save_all();
-    LOG_MODULE("HomeBridge", "saveMiniWindowGeometry", LOG_DEBUG,
-        "迷你窗位置已保存: " << mini_window_x_ << "," << mini_window_y_
-                             << " " << mini_window_width_ << "x" << mini_window_height_);
+    LOG_MODULE("HomeBridge", "saveMiniWindowState", LOG_DEBUG,
+        "迷你窗状态已保存: " << mini_window_x_ << "," << mini_window_y_
+                             << " " << mini_window_width_ << "x" << mini_window_height_
+                             << " 透明度 " << mini_window_opacity_
+                             << " 档位 " << mini_window_size_.toStdString());
+}
+
+void HomeBridge::setMiniWindowOpacity(qreal opacity) {
+    const qreal clamped = quantize_opacity(opacity);
+    if (qFuzzyCompare(clamped, mini_window_opacity_)) {
+        return;
+    }
+    mini_window_opacity_ = clamped;
+    mini_window_state_dirty_ = true;
+    emit miniWindowOpacityChanged();
+}
+
+void HomeBridge::setMiniWindowSize(const QString& size) {
+    if (size != QStringLiteral("small") && size != QStringLiteral("medium") && size != QStringLiteral("large")) {
+        return;
+    }
+    if (size == mini_window_size_) {
+        return;
+    }
+    mini_window_size_ = size;
+    mini_window_state_dirty_ = true;
+    emit miniWindowSizeChanged();
+}
+
+void HomeBridge::setMiniWindowWave(const QVariantList& wave_a, const QVariantList& wave_b) {
+    mini_window_wave_a_ = wave_a;
+    mini_window_wave_b_ = wave_b;
+    emit miniWindowWaveChanged();
 }
 
 void HomeBridge::toggleChannel(const QString& channel) {

@@ -2,9 +2,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 迷你窗：无边框置顶小窗，本批提供 A/B 强度大数字、占比与运行状态，以及拖动 / 锁定 / 隐藏。
-// 交互约定：锁定与关闭按钮由 C++（UiConnector）按 objectName 连接；标题条拖动是登记在案的指针手势例外。
-// 结构预留：通道块之后按 ColumnLayout 顺序追加滑块 / 触发流水 / 波形播放（下一批）。
+// 迷你窗：无边框置顶小窗。内容自下而上依次为标题条、A/B 强度块（大数字、上限、占比、状态、
+// 强度增减与通道启停）、透明度与大小档位、近 5 条触发流水、A/B 滚动波形。
+// 交互约定：按钮与滑杆全部由 C++（UiConnector）按 objectName 连接，QML 不写信号处理器；
+// 标题条拖动是登记在案的指针手势例外；波形滚动由 C++ 的 100 ms 计时器推进，QML 不开计时器。
 Window {
     id: root
 
@@ -13,12 +14,60 @@ Window {
     flags: Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
     // 圆角外的区域透出桌面：窗口本身不着色
     color: "transparent"
-    width: 340
-    height: 220
+    // 宽度取大小档位，高度按内容 implicitHeight 计算并设上限：滑杆与列表不撑高窗口
+    width: root.tierWidth
+    height: Math.min(contentBody.implicitHeight + Metrics.spacingLg * 2, root.maxContentHeight)
+    // 透明度只由 home 驱动，滑杆写入 home 后经绑定生效
+    opacity: home.miniWindowOpacity
     visible: false
     title: qsTr("迷你窗")
 
-    // 单通道强度块：大数字 + 上限 + 占比 + 运行状态，全部只读绑定 home
+    // 三档宽度（逻辑像素）：小 280 / 中 340 / 大 420
+    readonly property int tierWidth: home.miniWindowSize === "small" ? 280
+        : (home.miniWindowSize === "large" ? 420 : 340)
+    // 内容高度上限：窗口再高就不再跟着内容长
+    readonly property int maxContentHeight: 640
+    readonly property int triggerLimit: 5
+    readonly property int triggerRowHeight: Typography.fontBody + Metrics.spacingXs
+
+    // eventBridge.triggers 按时间正序返回，倒序取最近 N 条让最新的排在最上（同首页触发流水卡）
+    readonly property var triggerEntries: root.recentTriggers()
+
+    // 取最近 N 条触发记录，最新的在前
+    function recentTriggers() {
+        const source = eventBridge.triggers;
+        const list = [];
+        const start = Math.max(0, source.length - root.triggerLimit);
+        for (let i = source.length - 1; i >= start; --i) {
+            list.push(source[i]);
+        }
+        return list;
+    }
+
+    // 拼触发条目标题：模块 · 事件（· 子选项）
+    function triggerTitle(item) {
+        const module = (item.module === undefined || item.module === null) ? "" : String(item.module);
+        const event = (item.event === undefined || item.event === null) ? "" : String(item.event);
+        const option = (item.option === undefined || item.option === null) ? "" : String(item.option);
+        let title = module + " · " + event;
+        if (option.length > 0) {
+            title += " · " + option;
+        }
+        return title;
+    }
+
+    // 通道当前绑定的波形名，未绑定返回空串
+    function waveName(channel) {
+        const name = (channel === "B") ? waveBridge.currentB : waveBridge.currentA;
+        return (name === undefined || name === null) ? "" : String(name);
+    }
+
+    // 通道滚动波形序列（C++ 每 100 ms 推进一次）
+    function waveSeries(channel) {
+        return (channel === "B") ? home.miniWindowWaveB : home.miniWindowWaveA;
+    }
+
+    // 单通道强度块：大数字 + 上限 + 占比 + 运行状态 + 强度增减 + 通道启停
     component ChannelStrengthBlock: ColumnLayout {
         id: block
 
@@ -84,6 +133,36 @@ Window {
                 font.pixelSize: Typography.fontTitle
             }
         }
+
+        // 强度增减与通道启停：objectName 里同时带 Strength<通道>{Increase,Decrease}、
+        // Channel<通道>ToggleButton，既有解析逻辑据此判定通道与增减方向
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Metrics.spacingSm
+
+            AppButton {
+                objectName: "miniWindowStrength" + block.channel + "Decrease"
+                text: block.channel + "−"
+                Layout.preferredWidth: Metrics.spacing3xl * 2
+            }
+
+            AppButton {
+                objectName: "miniWindowStrength" + block.channel + "Increase"
+                text: block.channel + "+"
+                Layout.preferredWidth: Metrics.spacing3xl * 2
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            AppButton {
+                objectName: "miniWindowChannel" + block.channel + "ToggleButton"
+                text: block.running ? qsTr("关闭通道") : qsTr("启动通道")
+                danger: block.running
+                outline: true
+            }
+        }
     }
 
     Rectangle {
@@ -97,6 +176,8 @@ Window {
         border.color: Theme.border
 
         ColumnLayout {
+            id: contentBody
+
             anchors.fill: parent
             anchors.margins: Metrics.spacingLg
             spacing: Metrics.spacingMd
@@ -176,6 +257,204 @@ Window {
                 strength: home.strengthB
                 limit: home.limitB
                 running: home.runningB
+            }
+
+            // 透明度与大小档位：透明度拖动中即时生效，写盘由 C++ 的 400 ms 合并计时器统一处理
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Metrics.spacingXs
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Metrics.spacingSm
+
+                    Text {
+                        text: qsTr("透明度")
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.fontBody
+                    }
+
+                    AppSlider {
+                        objectName: "miniWindowOpacitySlider"
+                        Layout.fillWidth: true
+                        from: 0.3
+                        to: 1.0
+                        step: 0.05
+                        showValue: true
+                        value: home.miniWindowOpacity
+                        valueText: Math.round(home.miniWindowOpacity * 100) + "%"
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Metrics.spacingSm
+
+                    Text {
+                        text: qsTr("大小")
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.fontBody
+                    }
+
+                    AppButton {
+                        objectName: "miniWindowSizeSmallButton"
+                        text: qsTr("小")
+                        primary: home.miniWindowSize === "small"
+                        Layout.fillWidth: true
+                    }
+
+                    AppButton {
+                        objectName: "miniWindowSizeMediumButton"
+                        text: qsTr("中")
+                        primary: home.miniWindowSize === "medium"
+                        Layout.fillWidth: true
+                    }
+
+                    AppButton {
+                        objectName: "miniWindowSizeLargeButton"
+                        text: qsTr("大")
+                        primary: home.miniWindowSize === "large"
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+
+            // 近 N 条触发流水：列表限高可滚，条目高度之和超过上限时在列表内部滚动
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Metrics.spacingXs
+
+                Text {
+                    text: qsTr("近期触发")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                }
+
+                Text {
+                    objectName: "miniWindowTriggerEmpty"
+                    Layout.fillWidth: true
+                    visible: root.triggerEntries.length === 0
+                    text: qsTr("暂无触发")
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontBody
+                }
+
+                ListView {
+                    id: triggerList
+
+                    objectName: "miniWindowTriggerList"
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(triggerList.contentHeight,
+                        root.triggerLimit * root.triggerRowHeight)
+                    visible: root.triggerEntries.length > 0
+                    clip: true
+                    model: root.triggerEntries
+                    spacing: Metrics.spacingXs
+
+                    delegate: RowLayout {
+                        required property var modelData
+
+                        width: triggerList.width
+                        spacing: Metrics.spacingSm
+
+                        Text {
+                            text: modelData.time
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            font.family: Typography.fontMonoFamily
+                        }
+
+                        Text {
+                            text: modelData.channel
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                            font.bold: true
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.triggerTitle(modelData)
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        Text {
+                            text: qsTr("Δ %1").arg(modelData.delta)
+                            color: Theme.accent
+                            font.pixelSize: Typography.fontBody
+                            font.bold: true
+                        }
+                    }
+                }
+            }
+
+            // A/B 滚动波形：曲线取 waveBridge.amplitudeA/B（每帧强度字节均值 0~100）的滚动窗口
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Metrics.spacingMd
+
+                Repeater {
+                    model: ["A", "B"]
+
+                    delegate: ColumnLayout {
+                        id: waveColumn
+
+                        required property string modelData
+
+                        readonly property bool bound: root.waveName(waveColumn.modelData).length > 0
+
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 0
+                        spacing: Metrics.spacingXs
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: Metrics.spacingXs
+
+                            Text {
+                                text: qsTr("通道 %1").arg(waveColumn.modelData)
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontBody
+                                font.bold: true
+                            }
+
+                            Text {
+                                objectName: "miniWindowWaveName" + waveColumn.modelData
+                                Layout.fillWidth: true
+                                visible: waveColumn.bound
+                                text: root.waveName(waveColumn.modelData)
+                                color: Theme.textMuted
+                                font.pixelSize: Typography.fontBody
+                                elide: Text.ElideRight
+                                horizontalAlignment: Text.AlignRight
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: 0
+                            Layout.preferredHeight: ComponentStyle.wavePreviewHeight
+
+                            AppSparkline {
+                                objectName: "miniWindowWaveSparkline" + waveColumn.modelData
+                                anchors.fill: parent
+                                visible: waveColumn.bound
+                                points: root.waveSeries(waveColumn.modelData)
+                                maxValue: 100
+                            }
+
+                            Text {
+                                objectName: "miniWindowWaveEmpty" + waveColumn.modelData
+                                anchors.centerIn: parent
+                                visible: !waveColumn.bound
+                                text: qsTr("未绑定波形")
+                                color: Theme.textMuted
+                                font.pixelSize: Typography.fontBody
+                            }
+                        }
+                    }
+                }
             }
 
             Item {

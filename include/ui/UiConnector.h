@@ -127,6 +127,11 @@ private slots:
     void on_mini_window_lock_clicked();
     void on_mini_window_close_clicked();
     void on_mini_window_geometry_changed();
+    void on_mini_window_opacity_moved();
+    void on_mini_window_size_clicked();
+    void on_mini_window_visibility_changed();
+    void on_mini_window_wave_reset();
+    void on_mini_window_wave_advanced();
 
 private:
     void connect_clicked(QObject* root_object, const char* object_name, const char* slot);
@@ -138,10 +143,12 @@ private:
     void watch_items(QObject* root_object, const char* owner_name, const QString& item_name, const char* slot);
     void scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot);
     QObject* find(const char* object_name) const;
-    /// @brief 定位迷你窗并恢复上次保存的位置与尺寸（越界时夹回可见区域）
+    /// @brief 定位迷你窗并恢复上次保存的位置（越界时夹回可见区域）
     void setup_mini_window(QObject* root_object);
-    /// @brief 把迷你窗当前位置与尺寸写回配置
-    void save_mini_window_geometry();
+    /// @brief 把迷你窗当前位置、尺寸、透明度与大小档位写回配置
+    void save_mini_window_state();
+    /// @brief 把滚动波形游标处的最近若干帧推给 HomeBridge
+    void apply_mini_window_wave();
 
     struct ItemWatch {
         QQuickItem* owner = nullptr;
@@ -165,7 +172,9 @@ private:
     qreal log_scroll_y_ = 0.0;               ///< 用户滚动停留时的 contentY
     QString wave_last_error_;                ///< 上一次已反馈过的波形错误（避免重复 Toast）
     QPointer<QQuickWindow> mini_window_;     ///< 迷你窗（QML 侧 MiniWindow.qml）
-    QTimer mini_window_save_timer_;          ///< 迷你窗位置保存的延迟合并计时器
+    QTimer mini_window_save_timer_;          ///< 迷你窗状态保存的延迟合并计时器
+    QTimer mini_window_wave_timer_;          ///< 迷你窗波形滚动计时器（100 ms，与波形帧同拍）
+    qint64 mini_window_wave_cursor_ = 0;     ///< 波形滚动游标（帧序号，循环播放）
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
     UpdateBridge* update_ = nullptr;
