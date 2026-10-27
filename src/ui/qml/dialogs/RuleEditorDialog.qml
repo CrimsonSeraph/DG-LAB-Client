@@ -23,6 +23,65 @@ Dialog {
     height: Math.min(ComponentStyle.dialogRuleEditorHeight, Overlay.overlay.height - Metrics.spacingXl * 2)
     padding: Metrics.spacingMd
 
+    // 当前图标题：无插件 = 总规则图，否则取插件显示名
+    function currentGraphTitle() {
+        var plugin = ruleGraph.currentGraphPlugin;
+        if (plugin === "") {
+            return qsTr("总规则图");
+        }
+        var list = ruleGraph.pluginGraphs;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].plugin === plugin) {
+                return qsTr("%1 规则图").arg(list[i].label);
+            }
+        }
+        return qsTr("%1 规则图").arg(plugin);
+    }
+
+    // 新插件输出节点按已有数量纵向错开，避免落点重叠
+    function pluginOutputRow() {
+        var list = ruleGraph.nodes;
+        var count = 0;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].type === "pluginOutput") {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    header: Item {
+        implicitHeight: ruleHeader.implicitHeight + Metrics.spacingMd
+
+        RowLayout {
+            id: ruleHeader
+            anchors.fill: parent
+            anchors.leftMargin: Metrics.spacingMd
+            anchors.rightMargin: Metrics.spacingMd
+            anchors.topMargin: Metrics.spacingMd
+            spacing: Metrics.spacingMd
+
+            Text {
+                objectName: "ruleGraphTitle"
+                text: dialog.currentGraphTitle()
+                color: Theme.textPrimary
+                font.pixelSize: Typography.fontBody
+                font.bold: true
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            AppButton {
+                objectName: "ruleBackToTopButton"
+                text: qsTr("返回总图")
+                visible: ruleGraph.currentGraphPlugin !== ""
+                onClicked: ruleGraph.loadPluginGraph("")
+            }
+        }
+    }
+
     background: Rectangle {
         radius: Metrics.radiusMd
         color: Theme.surface
@@ -49,43 +108,116 @@ Dialog {
             Layout.fillHeight: true
             spacing: Metrics.spacingMd
 
-            Text {
-                text: qsTr("模块数值（点击添加源节点）")
-                color: Theme.textSecondary
-                font.pixelSize: Typography.fontBody
-            }
-
-            ListView {
-                id: moduleList
+            // 插件选择器：插件输出节点只属于总规则图，插件图里换成数值源列表
+            ColumnLayout {
+                id: pluginSection
 
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
-                model: ruleGraph.moduleValues
-                spacing: Metrics.spacing2xs
+                visible: ruleGraph.currentGraphPlugin === ""
+                spacing: Metrics.spacingMd
 
-                delegate: Rectangle {
-                    width: moduleList.width
-                    height: ComponentStyle.dialogListRowHeight
-                    radius: Metrics.radiusXs
-                    color: Theme.surfaceAlt
-                    border.width: Metrics.borderWidth
-                    border.color: Theme.divider
+                Text {
+                    text: qsTr("插件（点击添加输出节点）")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                }
 
-                    Text {
-                        anchors.left: parent.left
-                        anchors.leftMargin: Metrics.spacingSm
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: modelData.label + "  (" + modelData.valueId + ")"
-                        color: Theme.textSecondary
-                        font.pixelSize: Typography.fontBody
-                        elide: Text.ElideRight
-                        width: parent.width - Metrics.spacingLg
+                ListView {
+                    id: pluginList
+
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: ruleGraph.pluginGraphs
+                    spacing: Metrics.spacing2xs
+
+                    delegate: Rectangle {
+                        width: pluginList.width
+                        height: ComponentStyle.dialogListRowHeight
+                        radius: Metrics.radiusXs
+                        color: Theme.surfaceAlt
+                        border.width: Metrics.borderWidth
+                        border.color: Theme.divider
+
+                        Text {
+                            id: pluginBadge
+
+                            anchors.right: parent.right
+                            anchors.rightMargin: Metrics.spacingSm
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: modelData.hasGraph ? qsTr("已有规则图") : qsTr("无规则图")
+                            color: modelData.hasGraph ? Theme.accent : Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Metrics.spacingSm
+                            anchors.right: pluginBadge.left
+                            anchors.rightMargin: Metrics.spacingSm
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: modelData.label
+                            color: Theme.textPrimary
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: ruleGraph.addPluginOutputNode(modelData.plugin, 100, 80 + dialog.pluginOutputRow() * 140)
+                        }
                     }
+                }
+            }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: ruleGraph.addModuleNode(modelData.valueId, 60, 80 + moduleList.contentY / 2)
+            // 数值源列表：插件规则图的输入取自插件数值
+            ColumnLayout {
+                id: moduleSection
+
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: ruleGraph.currentGraphPlugin !== ""
+                spacing: Metrics.spacingMd
+
+                Text {
+                    text: qsTr("模块数值（点击添加源节点）")
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                }
+
+                ListView {
+                    id: moduleList
+
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: ruleGraph.moduleValues
+                    spacing: Metrics.spacing2xs
+
+                    delegate: Rectangle {
+                        width: moduleList.width
+                        height: ComponentStyle.dialogListRowHeight
+                        radius: Metrics.radiusXs
+                        color: Theme.surfaceAlt
+                        border.width: Metrics.borderWidth
+                        border.color: Theme.divider
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: Metrics.spacingSm
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: modelData.label + "  (" + modelData.valueId + ")"
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                            width: parent.width - Metrics.spacingLg
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: ruleGraph.addModuleNode(modelData.valueId, 60, 80 + moduleList.contentY / 2)
+                        }
                     }
                 }
             }
@@ -196,6 +328,14 @@ Dialog {
                 property real lastMouseY: 0
                 // 最近一次右键命中的连线 id（0 = 未命中）
                 property int contextEdgeId: 0
+                // 点击 / 拖动判定：按下后位移不足 clickMoveThreshold 视为点击
+                readonly property real clickMoveThreshold: 4
+                // 默认输出节点的引用行高度（世界单位），代理与命中测试共用
+                readonly property real referenceRowHeight: Typography.fontBody + Metrics.spacingXs
+                property int pressNodeId: -1
+                property real pressX: 0
+                property real pressY: 0
+                property bool dragMoved: false
 
                 function toWorldX(x) {
                     return (x - panX) / zoom;
@@ -205,16 +345,73 @@ Dialog {
                     return (y - panY) / zoom;
                 }
 
+                // 节点高度：输入行 + 默认输出节点的引用行（代理与命中测试共用同一公式）
+                function nodeHeight(n) {
+                    var rows = Math.max(1, n.inputCount);
+                    if (n.type === "defaultOutput") {
+                        rows += n.references.length;
+                    }
+                    return n.headerHeight + n.portInset + rows * n.portSpacing + Metrics.spacingLg;
+                }
+
                 function nodeAt(wx, wy) {
                     var list = ruleGraph.nodes;
                     for (var i = list.length - 1; i >= 0; i--) {
                         var n = list[i];
-                        var height = n.headerHeight + n.portInset + Math.max(1, n.inputCount) * n.portSpacing + Metrics.spacingLg;
+                        var height = nodeHeight(n);
                         if (wx >= n.x && wx <= n.x + n.width && wy >= n.y && wy <= n.y + height) {
                             return n;
                         }
                     }
                     return null;
+                }
+
+                // 引用行在节点内的纵向起点：与节点代理的 Column 布局一致
+                function referenceRowTop(n, index) {
+                    return n.y + n.headerHeight + Metrics.spacingSm + (Math.max(1, n.inputCount) + index) * n.portSpacing;
+                }
+
+                // 命中的引用行下标（-1 = 未命中）
+                function referenceIndexAt(n, wx, wy) {
+                    if (wx < n.x + Metrics.spacingSm || wx > n.x + n.width - Metrics.spacingSm) {
+                        return -1;
+                    }
+                    for (var i = 0; i < n.references.length; i++) {
+                        var top = referenceRowTop(n, i);
+                        if (wy >= top && wy <= top + referenceRowHeight) {
+                            return i;
+                        }
+                    }
+                    return -1;
+                }
+
+                // 图标识 -> 图：top 是总规则图，plugin:<插件标识> 是插件规则图
+                function openGraphReference(reference) {
+                    if (reference === "top") {
+                        ruleGraph.loadPluginGraph("");
+                    } else if (reference.indexOf("plugin:") === 0) {
+                        ruleGraph.loadPluginGraph(reference.substring(7));
+                    }
+                }
+
+                // 单击（未拖动）节点：插件输出节点进入插件图，默认输出节点按引用行跳转
+                function handleNodeClick(nodeId, wx, wy) {
+                    var list = ruleGraph.nodes;
+                    for (var i = 0; i < list.length; i++) {
+                        var n = list[i];
+                        if (n.id !== nodeId) {
+                            continue;
+                        }
+                        if (n.type === "pluginOutput" && n.pluginId !== "") {
+                            ruleGraph.loadPluginGraph(n.pluginId);
+                        } else if (n.type === "defaultOutput") {
+                            var index = referenceIndexAt(n, wx, wy);
+                            if (index >= 0) {
+                                openGraphReference(n.references[index]);
+                            }
+                        }
+                        return;
+                    }
                 }
 
                 // 端口命中容差是屏幕像素，换算成世界单位要除以 zoom，
@@ -402,7 +599,7 @@ Dialog {
                             x: modelData.x
                             y: modelData.y
                             width: modelData.width
-                            height: modelData.headerHeight + modelData.portInset + Math.max(1, modelData.inputCount) * modelData.portSpacing + Metrics.spacingLg
+                            height: canvas.nodeHeight(modelData)
                             radius: Metrics.radiusSm
                             color: Theme.surfaceAlt
                             border.width: ruleGraph.selectedNodeId === modelData.id ? 2 : Metrics.borderWidth
@@ -458,6 +655,40 @@ Dialog {
                                         }
                                     }
                                 }
+
+                                // 默认输出节点的引用文本（可能多条）：单击跳到对应图
+                                Repeater {
+                                    model: nodeData.type === "defaultOutput" ? nodeData.references : []
+
+                                    delegate: Rectangle {
+                                        x: Metrics.spacingSm
+                                        width: nodeData.width - Metrics.spacingSm * 2
+                                        height: canvas.referenceRowHeight
+                                        radius: Metrics.radiusXs
+                                        color: Theme.selectionBg
+                                        border.width: Metrics.borderWidth
+                                        border.color: Theme.accent
+
+                                        Text {
+                                            anchors.centerIn: parent
+                                            text: nodeData.referenceLabels[index]
+                                            color: Theme.accent
+                                            font.pixelSize: Typography.fontBody
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 插件输出节点：单击进入该插件的规则图
+                            Text {
+                                visible: modelData.type === "pluginOutput"
+                                anchors.left: parent.left
+                                anchors.leftMargin: Metrics.spacingSm
+                                anchors.top: parent.top
+                                anchors.topMargin: modelData.headerHeight + Metrics.spacingSm
+                                text: qsTr("单击进入插件规则图")
+                                color: Theme.textMuted
+                                font.pixelSize: Typography.fontBody
                             }
 
                             // 输出端口
@@ -499,6 +730,10 @@ Dialog {
                         var node = canvas.nodeAt(wx, wy);
                         canvas.lastMouseX = mouse.x;
                         canvas.lastMouseY = mouse.y;
+                        canvas.pressX = mouse.x;
+                        canvas.pressY = mouse.y;
+                        canvas.pressNodeId = node === null ? -1 : node.id;
+                        canvas.dragMoved = false;
 
                         if (mouse.button === Qt.RightButton) {
                             // 先在点击处做连线命中，菜单再就地弹出（坐标取画布内坐标）
@@ -526,6 +761,15 @@ Dialog {
                     }
 
                     onPositionChanged: function (mouse) {
+                        // 位移未达阈值前不拖动、不拉线、不平移，松开仍算点击
+                        if (!canvas.dragMoved) {
+                            var dx = mouse.x - canvas.pressX;
+                            var dy = mouse.y - canvas.pressY;
+                            if (dx * dx + dy * dy < canvas.clickMoveThreshold * canvas.clickMoveThreshold) {
+                                return;
+                            }
+                            canvas.dragMoved = true;
+                        }
                         var wx = canvas.toWorldX(mouse.x);
                         var wy = canvas.toWorldY(mouse.y);
                         if (canvas.connectFrom > 0) {
@@ -548,16 +792,24 @@ Dialog {
                     onReleased: function (mouse) {
                         var wx = canvas.toWorldX(mouse.x);
                         var wy = canvas.toWorldY(mouse.y);
+                        var dx = mouse.x - canvas.pressX;
+                        var dy = mouse.y - canvas.pressY;
+                        var moved = canvas.dragMoved || dx * dx + dy * dy >= canvas.clickMoveThreshold * canvas.clickMoveThreshold;
                         if (canvas.connectFrom > 0) {
-                            var port = canvas.inputPortAt(wx, wy);
+                            // 原地松开只是点击输出端口，不产生连线
+                            var port = moved ? canvas.inputPortAt(wx, wy) : null;
                             if (port !== null) {
                                 ruleGraph.connectNodes(canvas.connectFrom, port.node, port.port);
                             }
                             // connectFrom 的哨兵是 -1，0 不是合法节点 id（桥接层 0 表示未选中）
                             canvas.connectFrom = -1;
+                        } else if (!moved && mouse.button === Qt.LeftButton && canvas.pressNodeId > 0) {
+                            canvas.handleNodeClick(canvas.pressNodeId, wx, wy);
                         }
                         canvas.dragNodeId = -1;
                         canvas.panning = false;
+                        canvas.pressNodeId = -1;
+                        canvas.dragMoved = false;
                     }
 
                     onWheel: function (wheel) {
@@ -573,7 +825,7 @@ Dialog {
 
                     Keys.onPressed: function (event) {
                         if (event.key === Qt.Key_Delete || event.key === Qt.Key_Backspace) {
-                            if (ruleGraph.selectedNodeId > 0) {
+                            if (ruleGraph.selectedNodeId > 0 && ruleGraph.selectedNode.type !== "defaultOutput") {
                                 ruleGraph.deleteNode(ruleGraph.selectedNodeId);
                             }
                             event.accepted = true;
@@ -616,7 +868,7 @@ Dialog {
                     }
                     MenuItem {
                         text: qsTr("删除选中节点")
-                        enabled: ruleGraph.selectedNodeId > 0
+                        enabled: ruleGraph.selectedNodeId > 0 && ruleGraph.selectedNode.type !== "defaultOutput"
                         onTriggered: ruleGraph.deleteNode(ruleGraph.selectedNodeId)
                     }
                 }
@@ -701,7 +953,7 @@ Dialog {
 
             Text {
                 Layout.fillWidth: true
-                text: qsTr("提示：拖拽节点移动，从右侧圆点拖到左侧端口连线；右键画布添加节点；Ctrl+C/V、Delete 操作选中节点。")
+                text: qsTr("提示：拖拽节点移动（单击不移动则进入插件图），从右侧圆点拖到左侧端口连线；右键画布添加节点；Ctrl+C/V、Delete 操作选中节点。")
                 color: Theme.textMuted
                 font.pixelSize: Typography.fontBody
                 wrapMode: Text.WordWrap

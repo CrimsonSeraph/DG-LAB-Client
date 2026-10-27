@@ -22,6 +22,19 @@ namespace {
     constexpr double kPortSpacing = 18.0;
     constexpr double kPortInset = 16.0;
 
+    /// @brief 插件显示名（未加载时退回插件标识）
+    /// @param plugin_id 插件（模块）标识
+    QString plugin_display_name(const QString& plugin_id) {
+        for (const auto& info : ModuleManager::instance().get_plugins()) {
+            if (QString::fromStdString(info.module_name) != plugin_id) {
+                continue;
+            }
+            const QString display_name = QString::fromStdString(info.display_name);
+            return display_name.isEmpty() ? plugin_id : display_name;
+        }
+        return plugin_id;
+    }
+
     /// @brief 字符串列表转换（依赖集合输出）
     QStringList to_qstring_list(const std::vector<std::string>& values) {
         QStringList list;
@@ -199,7 +212,22 @@ bool RuleGraphBridge::save() {
 }
 
 void RuleGraphBridge::loadPluginGraph(const QString& plugin_id) {
+    // 空标识表示回到总规则图：从规则文件重载，丢弃插件图上的未保存改动
     if (plugin_id.isEmpty()) {
+        if (current_rule_file_.isEmpty()) {
+            graph_ = RuleGraph();
+            graph_.import_from_rules();
+        }
+        else {
+            graph_.load(current_rule_file_);
+        }
+        current_graph_plugin_.clear();
+        selected_node_id_ = 0;
+        dirty_ = false;
+        emit dirtyChanged();
+        emit selectionChanged();
+        emit graphChanged();
+        emit statusMessage(QStringLiteral("已返回总规则图"));
         return;
     }
     graph_ = RuleManager::instance().get_plugin_rule_graph(plugin_id.toStdString());
@@ -345,6 +373,40 @@ int RuleGraphBridge::addChannelNode(const QString& channel, double x, double y) 
     mark_dirty();
     emit selectionChanged();
     emit graphChanged();
+    return id;
+}
+
+int RuleGraphBridge::addPluginOutputNode(const QString& plugin_id, double x, double y) {
+    if (plugin_id.isEmpty()) {
+        return 0;
+    }
+    // 插件输出节点只属于总规则图：插件图里的出口是默认输出节点
+    if (!current_graph_plugin_.isEmpty()) {
+        emit statusMessage(QStringLiteral("插件规则图内不能添加插件输出节点"));
+        return 0;
+    }
+    // 同一插件只有一个输出节点：已存在时选中它，不重复添加
+    for (const auto& existing : graph_.nodes()) {
+        if (existing.type == GraphNodeType::PluginOutput && existing.plugin_id == plugin_id) {
+            selected_node_id_ = existing.id;
+            emit selectionChanged();
+            emit statusMessage(QStringLiteral("插件输出节点已存在：") + existing.name);
+            return existing.id;
+        }
+    }
+    GraphNode node;
+    node.type = GraphNodeType::PluginOutput;
+    node.plugin_id = plugin_id;
+    node.references = QStringList{ rule_graph_plugin_ref(plugin_id) };
+    node.name = QStringLiteral("%1 输出").arg(plugin_display_name(plugin_id));
+    node.x = x;
+    node.y = y;
+    const int id = graph_.add_node(node);
+    selected_node_id_ = id;
+    mark_dirty();
+    emit selectionChanged();
+    emit graphChanged();
+    emit statusMessage(QStringLiteral("已添加插件输出节点：") + node.name);
     return id;
 }
 

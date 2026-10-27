@@ -54,9 +54,9 @@ public:
     Q_INVOKABLE bool save();
     Q_INVOKABLE void refreshModuleValues();
 
-    // 插件级规则图（数据与求值侧；编辑器界面在后续批次接入）
+    // 插件级规则图
     /// @brief 载入某插件的规则图（文件缺失时按插件数值生成默认图，保存后落盘）
-    /// @param plugin_id 插件（模块）标识
+    /// @param plugin_id 插件（模块）标识；空字符串表示回到总规则图
     Q_INVOKABLE void loadPluginGraph(const QString& plugin_id);
     /// @brief 当前图的依赖集合（rules / valueIds / channels / plugins / events），整图
     Q_INVOKABLE QVariantMap graphDependencies() const;
@@ -73,6 +73,12 @@ public:
     Q_INVOKABLE int addOperatorNode(const QString& op, double x, double y);
     Q_INVOKABLE int addAdvancedNode(const QString& advanced, double x, double y);
     Q_INVOKABLE int addChannelNode(const QString& channel, double x, double y);
+    /// @brief 在当前图（仅总规则图）添加插件输出节点
+    /// @param plugin_id 插件（模块）标识
+    /// @param x 节点世界坐标 X
+    /// @param y 节点世界坐标 Y
+    /// @return 节点 id；插件标识为空或当前图是插件规则图时返回 0，同一插件已有节点时返回该节点 id
+    Q_INVOKABLE int addPluginOutputNode(const QString& plugin_id, double x, double y);
     Q_INVOKABLE void moveNode(int id, double x, double y);
     Q_INVOKABLE void deleteNode(int id);
     Q_INVOKABLE void selectNode(int id);
