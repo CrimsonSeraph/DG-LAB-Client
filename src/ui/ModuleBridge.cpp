@@ -143,6 +143,36 @@ int ModuleBridge::base_period_ms() const {
     return ModuleManager::instance().get_base_period_ms();
 }
 
+int ModuleBridge::uniform_period_index() const {
+    auto& manager = ModuleManager::instance();
+    int uniform_ms = -1;
+    for (const auto& name : manager.get_module_names()) {
+        const Module* module = manager.get_module(name);
+        if (module == nullptr) {
+            continue;
+        }
+        for (const auto& value : module->get_values()) {
+            const int ms = query_period_to_ms(value.get_query_period());
+            if (uniform_ms < 0) {
+                uniform_ms = ms;
+            }
+            else if (ms != uniform_ms) {
+                return -1;
+            }
+        }
+    }
+    if (uniform_ms < 0) {
+        // 未注册任何数值时按基准周期回显，避免下拉空置
+        uniform_ms = manager.get_base_period_ms();
+    }
+    for (int index = 0; index < static_cast<int>(std::size(kPeriodOptions)); ++index) {
+        if (kPeriodOptions[index].second == uniform_ms) {
+            return index;
+        }
+    }
+    return -1;
+}
+
 QString ModuleBridge::selected_display_name() const {
     if (selected_.isEmpty()) {
         return selected_;

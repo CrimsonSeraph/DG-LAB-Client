@@ -32,11 +32,11 @@ ComboBox {
     delegate: ItemDelegate {
         id: optionDelegate
 
-        required property var model
         required property int index
 
         width: ListView.view.width
-        text: control.textRole.length > 0 ? model[control.textRole] : model
+        // 委托文案统一走 ComboBox.textAt：textRole 为空时取列表项本身，非空时取该字段
+        text: control.textAt(index)
         highlighted: control.highlightedIndex === index
         hoverEnabled: control.hoverEnabled
 

@@ -169,6 +169,19 @@ Item {
                     model: moduleBridge.periodOptions
                     textRole: "text"
                     Layout.preferredWidth: 160
+                    // 回显实际周期：全部数值一致时选中该周期，不一致时无选中项
+                    Binding on currentIndex {
+                        value: moduleBridge.uniformPeriodIndex
+                        restoreMode: Binding.RestoreNone
+                    }
+                }
+
+                Text {
+                    objectName: "modulePeriodMismatchHint"
+                    visible: moduleBridge.uniformPeriodIndex < 0
+                    text: qsTr("各数值周期不一致")
+                    color: Theme.textMuted
+                    font.pixelSize: Typography.fontBody
                 }
 
                 AppButton {

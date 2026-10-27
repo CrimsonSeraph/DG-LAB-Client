@@ -81,7 +81,7 @@ src/ui/
 | `app` | `AppBridge` | 应用名称/版本、当前页面（`currentPage`）、一次性反馈浮层（`toastText` / `toastLevel` / `showToast()`） |
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、配对链接 `pairingUrl` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
-| `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期、选中模块数值 |
+| `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
 | `waveBridge` | `WaveBridge` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
@@ -156,6 +156,8 @@ src/ui/
 | `themePresetDialog` / `customThemeDialog` | 预设主题对话框与自定义主题对话框（后者的主/副色与应用按钮即上两行的 `customTheme*` 控件） |
 | `primaryColorDialog` / `secondaryColorDialog` | 主/副色取色对话框（`ColorDialog`），由 `customThemePrimaryButton` / `customThemeSecondaryButton` 打开 |
 | `configBleColumn` | 连接卡内的蓝牙直连子区（位于扫码配对列下方，含状态 / 扫描 / 设备列表 / 强度增减） |
+| `configBleStatusText` | 蓝牙直连状态行：已连接显示「已连接 <设备名>」，未连接只显示「未连接」（单一状态行，不重复） |
+| `configBleStatusDetail` | 蓝牙状态明细（绑 `ble.status`）：与状态行文案相同时隐藏，扫描中 / 连接中 / 错误 / 断开等有价值的状态保留；只读 |
 | `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备 |
 | `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性） |
 | `bleStrengthA{Increase,Decrease}` / `bleStrengthB{Increase,Decrease}` | 蓝牙通道强度增减 |
@@ -195,7 +197,8 @@ src/ui/
 
 | objectName | 行为 |
 | --- | --- |
-| `modulePeriodCombo` | 统一查询周期下拉（`periodOptions`，文案为毫秒数值）；`activated` 与「应用」共用同一槽 |
+| `modulePeriodCombo` | 统一查询周期下拉（`periodOptions`，文案为毫秒数值）；`currentIndex` 绑定 `moduleBridge.uniformPeriodIndex` 回显实际周期（全部数值一致时为该周期下标，不一致为 -1、无选中项，未注册数值时按 `basePeriodMs` 回显）；`activated` 与「应用」共用同一槽 |
+| `modulePeriodMismatchHint` | 「各数值周期不一致」提示，仅 `uniformPeriodIndex < 0` 时可见：只读 |
 | `modulePeriodApplyButton` | 把所选周期应用到全部数值 |
 
 插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。
@@ -203,7 +206,8 @@ src/ui/
 | objectName | 行为 |
 | --- | --- |
 | `pluginDetail` | 详情根项；`item` 变化即同步模块标识到 `ModuleBridge::selectModule()`，其余属性只读 |
-| `pluginValuesPanel` | 「数值」页签的滚动容器，`activeTab === 2` 时可见，只读 |
+| `pluginValuesPanel` | 「数值」页签的滚动容器，`activeTab === 2` 时可见；`contentHeight` 取自 `valueColumn` 位置器，只读 |
+| `pluginValuesScrollBar` | 数值列表竖向滚动条（`ScrollBar` 附属在 `pluginValuesPanel` 上，`policy: AsNeeded`），句柄取 `Theme` 令牌且常驻可见（默认 Basic 样式句柄静止时透明），无交互 |
 | `pluginValuesEmpty` | 数值空态面板（「该插件尚未注册数值」），`selectedValues` 为空时可见，只读 |
 
 关于页：

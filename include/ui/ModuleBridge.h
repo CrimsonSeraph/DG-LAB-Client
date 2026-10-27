@@ -17,6 +17,7 @@ class ModuleBridge : public QObject {
     Q_PROPERTY(QVariantList modules READ modules NOTIFY dataChanged)
     Q_PROPERTY(QVariantList periodOptions READ period_options CONSTANT)
     Q_PROPERTY(int basePeriodMs READ base_period_ms NOTIFY dataChanged)
+    Q_PROPERTY(int uniformPeriodIndex READ uniform_period_index NOTIFY dataChanged)
     Q_PROPERTY(QString selectedModule READ selected_module NOTIFY selectedChanged)
     Q_PROPERTY(QString selectedDisplayName READ selected_display_name NOTIFY selectedChanged)
     Q_PROPERTY(QVariantList selectedValues READ selected_values NOTIFY selectedChanged)
@@ -30,6 +31,8 @@ public:
     QVariantList modules() const;
     QVariantList period_options() const;
     int base_period_ms() const;
+    /// @brief 全部已注册数值周期一致时该周期在 periodOptions 的下标，不一致返回 -1
+    int uniform_period_index() const;
     QString selected_module() const { return selected_; }
     /// @brief 选中模块的展示名（命中插件取侧车 display_name，缺失回退模块标识）
     QString selected_display_name() const;

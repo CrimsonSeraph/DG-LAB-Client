@@ -13,6 +13,11 @@ Item {
 
     objectName: "configPage"
 
+    // 蓝牙直连状态行文案：已连接显示设备名，未连接只显示「未连接」
+    readonly property string bleStatusLine: ble.connected
+        ? qsTr("已连接 %1").arg(ble.deviceName)
+        : qsTr("未连接")
+
     ScrollView {
         id: scrollView
 
@@ -215,7 +220,8 @@ Item {
                             spacing: Metrics.spacingMd
 
                             Text {
-                                text: ble.connected ? qsTr("已连接 %1").arg(ble.deviceName) : qsTr("未连接")
+                                objectName: "configBleStatusText"
+                                text: page.bleStatusLine
                                 color: Theme.textSecondary
                                 font.pixelSize: Typography.fontBody
                             }
@@ -245,8 +251,11 @@ Item {
                             }
                         }
 
+                        // 与状态行文案相同的状态不再重复显示，扫描中 / 错误 / 断开等有价值的状态保留
                         Text {
+                            objectName: "configBleStatusDetail"
                             Layout.fillWidth: true
+                            visible: ble.status.length > 0 && ble.status !== page.bleStatusLine
                             text: ble.status
                             color: Theme.textMuted
                             font.pixelSize: Typography.fontBody
@@ -358,14 +367,14 @@ Item {
                         font.bold: true
                     }
 
-                    // 主色：色块（1px 描边，浅色块也能看清边界）+ 标签，hex 作为次级文本
+                    // 主色：色块（描边取文字令牌，对卡片底色恒 ≥4.5:1，任意填充色都能看出边界）+ 标签，hex 作为次级文本
                     Rectangle {
                         Layout.preferredWidth: ComponentStyle.swatchMinWidth
                         Layout.preferredHeight: ComponentStyle.swatchHeight
                         radius: Metrics.radiusSm
                         color: Theme.primary
                         border.width: Metrics.borderWidth
-                        border.color: Theme.border
+                        border.color: Theme.textMuted
 
                         MouseArea {
                             anchors.fill: parent
@@ -395,7 +404,7 @@ Item {
                         radius: Metrics.radiusSm
                         color: Theme.secondary
                         border.width: Metrics.borderWidth
-                        border.color: Theme.border
+                        border.color: Theme.textMuted
 
                         MouseArea {
                             anchors.fill: parent

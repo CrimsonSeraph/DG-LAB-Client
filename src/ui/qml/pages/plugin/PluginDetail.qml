@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
 
 // 插件详情：返回入口 + 头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。
@@ -430,6 +431,23 @@ Item {
             contentHeight: valueColumn.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
+
+            // 竖向滚动条：长数值列表（12 项）在可视区外仍有可滚动提示，句柄常驻可见
+            ScrollBar.vertical: ScrollBar {
+                id: valuesScrollBar
+
+                objectName: "pluginValuesScrollBar"
+                policy: ScrollBar.AsNeeded
+                width: Metrics.spacingSm
+                padding: 0
+
+                contentItem: Rectangle {
+                    implicitWidth: Metrics.spacingXs
+                    implicitHeight: Metrics.spacingXs
+                    radius: Metrics.radiusXs
+                    color: valuesScrollBar.pressed ? Theme.accent : Theme.textSecondary
+                }
+            }
 
             Column {
                 id: valueColumn
