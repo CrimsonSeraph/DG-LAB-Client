@@ -26,6 +26,8 @@ class WaveBridge : public QObject {
     Q_PROPERTY(QString currentB READ current_b NOTIFY dataChanged)
     Q_PROPERTY(QVariantList pointsA READ points_a NOTIFY dataChanged)
     Q_PROPERTY(QVariantList pointsB READ points_b NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList amplitudeA READ amplitude_a NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList amplitudeB READ amplitude_b NOTIFY dataChanged)
     Q_PROPERTY(QString targetChannel READ target_channel NOTIFY dataChanged)
     Q_PROPERTY(QVariantList draftSections READ draft_sections NOTIFY draftChanged)
     Q_PROPERTY(int selectedSectionIndex READ selected_section_index NOTIFY draftChanged)
@@ -52,6 +54,10 @@ public:
     QString current_b() const;
     QVariantList points_a() const;
     QVariantList points_b() const;
+    /// @brief 通道 A 当前绑定波形的逐帧强度均值（每帧 4 个强度字节取均值，0~100）
+    QVariantList amplitude_a() const;
+    /// @brief 通道 B 当前绑定波形的逐帧强度均值（每帧 4 个强度字节取均值，0~100）
+    QVariantList amplitude_b() const;
     QString target_channel() const { return target_channel_; }
     QVariantList draft_sections() const;
     int selected_section_index() const { return selected_section_; }
@@ -103,6 +109,7 @@ signals:
 
 private:
     QVariantList points_from_frames(const QStringList& frames) const;
+    QVariantList amplitudes_from_frames(const QStringList& frames) const;
     void regenerate_frames();
     /// @brief 草稿内容指纹：用于比较草稿是否偏离已保存内容
     QString draft_fingerprint() const;

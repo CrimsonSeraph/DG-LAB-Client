@@ -80,6 +80,38 @@ QVariantList WaveBridge::points_from_frames(const QStringList& frames) const {
     return points;
 }
 
+QVariantList WaveBridge::amplitude_a() const {
+    return amplitudes_from_frames(WaveLibrary::instance().frames_for("A"));
+}
+
+QVariantList WaveBridge::amplitude_b() const {
+    return amplitudes_from_frames(WaveLibrary::instance().frames_for("B"));
+}
+
+QVariantList WaveBridge::amplitudes_from_frames(const QStringList& frames) const {
+    QVariantList amplitudes;
+    for (const QString& frame : frames) {
+        if (frame.size() < 16) {
+            continue;
+        }
+        int total = 0;
+        int count = 0;
+        for (int unit = 0; unit < 4; ++unit) {
+            bool ok = false;
+            const int strength = frame.mid(8 + unit * 2, 2).toInt(&ok, 16);
+            if (!ok) {
+                continue;
+            }
+            total += strength;
+            ++count;
+        }
+        if (count > 0) {
+            amplitudes.append(total / count);
+        }
+    }
+    return amplitudes;
+}
+
 void WaveBridge::setTargetChannel(const QString& channel) {
     if (channel != QStringLiteral("A") && channel != QStringLiteral("B")) {
         return;

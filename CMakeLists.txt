@@ -416,6 +416,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/pages/home/DashboardChannelCard.qml
 		src/ui/qml/pages/home/DashboardPluginCard.qml
 		src/ui/qml/pages/home/DashboardTriggerFeed.qml
+		src/ui/qml/pages/home/DashboardWaveCard.qml
 		src/ui/qml/dialogs/WaveSelectDialog.qml
 		src/ui/qml/dialogs/WaveEditorDialog.qml
 		src/ui/qml/dialogs/RuleEditorDialog.qml
