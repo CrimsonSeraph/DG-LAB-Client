@@ -10,10 +10,13 @@
 #include "EventMapping.h"
 #include "EventRuntime.h"
 #include "ModuleManager.h"
+#include "ModuleValue.h"
 
 #include <QDateTime>
 #include <QVariantMap>
 
+#include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -65,8 +68,23 @@ namespace {
         return item;
     }
 
-    // 单个事件声明与当前映射合并为一项
-    QVariantMap event_item(const std::string& module_name, const EventDefinition& definition) {
+    // 触发数值的上下限与运行期值（数值未注册时各 Known 为 false，界面显示范围未知）
+    void insert_value_range(QVariantMap& item, const std::string& module_name, const std::string& value_id) {
+        const ModuleValue* value = ModuleManager::instance().get_value(module_name, value_id);
+        const std::optional<int> min_value = value == nullptr ? std::nullopt : value->get_min();
+        const std::optional<int> max_value = value == nullptr ? std::nullopt : value->get_max();
+        item.insert(QStringLiteral("valueKnown"), value != nullptr);
+        item.insert(QStringLiteral("valueMinKnown"), min_value.has_value());
+        item.insert(QStringLiteral("valueMaxKnown"), max_value.has_value());
+        item.insert(QStringLiteral("valueMin"), min_value.value_or(0));
+        item.insert(QStringLiteral("valueMax"), max_value.value_or(0));
+        item.insert(QStringLiteral("valueCurrentKnown"), value != nullptr && value->get_has_value());
+        item.insert(QStringLiteral("valueCurrent"), value == nullptr ? 0 : value->get_last_value());
+    }
+
+    // 单个事件声明与当前映射合并为一项（cascade_events 为运行期启用集合，级联启用的事件同样显示为启用）
+    QVariantMap event_item(const std::string& module_name, const EventDefinition& definition,
+        const std::set<std::string>& cascade_events) {
         const EventConfig config = read_event_config(module_name, definition);
 
         QVariantMap trigger;
@@ -95,11 +113,13 @@ namespace {
         item.insert(QStringLiteral("label"), to_qstring(definition.label.empty() ? definition.id : definition.label));
         item.insert(QStringLiteral("trigger"), trigger);
         item.insert(QStringLiteral("options"), options);
-        item.insert(QStringLiteral("enabled"), config.enabled);
+        const bool cascade_enabled = cascade_events.count(module_name + "/" + definition.id) != 0;
+        item.insert(QStringLiteral("enabled"), config.enabled || cascade_enabled);
         item.insert(QStringLiteral("wave"), to_qstring(config.wave));
         item.insert(QStringLiteral("merge"), to_qstring(merge_rule_to_string(config.merge)));
         item.insert(QStringLiteral("weight"), config.weight);
         item.insert(QStringLiteral("frames"), config.frames);
+        insert_value_range(item, module_name, definition.trigger.value_id);
         return item;
     }
 
@@ -132,6 +152,8 @@ void EventBridge::initialize() {
 
 QVariantList EventBridge::events() const {
     QVariantList list;
+    const std::set<std::string> cascade_events = runtime_ != nullptr ? runtime_->cascade_events()
+                                                                     : std::set<std::string>();
     for (const auto& plugin : ModuleManager::instance().get_plugins()) {
         if (plugin.module_name.empty() || plugin.events.empty()) {
             continue;
@@ -145,7 +167,7 @@ QVariantList EventBridge::events() const {
             if (definition.id.empty()) {
                 continue;
             }
-            events.append(event_item(plugin.module_name, definition));
+            events.append(event_item(plugin.module_name, definition, cascade_events));
         }
 
         QVariantMap item;

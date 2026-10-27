@@ -31,6 +31,8 @@ public:
     void initialize();
 
     /// @brief 各模块的事件声明与当前映射
+    /// 事件项附 valueMin/valueMax/valueCurrent 与各 *Known 只读字段，
+    /// 供界面展示触发数值的输出上下限与运行期值（取不到时 Known 为 false）
     QVariantList events() const;
     /// @brief 最近 50 条触发流水
     QVariantList triggers() const;

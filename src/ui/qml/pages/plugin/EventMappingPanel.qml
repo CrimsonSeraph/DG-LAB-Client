@@ -17,6 +17,31 @@ Item {
     readonly property var optionList: (root.currentEvent !== null && root.currentEvent.options !== undefined)
         ? root.currentEvent.options
         : []
+    // 触发数值的输出上下限与运行期当前值，全部来自桥接的只读字段；
+    // 数值未注册或未配置上下限时不给 0，直接显示范围未知
+    readonly property string outputRangeText: {
+        const event = root.currentEvent;
+        if (event === null) {
+            return "";
+        }
+        const valueKnown = event.valueKnown === true;
+        const minKnown = valueKnown && event.valueMinKnown === true;
+        const maxKnown = valueKnown && event.valueMaxKnown === true;
+        if (!minKnown && !maxKnown) {
+            return qsTr("范围未知");
+        }
+        const current = event.valueCurrentKnown === true ? String(Number(event.valueCurrent)) : qsTr("暂无");
+        if (minKnown && maxKnown) {
+            return qsTr("输出范围 %1 ~ %2，当前 %3")
+                .arg(Number(event.valueMin))
+                .arg(Number(event.valueMax))
+                .arg(current);
+        }
+        if (maxKnown) {
+            return qsTr("输出范围 ≤ %1，当前 %2").arg(Number(event.valueMax)).arg(current);
+        }
+        return qsTr("输出范围 ≥ %1，当前 %2").arg(Number(event.valueMin)).arg(current);
+    }
 
     readonly property var waveNames: {
         const names = [];
@@ -60,34 +85,28 @@ Item {
             frames === undefined ? Number(event.frames) : frames);
     }
 
-    // 空串表示跟随模块默认通道，写入时原样落盘
-    function optionChannelIndex(channel) {
+    // 子选项映射只读展示：通道与强度都由事件和规则决定，界面不提供写入入口
+    function optionChannelText(channel) {
         const value = String(channel);
         if (value === "A") {
-            return 1;
+            return qsTr("通道 A");
         }
         if (value === "B") {
-            return 2;
+            return qsTr("通道 B");
         }
-        return 0;
+        return qsTr("跟随默认通道");
     }
 
-    function optionChannelValue(index) {
-        return index === 1 ? "A" : (index === 2 ? "B" : "");
+    function optionModeText(mode) {
+        return String(mode) === "percent"
+            ? qsTr("百分比（按 0-100 映射实际值）")
+            : qsTr("数值（直接使用实际值）");
     }
 
-    function writeOption(option, channel, mode, value, percent) {
-        const event = root.currentEvent;
-        if (event === null || root.item === null) {
-            return;
-        }
-        eventBridge.setOptionOutput(root.item.module, event.id, option.id,
-            channel === undefined ? String(option.channel) : channel,
-            String(option.operation),
-            mode === undefined ? String(option.mode) : mode,
-            value === undefined ? Number(option.value) : value,
-            percent === undefined ? Number(option.percent) : percent,
-            Number(option.step));
+    function optionValueText(option) {
+        return String(option.mode) === "percent"
+            ? qsTr("%1 / 100").arg(Number(option.percent))
+            : String(Number(option.value));
     }
 
     ColumnLayout {
@@ -155,6 +174,14 @@ Item {
                         font.pixelSize: Typography.fontBody
                         elide: Text.ElideRight
                     }
+                }
+
+                Text {
+                    width: parent.width
+                    text: root.outputRangeText
+                    color: Theme.textSecondary
+                    font.pixelSize: Typography.fontBody
+                    wrapMode: Text.WordWrap
                 }
 
                 RowLayout {
@@ -258,42 +285,31 @@ Item {
                                 spacing: Metrics.spacingXl
 
                                 AppField {
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 0
+                                    Layout.preferredWidth: Metrics.navWidth
                                     Layout.minimumWidth: Metrics.navWidth
                                     label: qsTr("事件通道")
-                                    hint: qsTr("跟随默认时按模块默认通道展开，AB 会在两个通道各生效一次")
 
-                                    AppComboBox {
-                                        id: optionChannelCombo
-
+                                    Text {
                                         width: parent.width
-                                        model: [qsTr("跟随默认"), qsTr("通道 A"), qsTr("通道 B")]
-                                        Binding on currentIndex {
-                                            value: root.optionChannelIndex(modelData.channel)
-                                            restoreMode: Binding.RestoreNone
-                                        }
-                                        onActivated: function (index) {
-                                            root.writeOption(modelData, root.optionChannelValue(index), undefined, undefined, undefined);
-                                        }
+                                        text: root.optionChannelText(modelData.channel)
+                                        color: Theme.textPrimary
+                                        font.pixelSize: Typography.fontBody
+                                        elide: Text.ElideRight
                                     }
                                 }
 
                                 AppField {
-                                    Layout.preferredWidth: Metrics.navWidth
+                                    Layout.fillWidth: true
+                                    Layout.preferredWidth: 0
                                     Layout.minimumWidth: Metrics.navWidth
                                     label: qsTr("数值模式")
 
-                                    AppSegment {
+                                    Text {
                                         width: parent.width
-                                        model: [qsTr("百分比"), qsTr("数值")]
-                                        Binding on currentIndex {
-                                            value: String(modelData.mode) === "percent" ? 0 : 1
-                                            restoreMode: Binding.RestoreNone
-                                        }
-                                        onSelected: function (index) {
-                                            root.writeOption(modelData, undefined, index === 0 ? "percent" : "value", undefined, undefined);
-                                        }
+                                        text: root.optionModeText(modelData.mode)
+                                        color: Theme.textPrimary
+                                        font.pixelSize: Typography.fontBody
+                                        wrapMode: Text.WordWrap
                                     }
                                 }
 
@@ -301,24 +317,14 @@ Item {
                                     Layout.preferredWidth: Metrics.navWidth
                                     Layout.minimumWidth: Metrics.navWidth
                                     label: qsTr("强度数值")
-                                    hint: qsTr("百分比取 0-100，数值取绝对值")
+                                    hint: qsTr("由事件决定，不可手动调整")
 
-                                    AppSpinBox {
-                                        id: optionValueSpin
-
+                                    Text {
                                         width: parent.width
-                                        from: 0
-                                        to: String(modelData.mode) === "percent" ? 100 : 200
-                                        Binding on value {
-                                            value: String(modelData.mode) === "percent"
-                                                ? Number(modelData.percent)
-                                                : Number(modelData.value)
-                                            when: !optionValueSpin.activeFocus
-                                            restoreMode: Binding.RestoreNone
-                                        }
-                                        onValueModified: root.writeOption(modelData, undefined, undefined,
-                                            String(modelData.mode) === "percent" ? Number(modelData.value) : value,
-                                            String(modelData.mode) === "percent" ? value : Number(modelData.percent))
+                                        text: root.optionValueText(modelData)
+                                        color: Theme.textPrimary
+                                        font.pixelSize: Typography.fontBody
+                                        elide: Text.ElideRight
                                     }
                                 }
                             }
