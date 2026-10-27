@@ -76,11 +76,53 @@
 
 `RuleGraph`：`plugin_id()/set_plugin_id`、`default_output_node`、`ensure_default_output`、`plugin_output_nodes`、`output_references/set_output_references/add_output_reference`、`dependencies`、`import_from_plugin`。
 
-`RuleManager`：`get_plugin_graph_file`、`get_plugin_rule_graphs`、`has_plugin_rule_graph`、`get_plugin_rule_graph`、`save_plugin_rule_graph`、`read_rule_graph_json`、`write_rule_graph_json`、`sync_output_references`、`get_output_referrers`、`get_graph_dependencies`。
+`RuleManager`：`get_plugin_graph_file`、`get_plugin_rule_graphs`、`has_plugin_rule_graph`、`get_plugin_rule_graph`、`save_plugin_rule_graph`、`read_rule_graph_json`、`write_rule_graph_json`、`sync_output_references`、`get_output_referrers`、`get_graph_dependencies`、`fill_dependency_events`、`evaluate_graph_outputs`、`get_plugin_graph_output`、`get_graph_channel_output`、`set_graph_output_enabled`、`is_graph_output_enabled`、`get_cascade_enabled_rules`、`get_cascade_enabled_events`。
+
+`RuleGraph`：`evaluate(node_id, resolve, plugin_outputs)` 求值某节点上游子图（`RuleGraph::ValueResolver` 解析模块数值）。
+
+`EventRuntime`：`set_cascade_events` / `cascade_events`（运行期启用集合，供启用级联使用）。
 
 `RuleGraphBridge`（QML 侧，本批只读）：属性 `pluginGraphs`、`currentGraphPlugin`、`outputReferences`；方法 `loadPluginGraph`、`graphDependencies()`（整图）/ `graphDependencies(nodeId)`（某节点上游）、`outputReferrers`；节点数据新增 `pluginId`、`references`、`referenceLabels`。
 
-## 6. 迁移策略
+## 6. 多图求值
+
+求值顺序固定为「先插件图、后总规则图」，由 `RuleManager::evaluate_graph_outputs()` 统一驱动，调用时机与规则计算同一周期：
+
+| 时机 | 触发点 |
+| --- | --- |
+| 模块数值变化 | `RuleManager::on_module_value_changed`（与规则级联计算同一次回调） |
+| 通道启用 | `RuleManager::set_channel_enabled(channel, true)` 解锁后立即求值一帧 |
+| 图输出启用 | `RuleManager::set_graph_output_enabled(graph_ref, true)` |
+| 手动 | `RuleManager::evaluate_graph_outputs()` |
+
+每一步的口径：
+
+1. 插件图：以默认输出节点的上游子图为起点求值（`RuleGraph::evaluate`），结果缓存为 `get_plugin_graph_output(plugin_id)`。
+2. 总规则图：`pluginOutput` 节点取对应插件图的上一步结果作为输入；通道节点据此得到强度，结果缓存为 `get_graph_channel_output(channel)`。
+3. 通道节点在通道已启用时才生成 `send_strength`（`mode = 2`，即绝对强度）经 `rule_command_ready` 下发；通道未启用时只记录求值结果。
+
+节点求值口径与总图的规则节点一致：
+
+| 节点 | 求值 |
+| --- | --- |
+| `module` | 由数值 ID 查模块当前值；无数据源或尚未取到值时为空（不产出） |
+| `rule` | 按端口取值后走 `Rule::compute_value`（空值语义 + 模式钳位） |
+| `operator` / `advanced` | 生成 `Math.floor(...)` 表达式，复用 `valuePattern` 的 QJSEngine 求值路径 |
+| `channel` / `defaultOutput` | 取端口 0 的上游值 |
+| `pluginOutput` | 总图取对应插件图结果，插件图不存在该值按空处理；插件图内出现插件输出节点属当前数据层不支持的情形，按 0 处理并记一条限流 WARN |
+
+插件图每次求值都从 `plugin_<插件标识>.json` 读取，因此保存后下一次求值即生效，不做额外的热重载订阅。
+
+## 7. 启用级联
+
+启动通道或图输出时，依赖集合（第 4 节）里的子规则与事件一并视为启用；停止时解除。级联状态只存在于运行期，不写入任何存储字段。
+
+- 来源键：通道 `channel:A` / `channel:B`，图输出 `graph:top` / `graph:plugin:<插件标识>`；各来源的依赖集合取并集得到 `cascade_rules_` 与 `cascade_events_`，查询入口 `get_cascade_enabled_rules()` / `get_cascade_enabled_events()`。
+- 规则侧：`is_rule_effectively_enabled` 对集合内规则直接判定为启用（插件图里的规则节点名未载入规则集合同样如此）。
+- 事件侧：`EventRuntime` 维护 `std::set<std::string>` 白名单，`read_event_configs` 之后由 `apply_cascade_enabled` 覆盖 `enabled`，随后重新 `configure` 引擎，下一帧生效；`EventBridge` 展示同样按运行期集合显示为启用。
+- 依赖集合为空时该来源不改变任何判定，行为与未接入级联前一致。
+
+## 8. 迁移策略
 
 1. 旧 `rules.json`（只有 `rules` 字段、无 `graph`）：`RuleGraph::load` 依次尝试规则文件的 `graph` 字段 → 旧版 `<规则文件>.graph.json` 侧车 → `import_from_rules()` 从规则集生成图。加载不丢数据，保存时把图写入规则文件的 `graph` 字段，侧车文件保留但不再更新。
 2. 内置预置规则已从 `config/rules/rules.json` 移除（`rules` 为空对象），改为默认插件图样例 `config/rules/plugin_buckshot.json`，其默认输出节点由总规则图的插件输出节点引用。老用户文件里的规则仍按第 1 条读入。

@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -148,6 +149,22 @@ EventConfig read_event_config(const std::string& module_name, const EventDefinit
 /// @return 事件映射表（键为事件 id）
 std::map<std::string, EventConfig> read_event_configs(const std::string& module_name,
     const std::vector<EventDefinition>& definitions);
+
+/// @brief 按运行期启用白名单覆盖事件映射的 enabled（启用级联）
+/// @param module_name 模块名称
+/// @param enabled_events 运行期启用集合（键写作 "<模块标识>/<事件 ID>"）
+/// @param configs 事件映射表（就地覆盖，不落盘）
+inline void apply_cascade_enabled(const std::string& module_name,
+    const std::set<std::string>& enabled_events, std::map<std::string, EventConfig>& configs) {
+    if (module_name.empty() || enabled_events.empty()) {
+        return;
+    }
+    for (auto& [event_id, config] : configs) {
+        if (enabled_events.count(module_name + "/" + event_id) != 0) {
+            config.enabled = true;
+        }
+    }
+}
 
 /// @brief 读取通道上限（只读访问器）
 /// @param module_name 模块名称

@@ -9,6 +9,7 @@
 
 #include <QObject>
 
+#include <set>
 #include <string>
 
 // 前置声明
@@ -35,6 +36,15 @@ public:
     /// @return 事件引擎
     const EventEngine& engine() const;
 
+    /// @brief 设置运行期启用集合（启用级联：依赖集合中的事件视为启用）
+    /// @param events 事件标识集合，写作 "<模块标识>/<事件 ID>"
+    /// @note 集合变化时立即重新载入映射，下一次帧推进即生效；不写回配置
+    void set_cascade_events(const std::set<std::string>& events);
+
+    /// @brief 当前运行期启用集合
+    /// @return 事件标识集合
+    const std::set<std::string>& cascade_events() const { return cascade_events_; }
+
     /// @brief 通道当前强度
     /// @param channel 通道（"A"/"B"）
     /// @return 强度整数，通道非法返回 0
@@ -57,6 +67,7 @@ signals:
 private:
     EventEngine engine_; ///< 事件引擎
     QTimer* frame_timer_ = nullptr; ///< 帧定时器（initialize 前为空）
+    std::set<std::string> cascade_events_; ///< 运行期启用集合（键为 "<模块标识>/<事件 ID>"）
 
     /// @brief 帧定时器触发：推进一帧并广播通道强度与流水
     void on_frame_tick();

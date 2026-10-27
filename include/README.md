@@ -147,6 +147,10 @@ include/
 | `Operator` | 基础运算节点：`+ - * /`（结果向下取整）                                        |
 | `Advanced` | 高级节点：`abs` / `square` / `sqrt` / `expression`（自定义表达式）             |
 | `Channel`  | 通道输出节点：`A` / `B`（单输入，同一通道只允许一个来源）                      |
+| `pluginOutput`  | 插件输出节点：只在总规则图出现，取值 = 对应插件图默认输出的求值结果        |
+| `defaultOutput` | 默认输出节点：每个插件规则图恰好一个，本图唯一出口（单输入）              |
+
+求值顺序为先插件图（默认输出节点的上游子图）、后总规则图（插件输出节点 → 通道节点，通道启用时下发绝对强度）；口径与规则节点的 `valuePattern` 一致，详见 [docs/rule-graph.md](../docs/rule-graph.md)。
 
 连线方向为「源（输出）→ 消费端（输入端口）」。规则节点被其它节点引用时写为 `{rule:序号}`，模块源节点写为 `{id:值ID(名称)}`，运算符/高级节点生成 JS 子表达式（`valuePattern` 由 QJSEngine 求值，天然支持 `Math.*`）。
 

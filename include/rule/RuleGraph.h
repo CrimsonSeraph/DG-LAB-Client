@@ -10,6 +10,9 @@
 
 #include <nlohmann/json.hpp>
 
+#include <functional>
+#include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -141,6 +144,21 @@ public:
     /// @return 依赖集合，事件列表由 RuleManager 补齐
     GraphDependency dependencies(int from_node_id = 0) const;
 
+    // 求值（多图求值：插件图默认输出 → 总图的插件输出节点）
+    /// @brief 模块数值解析回调
+    /// @param value_id 数值 ID
+    /// @return 数值，尚未取到（无数据源）时返回空
+    using ValueResolver = std::function<std::optional<int>(const QString& value_id)>;
+
+    /// @brief 求值某节点的上游子图
+    /// @param node_id 起点节点 id（输出节点或通道节点）；0 表示默认输出节点，总规则图退化为首个通道节点
+    /// @param resolve 模块数值解析
+    /// @param plugin_outputs 插件输出节点的取值（键为插件标识，由调用方先求值插件图）
+    /// @return 求值结果；上游无水值、未连线或不可求值（如插件图里的插件输出节点）时返回空
+    /// @note 规则节点按 Rule 的空值语义与模式钳位求值；运算/高级节点沿用 Math.floor 的取整口径
+    std::optional<int> evaluate(int node_id, const ValueResolver& resolve,
+        const std::map<QString, int>& plugin_outputs = {}) const;
+
     // 编辑
     /// @brief 新增节点（默认输出节点唯一：已存在时返回既有节点 id）
     int add_node(const GraphNode& node);
@@ -175,6 +193,19 @@ public:
     bool save(const QString& rule_file);
 
 private:
+    /// @brief 求值单个节点（递归上游，memo 去重）
+    std::optional<int> evaluate_node(int node_id, int depth, const ValueResolver& resolve,
+        const std::map<QString, int>& plugin_outputs,
+        std::map<int, std::optional<int>>& memo) const;
+    /// @brief 输入端口上的取值（未连线或上游无值返回空）
+    std::optional<int> input_value(int node_id, int port, int depth, const ValueResolver& resolve,
+        const std::map<QString, int>& plugin_outputs,
+        std::map<int, std::optional<int>>& memo) const;
+    /// @brief 求值纯数值表达式（复用 QJSEngine，与 valuePattern 的口径一致）
+    /// @param expression JS 表达式（不含占位符）
+    /// @return 结果，求值失败返回空
+    static std::optional<int> evaluate_number(const QString& expression);
+
     QString formula_of(int node_id, int depth) const;
     QString source_formula(int node_id, int port, int depth) const;
     QString placeholder_text(int node_id, int port) const;

@@ -18,6 +18,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -118,6 +119,46 @@ public:
     /// @return 依赖集合；总规则图会并入其插件输出节点对应插件图的依赖（只展开一层）；
     /// 事件取依赖插件声明的事件（"<插件标识>/<事件 ID>"）
     GraphDependency get_graph_dependencies(const RuleGraph& graph, int from_node_id = 0) const;
+
+    /// @brief 把依赖插件声明的事件补进依赖集合（"<插件标识>/<事件 ID>"，去重排序）
+    /// @param plugin_events 插件标识 → 已声明的事件 ID 列表
+    /// @param dependency 待补齐的依赖集合（读取其 plugins 字段）
+    static void fill_dependency_events(
+        const std::map<std::string, std::vector<std::string>>& plugin_events,
+        GraphDependency& dependency);
+
+    // 多图求值（插件图默认输出 → 总图的插件输出节点 → 通道节点）
+    /// @brief 求值全部插件图与总规则图（模块数值变化、通道或图输出启用时调用）
+    /// @note 顺序为先插件图、后总规则图；通道节点的命令在解锁后经 rule_command_ready 发出
+    void evaluate_graph_outputs();
+
+    /// @brief 插件图默认输出的最近一次求值结果
+    /// @param plugin_id 插件（模块）标识
+    /// @return 求值结果，无图、无值或尚未求值返回空
+    std::optional<int> get_plugin_graph_output(const std::string& plugin_id) const;
+
+    /// @brief 总规则图通道节点的最近一次求值结果
+    /// @param channel 通道（"A"/"B"）
+    /// @return 求值结果，无通道节点或尚未求值返回空
+    std::optional<int> get_graph_channel_output(const std::string& channel) const;
+
+    // 启用级联（启动通道或图输出时连带启用依赖集合中的子规则与事件）
+    /// @brief 启用/停用某规则图的输出
+    /// @param graph_ref 图标识（"top" 总规则图，"plugin:<插件标识>" 插件规则图）
+    /// @param enabled 是否启用
+    /// @return 图存在且状态已更新返回 true
+    bool set_graph_output_enabled(const std::string& graph_ref, bool enabled);
+
+    /// @brief 查询某规则图的输出是否已启用
+    /// @param graph_ref 图标识
+    /// @return 已启用返回 true
+    bool is_graph_output_enabled(const std::string& graph_ref) const;
+
+    /// @brief 当前级联视为启用的规则名（去重排序）
+    std::vector<std::string> get_cascade_enabled_rules() const;
+
+    /// @brief 当前级联视为启用的事件（"<插件标识>/<事件 ID>"，去重排序）
+    std::vector<std::string> get_cascade_enabled_events() const;
 
     // 规则加载（从配置管理器）
     /// @brief 从指定的配置管理器加载规则
@@ -271,6 +312,9 @@ signals:
     /// @brief 规则集发生变化时发出（用于刷新界面）
     void rules_changed();
 
+    /// @brief 启用级联集合发生变化时发出（事件运行时据此重建运行期启用集合）
+    void cascade_changed();
+
     /// @brief 规则计算完成且父级为通道时发出（用于首页通道规则卡片刷新）
     /// @param rule_name 规则名称
     /// @param channel 通道（"A"/"B"）
@@ -302,9 +346,26 @@ private:
     int compute_depth_ = 0;                            ///< 级联计算深度（防循环引用）
     static constexpr int MAX_COMPUTE_DEPTH = 16;       ///< 最大级联深度
 
+    std::map<std::string, GraphDependency> active_cascades_; ///< 级联来源（"channel:A" / "graph:<图标识>"）→ 依赖集合
+    std::set<std::string> cascade_rules_;                    ///< 级联视为启用的规则名（由 active_cascades_ 派生）
+    std::set<std::string> cascade_events_;                   ///< 级联视为启用的事件（同上，写作 <插件标识>/<事件 ID>）
+    std::map<std::string, int> plugin_graph_outputs_;        ///< 插件标识 → 插件图默认输出最近求值结果
+    std::map<std::string, int> channel_graph_outputs_;       ///< 通道 → 通道节点最近求值结果
+
     // 私有辅助函数
     std::vector<std::string> plugin_graph_plugins_locked() const;                           ///< 扫描插件图文件（需已持有锁）
     nlohmann::json read_rule_graph_json_locked(const std::string& filename) const;          ///< 读取规则图 JSON（需已持有锁）
+    RuleGraph load_plugin_rule_graph_locked(const std::string& plugin_id) const;            ///< 载入插件规则图（需已持有锁）
+    RuleGraph load_top_rule_graph_locked() const;                                           ///< 载入总规则图（需已持有锁）
+    RuleGraph load_rule_graph_by_ref_locked(const std::string& graph_ref) const;            ///< 按图标识载入规则图（需已持有锁）
+    GraphDependency get_graph_dependencies_locked(const RuleGraph& graph,
+        int from_node_id) const;                                                            ///< 依赖集合（需已持有锁）
+    void apply_cascade_locked(const std::string& key, const RuleGraph& graph, int from_node_id,
+        bool enabled, bool& changed);                                                       ///< 更新单个级联来源（需已持有锁）
+    void rebuild_cascade_locked();                                                          ///< 由级联来源重算派生集合（需已持有锁）
+    bool refresh_cascades_locked();                                                         ///< 图变化后按新图重算已启用来源（需已持有锁）
+    void evaluate_graphs_locked(std::vector<QJsonObject>& pending_commands,
+        std::vector<ResultEvent>& pending_results);                                          ///< 多图求值（需已持有锁）
     void scan_directory();                                                                 ///< 扫描目录获取可用文件
     std::string get_full_path(const std::string& filename) const;                          ///< 获取完整路径
     bool save_json_file(const std::string& filename, const nlohmann::json& content) const; ///< 保存 JSON 文件

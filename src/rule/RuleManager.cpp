@@ -29,6 +29,17 @@ namespace {
         target.erase(std::unique(target.begin(), target.end()), target.end());
     }
 
+    /// @brief 规则图中指定通道的通道节点 id（无匹配返回 0）
+    int channel_node_of(const RuleGraph& graph, const std::string& channel) {
+        for (const auto& node : graph.nodes()) {
+            if (node.type == GraphNodeType::Channel
+                && Rule::normalize_channel(node.channel.toStdString()) == channel) {
+                return node.id;
+            }
+        }
+        return 0;
+    }
+
 } // namespace
 
 // 单例（public）
@@ -207,21 +218,8 @@ bool RuleManager::has_plugin_rule_graph(const std::string& plugin_id) const {
 }
 
 RuleGraph RuleManager::get_plugin_rule_graph(const std::string& plugin_id) const {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        const nlohmann::json graph_json = read_rule_graph_json_locked(get_plugin_graph_file(plugin_id));
-        if (graph_json.is_object()) {
-            RuleGraph graph;
-            graph.from_json(graph_json);
-            graph.set_plugin_id(QString::fromStdString(plugin_id));
-            graph.ensure_default_output(QString::fromStdString(plugin_id));
-            return graph;
-        }
-    }
-    // 没有图文件：按插件已登记的数值生成默认图，保存时才落盘
-    RuleGraph graph;
-    graph.import_from_plugin(QString::fromStdString(plugin_id));
-    return graph;
+    std::lock_guard<std::mutex> lock(mutex_);
+    return load_plugin_rule_graph_locked(plugin_id);
 }
 
 bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph) {
@@ -230,6 +228,7 @@ bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const Rul
         return false;
     }
     bool saved = false;
+    bool cascade_dirty = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         const std::string filename = get_plugin_graph_file(plugin_id);
@@ -253,12 +252,17 @@ bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const Rul
         saved = save_json_file(filename, json);
         if (saved) {
             scan_directory();
+            // 图已变化：按新图重算已启用来源的依赖集合（下一次求值同样读新图）
+            cascade_dirty = refresh_cascades_locked();
             LOG_MODULE("RuleManager", "save_plugin_rule_graph", LOG_INFO,
                 "插件规则图已保存: " << filename);
         }
     }
     if (saved) {
         sync_output_references();
+    }
+    if (cascade_dirty) {
+        emit cascade_changed();
     }
     return saved;
 }
@@ -276,24 +280,33 @@ bool RuleManager::write_rule_graph_json(const std::string& filename, const nlohm
     if (filename.empty()) {
         return false;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    nlohmann::json json;
-    try {
-        json = load_json_file(filename);
+    bool saved = false;
+    bool cascade_dirty = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        nlohmann::json json;
+        try {
+            json = load_json_file(filename);
+        }
+        catch (const std::exception&) {
+            // 文件不存在：新建
+        }
+        if (!json.is_object()) {
+            json = nlohmann::json::object();
+        }
+        if (!json.contains("version")) {
+            json["version"] = "1.0";
+        }
+        json["graph"] = graph_json;
+        saved = save_json_file(filename, json);
+        if (saved) {
+            scan_directory();
+            // 图已变化：按新图重算已启用来源的依赖集合
+            cascade_dirty = refresh_cascades_locked();
+        }
     }
-    catch (const std::exception&) {
-        // 文件不存在：新建
-    }
-    if (!json.is_object()) {
-        json = nlohmann::json::object();
-    }
-    if (!json.contains("version")) {
-        json["version"] = "1.0";
-    }
-    json["graph"] = graph_json;
-    const bool saved = save_json_file(filename, json);
-    if (saved) {
-        scan_directory();
+    if (cascade_dirty) {
+        emit cascade_changed();
     }
     return saved;
 }
@@ -441,37 +454,114 @@ std::vector<std::string> RuleManager::get_output_referrers(const std::string& pl
 }
 
 GraphDependency RuleManager::get_graph_dependencies(const RuleGraph& graph, int from_node_id) const {
-    GraphDependency dependency = graph.dependencies(from_node_id);
-    // 总规则图：插件输出节点代表该插件图的最终输出，把插件图的依赖并入（只展开一层，避免环形引用）
-    if (graph.plugin_id().isEmpty() && !dependency.plugins.empty()) {
-        const std::vector<std::string> plugins = dependency.plugins;
-        for (const auto& plugin_id : plugins) {
-            const GraphDependency sub = get_plugin_rule_graph(plugin_id).dependencies(0);
-            merge_unique(dependency.rules, sub.rules);
-            merge_unique(dependency.value_ids, sub.value_ids);
-            merge_unique(dependency.channels, sub.channels);
-            merge_unique(dependency.plugins, sub.plugins);
+    std::lock_guard<std::mutex> lock(mutex_);
+    return get_graph_dependencies_locked(graph, from_node_id);
+}
+
+void RuleManager::fill_dependency_events(
+    const std::map<std::string, std::vector<std::string>>& plugin_events,
+    GraphDependency& dependency) {
+    if (dependency.plugins.empty()) {
+        return;
+    }
+    for (const auto& plugin_id : dependency.plugins) {
+        const auto it = plugin_events.find(plugin_id);
+        if (it == plugin_events.end()) {
+            continue;
+        }
+        for (const auto& event_id : it->second) {
+            dependency.events.push_back(plugin_id + "/" + event_id);
         }
     }
-    // 事件来自依赖插件的侧车声明（"<插件标识>/<事件 ID>"）
-    if (!dependency.plugins.empty()) {
-        for (const auto& plugin : ModuleManager::instance().get_plugins()) {
-            if (plugin.module_name.empty()) {
-                continue;
-            }
-            if (std::find(dependency.plugins.begin(), dependency.plugins.end(), plugin.module_name)
-                == dependency.plugins.end()) {
-                continue;
-            }
-            for (const auto& event : plugin.events) {
-                dependency.events.push_back(plugin.module_name + "/" + event.id);
-            }
-        }
-        std::sort(dependency.events.begin(), dependency.events.end());
-        dependency.events.erase(std::unique(dependency.events.begin(), dependency.events.end()),
-            dependency.events.end());
+    std::sort(dependency.events.begin(), dependency.events.end());
+    dependency.events.erase(std::unique(dependency.events.begin(), dependency.events.end()),
+        dependency.events.end());
+}
+
+// 启用级联（public）
+
+bool RuleManager::set_graph_output_enabled(const std::string& graph_ref, bool enabled) {
+    if (graph_ref.empty()) {
+        return false;
     }
-    return dependency;
+    bool changed = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const RuleGraph graph = load_rule_graph_by_ref_locked(graph_ref);
+        if (graph.nodes().empty()) {
+            LOG_MODULE("RuleManager", "set_graph_output_enabled", LOG_WARN,
+                "规则图不存在: " << graph_ref);
+            return false;
+        }
+        apply_cascade_locked("graph:" + graph_ref, graph, 0, enabled, changed);
+        if (changed) {
+            rebuild_cascade_locked();
+        }
+    }
+    LOG_MODULE("RuleManager", "set_graph_output_enabled", LOG_INFO,
+        "规则图输出 " << graph_ref << " 启用状态: " << (enabled ? "启用" : "关闭"));
+    if (changed && enabled) {
+        // 启用时立即刷新一帧（后续周期照旧）
+        evaluate_graph_outputs();
+    }
+    if (changed) {
+        emit cascade_changed();
+    }
+    return true;
+}
+
+bool RuleManager::is_graph_output_enabled(const std::string& graph_ref) const {
+    if (graph_ref.empty()) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    return active_cascades_.find("graph:" + graph_ref) != active_cascades_.end();
+}
+
+std::vector<std::string> RuleManager::get_cascade_enabled_rules() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return std::vector<std::string>(cascade_rules_.begin(), cascade_rules_.end());
+}
+
+std::vector<std::string> RuleManager::get_cascade_enabled_events() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return std::vector<std::string>(cascade_events_.begin(), cascade_events_.end());
+}
+
+// 多图求值（public）
+
+void RuleManager::evaluate_graph_outputs() {
+    std::vector<QJsonObject> pending_commands;
+    std::vector<ResultEvent> pending_results;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        evaluate_graphs_locked(pending_commands, pending_results);
+    }
+    for (const auto& cmd : pending_commands) {
+        emit rule_command_ready(cmd);
+    }
+    for (const auto& [rule_name, ch, value] : pending_results) {
+        emit rule_result_changed(QString::fromStdString(rule_name),
+            QString::fromStdString(ch), value);
+    }
+}
+
+std::optional<int> RuleManager::get_plugin_graph_output(const std::string& plugin_id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = plugin_graph_outputs_.find(plugin_id);
+    if (it == plugin_graph_outputs_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+std::optional<int> RuleManager::get_graph_channel_output(const std::string& channel) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = channel_graph_outputs_.find(Rule::normalize_channel(channel));
+    if (it == channel_graph_outputs_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
 }
 
 // 规则加载（从配置管理器）（public）
@@ -824,6 +914,7 @@ bool RuleManager::remove_rule_reference(const std::string& rule_name, int refere
 void RuleManager::set_channel_enabled(const std::string& channel, bool enabled) {
     std::vector<QJsonObject> pending_commands;
     std::vector<ResultEvent> pending_results;
+    bool cascade_dirty = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         std::string ch = Rule::normalize_channel(channel);
@@ -845,6 +936,23 @@ void RuleManager::set_channel_enabled(const std::string& channel, bool enabled) 
                 compute_rule_locked(name, pending_commands, pending_results);
             }
         }
+        // 启用级联：通道节点的上游依赖（子规则与事件）一并视为启用
+        const RuleGraph top = load_top_rule_graph_locked();
+        const int channel_node = channel_node_of(top, ch);
+        if (channel_node > 0) {
+            apply_cascade_locked("channel:" + ch, top, channel_node, enabled, cascade_dirty);
+        }
+        else {
+            // 总规则图里没有该通道节点：不参与级联，行为与未接入级联前一致
+            apply_cascade_locked("channel:" + ch, top, 0, false, cascade_dirty);
+        }
+        if (cascade_dirty) {
+            rebuild_cascade_locked();
+        }
+        // 多图求值：启用时立即产出一帧（与直连规则计算同一时机）
+        if (enabled) {
+            evaluate_graphs_locked(pending_commands, pending_results);
+        }
     }
     for (const auto& cmd : pending_commands) {
         emit rule_command_ready(cmd);
@@ -852,6 +960,9 @@ void RuleManager::set_channel_enabled(const std::string& channel, bool enabled) 
     for (const auto& [rule_name, ch, value] : pending_results) {
         emit rule_result_changed(QString::fromStdString(rule_name),
             QString::fromStdString(ch), value);
+    }
+    if (cascade_dirty) {
+        emit cascade_changed();
     }
 }
 
@@ -943,23 +1054,24 @@ void RuleManager::on_module_value_changed(const QString& module_name, const QStr
     {
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = id_users_.find(value_id.toStdString());
-        if (it == id_users_.end()) {
-            return;
-        }
-        std::vector<std::string> names;
-        for (int idx : it->second) {
-            auto nit = index_to_name_.find(idx);
-            if (nit != index_to_name_.end()) {
-                names.push_back(nit->second);
+        if (it != id_users_.end()) {
+            std::vector<std::string> names;
+            for (int idx : it->second) {
+                auto nit = index_to_name_.find(idx);
+                if (nit != index_to_name_.end()) {
+                    names.push_back(nit->second);
+                }
+            }
+            for (const auto& name : names) {
+                std::vector<std::string> visiting;
+                // 仅启用且父级可用的规则参与计算
+                if (is_rule_effectively_enabled_locked(name, visiting)) {
+                    compute_rule_locked(name, pending_commands, pending_results);
+                }
             }
         }
-        for (const auto& name : names) {
-            std::vector<std::string> visiting;
-            // 仅启用且父级可用的规则参与计算
-            if (is_rule_effectively_enabled_locked(name, visiting)) {
-                compute_rule_locked(name, pending_commands, pending_results);
-            }
-        }
+        // 多图求值沿用同一周期：模块数值变化即重算插件图与总规则图
+        evaluate_graphs_locked(pending_commands, pending_results);
     }
     for (const auto& cmd : pending_commands) {
         emit rule_command_ready(cmd);
@@ -995,6 +1107,201 @@ std::vector<std::string> RuleManager::plugin_graph_plugins_locked() const {
     }
     std::sort(plugins.begin(), plugins.end());
     return plugins;
+}
+
+RuleGraph RuleManager::load_plugin_rule_graph_locked(const std::string& plugin_id) const {
+    const nlohmann::json graph_json = read_rule_graph_json_locked(get_plugin_graph_file(plugin_id));
+    if (graph_json.is_object()) {
+        RuleGraph graph;
+        graph.from_json(graph_json);
+        graph.set_plugin_id(QString::fromStdString(plugin_id));
+        graph.ensure_default_output(QString::fromStdString(plugin_id));
+        return graph;
+    }
+    // 没有图文件：按插件已登记的数值生成默认图，保存时才落盘
+    RuleGraph graph;
+    graph.import_from_plugin(QString::fromStdString(plugin_id));
+    return graph;
+}
+
+RuleGraph RuleManager::load_top_rule_graph_locked() const {
+    const nlohmann::json graph_json = read_rule_graph_json_locked("rules.json");
+    RuleGraph graph;
+    if (graph_json.is_object()) {
+        graph.from_json(graph_json);
+    }
+    return graph;
+}
+
+RuleGraph RuleManager::load_rule_graph_by_ref_locked(const std::string& graph_ref) const {
+    const QString ref = QString::fromStdString(graph_ref);
+    if (rule_graph_ref_is_top(ref)) {
+        return load_top_rule_graph_locked();
+    }
+    const QString plugin_id = rule_graph_ref_plugin(ref);
+    if (plugin_id.isEmpty()) {
+        return RuleGraph();
+    }
+    return load_plugin_rule_graph_locked(plugin_id.toStdString());
+}
+
+GraphDependency RuleManager::get_graph_dependencies_locked(const RuleGraph& graph,
+    int from_node_id) const {
+    GraphDependency dependency = graph.dependencies(from_node_id);
+    // 总规则图：插件输出节点代表该插件图的最终输出，把插件图的依赖并入（只展开一层，避免环形引用）
+    if (graph.plugin_id().isEmpty() && !dependency.plugins.empty()) {
+        const std::vector<std::string> plugins = dependency.plugins;
+        for (const auto& plugin_id : plugins) {
+            const GraphDependency sub = load_plugin_rule_graph_locked(plugin_id).dependencies(0);
+            merge_unique(dependency.rules, sub.rules);
+            merge_unique(dependency.value_ids, sub.value_ids);
+            merge_unique(dependency.channels, sub.channels);
+            merge_unique(dependency.plugins, sub.plugins);
+        }
+    }
+    // 事件来自依赖插件的侧车声明（"<插件标识>/<事件 ID>"）
+    std::map<std::string, std::vector<std::string>> plugin_events;
+    for (const auto& plugin : ModuleManager::instance().get_plugins()) {
+        if (plugin.module_name.empty()) {
+            continue;
+        }
+        std::vector<std::string> event_ids;
+        event_ids.reserve(plugin.events.size());
+        for (const auto& event : plugin.events) {
+            event_ids.push_back(event.id);
+        }
+        plugin_events[plugin.module_name] = std::move(event_ids);
+    }
+    fill_dependency_events(plugin_events, dependency);
+    return dependency;
+}
+
+void RuleManager::apply_cascade_locked(const std::string& key, const RuleGraph& graph,
+    int from_node_id, bool enabled, bool& changed) {
+    if (!enabled) {
+        if (active_cascades_.erase(key) > 0) {
+            changed = true;
+        }
+        return;
+    }
+    GraphDependency dependency = get_graph_dependencies_locked(graph, from_node_id);
+    const auto it = active_cascades_.find(key);
+    if (it != active_cascades_.end() && it->second.rules == dependency.rules
+        && it->second.events == dependency.events) {
+        return;
+    }
+    // 依赖集合为空时同样登记：级联集合不增加，行为与未启用一致
+    active_cascades_[key] = std::move(dependency);
+    changed = true;
+}
+
+void RuleManager::rebuild_cascade_locked() {
+    cascade_rules_.clear();
+    cascade_events_.clear();
+    for (const auto& [key, dependency] : active_cascades_) {
+        cascade_rules_.insert(dependency.rules.begin(), dependency.rules.end());
+        cascade_events_.insert(dependency.events.begin(), dependency.events.end());
+    }
+}
+
+bool RuleManager::refresh_cascades_locked() {
+    if (active_cascades_.empty()) {
+        return false;
+    }
+    static const std::string CHANNEL_PREFIX = "channel:";
+    static const std::string GRAPH_PREFIX = "graph:";
+    bool changed = false;
+    std::vector<std::string> keys;
+    keys.reserve(active_cascades_.size());
+    for (const auto& [key, dependency] : active_cascades_) {
+        keys.push_back(key);
+    }
+    for (const auto& key : keys) {
+        if (key.rfind(CHANNEL_PREFIX, 0) == 0) {
+            const std::string channel = key.substr(CHANNEL_PREFIX.size());
+            const RuleGraph top = load_top_rule_graph_locked();
+            const int channel_node = channel_node_of(top, channel);
+            if (channel_node <= 0) {
+                changed = active_cascades_.erase(key) > 0 ? true : changed;
+                continue;
+            }
+            apply_cascade_locked(key, top, channel_node, true, changed);
+            continue;
+        }
+        if (key.rfind(GRAPH_PREFIX, 0) == 0) {
+            const std::string graph_ref = key.substr(GRAPH_PREFIX.size());
+            const RuleGraph graph = load_rule_graph_by_ref_locked(graph_ref);
+            if (graph.nodes().empty()) {
+                changed = active_cascades_.erase(key) > 0 ? true : changed;
+                continue;
+            }
+            apply_cascade_locked(key, graph, 0, true, changed);
+        }
+    }
+    if (changed) {
+        rebuild_cascade_locked();
+    }
+    return changed;
+}
+
+void RuleManager::evaluate_graphs_locked(std::vector<QJsonObject>& pending_commands,
+    std::vector<ResultEvent>& pending_results) {
+    // 模块数值取值：沿用规则占位符的口径（无数据源的数值视为空值）
+    const RuleGraph::ValueResolver resolve = [](const QString& value_id) -> std::optional<int> {
+        ModuleManager& modules = ModuleManager::instance();
+        const std::string module_name = modules.find_module_by_value_id(value_id.toStdString());
+        if (module_name.empty()) {
+            return std::nullopt;
+        }
+        const ModuleValue* value = modules.get_value(module_name, value_id.toStdString());
+        if (value == nullptr || !value->get_has_value()) {
+            return std::nullopt;
+        }
+        return value->get_last_value();
+    };
+
+    // 1) 先插件图：以每个插件图默认输出节点的上游子图求值
+    plugin_graph_outputs_.clear();
+    std::map<QString, int> plugin_outputs;
+    for (const auto& plugin_id : plugin_graph_plugins_locked()) {
+        const RuleGraph graph = load_plugin_rule_graph_locked(plugin_id);
+        const std::optional<int> value = graph.evaluate(graph.default_output_node(), resolve, {});
+        if (!value.has_value()) {
+            continue;
+        }
+        plugin_graph_outputs_[plugin_id] = value.value();
+        plugin_outputs[QString::fromStdString(plugin_id)] = value.value();
+    }
+
+    // 2) 后总规则图：插件输出节点取上一步的值，通道节点据此得到强度
+    channel_graph_outputs_.clear();
+    const RuleGraph top = load_top_rule_graph_locked();
+    for (const auto& node : top.nodes()) {
+        if (node.type != GraphNodeType::Channel) {
+            continue;
+        }
+        const std::string channel = Rule::normalize_channel(node.channel.toStdString());
+        if (channel.empty()) {
+            continue;
+        }
+        const std::optional<int> value = top.evaluate(node.id, resolve, plugin_outputs);
+        if (!value.has_value()) {
+            continue;
+        }
+        channel_graph_outputs_[channel] = value.value();
+        const auto enabled_it = channel_enabled_.find(channel);
+        if (enabled_it == channel_enabled_.end() || !enabled_it->second) {
+            // 通道未启用：只记录求值结果，不下发强度
+            continue;
+        }
+        QJsonObject cmd;
+        cmd["cmd"] = "send_strength";
+        cmd["channel"] = QString::fromStdString(channel);
+        cmd["mode"] = 2; // 通道节点给出的是绝对强度（设为）
+        cmd["value"] = value.value();
+        pending_commands.push_back(cmd);
+        pending_results.emplace_back(node.name.toStdString(), channel, value.value());
+    }
 }
 
 nlohmann::json RuleManager::read_rule_graph_json_locked(const std::string& filename) const {
@@ -1206,6 +1513,10 @@ void RuleManager::deduplicate_channel_parents_keep(const std::string& keep_name,
 
 bool RuleManager::is_rule_effectively_enabled_locked(const std::string& rule_name,
     std::vector<std::string>& visiting) const {
+    // 启用级联：依赖集合中的子规则视为启用
+    if (cascade_rules_.count(rule_name) != 0) {
+        return true;
+    }
     auto it = rules_.find(rule_name);
     if (it == rules_.end()) {
         return false;
