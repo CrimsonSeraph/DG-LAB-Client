@@ -827,6 +827,21 @@ target_include_directories(event_engine_module_test
 )
 add_test(NAME event_engine_module_test COMMAND event_engine_module_test)
 
+# 通道强度合并（事件输出与规则命令取较大值、按通道上限钳制、相同值不重复下发）：纯函数，只链接 Qt::Core
+add_executable(event_merge_test
+	tests/event_merge_test.cpp
+	src/event/EventMath.cpp
+)
+target_link_libraries(event_merge_test
+	PRIVATE Qt::Core
+)
+target_include_directories(event_merge_test
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+)
+add_test(NAME event_merge_test COMMAND event_merge_test)
+
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；
 # 因此 Windows 把可执行文件连同它运行所需的数据（config / python / assets 等）

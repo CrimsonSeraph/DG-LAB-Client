@@ -99,3 +99,21 @@ int wave_envelope_percent(const QString& frame) {
     }
     return std::min(100, sum / 4);
 }
+
+int ChannelOutputState::final_value(int limit) const {
+    return clamp_strength(std::max(rule_value, event_value), limit, limit);
+}
+
+bool ChannelOutputState::take_output(int limit, int& value) {
+    const int merged = final_value(limit);
+    if (merged == last_sent) {
+        return false;
+    }
+    last_sent = merged;
+    value = merged;
+    return true;
+}
+
+void ChannelOutputState::reset_output() {
+    last_sent = -1;
+}

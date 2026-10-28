@@ -180,6 +180,12 @@ int main(int argc, char* argv[]) {
     event_runtime.initialize();
     EventBridge event_bridge(&event_runtime);
     event_bridge.initialize();
+    // 事件输出接入设备下发：每帧 A/B 结果与规则命令合并后按需下发
+    QObject::connect(&event_runtime, &EventRuntime::channelsChanged, &device,
+        [&device](int channel_a, int channel_b) {
+            device.set_event_output(QStringLiteral("A"), channel_a);
+            device.set_event_output(QStringLiteral("B"), channel_b);
+        });
     WaveLibrary::instance().initialize();
     WaveBridge wave(&device);
     wave.initialize();

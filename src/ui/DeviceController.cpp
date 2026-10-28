@@ -23,6 +23,28 @@
 namespace {
 
     constexpr int MAX_STRENGTH = 200; ///< 设备强度上限
+    constexpr int MODE_SET = 2;       ///< 强度模式：设为（其余为相对增减）
+
+    // 通道名归一为索引（0=A，1=B，其它返回 -1）
+    int channel_index_of(const QString& channel) {
+        if (channel.compare(QStringLiteral("A"), Qt::CaseInsensitive) == 0) {
+            return 0;
+        }
+        if (channel.compare(QStringLiteral("B"), Qt::CaseInsensitive) == 0) {
+            return 1;
+        }
+        return -1;
+    }
+
+    // 强度命令的通道号（字符串 "A"/"B" 或数字 1/2，其它按 A 处理）
+    int strength_channel(const QJsonValue& value) {
+        if (value.isString()) {
+            const int index = channel_index_of(value.toString());
+            return index < 0 ? 1 : index + 1;
+        }
+        const int channel = value.toInt(1);
+        return (channel == 1 || channel == 2) ? channel : 1;
+    }
 
     /// @brief 选择一个可用于手机扫码的局域网 IPv4 地址（无则回退环回）
     QString detect_lan_ip() {
@@ -208,14 +230,12 @@ void DeviceController::disconnectDevice() {
 }
 
 void DeviceController::sendStrength(int channel, int mode, int value) {
-    // 蓝牙直连优先：同一台设备若同时被 APP 与蓝牙驱动会重复施加指令
-    if (ble_ready()) {
-        ble_->setStrength(channel, mode, value);
+    // 相对增减无法折算为绝对强度，不参与合并，直接下发
+    if (mode != MODE_SET) {
+        dispatch_strength(channel, mode, value);
         return;
     }
-    if (relay_ != nullptr) {
-        relay_->send_strength(channel, mode, value);
-    }
+    apply_rule_strength(channel - 1, value);
 }
 
 void DeviceController::sendWave(int channel, const QStringList& pulses, int seconds) {
@@ -253,7 +273,8 @@ void DeviceController::send_command(const QJsonObject& cmd) {
     }
     const QString type = cmd.value("cmd").toString();
     if (type == QStringLiteral("send_strength")) {
-        sendStrength(cmd.value("channel").toInt(1), cmd.value("mode").toInt(0), cmd.value("value").toInt(0));
+        sendStrength(strength_channel(cmd.value("channel")), cmd.value("mode").toInt(0),
+            cmd.value("value").toInt(0));
     }
     else if (type == QStringLiteral("send_pulse")) {
         QStringList pulses;
@@ -276,6 +297,15 @@ void DeviceController::send_command(const QJsonObject& cmd) {
     }
 }
 
+void DeviceController::set_event_output(const QString& channel, int value) {
+    const int index = channel_index_of(channel);
+    if (index < 0) {
+        return;
+    }
+    channel_output_[index].event_value = std::max(0, value);
+    update_channel_output(index);
+}
+
 void DeviceController::update_pairing_url() {
     if (relay_ == nullptr) {
         return;
@@ -290,6 +320,50 @@ void DeviceController::update_pairing_url() {
 
 bool DeviceController::ble_ready() const {
     return ble_ != nullptr && ble_->connected();
+}
+
+bool DeviceController::output_target_ready() const {
+    return ble_ready() || v3_paired() || v4_attached();
+}
+
+void DeviceController::apply_rule_strength(int index, int value) {
+    if (index < 0 || index > 1) {
+        return;
+    }
+    channel_output_[index].rule_value = std::max(0, value);
+    update_channel_output(index);
+}
+
+void DeviceController::update_channel_output(int index) {
+    if (index < 0 || index > 1) {
+        return;
+    }
+    ChannelOutputState& state = channel_output_[index];
+    const QString channel = (index == 0) ? QStringLiteral("A") : QStringLiteral("B");
+    int value = 0;
+    if (!state.take_output(channel_limit(channel), value)) {
+        return;
+    }
+    if (!output_target_ready()) {
+        // 无输出目标：不触达下发链路，连接后按当前强度重发
+        state.reset_output();
+        return;
+    }
+    LOG_MODULE("DeviceController", "update_channel_output", LOG_DEBUG,
+        "通道" << channel.toStdString() << " 事件 " << state.event_value << " / 规则 " << state.rule_value
+        << " → 最终 " << value);
+    dispatch_strength(index + 1, MODE_SET, value);
+}
+
+void DeviceController::dispatch_strength(int channel, int mode, int value) {
+    // 蓝牙直连优先：同一台设备若同时被 APP 与蓝牙驱动会重复施加指令
+    if (ble_ready()) {
+        ble_->setStrength(channel, mode, value);
+        return;
+    }
+    if (relay_ != nullptr) {
+        relay_->send_strength(channel, mode, value);
+    }
 }
 
 void DeviceController::report_error(const QString& message) {

@@ -11,7 +11,7 @@
 
 #include <vector>
 
-// 事件引擎的纯函数：强度钳制、合并规则、数值归一与波形包络
+// 事件引擎的纯函数：强度钳制、合并规则、数值归一、波形包络与通道输出合并
 
 /// @brief 强度钳制
 /// @param value 原始强度
@@ -39,3 +39,24 @@ double normalize_value(int value, int min_value, int max_value);
 /// @param frame 8 字节 HEX 帧（前 4 字节频率，后 4 字节强度 0~100）
 /// @return 后 4 个强度字节均值（0~100），非法帧返回 0
 int wave_envelope_percent(const QString& frame);
+
+// 通道输出合并状态：合并规则命令最近值与事件输出最近值，按通道上限钳制并按需下发
+struct ChannelOutputState {
+    int rule_value = 0;   ///< 规则命令最近值
+    int event_value = 0;  ///< 事件输出最近值
+    int last_sent = -1;   ///< 上一次下发值（-1 表示与任何强度都不同）
+
+    /// @brief 合并后的通道强度（规则与事件取较大值，按通道上限钳制）
+    /// @param limit 通道上限
+    /// @return 落在 [0, limit] 的强度
+    int final_value(int limit) const;
+
+    /// @brief 取需要下发的强度（与上一次下发值相同时不下发）
+    /// @param limit 通道上限
+    /// @param value 输出：需要下发的强度
+    /// @return 需要下发返回 true
+    bool take_output(int limit, int& value);
+
+    /// @brief 复位上一次下发值（无输出目标时使用，连接后按当前强度重发）
+    void reset_output();
+};

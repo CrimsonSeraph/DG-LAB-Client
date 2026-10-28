@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "EventMath.h"
+
 #include <QJsonObject>
 #include <QObject>
 #include <QString>
@@ -84,6 +86,7 @@ public:
     Q_INVOKABLE void disconnectDevice();
 
     /// @brief 强度指令（channel: 1=A / 2=B；mode: 0 减 / 1 增 / 2 设为）
+    /// @note mode=2 记为规则命令最近值，与事件输出取较大值后按通道上限钳制下发；其余模式直接下发
     Q_INVOKABLE void sendStrength(int channel, int mode, int value);
     /// @brief 波形指令（V3 帧列表 + 持续秒数）
     Q_INVOKABLE void sendWave(int channel, const QStringList& pulses, int seconds);
@@ -92,6 +95,11 @@ public:
 
     /// @brief 发送规则引擎产生的命令
     void send_command(const QJsonObject& cmd);
+
+    /// @brief 事件输出入口：记录事件最近强度，与规则命令合并后按需下发
+    /// @param channel 通道（"A"/"B"）
+    /// @param value 事件输出强度
+    void set_event_output(const QString& channel, int value);
 
 signals:
     void connectedChanged();
@@ -112,6 +120,20 @@ private:
     void update_pairing_url();
     /// @brief 蓝牙是否可作为输出通道
     bool ble_ready() const;
+    /// @brief 是否存在可达的输出目标（蓝牙已连接、V3 已配对或 V4 已接入）
+    bool output_target_ready() const;
+    /// @brief 记录规则命令的绝对强度并触发通道合并
+    /// @param index 通道索引（0=A，1=B）
+    /// @param value 规则命令强度
+    void apply_rule_strength(int index, int value);
+    /// @brief 合并规则与事件强度、按通道上限钳制并按需下发
+    /// @param index 通道索引（0=A，1=B）
+    void update_channel_output(int index);
+    /// @brief 把强度写入输出链路（蓝牙优先，否则内置中转服务）
+    /// @param channel 通道（1=A，2=B）
+    /// @param mode 模式（0 减 / 1 增 / 2 设为）
+    /// @param value 强度
+    void dispatch_strength(int channel, int mode, int value);
     /// @brief 记录错误文案并广播（所有错误出口统一经此）
     void report_error(const QString& message);
     /// @brief 输出可用性与配对阶段变化后广播派生属性
@@ -129,4 +151,5 @@ private:
     bool connected_ = false;
     bool connecting_ = false;
     QString last_error_; ///< 最近一次错误文案
+    ChannelOutputState channel_output_[2]; ///< A/B 通道输出合并状态（0=A，1=B）
 };

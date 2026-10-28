@@ -106,7 +106,7 @@ C++ 侧提供桥接对象与连接集中点，QML 只做绑定与渲染；界面
 | --- | --- |
 | `ThemeManager.cpp` | 主题令牌（17 套预设 + 自定义主/副色，按 WCAG 校正对比度），注册为 QML 单例 `Theme`；令牌与预设见 [docs/theme.md](../docs/theme.md) |
 | `AppBridge.cpp` | 应用信息与页面导航、状态栏文本 |
-| `DeviceController.cpp` | 启停内置中转服务、配对链接与二维码、强度/波形/清除下发与回传转发 |
+| `DeviceController.cpp` | 启停内置中转服务、配对链接与二维码、强度/波形/清除下发与回传转发；事件输出（`set_event_output()`）与规则命令按通道合并——取较大值、按通道上限钳制、相同值不重复下发 |
 | `HomeBridge.cpp` | 首页 A/B 通道强度、上限、启用状态、模块与规则摘要 |
 | `ModuleBridge.cpp` | 模块页卡片、统一查询周期、选中模块数值 |
 | `WaveBridge.cpp` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
