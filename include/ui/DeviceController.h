@@ -13,8 +13,8 @@
 #include <QStringList>
 #include <QVariantList>
 
-class CoyoteBleController;
 class DglabRelayServer;
+class IOutputDevice;
 class IpSelector;
 class QrImageProvider;
 class QQuickImageProvider;
@@ -23,8 +23,8 @@ class QTimer;
 // DeviceController - 设备控制桥接（QML 上下文属性 device）
 // 职责：启停应用内中转服务、生成配对二维码、向已配对的 DG-LAB APP 下发
 //      强度 / 波形 / 清除指令，并把 APP 回传（强度、反馈按钮）转成信号。
-// 传输由 DglabRelayServer 实现（V3 优先，V4 作为补充）；郊狼 V3 蓝牙已连接时
-// 优先经 CoyoteBleController 直连输出，避免同一台设备被两条链路重复驱动。
+// 传输由 DglabRelayServer 实现（V3 优先，V4 作为补充）；蓝牙输出设备（IOutputDevice）
+// 已连接时优先经它直连输出，避免同一台设备被两条链路重复驱动。
 class DeviceController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
@@ -50,8 +50,9 @@ public:
     /// @brief 创建中转服务与二维码提供者（不自动启动监听）
     void initialize();
 
-    /// @brief 绑定蓝牙控制器（由 main 注入；蓝牙已连接时优先走蓝牙输出）
-    void attach_ble(CoyoteBleController* ble);
+    /// @brief 绑定蓝牙输出设备（由 main 注入；已连接时优先走蓝牙输出）
+    /// @param output 输出设备接口，可为空
+    void attach_output(IOutputDevice* output);
 
     bool connected() const { return connected_; }
     bool connecting() const { return connecting_; }
@@ -108,6 +109,16 @@ public:
     /// @brief 清除指定通道波形队列
     Q_INVOKABLE void clearQueue(int channel);
 
+    /// @brief 可选输出目标（本版只有 coyote，新增设备在此登记）
+    Q_INVOKABLE QStringList outputTargets() const;
+    /// @brief 通道当前输出目标（app.output.<A|B>.target，缺省 coyote）
+    /// @param channel 通道（"A"/"B"）
+    Q_INVOKABLE QString outputTarget(const QString& channel) const;
+    /// @brief 切换通道输出目标：停止旧目标波形、落盘、按当前强度重发
+    /// @param channel 通道（"A"/"B"）
+    /// @param target 目标标识（须在 outputTargets() 内）
+    Q_INVOKABLE void setOutputTarget(const QString& channel, const QString& target);
+
     /// @brief 发送规则引擎产生的命令
     void send_command(const QJsonObject& cmd);
 
@@ -150,6 +161,10 @@ private:
     void update_pairing_url();
     /// @brief 蓝牙是否可作为输出通道
     bool ble_ready() const;
+    /// @brief 通道当前可用的输出设备
+    /// @param index 通道索引（0=A，1=B）
+    /// @return 目标设备指针；目标未接入或链路未就绪时返回空
+    IOutputDevice* active_output(int index) const;
     /// @brief 是否存在可达的输出目标（蓝牙已连接、V3 已配对或 V4 已接入）
     bool output_target_ready() const;
     /// @brief 记录规则命令的绝对强度并触发通道合并
@@ -202,7 +217,7 @@ private:
 
     DglabRelayServer* relay_ = nullptr;
     QrImageProvider* qr_provider_ = nullptr;
-    CoyoteBleController* ble_ = nullptr; ///< 蓝牙控制器（main 注入，可为空）
+    IOutputDevice* ble_ = nullptr; ///< 蓝牙输出设备（main 注入，可为空；当前唯一输出目标）
     QTimer* ble_wave_timer_a_ = nullptr; ///< A 通道蓝牙波形停止定时器
     QTimer* ble_wave_timer_b_ = nullptr; ///< B 通道蓝牙波形停止定时器
     IpSelector* ip_selector_ = nullptr; ///< 局域网地址选择器（黑/白名单与手动选中地址）

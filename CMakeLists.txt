@@ -253,6 +253,7 @@ set(BLE
 	src/ble/CoyoteBleController.cpp
 	# 头文件
 	include/ble/CoyoteBleController.h
+	include/ble/IOutputDevice.h
 )
 
 # 网络（net）：应用内中转服务

@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "IOutputDevice.h"
+
 #include <QBluetoothDeviceInfo>
 #include <QBluetoothUuid>
 #include <QHash>
@@ -23,7 +25,8 @@ class QTimer;
 
 // CoyoteBleController - 郊狼 V3 蓝牙直连（QML 上下文属性 ble）
 // GATT 服务与 B0 / BF / B1 指令格式见 include/README.md 的「关键协议与约定」。
-class CoyoteBleController : public QObject {
+// 实现 IOutputDevice：上层只经接口下发，GATT 细节留在本类内部。
+class CoyoteBleController : public IOutputDevice {
     Q_OBJECT
     Q_PROPERTY(bool scanning READ scanning NOTIFY stateChanged)
     Q_PROPERTY(bool connected READ connected NOTIFY stateChanged)
@@ -35,17 +38,29 @@ class CoyoteBleController : public QObject {
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
 
 public:
+    /// @brief 蓝牙名前缀识别结果（47L1xxxx 的型号段）
+    struct DeviceProfile {
+        QString model;          ///< 型号段（如 47L127）
+        QString label;          ///< 型号显示名（如 负鼠）
+        bool supported = false; ///< 本版是否可连接
+    };
+
     explicit CoyoteBleController(QObject* parent = nullptr);
     ~CoyoteBleController() override;
 
     void initialize();
 
+    /// @brief 按蓝牙名前缀识别设备型号
+    /// @param name 蓝牙名
+    /// @return 识别结果；非 47L1 前缀返回未限定型号的可连接结果
+    static DeviceProfile identify(const QString& name);
+
     bool scanning() const { return scanning_; }
-    bool connected() const { return connected_; }
+    bool connected() const override { return connected_; }
     QString device_name() const { return device_name_; }
-    int battery() const { return battery_; }
-    int strength_a() const { return strength_a_; }
-    int strength_b() const { return strength_b_; }
+    int battery() const override { return battery_; }
+    int strength_a() const override { return strength_a_; }
+    int strength_b() const override { return strength_b_; }
     QVariantList devices() const { return devices_; }
     QString status() const { return status_; }
 
@@ -63,11 +78,21 @@ public:
     Q_INVOKABLE void applyLimits(int limitA, int limitB, int freqBalance, int strengthBalance);
 
     /// @brief 通道是否正在经蓝牙循环下发波形
-    bool wave_sending(int channel) const;
+    bool wave_sending(int channel) const override;
     /// @brief 当前下发到第几帧（1 起，未下发时为 0）
-    int wave_frame(int channel) const;
+    int wave_frame(int channel) const override;
     /// @brief 正在下发的波形总帧数（未下发时为 0）
-    int wave_frames(int channel) const;
+    int wave_frames(int channel) const override;
+
+    // 以下为 IOutputDevice 适配，语义与上方同名 Q_INVOKABLE 一一对应
+    // 下发强度（接口版：同 setStrength）
+    void set_strength(int channel, int mode, int value) override { setStrength(channel, mode, value); }
+    // 播放波形（接口版：同 playWave）
+    void play_wave(int channel, const QStringList& frames) override { playWave(channel, frames); }
+    // 停止通道波形（接口版：同 stopWave）
+    void stop_wave(int channel) override { stopWave(channel); }
+    // 写入软上限（接口版：频率/强度平衡参数固定 128，与连接就绪时一致）
+    void apply_limits(int limit_a, int limit_b) override { applyLimits(limit_a, limit_b, 128, 128); }
 
 signals:
     void stateChanged();

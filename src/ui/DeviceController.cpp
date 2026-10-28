@@ -6,10 +6,10 @@
 #include "DeviceController.h"
 
 #include "AppConfig.h"
-#include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DglabRelayServer.h"
 #include "EventMapping.h"
+#include "IOutputDevice.h"
 #include "IpSelector.h"
 #include "QrImageProvider.h"
 #include "RuleManager.h"
@@ -25,6 +25,17 @@ namespace {
 
     constexpr int MAX_STRENGTH = 200; ///< 设备强度上限
     constexpr int MODE_SET = 2;       ///< 强度模式：设为（其余为相对增减）
+    constexpr const char* kTargetCoyote = "coyote"; ///< 输出目标：郊狼 V3 蓝牙直连
+
+    // 通道输出目标配置键（app.output.<A|B>.target）
+    QString output_target_key(int index) {
+        return QStringLiteral("app.output.%1.target").arg(index == 0 ? QStringLiteral("A") : QStringLiteral("B"));
+    }
+
+    // 通道索引对应的通道名
+    QString channel_name_of(int index) {
+        return index == 0 ? QStringLiteral("A") : QStringLiteral("B");
+    }
 
     // 通道名归一为索引（0=A，1=B，其它返回 -1）
     int channel_index_of(const QString& channel) {
@@ -96,7 +107,7 @@ void DeviceController::initialize() {
     ble_wave_timer_a_->setSingleShot(true);
     connect(ble_wave_timer_a_, &QTimer::timeout, this, [this]() {
         if (ble_ != nullptr) {
-            ble_->stopWave(1);
+            ble_->stop_wave(1);
         }
         rule_wave_[0] = RuleWaveState();
     });
@@ -104,7 +115,7 @@ void DeviceController::initialize() {
     ble_wave_timer_b_->setSingleShot(true);
     connect(ble_wave_timer_b_, &QTimer::timeout, this, [this]() {
         if (ble_ != nullptr) {
-            ble_->stopWave(2);
+            ble_->stop_wave(2);
         }
         rule_wave_[1] = RuleWaveState();
     });
@@ -117,11 +128,11 @@ void DeviceController::initialize() {
     connectDevice();
 }
 
-void DeviceController::attach_ble(CoyoteBleController* ble) {
-    ble_ = ble;
+void DeviceController::attach_output(IOutputDevice* output) {
+    ble_ = output;
     if (ble_ != nullptr) {
         // 蓝牙连接状态直接决定输出可用性，属性需要跟着广播
-        connect(ble_, &CoyoteBleController::stateChanged, this, [this]() {
+        connect(ble_, &IOutputDevice::outputStateChanged, this, [this]() {
             // 链路断开：事件波形与规则波形状态一并清空，重连后不残留「以为在播」的标志
             if (!ble_ready()) {
                 abort_event_wave(0);
@@ -132,12 +143,12 @@ void DeviceController::attach_ble(CoyoteBleController* ble) {
             emit_authoritative_strength();
         });
         // 蓝牙回执是蓝牙在线时的强度唯一来源（B1 每 100ms 回传）
-        connect(ble_, &CoyoteBleController::strengthChanged, this, [this]() {
+        connect(ble_, &IOutputDevice::outputStrengthChanged, this, [this]() {
             if (ble_ready()) {
                 emit_authoritative_strength();
             }
         });
-        connect(ble_, &CoyoteBleController::waveStateChanged, this, [this]() {
+        connect(ble_, &IOutputDevice::outputWaveChanged, this, [this]() {
             // 每次 B0 写入代表设备吃掉一帧波形，事件波形据此判断是否播完
             ++event_wave_writes_[0];
             ++event_wave_writes_[1];
@@ -296,8 +307,8 @@ void DeviceController::sendWave(int channel, const QStringList& pulses, int seco
             "事件波形播放中，规则波形已登记待恢复: 通道 " << ((index == 0) ? "A" : "B"));
         return;
     }
-    if (ble_ready()) {
-        ble_->playWave(channel, pulses);
+    if (IOutputDevice* device = active_output(index)) {
+        device->play_wave(channel, pulses);
         QTimer* timer = wave_stop_timer(index);
         if (timer != nullptr) {
             timer->start(std::max(seconds, 1) * 1000);
@@ -319,12 +330,54 @@ void DeviceController::clearQueue(int channel) {
         if (timer != nullptr) {
             timer->stop();
         }
-        ble_->stopWave(channel);
+        ble_->stop_wave(channel);
         return;
     }
     if (relay_ != nullptr) {
         relay_->send_clear(channel);
     }
+}
+
+QStringList DeviceController::outputTargets() const {
+    return {QString::fromLatin1(kTargetCoyote)};
+}
+
+QString DeviceController::outputTarget(const QString& channel) const {
+    const int index = channel_index_of(channel);
+    if (index < 0) {
+        return QString();
+    }
+    const auto& config = AppConfig::instance();
+    const QString target = QString::fromStdString(
+        config.get_value<std::string>(output_target_key(index).toStdString(), kTargetCoyote));
+    // 配置值不在可选目标内时按默认目标处理
+    return outputTargets().contains(target) ? target : QString::fromLatin1(kTargetCoyote);
+}
+
+void DeviceController::setOutputTarget(const QString& channel, const QString& target) {
+    const int index = channel_index_of(channel);
+    if (index < 0) {
+        return;
+    }
+    if (!outputTargets().contains(target)) {
+        report_error(QStringLiteral("未知输出目标: %1").arg(target));
+        return;
+    }
+    if (outputTarget(channel) == target) {
+        return;
+    }
+    // 切目标：先停旧目标波形（事件与规则波形状态一并清空），再落盘，最后按当前强度重发
+    if (IOutputDevice* device = active_output(index)) {
+        device->stop_wave(index + 1);
+    }
+    abort_event_wave(index);
+    auto& config = AppConfig::instance();
+    config.set_value<std::string>(output_target_key(index).toStdString(), target.toStdString());
+    config.save_all();
+    channel_output_[index].reset_output();
+    update_channel_output(index);
+    LOG_MODULE("DeviceController", "setOutputTarget", LOG_INFO,
+        "通道 " << channel_name_of(index).toStdString() << " 输出目标切换为 " << target.toStdString());
 }
 
 void DeviceController::send_command(const QJsonObject& cmd) {
@@ -393,6 +446,17 @@ bool DeviceController::ble_ready() const {
     return ble_ != nullptr && ble_->connected();
 }
 
+IOutputDevice* DeviceController::active_output(int index) const {
+    if (index < 0 || index > 1) {
+        return nullptr;
+    }
+    // 每通道单选目标：本版唯一目标 coyote 对应注入的蓝牙设备
+    if (outputTarget(channel_name_of(index)) != QString::fromLatin1(kTargetCoyote)) {
+        return nullptr;
+    }
+    return ble_ready() ? ble_ : nullptr;
+}
+
 bool DeviceController::output_target_ready() const {
     return ble_ready() || v3_paired() || v4_attached();
 }
@@ -428,8 +492,8 @@ void DeviceController::update_channel_output(int index) {
 
 void DeviceController::dispatch_strength(int channel, int mode, int value) {
     // 蓝牙直连优先：同一台设备若同时被 APP 与蓝牙驱动会重复施加指令
-    if (ble_ready()) {
-        ble_->setStrength(channel, mode, value);
+    if (IOutputDevice* device = active_output(channel - 1)) {
+        device->set_strength(channel, mode, value);
         return;
     }
     if (relay_ != nullptr) {
@@ -520,8 +584,8 @@ void DeviceController::start_event_wave(int index, const QString& wave_name, con
     if (QTimer* timer = wave_stop_timer(index)) {
         timer->stop();
     }
-    if (ble_ready()) {
-        ble_->playWave(index + 1, frames);
+    if (IOutputDevice* device = active_output(index)) {
+        device->play_wave(index + 1, frames);
     }
     else if (relay_ != nullptr) {
         // 中转链路按帧数折算秒数：一帧 100ms，向上取整

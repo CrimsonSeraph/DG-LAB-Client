@@ -309,7 +309,8 @@ Item {
                                     anchors.rightMargin: Metrics.spacingMd
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: modelData.name + "   " + modelData.address
-                                    color: Theme.textSecondary
+                                        + (modelData.supported ? "" : "   " + modelData.hint)
+                                    color: modelData.supported ? Theme.textSecondary : Theme.textMuted
                                     font.pixelSize: Typography.fontBody
                                     elide: Text.ElideRight
                                 }
@@ -320,7 +321,8 @@ Item {
                                     objectName: "bleDeviceClick"
                                     anchors.fill: parent
                                     hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
+                                    enabled: modelData.supported
+                                    cursorShape: modelData.supported ? Qt.PointingHandCursor : Qt.ArrowCursor
                                     property string address: modelData.address
                                 }
                             }

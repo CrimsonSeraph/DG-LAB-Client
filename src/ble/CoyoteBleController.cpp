@@ -30,12 +30,29 @@ namespace {
 
     const char* kSilentFrame = "0A0A0A0A00000000";
 
+    // 蓝牙名前缀 → 型号。GATT 与郊狼 V3 相同的设备靠名字区分，未登记的型号一律不可连接
+    struct ModelEntry {
+        const char* prefix;  ///< 蓝牙名前缀
+        const char* label;   ///< 型号显示名
+        bool supported;      ///< 本版是否已实现驱动
+    };
+    constexpr ModelEntry kModelTable[] = {
+        {"47L120", "爪印", false},
+        {"47L121", "郊狼 V3", true},
+        {"47L124", "灵猫", false},
+        {"47L127", "负鼠", false},
+    };
+
 } // namespace
 
 CoyoteBleController::CoyoteBleController(QObject* parent)
-    : QObject(parent)
+    : IOutputDevice(parent)
     , write_char_uuid_(kWriteCharacteristic)
     , notify_char_uuid_(kNotifyCharacteristic) {
+    // 接口信号转发既有信号：发射时机与次数不变，避免上层依赖具体实现
+    connect(this, &CoyoteBleController::stateChanged, this, &IOutputDevice::outputStateChanged);
+    connect(this, &CoyoteBleController::strengthChanged, this, &IOutputDevice::outputStrengthChanged);
+    connect(this, &CoyoteBleController::waveStateChanged, this, &IOutputDevice::outputWaveChanged);
     tick_timer_ = std::make_unique<QTimer>(this);
     tick_timer_->setInterval(100);
     connect(tick_timer_.get(), &QTimer::timeout, this, [this]() {
@@ -56,6 +73,28 @@ void CoyoteBleController::initialize() {
     status_ = QStringLiteral("未连接");
     emit statusChanged();
     LOG_MODULE("CoyoteBleController", "initialize", LOG_INFO, "蓝牙控制器已就绪");
+}
+
+CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& name) {
+    DeviceProfile profile;
+    for (const ModelEntry& entry : kModelTable) {
+        const QString prefix = QString::fromLatin1(entry.prefix);
+        if (name.startsWith(prefix)) {
+            profile.model = prefix;
+            profile.label = QString::fromUtf8(entry.label);
+            profile.supported = entry.supported;
+            return profile;
+        }
+    }
+    if (name.startsWith(QStringLiteral("47L1"))) {
+        // 未登记的 47L1 前缀：型号段取前 6 位，标注暂不支持
+        profile.model = name.left(6);
+        profile.label = QStringLiteral("未知型号");
+        return profile;
+    }
+    // 非 47L1 前缀沿用既有行为：不限定型号，按可连接设备列出
+    profile.supported = true;
+    return profile;
 }
 
 void CoyoteBleController::set_status(const QString& text) {
@@ -162,8 +201,13 @@ void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info)
     // 加入 UI 列表
     QVariantMap item;
     QString displayName = info.name().isEmpty() ? QStringLiteral("郊狼设备(未知名称)") : info.name();
+    const DeviceProfile profile = identify(info.name());
     item.insert(QStringLiteral("name"), displayName);
     item.insert(QStringLiteral("address"), address);
+    item.insert(QStringLiteral("supported"), profile.supported);
+    item.insert(QStringLiteral("hint"), profile.supported
+        ? QString()
+        : QStringLiteral("暂不支持（型号 %1）").arg(profile.model));
     devices_.append(item);
     emit devicesChanged();
 }
@@ -182,6 +226,15 @@ void CoyoteBleController::connectDevice(const QString& address) {
 
     if (!target.isValid()) {
         set_status(QStringLiteral("设备信息已过期，请重新扫描"));
+        return;
+    }
+
+    const DeviceProfile profile = identify(target.name());
+    if (!profile.supported) {
+        // 型号未接入：GATT 相同但指令含义不同，拒绝连接避免误写
+        LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
+            "拒绝连接未支持型号:" << target.name().toStdString() << " 型号 " << profile.model.toStdString());
+        set_status(QStringLiteral("暂不支持该设备（型号 %1）").arg(profile.model));
         return;
     }
 

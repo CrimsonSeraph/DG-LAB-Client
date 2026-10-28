@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
     ble.initialize();
 
     // 蓝牙接入输出链路：蓝牙已连接时规则输出与波形经蓝牙直连下发
-    device.attach_ble(&ble);
+    device.attach_output(&ble);
 
     QObject::connect(&device, &DeviceController::statusMessage, &bridge,
         [&bridge](const QString& message) { bridge.setStatus(message); });

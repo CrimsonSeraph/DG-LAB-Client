@@ -8,7 +8,7 @@
 | `rule/` | 规则引擎 | `Rule` / `RuleManager`（含模板实现）与规则图模型 `RuleGraph` |
 | `module/` | 数值模块 | `ModuleValue` / `Module` / `ModuleManager`（插件宿主）与 `DataListener` |
 | `wave/` | 波形 | `Wave` 与 `WaveLibrary` |
-| `ble/` | 蓝牙 | `CoyoteBleController` |
+| `ble/` | 蓝牙 | `IOutputDevice`（输出设备接口）、`CoyoteBleController` |
 | `net/` | 网络 | `DglabRelayServer`、`IpSelector` |
 | `plugin/` | 插件接口 | `IPlugin`、`PluginHost`、`plugin_export.h` |
 | `ui/` | 界面层 | 桥接对象、`ThemeManager`、`QrImageProvider`、`UiConnector` |
@@ -23,7 +23,7 @@ include/
 ├── rule/     # 规则引擎 + 规则图
 ├── module/   # 数值模块 + 数据接收器
 ├── wave/     # 波形模型与库
-├── ble/      # 郊狼 V3 蓝牙直连
+├── ble/      # 输出设备接口 + 郊狼 V3 蓝牙直连
 ├── net/      # 应用内 WebSocket 中转服务与网卡地址选择器
 ├── plugin/   # 插件接口
 ├── ui/       # 界面桥接对象
@@ -69,7 +69,8 @@ include/
 | --------------------------- | ------------------------------ |
 | `wave/Wave.h`               | V3 波形模型（段落 → 八字节帧） |
 | `wave/WaveLibrary.h`        | 波形库与 A/B 当前波形          |
-| `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1）   |
+| `ble/IOutputDevice.h`      | 输出设备抽象接口（连接状态、电量、强度下发与回显、波形下发与进度、软上限、三个接口信号） |
+| `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1），实现 `IOutputDevice` |
 | `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务（含二维码载荷与展示文本接口） |
 | `net/IpSelector.h`          | 局域网地址选择器（候选网卡枚举、黑/白名单、手动选中地址，QML 侧经 `device.ipSelector` 读取） |
 
@@ -120,6 +121,8 @@ include/
 - `B0`：每 100ms 写入 —— 序列号 + 强度解读方式 + 双通道强度 + 双通道各 4 组频率/强度。
 - `BF`：软上限与频率/强度平衡参数，**重连后必须重写**。
 - `B1`：主机回传序列号 + 双通道实际强度。
+- 型号识别：按蓝牙名前缀 `47L1xxxx` 分类，映射表是 `CoyoteBleController.cpp` 匿名命名空间的 `kModelTable`——`47L120` 爪印、`47L121` 郊狼 V3（唯一已实现驱动）、`47L124` 灵猫、`47L127` 负鼠。GATT 与郊狼 V3 相同的设备靠名字区分，未登记前缀一律标记「暂不支持（型号 xxx）」并在 `connectDevice()` 前拒绝连接，避免写入语义不匹配的指令；非 `47L1` 前缀沿用不限定型号的既有行为。
+- 输出设备接口：`IOutputDevice` 是上层唯一的设备依赖（连接状态、电量、`strength_a/b`、`wave_sending/frame/frames`、`set_strength` / `play_wave` / `stop_wave` / `apply_limits`，以及 `outputStateChanged` / `outputStrengthChanged` / `outputWaveChanged` 三个信号）。`CoyoteBleController` 以上述既有信号转发接口信号，发射时机与次数不变。
 
 外部协议参考 `DG-LAB-OPENSOURCE/coyote/v3/README_V3.md`。
 

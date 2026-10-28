@@ -8,7 +8,7 @@
 | `rule/` | 规则引擎 | 规则实体与规则管理器（`Rule`/`RuleManager`），以及可视化规则图模型（`RuleGraph`） |
 | `module/` | 数值模块 | 数值模型与调度（`ModuleValue`/`Module`/`ModuleManager`，同时是插件宿主）、通用数据接收器 `DataListener` |
 | `wave/` | 波形 | 波形模型 `Wave`（V3 八字节帧）与波形库 `WaveLibrary` |
-| `ble/` | 蓝牙 | 郊狼 V3 蓝牙直连 `CoyoteBleController` |
+| `ble/` | 蓝牙 | 输出设备接口 `IOutputDevice` 与郊狼 V3 蓝牙直连 `CoyoteBleController` |
 | `net/` | 网络 | 应用内 DG-LAB WebSocket 中转服务 `DglabRelayServer`（V3 / V4）与局域网地址选择器 `IpSelector` |
 | `ui/` | 界面层（C++ 侧） | 桥接对象（`AppBridge`/`DeviceController`/`HomeBridge`/`ModuleBridge`/`WaveBridge`/`RuleGraphBridge`/`LogBridge`）、主题令牌 `ThemeManager`、二维码 `QrImageProvider`、QML 连接集中点 `UiConnector`，以及 QML 文件 `qml/` |
 
@@ -22,7 +22,7 @@ src/
 ├── rule/     # 规则引擎 + 规则图模型
 ├── module/   # 数值模块与插件宿主 + 数据接收器
 ├── wave/     # 波形模型与波形库
-├── ble/      # 郊狼 V3 蓝牙直连
+├── ble/      # 输出设备接口 + 郊狼 V3 蓝牙直连
 ├── net/      # 应用内 WebSocket 中转服务（V3 / V4）与网卡地址选择器
 ├── ui/       # 界面桥接对象 + QML 界面
 └── README.md # 本说明文件
@@ -90,7 +90,7 @@ ui     ->  core, module, rule, wave, net, ble
 
 | 文件 | 描述 |
 | --- | --- |
-| `CoyoteBleController.cpp` | 郊狼 V3 蓝牙：扫描/连接、每 100ms 写 B0（强度 + 双通道波形）、BF 软上限与平衡参数、B1 强度回执与电量 |
+| `CoyoteBleController.cpp` | 郊狼 V3 蓝牙：扫描/连接、每 100ms 写 B0（强度 + 双通道波形）、BF 软上限与平衡参数、B1 强度回执与电量；按蓝牙名前缀 `47L1xxxx` 识别型号（`kModelTable`：爪印 / 郊狼 / 灵猫 / 负鼠），未登记前缀标注「暂不支持」并拒绝连接；以 `IOutputDevice` 适配方法对外，接口信号由既有信号转发 |
 
 ## 六、net/ —— 应用内 WebSocket 中转服务
 
@@ -107,7 +107,7 @@ C++ 侧提供桥接对象与连接集中点，QML 只做绑定与渲染；界面
 | --- | --- |
 | `ThemeManager.cpp` | 主题令牌（17 套预设 + 自定义主/副色，按 WCAG 校正对比度），注册为 QML 单例 `Theme`；令牌与预设见 [docs/theme.md](../docs/theme.md) |
 | `AppBridge.cpp` | 应用信息与页面导航、状态栏文本 |
-| `DeviceController.cpp` | 启停内置中转服务、二维码载荷 `pairingUrl`（官方格式）与展示文本 `pairingUrlText`、强度/波形/清除下发与回传转发；事件输出（`set_event_output()`）与规则命令按通道合并——取较大值、按通道上限钳制、相同值不重复下发 |
+| `DeviceController.cpp` | 启停内置中转服务、二维码载荷 `pairingUrl`（官方格式）与展示文本 `pairingUrlText`、强度/波形/清除下发与回传转发；事件输出（`set_event_output()`）与规则命令按通道合并——取较大值、按通道上限钳制、相同值不重复下发；设备侧只依赖 `IOutputDevice`（`attach_output()` 注入），并按通道选择输出目标：`outputTargets()` / `outputTarget()` / `setOutputTarget()` 读写 `app.output.<A|B>.target`（缺省 `coyote`），切目标时停旧目标波形、清事件与规则波形状态并重发当前强度 |
 | `HomeBridge.cpp` | 首页 A/B 通道强度、上限、启用状态、模块与规则摘要 |
 | `ModuleBridge.cpp` | 模块页卡片、统一查询周期、选中模块数值 |
 | `WaveBridge.cpp` | 波形库、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`，发送按协议取 V2 / V3 帧，目标版本缺帧时写 `lastError` 并拒发（不回落另一版本） |
