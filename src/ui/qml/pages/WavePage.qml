@@ -123,10 +123,20 @@ Item {
                         }
                     }
 
-                    // 卡片底部行：选择 / 创建波形右对齐
+                    // 卡片底部行：导入 / 导出在左，选择 / 创建波形在右
                     RowLayout {
                         width: parent.width
                         spacing: Metrics.spacingMd
+
+                        AppButton {
+                            objectName: "waveImportButton"
+                            text: qsTr("导入")
+                        }
+
+                        AppButton {
+                            objectName: "waveExportButton"
+                            text: qsTr("导出")
+                        }
 
                         Item {
                             Layout.fillWidth: true

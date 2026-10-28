@@ -112,6 +112,20 @@ private slots:
     void on_wave_send_clicked();
     void on_wave_editor_close_clicked();
     void on_wave_select_close_clicked();
+    // 波形导入导出
+    void on_wave_import_clicked();
+    void on_wave_export_clicked();
+    void on_wave_export_cancel_clicked();
+    void on_wave_export_confirm_clicked();
+    void on_wave_export_format_selected(int index);
+    void on_wave_export_scope_selected(int index);
+    void on_wave_export_file_accepted();
+    void on_wave_import_file_accepted();
+    void on_wave_conflict_requested(int count);
+    void on_wave_conflict_overwrite_clicked();
+    void on_wave_conflict_rename_clicked();
+    void on_wave_conflict_skip_clicked();
+    void on_wave_conflict_cancel_clicked();
     // 蓝牙直连
     void on_ble_scan_clicked();
     void on_ble_device_clicked();
@@ -168,6 +182,10 @@ private:
     void save_mini_window_state();
     /// @brief 把滚动波形游标处的最近若干帧推给 HomeBridge
     void apply_mini_window_wave();
+    /// @brief 打开系统文件对话框（保存对话框先写入建议文件名）
+    /// @param object_name 文件对话框 objectName
+    /// @param suggested_path 建议文件路径（为空时不写入）
+    void open_file_dialog(const char* object_name, const QString& suggested_path);
 
     struct ItemWatch {
         QQuickItem* owner = nullptr;

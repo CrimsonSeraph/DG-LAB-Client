@@ -29,6 +29,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 
@@ -182,6 +183,25 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
             wave_last_error_ = error;
             if (!error.isEmpty() && app_ != nullptr) {
                 app_->showToast(error, AppBridge::StatusDanger);
+            }
+        });
+        // 导入导出：名称冲突打开冲突弹窗，结果与失败统一走 Toast
+        QObject::connect(wave_, &WaveBridge::importConflictRequested, this,
+            &UiConnector::on_wave_conflict_requested);
+        QObject::connect(wave_, &WaveBridge::importFinished, this,
+            [this](const QString& summary, bool clean) {
+                if (app_ != nullptr) {
+                    app_->showToast(summary, clean ? AppBridge::StatusInfo : AppBridge::StatusWarning);
+                }
+            });
+        QObject::connect(wave_, &WaveBridge::exportFinished, this, [this](const QString& summary) {
+            if (app_ != nullptr) {
+                app_->showToast(summary, AppBridge::StatusInfo);
+            }
+        });
+        QObject::connect(wave_, &WaveBridge::operationFailed, this, [this](const QString& message) {
+            if (app_ != nullptr) {
+                app_->showToast(message, AppBridge::StatusDanger);
             }
         });
     }
@@ -366,6 +386,29 @@ void UiConnector::attach(QObject* root_object) {
         SLOT(on_wave_delete_clicked()));
     watch_items(root_object, "waveSectionList", QStringLiteral("waveSectionClick"),
         SLOT(on_wave_section_clicked()));
+    // 波形导入导出：入口在通道波形卡底部，格式与范围在导出对话框里选择
+    connect_clicked(root_object, "waveImportButton", SLOT(on_wave_import_clicked()));
+    connect_clicked(root_object, "waveExportButton", SLOT(on_wave_export_clicked()));
+    connect_clicked(root_object, "waveExportCancelButton", SLOT(on_wave_export_cancel_clicked()));
+    connect_clicked(root_object, "waveExportConfirmButton", SLOT(on_wave_export_confirm_clicked()));
+    connect_clicked(root_object, "waveConflictOverwriteButton", SLOT(on_wave_conflict_overwrite_clicked()));
+    connect_clicked(root_object, "waveConflictRenameButton", SLOT(on_wave_conflict_rename_clicked()));
+    connect_clicked(root_object, "waveConflictSkipButton", SLOT(on_wave_conflict_skip_clicked()));
+    if (auto* export_format = root_object->findChild<QObject*>(QStringLiteral("waveExportFormatSegment"))) {
+        QObject::connect(export_format, SIGNAL(selected(int)), this,
+            SLOT(on_wave_export_format_selected(int)));
+    }
+    if (auto* export_scope = root_object->findChild<QObject*>(QStringLiteral("waveExportScopeSegment"))) {
+        QObject::connect(export_scope, SIGNAL(selected(int)), this,
+            SLOT(on_wave_export_scope_selected(int)));
+    }
+    // 系统文件对话框：只用它挑选路径，读写全部落在 WaveLibrary
+    if (auto* export_file = root_object->findChild<QObject*>(QStringLiteral("waveExportFileDialog"))) {
+        QObject::connect(export_file, SIGNAL(accepted()), this, SLOT(on_wave_export_file_accepted()));
+    }
+    if (auto* import_file = root_object->findChild<QObject*>(QStringLiteral("waveImportFileDialog"))) {
+        QObject::connect(import_file, SIGNAL(accepted()), this, SLOT(on_wave_import_file_accepted()));
+    }
 
     // 蓝牙直连
     connect_clicked(root_object, "bleScanButton", SLOT(on_ble_scan_clicked()));
@@ -568,6 +611,20 @@ void UiConnector::close_dialog(const char* object_name) {
     }
 }
 
+void UiConnector::open_file_dialog(const char* object_name, const QString& suggested_path) {
+    auto* dialog = find(object_name);
+    if (dialog == nullptr) {
+        LOG_MODULE("UiConnector", "open_file_dialog", LOG_WARN,
+            std::string("未找到文件对话框: ") + object_name);
+        return;
+    }
+    // 保存对话框：打开前写入建议文件名（一次性写属性，QML 侧不对 currentFile 绑定）
+    if (!suggested_path.isEmpty()) {
+        dialog->setProperty("currentFile", QUrl::fromLocalFile(suggested_path));
+    }
+    QMetaObject::invokeMethod(dialog, "open");
+}
+
 bool UiConnector::dialog_visible(const char* object_name) const {
     QObject* dialog = find(object_name);
     return dialog != nullptr && dialog->property("visible").toBool();
@@ -612,6 +669,14 @@ bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
         }
         if (dialog_visible("ipSelectDialog")) {
             on_ip_select_cancel_clicked();
+            return true;
+        }
+        if (dialog_visible("waveExportDialog")) {
+            on_wave_export_cancel_clicked();
+            return true;
+        }
+        if (dialog_visible("waveConflictDialog")) {
+            on_wave_conflict_cancel_clicked();
             return true;
         }
         return false;
@@ -1161,6 +1226,109 @@ void UiConnector::on_wave_editor_close_clicked() {
 
 void UiConnector::on_wave_select_close_clicked() {
     close_dialog("waveSelectDialog");
+}
+
+void UiConnector::on_wave_import_clicked() {
+    open_file_dialog("waveImportFileDialog", QString());
+}
+
+void UiConnector::on_wave_export_clicked() {
+    open_dialog("waveExportDialog");
+}
+
+void UiConnector::on_wave_export_cancel_clicked() {
+    close_dialog("waveExportDialog");
+}
+
+void UiConnector::on_wave_export_confirm_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    // 不合法组合（.pulse + 全部波形、目标通道未绑定波形）一律不静默导出
+    if (!wave_->export_allowed()) {
+        if (app_ != nullptr) {
+            app_->showToast(wave_->export_hint(), AppBridge::StatusWarning);
+        }
+        return;
+    }
+    close_dialog("waveExportDialog");
+    open_file_dialog("waveExportFileDialog", wave_->export_suggested_path());
+}
+
+void UiConnector::on_wave_export_format_selected(int index) {
+    if (wave_ != nullptr) {
+        wave_->setExportFormat(index);
+    }
+}
+
+void UiConnector::on_wave_export_scope_selected(int index) {
+    if (wave_ != nullptr) {
+        wave_->setExportScope(index);
+    }
+}
+
+void UiConnector::on_wave_export_file_accepted() {
+    auto* dialog = find("waveExportFileDialog");
+    if (dialog == nullptr || wave_ == nullptr) {
+        return;
+    }
+    const QString path = dialog->property("selectedFile").toUrl().toLocalFile();
+    wave_->exportToFile(path);
+}
+
+void UiConnector::on_wave_import_file_accepted() {
+    auto* dialog = find("waveImportFileDialog");
+    if (dialog == nullptr || wave_ == nullptr) {
+        return;
+    }
+    const QString path = dialog->property("selectedFile").toUrl().toLocalFile();
+    wave_->importFromFile(path);
+}
+
+void UiConnector::on_wave_conflict_requested(int count) {
+    if (wave_ == nullptr) {
+        return;
+    }
+    // 重命名建议名由 C++ 给出：单条冲突可在弹窗里改写，多条冲突按序号自动生成
+    if (auto* field = find("waveConflictRenameField")) {
+        field->setProperty("text", wave_->pending_rename());
+    }
+    open_dialog("waveConflictDialog");
+    LOG_MODULE("UiConnector", "on_wave_conflict_requested", LOG_INFO,
+        "波形名称冲突 " << count << " 条，等待用户选择覆盖 / 重命名 / 跳过");
+}
+
+void UiConnector::on_wave_conflict_overwrite_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    wave_->resolveConflict(QStringLiteral("overwrite"), QString());
+    close_dialog("waveConflictDialog");
+}
+
+void UiConnector::on_wave_conflict_rename_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    auto* field = find("waveConflictRenameField");
+    const QString name = (field == nullptr) ? QString() : field->property("text").toString().trimmed();
+    wave_->resolveConflict(QStringLiteral("rename"), name);
+    close_dialog("waveConflictDialog");
+}
+
+void UiConnector::on_wave_conflict_skip_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    wave_->resolveConflict(QStringLiteral("skip"), QString());
+    close_dialog("waveConflictDialog");
+}
+
+void UiConnector::on_wave_conflict_cancel_clicked() {
+    if (wave_ != nullptr) {
+        wave_->cancelPendingImport();
+    }
+    close_dialog("waveConflictDialog");
 }
 
 void UiConnector::on_ble_scan_clicked() {

@@ -9,6 +9,8 @@
 #include "DeviceController.h"
 #include "WaveLibrary.h"
 
+#include <QDir>
+#include <QStandardPaths>
 #include <QVariantMap>
 
 #include <algorithm>
@@ -22,6 +24,9 @@ void WaveBridge::initialize() {
     auto& library = WaveLibrary::instance();
     connect(&library, &WaveLibrary::library_changed, this, &WaveBridge::dataChanged);
     connect(&library, &WaveLibrary::current_changed, this, &WaveBridge::dataChanged);
+    // 导出文案依赖库内容与通道当前波形：库变化时一并刷新
+    connect(&library, &WaveLibrary::library_changed, this, &WaveBridge::exportChanged);
+    connect(&library, &WaveLibrary::current_changed, this, &WaveBridge::exportChanged);
     beginCreate();
     LOG_MODULE("WaveBridge", "initialize", LOG_INFO, "波形桥接初始化完成");
 }
@@ -132,6 +137,68 @@ bool WaveBridge::draft_sendable() const {
     const QStringList& frames
         = active_protocol == QStringLiteral("v2") ? draft_frames_v2_ : draft_frames_v3_;
     return !frames.isEmpty();
+}
+
+int WaveBridge::export_format_index() const {
+    return export_format_ == QStringLiteral("pulse") ? 1 : 0;
+}
+
+int WaveBridge::export_scope_index() const {
+    return export_scope_ == QStringLiteral("all") ? 1 : 0;
+}
+
+bool WaveBridge::export_allowed() const {
+    if (export_format_ == QStringLiteral("pulse")) {
+        // .pulse 一次只装一个波形：范围必须是当前波形且该通道已绑定波形
+        return export_scope_ == QStringLiteral("current") && !target_wave_name().isEmpty();
+    }
+    if (export_scope_ == QStringLiteral("all")) {
+        return !WaveLibrary::instance().names().empty();
+    }
+    return !target_wave_name().isEmpty();
+}
+
+QString WaveBridge::export_hint() const {
+    const QString current = target_wave_name();
+    if (export_format_ == QStringLiteral("pulse")) {
+        if (export_scope_ == QStringLiteral("all")) {
+            return QStringLiteral(
+                "「全部波形」只能导出为 JSON：.pulse 一个文件只装一个波形，"
+                "请改选「当前波形」逐条导出，或把格式改回 JSON。");
+        }
+        if (current.isEmpty()) {
+            return QStringLiteral("目标通道 %1 还没有绑定波形，无法导出 .pulse。").arg(target_channel_);
+        }
+        return QStringLiteral("将把通道 %1 的《%2》导出为 .pulse，文件内容为该波形的 raw 原文。")
+            .arg(target_channel_, current);
+    }
+    if (export_scope_ == QStringLiteral("all")) {
+        const int count = static_cast<int>(WaveLibrary::instance().names().size());
+        return QStringLiteral("将把波形库中全部 %1 个波形导出为一个 JSON 数组（V2 与 V3 帧同时写出）。")
+            .arg(count);
+    }
+    if (current.isEmpty()) {
+        return QStringLiteral("目标通道 %1 还没有绑定波形，请先在波形库中指派一个。").arg(target_channel_);
+    }
+    return QStringLiteral("将把通道 %1 的《%2》导出为 JSON 数组（V2 与 V3 帧同时写出）。")
+        .arg(target_channel_, current);
+}
+
+QString WaveBridge::export_suggested_path() const {
+    const QString directory = export_directory();
+    const QString suffix = export_suffix();
+    QString base = target_wave_name();
+    if (export_format_ != QStringLiteral("pulse") && export_scope_ == QStringLiteral("all")) {
+        base = QStringLiteral("waves");
+    }
+    if (base.isEmpty()) {
+        base = QStringLiteral("wave");
+    }
+    return directory + QStringLiteral("/") + base + QLatin1Char('.') + suffix;
+}
+
+int WaveBridge::conflict_count() const {
+    return static_cast<int>(conflict_names_.size());
 }
 
 void WaveBridge::setProtocol(const QString& protocol) {
@@ -385,6 +452,120 @@ void WaveBridge::loadIntoEditor(const QString& name) {
     emit draftChanged();
 }
 
+void WaveBridge::setExportFormat(int index) {
+    const QString format = (index == 1) ? QStringLiteral("pulse") : QStringLiteral("json");
+    if (format == export_format_) {
+        return;
+    }
+    export_format_ = format;
+    emit exportChanged();
+}
+
+void WaveBridge::setExportScope(int index) {
+    const QString scope = (index == 1) ? QStringLiteral("all") : QStringLiteral("current");
+    if (scope == export_scope_) {
+        return;
+    }
+    export_scope_ = scope;
+    emit exportChanged();
+}
+
+void WaveBridge::exportToFile(const QString& path) {
+    auto& library = WaveLibrary::instance();
+    QString target = path.trimmed();
+    if (target.isEmpty()) {
+        emit operationFailed(QStringLiteral("未选择导出文件"));
+        return;
+    }
+    const QString suffix = export_suffix();
+    if (!target.endsWith(QLatin1Char('.') + suffix, Qt::CaseInsensitive)) {
+        target += QLatin1Char('.') + suffix;
+    }
+
+    QString error;
+    QStringList notes;
+    bool ok = false;
+    if (export_format_ == QStringLiteral("pulse")) {
+        const QString name = target_wave_name();
+        if (name.isEmpty()) {
+            emit operationFailed(QStringLiteral("目标通道没有绑定波形，未导出"));
+            return;
+        }
+        ok = library.export_pulse(target, name.toStdString(), error);
+    }
+    else {
+        std::vector<std::string> names;
+        if (export_scope_ == QStringLiteral("all")) {
+            names = library.names();
+        }
+        else {
+            const QString name = target_wave_name();
+            if (name.isEmpty()) {
+                emit operationFailed(QStringLiteral("目标通道没有绑定波形，未导出"));
+                return;
+            }
+            names.push_back(name.toStdString());
+        }
+        ok = library.export_json(target, names, error, notes);
+    }
+    if (!ok) {
+        emit operationFailed(error);
+        return;
+    }
+    QString summary = QStringLiteral("已导出 %1").arg(target);
+    if (!notes.isEmpty()) {
+        summary += QStringLiteral("（%1）").arg(notes.join(QStringLiteral("；")));
+    }
+    emit exportFinished(summary);
+}
+
+void WaveBridge::importFromFile(const QString& path) {
+    auto& library = WaveLibrary::instance();
+    const WaveImportPlan plan = library.plan_import(path);
+    if (!plan.error.isEmpty()) {
+        emit operationFailed(plan.error);
+        return;
+    }
+    if (plan.waves.empty()) {
+        // 全部条目都解析失败：不弹冲突弹窗，直接把逐条原因汇总回去
+        WaveImportResult result;
+        result.notes = plan.skipped;
+        result.skipped = static_cast<int>(plan.skipped.size());
+        emit importFinished(result.summary(), false);
+        return;
+    }
+
+    pending_import_ = plan;
+    has_pending_import_ = true;
+    conflict_names_ = plan.conflicts;
+    pending_rename_ = QString::fromStdString(library.suggest_name(plan.waves.front().name));
+    emit importChanged();
+    if (!plan.conflicts.isEmpty()) {
+        emit importConflictRequested(static_cast<int>(plan.conflicts.size()));
+        return;
+    }
+    apply_pending_import(QStringLiteral("skip"), QString());
+}
+
+void WaveBridge::resolveConflict(const QString& action, const QString& renameTo) {
+    if (!has_pending_import_) {
+        return;
+    }
+    apply_pending_import(action, renameTo);
+}
+
+void WaveBridge::cancelPendingImport() {
+    if (!has_pending_import_) {
+        return;
+    }
+    pending_import_ = WaveImportPlan();
+    has_pending_import_ = false;
+    conflict_names_.clear();
+    pending_rename_.clear();
+    emit importChanged();
+    LOG_MODULE("WaveBridge", "cancelPendingImport", LOG_INFO, "已取消待写入的导入波形");
+}
+
 bool WaveBridge::draft_dirty() const {
     return !has_saved_ || draft_fingerprint() != saved_fingerprint_;
 }
@@ -413,6 +594,45 @@ void WaveBridge::regenerate_frames() {
     // 段落只生成 V3 帧，V2 帧置空由发送前按协议校验
     draft_frames_v2_.clear();
     draft_frames_v3_ = Wave::generate_frames(draft_sections_);
+}
+
+QString WaveBridge::target_wave_name() const {
+    const QString name = WaveLibrary::instance().current(target_channel_.toStdString());
+    // 通道记录里可能是已删除（或已移除的占位）波形名：只有库中存在的才算当前波形
+    if (name.isEmpty() || WaveLibrary::instance().get(name.toStdString()) == nullptr) {
+        return QString();
+    }
+    return name;
+}
+
+QString WaveBridge::export_suffix() const {
+    return export_format_ == QStringLiteral("pulse") ? QStringLiteral("pulse") : QStringLiteral("json");
+}
+
+QString WaveBridge::export_directory() {
+    QString directory = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (directory.isEmpty()) {
+        directory = QDir::homePath();
+    }
+    return directory;
+}
+
+void WaveBridge::apply_pending_import(const QString& action, const QString& rename_to) {
+    WaveConflictPolicy policy = WaveConflictPolicy::Skip;
+    if (action == QStringLiteral("overwrite")) {
+        policy = WaveConflictPolicy::Overwrite;
+    }
+    else if (action == QStringLiteral("rename")) {
+        policy = WaveConflictPolicy::Rename;
+    }
+    const WaveImportResult result
+        = WaveLibrary::instance().apply_import(pending_import_, policy, rename_to);
+    pending_import_ = WaveImportPlan();
+    has_pending_import_ = false;
+    conflict_names_.clear();
+    pending_rename_.clear();
+    emit importChanged();
+    emit importFinished(result.summary(), result.skipped == 0);
 }
 
 QString WaveBridge::section_summary(const WaveSection& section) const {

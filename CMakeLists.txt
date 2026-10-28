@@ -256,9 +256,11 @@ set(NET
 set(WAVE
 	# 源文件
 	src/wave/Wave.cpp
+	src/wave/WaveImportExport.cpp
 	src/wave/WaveLibrary.cpp
 	# 头文件
 	include/wave/Wave.h
+	include/wave/WaveImportExport.h
 	include/wave/WaveLibrary.h
 )
 
@@ -425,6 +427,8 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/pages/home/DashboardWaveCard.qml
 		src/ui/qml/dialogs/WaveSelectDialog.qml
 		src/ui/qml/dialogs/WaveEditorDialog.qml
+		src/ui/qml/dialogs/WaveExportDialog.qml
+		src/ui/qml/dialogs/WaveConflictDialog.qml
 		src/ui/qml/dialogs/RuleEditorDialog.qml
 		src/ui/qml/dialogs/UpdateDialog.qml
 		src/ui/qml/dialogs/IpSelectDialog.qml
@@ -877,6 +881,39 @@ target_include_directories(wave_library_test
 		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
 )
 add_test(NAME wave_library_test COMMAND wave_library_test)
+
+# 波形导入导出（JSON 单对象 / 数组、.pulse 单文件、名称冲突三选、逐条容错与缺帧标记）
+# 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；
+# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+add_executable(wave_import_export_test
+	tests/wave_import_export_test.cpp
+	${WAVE}
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${CORE_CONFIG}
+	${CORE_LOG}
+	DGLABClient.qrc
+)
+target_link_libraries(wave_import_export_test
+	PRIVATE
+		Qt::Core
+		Qt::Network
+		Qt::Qml
+		nlohmann_json
+)
+target_include_directories(wave_import_export_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+)
+add_test(NAME wave_import_export_test COMMAND wave_import_export_test)
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；

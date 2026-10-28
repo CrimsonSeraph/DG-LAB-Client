@@ -7,9 +7,11 @@
 
 #include "AppConfig.h"
 #include "DebugLog.h"
+#include "WaveImportExport.h"
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 
 #include <fstream>
 
@@ -53,7 +55,45 @@ namespace {
         return true;
     }
 
+    /// @brief 以 UTF-8 无 BOM 写入文本文件
+    bool write_text_file(const QString& path, const QString& text, QString& error) {
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            error = QStringLiteral("无法写入文件：%1").arg(path);
+            return false;
+        }
+        const QByteArray data = text.toUtf8();
+        const qint64 written = file.write(data);
+        file.close();
+        if (written != data.size()) {
+            error = QStringLiteral("写入文件失败：%1").arg(path);
+            return false;
+        }
+        return true;
+    }
+
 } // namespace
+
+QString WaveImportResult::summary() const {
+    const int total = added + overwritten + renamed + skipped;
+    QString text = QStringLiteral("导入 %1 条：新增 %2 · 覆盖 %3 · 重命名 %4 · 跳过 %5")
+                       .arg(total)
+                       .arg(added)
+                       .arg(overwritten)
+                       .arg(renamed)
+                       .arg(skipped);
+    if (warnings.isEmpty()) {
+        return text;
+    }
+    // Toast 只有一行宽度：逐条原因最多展开两条，其余折叠成计数
+    const QStringList shown = warnings.mid(0, 2);
+    QString details = shown.join(QStringLiteral("；"));
+    if (warnings.size() > shown.size()) {
+        details += QStringLiteral("；等 %1 条").arg(warnings.size());
+    }
+    text += QStringLiteral("：") + details;
+    return text;
+}
 
 WaveLibrary& WaveLibrary::instance() {
     static WaveLibrary library;
@@ -221,6 +261,195 @@ int WaveLibrary::duration_ms(const std::string& name) const {
     return wave == nullptr ? 0 : wave->duration_ms();
 }
 
+WaveImportPlan WaveLibrary::plan_import(const QString& path) const {
+    WaveImportPlan plan;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        plan.error = QStringLiteral("无法读取文件：%1").arg(path);
+        LOG_MODULE("WaveLibrary", "plan_import", LOG_ERROR, plan.error.toStdString());
+        return plan;
+    }
+    const QByteArray data = file.readAll();
+    file.close();
+    const QString text = QString::fromUtf8(data);
+    const QFileInfo info(path);
+    const QString suffix = info.suffix().toLower();
+    if (suffix == QStringLiteral("json")) {
+        wave_io::parse_json(text, plan.waves, plan.skipped, plan.error);
+    }
+    else if (suffix == QStringLiteral("pulse")) {
+        Wave wave;
+        QString error;
+        if (wave_io::parse_pulse(text, info.completeBaseName(), wave, error)) {
+            plan.waves.push_back(wave);
+        }
+        else {
+            plan.error = error;
+        }
+    }
+    else {
+        plan.error = QStringLiteral("不支持的文件类型：.%1（只支持 .json / .pulse）").arg(suffix);
+    }
+    if (!plan.error.isEmpty()) {
+        LOG_MODULE("WaveLibrary", "plan_import", LOG_ERROR, plan.error.toStdString());
+        return plan;
+    }
+    for (const auto& wave : plan.waves) {
+        if (has(wave.name)) {
+            plan.conflicts.append(QString::fromStdString(wave.name));
+        }
+    }
+    LOG_MODULE("WaveLibrary", "plan_import", LOG_INFO,
+        "导入解析完成：" << plan.waves.size() << " 条可写入，" << plan.skipped.size() << " 条跳过，"
+                         << plan.conflicts.size() << " 条重名");
+    return plan;
+}
+
+WaveImportResult WaveLibrary::apply_import(const WaveImportPlan& plan, WaveConflictPolicy policy,
+    const QString& rename_to) {
+    WaveImportResult result;
+    result.notes = plan.skipped;
+    result.warnings = plan.skipped;
+    result.skipped = static_cast<int>(plan.skipped.size());
+    const bool single = plan.waves.size() == 1;
+    const QString requested = rename_to.trimmed();
+    bool changed = false;
+
+    for (Wave wave : plan.waves) {
+        wave.source = WaveSource::User;
+        const QString original = QString::fromStdString(wave.name);
+
+        if (!has(wave.name)) {
+            waves_[wave.name] = wave;
+            ++result.added;
+            changed = true;
+        }
+        else if (policy == WaveConflictPolicy::Overwrite) {
+            if (is_official(wave.name)) {
+                ++result.skipped;
+                const QString reason
+                    = QStringLiteral("《%1》是内置官方波形，不可覆盖，已跳过").arg(original);
+                result.notes.append(reason);
+                result.warnings.append(reason);
+                continue;
+            }
+            waves_[wave.name] = wave;
+            ++result.overwritten;
+            result.notes.append(QStringLiteral("《%1》已覆盖库中同名波形").arg(original));
+            changed = true;
+        }
+        else if (policy == WaveConflictPolicy::Rename) {
+            std::string target = (single && !requested.isEmpty()) ? requested.toStdString()
+                                                                  : suggest_name(wave.name);
+            if (has(target) || is_official(target)) {
+                target = suggest_name(wave.name);
+            }
+            if (has(target) || is_official(target)) {
+                ++result.skipped;
+                const QString reason
+                    = QStringLiteral("《%1》没有可用的新名称，已跳过").arg(original);
+                result.notes.append(reason);
+                result.warnings.append(reason);
+                continue;
+            }
+            wave.name = target;
+            waves_[target] = wave;
+            ++result.renamed;
+            result.notes.append(QStringLiteral("《%1》已重命名为《%2》")
+                                    .arg(original, QString::fromStdString(target)));
+            changed = true;
+        }
+        else {
+            ++result.skipped;
+            const QString reason = QStringLiteral("《%1》已存在同名波形，已跳过").arg(original);
+            result.notes.append(reason);
+            result.warnings.append(reason);
+            continue;
+        }
+
+        if (wave.frames_v2.isEmpty() && wave.frames_v3.isEmpty()) {
+            const QString warning = QStringLiteral("《%1》缺少帧，已标记为不可发送")
+                                        .arg(QString::fromStdString(wave.name));
+            result.notes.append(warning);
+            result.warnings.append(warning);
+        }
+    }
+
+    if (changed) {
+        persist();
+        emit library_changed();
+    }
+    LOG_MODULE("WaveLibrary", "apply_import", LOG_INFO,
+        "导入写入完成：新增 " << result.added << " 覆盖 " << result.overwritten << " 重命名 "
+                              << result.renamed << " 跳过 " << result.skipped);
+    return result;
+}
+
+std::string WaveLibrary::suggest_name(const std::string& name) const {
+    for (int index = 2; index <= 999; ++index) {
+        const std::string candidate = name + " (" + std::to_string(index) + ")";
+        if (!has(candidate)) {
+            return candidate;
+        }
+    }
+    return name + " (副本)";
+}
+
+bool WaveLibrary::export_json(const QString& path, const std::vector<std::string>& names, QString& error,
+    QStringList& notes) const {
+    error.clear();
+    notes.clear();
+    std::vector<Wave> waves;
+    if (names.empty()) {
+        for (const auto& [name, wave] : waves_) {
+            waves.push_back(wave);
+        }
+    }
+    else {
+        for (const auto& name : names) {
+            const Wave* wave = get(name);
+            if (wave == nullptr) {
+                error = QStringLiteral("波形不存在：%1").arg(QString::fromStdString(name));
+                return false;
+            }
+            waves.push_back(*wave);
+        }
+    }
+    if (waves.empty()) {
+        error = QStringLiteral("波形库为空，没有可导出的波形");
+        return false;
+    }
+    const QString text = wave_io::build_json(waves, notes);
+    if (!write_text_file(path, text, error)) {
+        LOG_MODULE("WaveLibrary", "export_json", LOG_ERROR, error.toStdString());
+        return false;
+    }
+    LOG_MODULE("WaveLibrary", "export_json", LOG_INFO,
+        "已导出 " << waves.size() << " 个波形到 " << path.toStdString());
+    return true;
+}
+
+bool WaveLibrary::export_pulse(const QString& path, const std::string& name, QString& error) const {
+    error.clear();
+    const Wave* wave = get(name);
+    if (wave == nullptr) {
+        error = QStringLiteral("波形不存在：%1").arg(QString::fromStdString(name));
+        return false;
+    }
+    QString text;
+    if (!wave_io::build_pulse(*wave, text, error)) {
+        LOG_MODULE("WaveLibrary", "export_pulse", LOG_WARN, error.toStdString());
+        return false;
+    }
+    if (!write_text_file(path, text, error)) {
+        LOG_MODULE("WaveLibrary", "export_pulse", LOG_ERROR, error.toStdString());
+        return false;
+    }
+    LOG_MODULE("WaveLibrary", "export_pulse", LOG_INFO,
+        "已导出波形 " << name << " 到 " << path.toStdString());
+    return true;
+}
+
 std::string WaveLibrary::official_resource_path() {
     return std::string(OFFICIAL_RESOURCE);
 }
@@ -247,9 +476,10 @@ void WaveLibrary::load() {
                         needs_persist = true;
                         continue;
                     }
-                    if (wave.frames_v2.isEmpty() && wave.frames_v3.isEmpty()) {
+                    // 只有 raw 没有帧的条目（如 .pulse 导入）保留：仍可再编辑与导出 .pulse，只是不可发送
+                    if (wave.frames_v2.isEmpty() && wave.frames_v3.isEmpty() && wave.raw.empty()) {
                         LOG_MODULE("WaveLibrary", "load", LOG_WARN,
-                            "波形库条目没有任何合规帧，已跳过: " << wave.name);
+                            "波形库条目既没有帧也没有 raw，已跳过: " << wave.name);
                         needs_persist = true;
                         continue;
                     }

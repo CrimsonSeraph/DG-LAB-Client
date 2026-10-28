@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 
 // 主窗口：左侧导航（图标 + 文字）+ 内容区 + 底部状态栏。
@@ -385,6 +386,33 @@ ApplicationWindow {
 
     WaveEditorDialog {
         id: waveEditorDialog
+    }
+
+    // 波形导出对话框与名称冲突对话框（波形页「导出」/ 导入遇重名时由 C++ 打开）
+    WaveExportDialog {
+        id: waveExportDialog
+    }
+
+    WaveConflictDialog {
+        id: waveConflictDialog
+    }
+
+    // 系统文件对话框：只负责挑选路径，JSON / .pulse 的读写全部落在 WaveLibrary
+    FileDialog {
+        objectName: "waveExportFileDialog"
+        title: qsTr("导出波形")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: waveBridge.exportFormatIndex === 1 ? "pulse" : "json"
+        nameFilters: waveBridge.exportFormatIndex === 1
+            ? [qsTr("DG-LAB 波形 (*.pulse)")]
+            : [qsTr("JSON 波形数组 (*.json)")]
+    }
+
+    FileDialog {
+        objectName: "waveImportFileDialog"
+        title: qsTr("导入波形")
+        fileMode: FileDialog.OpenFile
+        nameFilters: [qsTr("波形文件 (*.json *.pulse)"), qsTr("JSON (*.json)"), qsTr(".pulse (*.pulse)")]
     }
 
     // 规则可视化编辑器（首页 / 配置页入口打开）
