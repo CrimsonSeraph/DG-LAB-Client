@@ -87,6 +87,8 @@ public:
 
     // 标签库分两层：内置标签是代码常量（随版本走，用户不可删除），
     // 自定义标签存在 config/waves/tags.json；波形按名字引用标签，读到时统一规范化。
+    // 官方内置波形只读（帧与名称不可改），但标签是用户侧叠加数据：同样存在 tags.json 的
+    // official_wave_tags 段，每次由资源重建后重新应用。
     /// @brief 内置标签（代码常量，随版本走，用户不可删除；本批为空，结构已就位）
     QStringList builtin_tags() const;
     /// @brief 自定义标签（config/waves/tags.json 里的顺序表）
@@ -106,12 +108,12 @@ public:
     /// @brief 删除自定义标签，并从使用中的波形上一并移除该标签（内置标签拒绝）
     /// @return 从波形上移除该标签的波形数；拒绝或不存在返回 -1，原因写 error
     int remove_custom_tag(const QString& tag, QString* error = nullptr);
-    /// @brief 给指定波形加标签（同时登记进标签库）；官方内置波形只读，拒绝
+    /// @brief 给指定波形加标签（官方波形的标签存为叠加数据，帧与名称仍只读）
     /// @param wave_name 波形名
     /// @param tag 标签名（大小写不敏感匹配库里已有写法）
     /// @param error 失败原因
     bool attach_tag(const std::string& wave_name, const QString& tag, QString* error = nullptr);
-    /// @brief 从指定波形上移除该标签（不动标签库）
+    /// @brief 从指定波形上移除该标签（不动标签库；官方波形清掉多余标签后写回 tags.json）
     bool detach_tag(const std::string& wave_name, const QString& tag);
     /// @brief 批量自动登记标签（导入用）：只写非内置且未入库的标签，返回新增条数
     int register_tags(const QStringList& tags);
@@ -154,13 +156,15 @@ private:
 
     void load();
     void load_official();
+    /// @brief 应用官方波形的标签叠加数据（tags.json 的 official_wave_tags 段，资源重建后调用）
+    void load_official_tags();
     void persist() const;
     std::string file_path() const;
     /// @brief 自定义标签库文件路径（config/waves/tags.json）
     std::string tags_file_path() const;
     /// @brief 读取自定义标签库（文件缺失或损坏时为空，不报错）
     void load_tags();
-    /// @brief 写入自定义标签库
+    /// @brief 写入自定义标签库与官方波形标签叠加数据（同一文件的两段）
     void persist_tags() const;
 
     std::map<std::string, Wave> waves_;

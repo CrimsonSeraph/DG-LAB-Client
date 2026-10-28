@@ -89,7 +89,7 @@ src/ui/
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
-| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）；标签库分两层（内置标签是代码常量、不可删，自定义标签存 `config/waves/tags.json`），`tagLibrary` / `builtinTags` / `customTags` / `tagTargetName` / `tagMaxLength` 供波形页与标签选择器使用，删除自定义标签时把该标签从使用中的波形上一并移除（波形数据结构与标签规则见 [docs/wave-data.md](../../docs/wave-data.md)） |
+| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）；标签库分两层（内置标签是代码常量、不可删，自定义标签存 `config/waves/tags.json`），`tagLibrary` / `builtinTags` / `customTags` / `tagTargetName` / `tagMaxLength` 供波形页与标签选择器使用，删除自定义标签时把该标签从使用中的波形上一并移除；官方 16 个波形的标签是用户侧叠加数据（存同一文件的 `official_wave_tags` 段，重新加载官方资源后恢复），其帧与名称仍只读（波形数据结构与标签规则见 [docs/wave-data.md](../../docs/wave-data.md)） |
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
@@ -214,7 +214,7 @@ src/ui/
 | `waveExportButton` | 导出波形 → `on_wave_export_clicked()`：打开 `waveExportDialog` 先选格式与范围 |
 | `waveTagCard` | 波形标签卡根节点（`GlassCard`）：标签库（内置标签带锁标识、自定义标签用语义色，均为只读展示）与波形列表 |
 | `waveTagWaveList` | 波形列表容器（`Repeater` 按 `waveBridge.waves` 生成）：每个条目的标签显示在波形名上方，无标签时该行不占位；本页不提供删除入口，删除在标签选择器里做 |
-| `waveTagEditClick` | 条目内「编辑标签」（`AppButton`，`waveName` 属性）→ `on_wave_tag_edit_clicked()`：写 `WaveBridge::beginTagEdit` 并打开 `waveTagDialog`；内置官方波形条目置灰 |
+| `waveTagEditClick` | 条目内「编辑标签」（`AppButton`，`waveName` 属性）→ `on_wave_tag_edit_clicked()`：写 `WaveBridge::beginTagEdit` 并打开 `waveTagDialog`；官方波形条目同样可用，只读的是其帧与名称 |
 
 日志页（`pages/LogPage.qml`）：页面用 `ColumnLayout` 撑满窗口高度，日志列表吃满面板剩余高度并自行滚动；手动导出设置写入 `user.json` 的 `app.log.manual.*`，导出时按该设置逐行过滤。
 

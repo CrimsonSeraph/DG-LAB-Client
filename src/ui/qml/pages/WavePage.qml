@@ -301,11 +301,11 @@ Item {
                                             font.pixelSize: Typography.fontBody
                                         }
 
+                                        // 标签可编辑的对象含官方波形：官方条目的帧与名称只读，标签是用户侧叠加数据
                                         AppButton {
                                             objectName: "waveTagEditClick"
                                             property string waveName: modelData.name
                                             text: qsTr("编辑标签")
-                                            enabled: !modelData.official
                                         }
                                     }
                                 }

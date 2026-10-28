@@ -43,6 +43,9 @@ namespace {
     /// @brief 标签库文件结构版本
     const int TAGS_FILE_VERSION = 1;
 
+    /// @brief tags.json 里官方波形标签叠加数据的键名（波形名 → 标签数组）
+    const char* const OFFICIAL_TAGS_KEY = "official_wave_tags";
+
     /// @brief 内置标签存储：代码常量随版本走；本批为空，官方 App 的标签清单到位后在此逐条追加
     QStringList& builtin_tags_storage() {
         static QStringList tags;
@@ -470,9 +473,8 @@ int WaveLibrary::remove_custom_tag(const QString& tag, QString* error) {
         return -1;
     }
     custom_tags_.removeAt(index);
-    persist_tags();
 
-    // 删除标签同时把它从使用中的波形上移除：界面上的标签始终指向存在的库条目，不留悬空引用
+    // 删除标签同时把它从使用中的波形（含官方波形的叠加标签）上移除：界面上的标签始终指向存在的库条目，不留悬空引用
     int detached = 0;
     for (auto& [_, wave] : waves_) {
         if (!wave.has_tag(normalized)) {
@@ -487,6 +489,8 @@ int WaveLibrary::remove_custom_tag(const QString& tag, QString* error) {
         wave.tags = kept;
         ++detached;
     }
+    // 标签库与官方波形的叠加标签同在一次写入，两处说法始终一致
+    persist_tags();
     if (detached > 0) {
         persist();
     }
@@ -507,12 +511,6 @@ bool WaveLibrary::attach_tag(const std::string& wave_name, const QString& tag, Q
         }
         return false;
     }
-    if (it->second.is_official()) {
-        if (error != nullptr) {
-            *error = QStringLiteral("《%1》是内置官方波形，不可加标签").arg(QString::fromStdString(wave_name));
-        }
-        return false;
-    }
     const QString normalized = Wave::normalize_tag(tag);
     if (normalized.isEmpty()) {
         if (error != nullptr) {
@@ -524,6 +522,10 @@ bool WaveLibrary::attach_tag(const std::string& wave_name, const QString& tag, Q
         return true;
     }
     it->second.tags.append(canonical_tag(normalized));
+    // 官方波形的帧与名称只读，标签是用户侧叠加数据：另存进 tags.json，资源重建后能恢复
+    if (it->second.is_official()) {
+        persist_tags();
+    }
     persist();
     emit library_changed();
     emit tags_changed();
@@ -532,7 +534,7 @@ bool WaveLibrary::attach_tag(const std::string& wave_name, const QString& tag, Q
 
 bool WaveLibrary::detach_tag(const std::string& wave_name, const QString& tag) {
     auto it = waves_.find(wave_name);
-    if (it == waves_.end() || it->second.is_official()) {
+    if (it == waves_.end()) {
         return false;
     }
     const QString normalized = Wave::normalize_tag(tag);
@@ -546,6 +548,9 @@ bool WaveLibrary::detach_tag(const std::string& wave_name, const QString& tag) {
         }
     }
     it->second.tags = kept;
+    if (it->second.is_official()) {
+        persist_tags();
+    }
     persist();
     emit library_changed();
     emit tags_changed();
@@ -954,6 +959,9 @@ void WaveLibrary::load() {
     // 官方内置波形以资源为准，同名用户条目被覆盖
     load_official();
 
+    // 官方波形的标签是用户侧叠加数据：资源重建后按 tags.json 的 official_wave_tags 恢复
+    load_official_tags();
+
     if (needs_persist) {
         persist();
     }
@@ -1027,6 +1035,54 @@ void WaveLibrary::load_official() {
         "官方内置波形加载完成: " << loaded << " 个，跳过 " << skipped << " 个");
 }
 
+void WaveLibrary::load_official_tags() {
+    QFile file(QString::fromStdString(tags_file_path()));
+    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    const QByteArray data = file.readAll();
+    file.close();
+
+    nlohmann::json json;
+    try {
+        json = nlohmann::json::parse(data.constData(), data.constData() + data.size());
+    }
+    catch (const std::exception& e) {
+        LOG_MODULE("WaveLibrary", "load_official_tags", LOG_ERROR,
+            "官方波形标签叠加数据解析失败: " << e.what());
+        return;
+    }
+    const auto section = json.find(OFFICIAL_TAGS_KEY);
+    if (section == json.end() || !section->is_object()) {
+        return;
+    }
+
+    int applied = 0;
+    for (auto& [name, wave] : waves_) {
+        if (!wave.is_official()) {
+            continue;
+        }
+        const auto entry = section->find(name);
+        if (entry == section->end() || !entry->is_array()) {
+            continue;
+        }
+        QStringList collected;
+        for (const auto& item : *entry) {
+            if (item.is_string()) {
+                collected.append(QString::fromStdString(item.get<std::string>()));
+            }
+        }
+        const QStringList tags = Wave::normalize_tags(collected);
+        if (tags.isEmpty()) {
+            continue;
+        }
+        wave.tags = tags;
+        ++applied;
+    }
+    LOG_MODULE("WaveLibrary", "load_official_tags", LOG_INFO,
+        "官方波形标签叠加数据已应用: " << applied << " 个波形");
+}
+
 void WaveLibrary::persist() const {
     nlohmann::json json;
     json["version"] = "1.1";
@@ -1095,6 +1151,19 @@ void WaveLibrary::persist_tags() const {
         tags.push_back(tag.toStdString());
     }
     json["tags"] = tags;
+    // 官方波形的标签单独成段：波形数据来自只读资源，标签是用户侧叠加数据
+    nlohmann::json official_tags = nlohmann::json::object();
+    for (const auto& [name, wave] : waves_) {
+        if (!wave.is_official() || wave.tags.isEmpty()) {
+            continue;
+        }
+        nlohmann::json tags_of_wave = nlohmann::json::array();
+        for (const QString& tag : wave.tags) {
+            tags_of_wave.push_back(tag.toStdString());
+        }
+        official_tags[name] = tags_of_wave;
+    }
+    json[OFFICIAL_TAGS_KEY] = official_tags;
 
     std::ofstream output(tags_file_path(), std::ios::trunc);
     if (!output.is_open()) {

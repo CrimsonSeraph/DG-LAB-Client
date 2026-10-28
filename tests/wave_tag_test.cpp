@@ -5,7 +5,8 @@
 
 // 波形标签库回归测试：标签规范化、波形上的标签 round-trip、旧库无 tags 字段兼容、
 // 导入自动登记、内置标签不可删、删除自定义标签时从使用中的波形上一并移除、
-// JSON 导出含 tags 且可再导入
+// JSON 导出含 tags 且可再导入、官方波形的标签叠加数据（重启后仍在、删除标签时一并清理、
+// 名称与帧仍只读）
 // 全部用例在临时目录内构造，不触碰仓库 config/
 
 #include "AppConfig.h"
@@ -343,6 +344,134 @@ namespace {
         std::printf("[INFO] JSON 导出含 tags 字段，再导入后标签为 [Bass, Trippy]\n");
     }
 
+    // 官方波形上的标签是用户侧叠加数据：写 tags.json 的 official_wave_tags，重新加载后仍在
+    void test_official_tags(WaveLibrary& library, const std::string& waves_dir, const std::string& temp_dir) {
+        const char* name = "tags/official-attach";
+        CHECK_TRUE(name, library.is_official("呼吸"));
+        const int frames_before = library.frame_count("呼吸");
+
+        CHECK_TRUE(name, library.add_custom_tag(QStringLiteral("官方节奏")));
+        CHECK_TRUE(name, library.attach_tag("呼吸", QStringLiteral("官方节奏")));
+        CHECK_TRUE(name, library.attach_tag("潮汐", QStringLiteral("官方节奏")));
+        CHECK_STRINGS(name, tag_list({ "官方节奏" }), tags_of(library, "呼吸"));
+        // 用量统计把官方波形也算进去
+        CHECK_INT(name, 2, library.tag_usage(QStringLiteral("官方节奏")));
+        CHECK_TRUE(name, library.all_tags().contains(QStringLiteral("官方节奏")));
+        // 加标签不动官方的帧
+        CHECK_INT(name, frames_before, library.frame_count("呼吸"));
+
+        // 叠加数据落在标签库文件的 official_wave_tags 段
+        const nlohmann::json tag_file = parse_text(read_text_file(
+            QString::fromStdString(waves_dir + "/tags.json")));
+        const bool has_section = tag_file.is_object() && tag_file.contains("official_wave_tags")
+            && tag_file["official_wave_tags"].is_object();
+        CHECK_TRUE(name, has_section);
+        if (has_section) {
+            const nlohmann::json& section = tag_file["official_wave_tags"];
+            CHECK_TRUE(name, section.contains("呼吸"));
+            CHECK_INT(name, 1, section.contains("呼吸") ? static_cast<int>(section["呼吸"].size()) : -1);
+            CHECK_INT(name, 1, section.contains("潮汐") ? static_cast<int>(section["潮汐"].size()) : -1);
+        }
+
+        // 导出带官方波形自己的标签（导出的是用户视角的完整数据）
+        QString error;
+        QStringList notes;
+        const QString export_path = QString::fromStdString(temp_dir + "/export_official_tags.json");
+        CHECK_TRUE(name, library.export_json(export_path, { "呼吸" }, error, notes));
+        const nlohmann::json exported = parse_text(read_text_file(export_path));
+        CHECK_TRUE(name, exported.is_array() && exported.size() == 1);
+        if (exported.is_array() && !exported.empty()) {
+            const nlohmann::json& entry = exported.at(0);
+            CHECK_TRUE(name, entry.contains("tags") && entry["tags"].is_array());
+            CHECK_INT(name, 1, entry.contains("tags") ? static_cast<int>(entry["tags"].size()) : -1);
+        }
+
+        // 重启（重新 load）：官方资源重建后标签恢复
+        library.reload();
+        CHECK_STRINGS(name, tag_list({ "官方节奏" }), tags_of(library, "呼吸"));
+        CHECK_STRINGS(name, tag_list({ "官方节奏" }), tags_of(library, "潮汐"));
+        CHECK_INT(name, 2, library.tag_usage(QStringLiteral("官方节奏")));
+        CHECK_INT(name, frames_before, library.frame_count("呼吸"));
+
+        // 取消勾选只从官方波形上移除，标签库条目保留；重启后不复活
+        CHECK_TRUE(name, library.detach_tag("潮汐", QStringLiteral("官方节奏")));
+        CHECK_STRINGS(name, QStringList(), tags_of(library, "潮汐"));
+        CHECK_TRUE(name, library.custom_tags().contains(QStringLiteral("官方节奏")));
+        library.reload();
+        CHECK_STRINGS(name, QStringList(), tags_of(library, "潮汐"));
+        CHECK_STRINGS(name, tag_list({ "官方节奏" }), tags_of(library, "呼吸"));
+        CHECK_INT(name, 1, library.tag_usage(QStringLiteral("官方节奏")));
+        std::printf("[INFO] 官方波形标签：存 tags.json 的 official_wave_tags，重新 load 后仍在，帧不变\n");
+    }
+
+    // 删除自定义标签时，官方波形上的引用一并清理（重启后也不复活）
+    void test_official_tag_cleanup(WaveLibrary& library, const std::string& waves_dir) {
+        const char* name = "tags/official-cleanup";
+        CHECK_TRUE(name, library.add_custom_tag(QStringLiteral("官方联动")));
+        CHECK_TRUE(name, library.attach_tag("呼吸", QStringLiteral("官方联动")));
+        Wave user;
+        user.name = "联动用户波形";
+        user.frames_v3 = { QStringLiteral("0A0A0A0A00000000") };
+        user.tags = tag_list({ "官方联动" });
+        CHECK_TRUE(name, library.save(user));
+        CHECK_INT(name, 2, library.tag_usage(QStringLiteral("官方联动")));
+
+        QString error;
+        CHECK_INT(name, 2, library.remove_custom_tag(QStringLiteral("官方联动"), &error));
+        CHECK_TRUE(name, error.isEmpty());
+        // 「官方节奏」是上一个用例留在「呼吸」上的标签，不受影响
+        CHECK_STRINGS(name, tag_list({ "官方节奏" }), tags_of(library, "呼吸"));
+        CHECK_STRINGS(name, QStringList(), tags_of(library, "联动用户波形"));
+        CHECK_INT(name, 0, library.tag_usage(QStringLiteral("官方联动")));
+        CHECK_TRUE(name, !library.all_tags().contains(QStringLiteral("官方联动")));
+
+        // 叠加段里不再残留这个名字
+        const nlohmann::json tag_file = parse_text(read_text_file(
+            QString::fromStdString(waves_dir + "/tags.json")));
+        bool leftover = false;
+        if (tag_file.is_object() && tag_file.contains("official_wave_tags")) {
+            for (const auto& entry : tag_file["official_wave_tags"].items()) {
+                if (!entry.value().is_array()) {
+                    continue;
+                }
+                for (const auto& tag : entry.value()) {
+                    if (tag.is_string() && tag.get<std::string>() == "官方联动") {
+                        leftover = true;
+                    }
+                }
+            }
+        }
+        CHECK_TRUE(name, !leftover);
+
+        library.reload();
+        CHECK_STRINGS(name, tag_list({ "官方节奏" }), tags_of(library, "呼吸"));
+        std::printf("[INFO] 删除自定义标签：官方波形上的引用一并清理，重启后不复活\n");
+    }
+
+    // 官方波形的名称与帧仍不可改：同名保存与删除都被拒绝，帧始终与资源一致
+    void test_official_readonly(WaveLibrary& library) {
+        const char* name = "tags/official-readonly";
+        const int frames_before = library.frame_count("呼吸");
+        const QStringList v2_before = library.frames_of("呼吸", QStringLiteral("v2"));
+
+        Wave tampered;
+        tampered.name = "呼吸";
+        tampered.frames_v3 = { QStringLiteral("0A0A0A0A64646464") };
+        CHECK_TRUE(name, !library.save(tampered));
+        CHECK_INT(name, frames_before, library.frame_count("呼吸"));
+        CHECK_STRINGS(name, v2_before, library.frames_of("呼吸", QStringLiteral("v2")));
+        CHECK_TRUE(name, library.is_official("呼吸"));
+
+        CHECK_TRUE(name, !library.remove("呼吸"));
+        CHECK_TRUE(name, library.has("呼吸"));
+
+        library.reload();
+        CHECK_INT(name, frames_before, library.frame_count("呼吸"));
+        CHECK_STRINGS(name, v2_before, library.frames_of("呼吸", QStringLiteral("v2")));
+        CHECK_TRUE(name, library.is_official("呼吸"));
+        std::printf("[INFO] 官方波形只读：同名保存与删除被拒绝，帧始终为 %d 帧\n", frames_before);
+    }
+
     // 标签库始终无大小写重复条目
     void test_no_duplicates(WaveLibrary& library) {
         const char* name = "tags/no-duplicates";
@@ -390,6 +519,9 @@ int main(int argc, char** argv) {
     test_builtin_locked(library);
     test_remove_detach(library, waves_dir);
     test_json_export(library, temp_dir);
+    test_official_tags(library, waves_dir, temp_dir);
+    test_official_tag_cleanup(library, waves_dir);
+    test_official_readonly(library);
     test_no_duplicates(library);
 
     if (failures != 0) {
