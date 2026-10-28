@@ -91,16 +91,16 @@
 - 系统托盘常驻；主窗口关闭改为隐藏到托盘，退出唯一路径是托盘菜单。
 - 对话框统一继承 `AppDialog`；`AppMenu` 承接菜单外观；侧车头图经 `ModuleBannerImageProvider` 渲染。
 - `EventEngine::remove_module` 与 `module_unregistered` 接线；`AppBridge::openPluginDetail` 直达插件详情。
-- 验收基线：构建 0 error、`ctest` 3/3、启动 9 秒 `err` / `out` 均 0 字节。
+- 验收基线：构建 0 error、`ctest` 4/4、启动 9 秒 `err` / `out` 均 0 字节。
 
 ### 7.2 剩余待办
 - **事件运行时每帧结果 → 设备下发**：**strength / percent 已接线，wave 待下一批**。B0 的 100ms 写入在 `CoyoteBleController.cpp`；`EventRuntime::channelsChanged` 经 `main.cpp` 交给 `DeviceController::set_event_output()`，与规则命令最近值按通道取较大值、按 `min(limit, safety)` 钳制、相同值不重复下发（合并逻辑是 `include/event/EventMath.h` 的 `ChannelOutputState`，测试目标 `event_merge_test`）。
   - 已定口径：事件输出与规则命令写同一通道时取较大值；相对增减（`mode≠2`）无法折算成绝对强度，保持直发不参与合并。
-  - 待下一批：`dataType=wave` 的波形帧下发。现状是波形只作为每帧包络乘进强度（`EventEngine::envelope_of`），没有帧下发；接入前需要先定「波形帧来源（事件映射的 `wave` 名称）、换帧节奏（引擎 `frame_index_` 与设备侧 100ms 写入对齐）、与规则波形/清除指令的冲突处理」。
+  - 待下一批：`dataType=wave` 的波形帧下发（**建议等有郊狼设备可实测时再做**，否则只能验证到调用点，无法验证设备实际波形行为）。现状是波形只作为每帧包络乘进强度（`EventEngine::envelope_of`），没有帧下发；接入前需要先定「波形帧来源（事件映射的 `wave` 名称）、换帧节奏（引擎 `frame_index_` 与设备侧 100ms 写入对齐）、与规则波形/清除指令的冲突处理」。
 
 ### 7.3 打磨与已知局限
 - 主题化边界：`ColorDialog` 是 Windows 原生取色框，由系统绘制，无法套用 `Theme` 令牌。
-- 换行：仓库部分文件 LF/CRLF 不一致（同一目录内也有混用），统一要单独排一次批量格式化。
+- 换行：`.gitattributes` 为 `* text=auto eol=crlf`，索引内统一 LF，但工作区有 31 个文本文件是 LF（应为 CRLF）。提交不受影响，要归一需重新 checkout 这批文件，属工作区卫生而非仓库问题。
 - 退出耗时约 5.6s，全部落在 QML 引擎析构阶段，与应用逻辑无关。
 - Windows 11 托盘图标默认收在折叠区，需用户手动拖到任务栏可见位置。
 - 右键菜单空槽：规则编辑器右键菜单里 `visible: false` 的「删除此连线」仍占一个槽位，表现为两条分隔线之间一段空白。
