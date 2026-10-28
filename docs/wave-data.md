@@ -105,6 +105,7 @@
 - 目标版本缺帧时**不回落另一版本**、也不发送空数据：`WaveBridge` 写 `lastError`（`波形《X》缺少 V2 帧，未发送` / `当前发送协议为 V2，草稿缺少 V2 帧，未发送`）并记 `LOG_WARN`，界面经既有的「`lastError` 由空转非空 → Toast（danger）」路由提示用户。
 - `WaveBridge::waves` 的列表项带 `sendable`（当前协议是否具备帧）、`official`、`frameCountV2` / `frameCountV3`，供界面禁用发送入口。
 - 波形预览（`pointsA` / `pointsB` / `amplitudeA` / `amplitudeB`）与事件包络始终取 V3 帧：预览按 V3 的 4×25ms 子单元解析强度与频率。
+- 事件波形下发（`dataType=wave`）同样按协议取帧：`WaveLibrary::frames_of()` 返回空时不下发、也不回落另一版本，记 `LOG_WARN` 并经既有的 `lastError` / Toast 路由提示用户，详见 [event-mapping.md](event-mapping.md) 的「事件波形下发」。
 
 ## 六、测试覆盖
 

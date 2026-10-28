@@ -13,7 +13,9 @@
 #include "IpSelector.h"
 #include "QrImageProvider.h"
 #include "RuleManager.h"
+#include "WaveLibrary.h"
 
+#include <QDateTime>
 #include <QJsonArray>
 #include <QTimer>
 
@@ -96,6 +98,7 @@ void DeviceController::initialize() {
         if (ble_ != nullptr) {
             ble_->stopWave(1);
         }
+        rule_wave_[0] = RuleWaveState();
     });
     ble_wave_timer_b_ = new QTimer(this);
     ble_wave_timer_b_->setSingleShot(true);
@@ -103,6 +106,7 @@ void DeviceController::initialize() {
         if (ble_ != nullptr) {
             ble_->stopWave(2);
         }
+        rule_wave_[1] = RuleWaveState();
     });
 
     // 规则引擎命令统一经本类下发（规则层只依赖本类接口）
@@ -118,6 +122,11 @@ void DeviceController::attach_ble(CoyoteBleController* ble) {
     if (ble_ != nullptr) {
         // 蓝牙连接状态直接决定输出可用性，属性需要跟着广播
         connect(ble_, &CoyoteBleController::stateChanged, this, [this]() {
+            // 链路断开：事件波形与规则波形状态一并清空，重连后不残留「以为在播」的标志
+            if (!ble_ready()) {
+                abort_event_wave(0);
+                abort_event_wave(1);
+            }
             emit outputReadyChanged();
             // 链路切换后强度来源随之切换，需要按新链路广播一次
             emit_authoritative_strength();
@@ -129,6 +138,9 @@ void DeviceController::attach_ble(CoyoteBleController* ble) {
             }
         });
         connect(ble_, &CoyoteBleController::waveStateChanged, this, [this]() {
+            // 每次 B0 写入代表设备吃掉一帧波形，事件波形据此判断是否播完
+            ++event_wave_writes_[0];
+            ++event_wave_writes_[1];
             emit waveOutputChanged();
         });
     }
@@ -270,9 +282,23 @@ void DeviceController::sendStrength(int channel, int mode, int value) {
 }
 
 void DeviceController::sendWave(int channel, const QStringList& pulses, int seconds) {
+    const int index = channel - 1;
+    if (index < 0 || index > 1) {
+        return;
+    }
+    // 规则侧波形登记：事件波形播放期间只登记不下发，事件播完后按登记恢复
+    const bool event_active = event_wave_[index].active;
+    rule_wave_[index].frames = pulses;
+    rule_wave_[index].seconds = std::max(seconds, 1);
+    rule_wave_[index].started_ms = event_active ? 0 : QDateTime::currentMSecsSinceEpoch();
+    if (event_active) {
+        LOG_MODULE("DeviceController", "sendWave", LOG_INFO,
+            "事件波形播放中，规则波形已登记待恢复: 通道 " << ((index == 0) ? "A" : "B"));
+        return;
+    }
     if (ble_ready()) {
         ble_->playWave(channel, pulses);
-        QTimer* timer = (channel == 1) ? ble_wave_timer_a_ : ble_wave_timer_b_;
+        QTimer* timer = wave_stop_timer(index);
         if (timer != nullptr) {
             timer->start(std::max(seconds, 1) * 1000);
         }
@@ -284,8 +310,12 @@ void DeviceController::sendWave(int channel, const QStringList& pulses, int seco
 }
 
 void DeviceController::clearQueue(int channel) {
+    const int index = channel - 1;
+    if (index == 0 || index == 1) {
+        rule_wave_[index] = RuleWaveState();
+    }
     if (ble_ready()) {
-        QTimer* timer = (channel == 1) ? ble_wave_timer_a_ : ble_wave_timer_b_;
+        QTimer* timer = wave_stop_timer(index);
         if (timer != nullptr) {
             timer->stop();
         }
@@ -335,6 +365,10 @@ void DeviceController::set_event_output(const QString& channel, int value) {
     }
     channel_output_[index].event_value = std::max(0, value);
     update_channel_output(index);
+}
+
+void DeviceController::apply_event_wave(const QString& channel, const QString& wave_name) {
+    tick_event_wave(channel_index_of(channel), wave_name);
 }
 
 QString DeviceController::detect_lan_ip() const {
@@ -431,4 +465,147 @@ void DeviceController::emit_authoritative_strength() {
         return;
     }
     emit strengthFeedback(relay_strength_a_, relay_strength_b_, relay_limit_a_, relay_limit_b_);
+}
+
+void DeviceController::tick_event_wave(int index, const QString& wave_name) {
+    if (index < 0 || index > 1) {
+        return;
+    }
+    const QStringList frames = wave_name.isEmpty() ? QStringList() : event_wave_frames(wave_name);
+    const QStringList prior_frames = rule_wave_[index].frames;
+    const int prior_seconds = rule_wave_remaining(index);
+    const int frames_elapsed = event_wave_[index].active ? take_event_wave_writes(index) : 0;
+    const EventWaveAction action = advance_event_wave(event_wave_[index], wave_name,
+        static_cast<int>(frames.size()), output_target_ready(), prior_frames, prior_seconds, frames_elapsed);
+    const std::string channel_text = (index == 0) ? "A" : "B";
+    switch (action) {
+    case EventWaveAction::NONE:
+        return;
+    case EventWaveAction::START:
+    case EventWaveAction::REPLACE:
+        // 事件波形优先：接管时丢弃规则侧登记，规则波形的停止计时不再生效
+        rule_wave_[index] = RuleWaveState();
+        last_refused_wave_[index].clear();
+        start_event_wave(index, event_wave_[index].wave_name, frames);
+        return;
+    case EventWaveAction::RESTORE:
+        restore_event_wave(index);
+        return;
+    case EventWaveAction::REFUSE:
+        // 缺帧拒绝：同一波形只提示一次，通道状态保持不变
+        if (last_refused_wave_[index] == wave_name) {
+            return;
+        }
+        last_refused_wave_[index] = wave_name;
+        LOG_MODULE("DeviceController", "tick_event_wave", LOG_WARN,
+            "事件波形缺帧未下发: 通道 " << channel_text << " 波形《" << wave_name.toStdString() << "》 协议 "
+                << WaveLibrary::instance().protocol().toStdString());
+        report_error(QStringLiteral("事件波形《%1》缺少 %2 帧，未下发")
+            .arg(wave_name, WaveLibrary::instance().protocol().toUpper()));
+        return;
+    case EventWaveAction::ABORT:
+        abort_event_wave(index);
+        return;
+    }
+}
+
+QStringList DeviceController::event_wave_frames(const QString& wave_name) const {
+    return WaveLibrary::instance().frames_of(wave_name.toStdString(), WaveLibrary::instance().protocol());
+}
+
+void DeviceController::start_event_wave(int index, const QString& wave_name, const QStringList& frames) {
+    if (frames.isEmpty()) {
+        return;
+    }
+    if (QTimer* timer = wave_stop_timer(index)) {
+        timer->stop();
+    }
+    if (ble_ready()) {
+        ble_->playWave(index + 1, frames);
+    }
+    else if (relay_ != nullptr) {
+        // 中转链路按帧数折算秒数：一帧 100ms，向上取整
+        relay_->send_pulse(index + 1, frames, std::max(1, (static_cast<int>(frames.size()) + 9) / 10));
+    }
+    event_wave_writes_[index] = 0;
+    LOG_MODULE("DeviceController", "start_event_wave", LOG_INFO,
+        "事件波形开始播放: 通道 " << ((index == 0) ? "A" : "B") << " 波形《" << wave_name.toStdString()
+            << "》 帧数 " << frames.size());
+}
+
+void DeviceController::restore_event_wave(int index) {
+    // 事件播放期间登记的规则波形优先于接管前的波形
+    const RuleWaveState deferred = rule_wave_[index];
+    QStringList frames = deferred.frames;
+    int seconds = deferred.seconds;
+    rule_wave_[index] = RuleWaveState();
+    if (frames.isEmpty() || seconds <= 0) {
+        frames = event_wave_[index].prior_active ? event_wave_[index].prior_frames : QStringList();
+        seconds = event_wave_[index].prior_active ? event_wave_[index].prior_seconds : 0;
+    }
+    clearQueue(index + 1);
+    const std::string channel_text = (index == 0) ? "A" : "B";
+    if (frames.isEmpty() || seconds <= 0) {
+        LOG_MODULE("DeviceController", "restore_event_wave", LOG_INFO,
+            "事件波形播放结束: 通道 " << channel_text << " 无接管前波形，已静音");
+        return;
+    }
+    sendWave(index + 1, frames, seconds);
+    LOG_MODULE("DeviceController", "restore_event_wave", LOG_INFO,
+        "事件波形播放结束: 通道 " << channel_text << " 恢复接管前波形 帧数 " << frames.size() << " 时长 " << seconds
+            << " 秒");
+}
+
+void DeviceController::abort_event_wave(int index) {
+    if (index < 0 || index > 1) {
+        return;
+    }
+    if (!event_wave_[index].active && rule_wave_[index].frames.isEmpty()) {
+        return;
+    }
+    rule_wave_[index] = RuleWaveState();
+    last_refused_wave_[index].clear();
+    clearQueue(index + 1);
+    LOG_MODULE("DeviceController", "abort_event_wave", LOG_INFO,
+        "事件波形中止: 通道 " << ((index == 0) ? "A" : "B") << " 输出目标不可用，波形状态已清空");
+}
+
+int DeviceController::rule_wave_remaining(int index) const {
+    if (index < 0 || index > 1) {
+        return 0;
+    }
+    const RuleWaveState& rule = rule_wave_[index];
+    if (rule.frames.isEmpty() || rule.seconds <= 0) {
+        return 0;
+    }
+    // started_ms 为 0 表示事件波形期间暂存，恢复时按完整时长播放
+    if (rule.started_ms <= 0) {
+        return rule.seconds;
+    }
+    const qint64 elapsed_ms = QDateTime::currentMSecsSinceEpoch() - rule.started_ms;
+    const int left = rule.seconds - static_cast<int>(elapsed_ms / 1000);
+    return left > 0 ? left : 0;
+}
+
+QTimer* DeviceController::wave_stop_timer(int index) const {
+    if (index == 0) {
+        return ble_wave_timer_a_;
+    }
+    if (index == 1) {
+        return ble_wave_timer_b_;
+    }
+    return nullptr;
+}
+
+int DeviceController::take_event_wave_writes(int index) {
+    if (index < 0 || index > 1) {
+        return 0;
+    }
+    if (!ble_ready()) {
+        // 内置中转没有写入回执，按每帧一次推进
+        return 1;
+    }
+    const int writes = event_wave_writes_[index];
+    event_wave_writes_[index] = 0;
+    return writes;
 }

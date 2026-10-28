@@ -8,10 +8,11 @@
 #include "EventMapping.h"
 
 #include <QString>
+#include <QStringList>
 
 #include <vector>
 
-// 事件引擎的纯函数：强度钳制、合并规则、数值归一、波形包络与通道输出合并
+// 事件引擎的纯函数：强度钳制、合并规则、数值归一、波形包络、通道输出合并与事件波形下发状态
 
 /// @brief 强度钳制
 /// @param value 原始强度
@@ -60,3 +61,35 @@ struct ChannelOutputState {
     /// @brief 复位上一次下发值（无输出目标时使用，连接后按当前强度重发）
     void reset_output();
 };
+
+// 事件波形下发状态：一次事件波形的播放进度与接管前波形信息
+struct EventWaveState {
+    bool active = false;       ///< 是否有事件波形正在播放
+    QString wave_name;         ///< 正在播放的事件波形名
+    int remaining_frames = 0;  ///< 剩余播放帧数（1 帧 = 100ms）
+    bool prior_active = false; ///< 接管前是否有规则波形在播
+    QStringList prior_frames;  ///< 接管前规则波形帧
+    int prior_seconds = 0;     ///< 接管前规则波形剩余时长（秒）
+};
+
+// 事件波形状态机动作
+enum class EventWaveAction {
+    NONE = 0,    ///< 无动作
+    START = 1,   ///< 开始播放（接管前波形已记入状态）
+    REPLACE = 2, ///< 换成另一个事件波形（接管前波形不变）
+    RESTORE = 3, ///< 播放结束：停掉事件波形，有接管前波形时恢复
+    REFUSE = 4,  ///< 缺帧：不下发也不改变状态
+    ABORT = 5    ///< 通道关闭或设备断开：中止并清空，不恢复
+};
+
+/// @brief 推进一帧事件波形状态机
+/// @param state 通道状态（就地更新）
+/// @param wave_name 本帧要播放的事件波形名，空串表示本帧无事件波形
+/// @param frame_count 该波形在当前发送协议下的帧数，0 表示缺帧
+/// @param output_ready 通道是否有可用输出目标
+/// @param prior_frames 接管前正在播放的规则波形帧（仅在空闲态接管时写入状态）
+/// @param prior_seconds 接管前规则波形剩余时长（秒，0 表示不值得恢复）
+/// @param frames_elapsed 距上一帧设备实际播放掉的帧数（0 表示设备还没写下一帧）
+/// @return 本帧要执行的动作
+EventWaveAction advance_event_wave(EventWaveState& state, const QString& wave_name, int frame_count,
+    bool output_ready, const QStringList& prior_frames, const int prior_seconds, const int frames_elapsed = 1);

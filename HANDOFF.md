@@ -94,9 +94,9 @@
 - 验收基线：构建 0 error、`ctest` 4/4、启动 9 秒 `err` / `out` 均 0 字节。
 
 ### 7.2 剩余待办
-- **事件运行时每帧结果 → 设备下发**：**strength / percent 已接线，wave 待下一批**。B0 的 100ms 写入在 `CoyoteBleController.cpp`；`EventRuntime::channelsChanged` 经 `main.cpp` 交给 `DeviceController::set_event_output()`，与规则命令最近值按通道取较大值、按 `min(limit, safety)` 钳制、相同值不重复下发（合并逻辑是 `include/event/EventMath.h` 的 `ChannelOutputState`，测试目标 `event_merge_test`）。
+- **事件运行时每帧结果 → 设备下发**：**已完成（strength / percent / wave 全部接线）**。B0 的 100ms 写入在 `CoyoteBleController.cpp`；`EventRuntime::channelsChanged` 经 `main.cpp` 交给 `DeviceController::set_event_output()`（强度）与 `DeviceController::apply_event_wave()`（波形），强度与规则命令最近值按通道取较大值、按 `min(limit, safety)` 钳制、相同值不重复下发（合并逻辑是 `include/event/EventMath.h` 的 `ChannelOutputState`，测试目标 `event_merge_test`）。
   - 已定口径：事件输出与规则命令写同一通道时取较大值；相对增减（`mode≠2`）无法折算成绝对强度，保持直发不参与合并。
-  - 待下一批：`dataType=wave` 的波形帧下发（**建议等有郊狼设备可实测时再做**，否则只能验证到调用点，无法验证设备实际波形行为）。现状是波形只作为每帧包络乘进强度（`EventEngine::envelope_of`），没有帧下发；接入前需要先定「波形帧来源（事件映射的 `wave` 名称）、换帧节奏（引擎 `frame_index_` 与设备侧 100ms 写入对齐）、与规则波形/清除指令的冲突处理」。
+  - 已完成：`dataType=wave` 的波形帧下发。事件触发的波形名由 `EventEngine::frame_wave()` 按帧给出，`DeviceController::apply_event_wave()` 按 `app.wave.protocol` 解析帧下发一次、播完恢复接管前的规则波形（事件期间到达的规则波形命令优先恢复）、缺帧拒绝并走 Toast 提示；状态机与去重是 `include/event/EventMath.h` 的纯函数 `advance_event_wave()`（测试目标 `event_wave_test`），播放进度按设备实际 B0 写入帧数推进。实机（47L121000）已核对 B0 波形区帧序列与库中 `frames_v3` 逐帧一致、播完恢复、缺帧拒绝并 Toast 提示，详见 `docs/event-mapping.md` 的「事件波形下发」。
 
 ### 7.3 打磨与已知局限
 - 主题化边界：`ColorDialog` 是 Windows 原生取色框，由系统绘制，无法套用 `Theme` 令牌。

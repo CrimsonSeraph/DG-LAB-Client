@@ -117,3 +117,58 @@ bool ChannelOutputState::take_output(int limit, int& value) {
 void ChannelOutputState::reset_output() {
     last_sent = -1;
 }
+
+EventWaveAction advance_event_wave(EventWaveState& state, const QString& wave_name, int frame_count,
+    bool output_ready, const QStringList& prior_frames, const int prior_seconds, const int frames_elapsed) {
+    // 无输出目标：正在播放的事件波形就地中止，不留下「以为在播」的状态
+    if (!output_ready) {
+        if (!state.active) {
+            return EventWaveAction::NONE;
+        }
+        state = EventWaveState();
+        return EventWaveAction::ABORT;
+    }
+    if (!state.active) {
+        state.prior_active = false;
+        state.prior_frames.clear();
+        state.prior_seconds = 0;
+        if (wave_name.isEmpty()) {
+            return EventWaveAction::NONE;
+        }
+        if (frame_count <= 0) {
+            return EventWaveAction::REFUSE;
+        }
+        state.active = true;
+        state.wave_name = wave_name;
+        state.remaining_frames = frame_count;
+        state.prior_active = !prior_frames.isEmpty() && prior_seconds > 0;
+        if (state.prior_active) {
+            state.prior_frames = prior_frames;
+            state.prior_seconds = prior_seconds;
+        }
+        return EventWaveAction::START;
+    }
+    // 正在播放：新波形替换旧波形，同名只续期，缺帧保持原状
+    if (!wave_name.isEmpty()) {
+        if (frame_count <= 0) {
+            return EventWaveAction::REFUSE;
+        }
+        if (wave_name == state.wave_name) {
+            if (frame_count > state.remaining_frames) {
+                state.remaining_frames = frame_count;
+            }
+            return EventWaveAction::NONE;
+        }
+        state.wave_name = wave_name;
+        state.remaining_frames = frame_count;
+        return EventWaveAction::REPLACE;
+    }
+    state.remaining_frames -= std::max(frames_elapsed, 0);
+    if (state.remaining_frames > 0) {
+        return EventWaveAction::NONE;
+    }
+    state.active = false;
+    state.wave_name.clear();
+    state.remaining_frames = 0;
+    return EventWaveAction::RESTORE;
+}

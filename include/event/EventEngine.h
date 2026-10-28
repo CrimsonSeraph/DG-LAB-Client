@@ -79,6 +79,11 @@ public:
     /// @return 强度整数，通道非法或未配置返回 0
     int channel_output(const std::string& channel) const;
 
+    /// @brief 最近一帧该通道要播放的事件波形名
+    /// @param channel 通道（"A"/"B"）
+    /// @return 波形名；本帧没有事件波形、通道非法或事件不是 dataType=wave 时返回空串
+    QString frame_wave(const std::string& channel) const;
+
     /// @brief 触发流水
     /// @param limit 最多返回条数
     /// @return 最近 limit 条记录（最新在后），limit 不大于 0 时为空
@@ -118,6 +123,8 @@ private:
         std::string id;                                         ///< 事件标识
         std::string label;                                      ///< 事件展示名
         EventTrigger trigger;                                   ///< 触发条件
+        EventDataType data_type = EventDataType::STRENGTH;      ///< 输出数据类型
+        std::string wave_name;                                  ///< 事件波形名（dataType=wave 时下发给设备）
         bool enabled = false;                                   ///< 是否参与输出
         MergeRule merge = MergeRule::MULTIPLY;                  ///< 合并规则
         double weight = 1.0;                                    ///< 合并权重
@@ -157,6 +164,8 @@ private:
     std::map<std::pair<std::string, std::string>, LastValue> last_values_; ///< 上一次数值（键为模块 + 数值）
     std::deque<TriggerRecord> triggers_;                                  ///< 触发流水（最新在后）
     std::map<std::string, int> channel_outputs_;                          ///< 最近一帧的通道强度
+    QString pending_waves_[2];                                            ///< 待播事件波形（0=A，1=B）
+    QString frame_waves_[2];                                              ///< 最近一帧要播的事件波形（0=A，1=B）
     std::int64_t last_time_ms_ = 0;                                       ///< 最近一次帧时间
     std::int64_t frame_index_ = 0;                                        ///< 帧计数（波形帧推进）
 

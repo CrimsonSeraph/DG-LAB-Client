@@ -867,6 +867,22 @@ target_include_directories(event_merge_test
 )
 add_test(NAME event_merge_test COMMAND event_merge_test)
 
+# 事件波形下发状态机（首次启动、连续触发不重启、播完恢复、被新波形替换、缺帧拒绝、通道关闭中止）：
+# 纯函数，只链接 Qt::Core
+add_executable(event_wave_test
+	tests/event_wave_test.cpp
+	src/event/EventMath.cpp
+)
+target_link_libraries(event_wave_test
+	PRIVATE Qt::Core
+)
+target_include_directories(event_wave_test
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+)
+add_test(NAME event_wave_test COMMAND event_wave_test)
+
 # 波形库数据层（官方内置波形资源、V2/V3 双版本帧、存储 round-trip、旧格式兼容与非法帧拒绝）
 # 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；
 # 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/

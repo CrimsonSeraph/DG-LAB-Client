@@ -116,6 +116,11 @@ public:
     /// @param value 事件输出强度
     void set_event_output(const QString& channel, int value);
 
+    /// @brief 事件波形入口：本帧该通道要播放的事件波形（每帧调用一次，同时推进播放计时）
+    /// @param channel 通道（"A"/"B"）
+    /// @param wave_name 事件波形名，空串表示本帧无事件波形
+    void apply_event_wave(const QString& channel, const QString& wave_name);
+
 signals:
     void connectedChanged();
     void connectingChanged();
@@ -133,6 +138,13 @@ signals:
     void pairingStageChanged();
 
 private:
+    /// @brief 规则侧波形状态（事件波形播放期间只登记不下发）
+    struct RuleWaveState {
+        QStringList frames;    ///< 波形帧
+        int seconds = 0;       ///< 播放时长（秒）
+        qint64 started_ms = 0; ///< 开始播放时刻（0 表示尚未开始）
+    };
+
     /// @brief 解析当前使用的局域网地址（手动选中优先，其次按名单自动选择，最后回退环回）
     QString detect_lan_ip() const;
     void update_pairing_url();
@@ -158,6 +170,35 @@ private:
     void notify_output_state();
     /// @brief 按当前生效链路广播一次强度回执（蓝牙在线取蓝牙，否则取中转记录值）
     void emit_authoritative_strength();
+    /// @brief 事件波形状态机的一帧推进（解析帧、下发、恢复）
+    /// @param index 通道索引（0=A，1=B）
+    /// @param wave_name 本帧要播放的事件波形名（空串表示本帧无事件波形）
+    void tick_event_wave(int index, const QString& wave_name);
+    /// @brief 按发送协议解析事件波形帧（缺帧返回空）
+    /// @param wave_name 事件波形名
+    QStringList event_wave_frames(const QString& wave_name) const;
+    /// @brief 下发事件波形并进入播放状态（蓝牙优先，否则内置中转按帧数折算秒数）
+    /// @param index 通道索引（0=A，1=B）
+    /// @param wave_name 事件波形名
+    /// @param frames 波形帧
+    void start_event_wave(int index, const QString& wave_name, const QStringList& frames);
+    /// @brief 结束事件波形并恢复接管前的规则波形
+    /// @param index 通道索引（0=A，1=B）
+    void restore_event_wave(int index);
+    /// @brief 中止事件波形并清空该通道的波形状态（通道关闭 / 设备断开）
+    /// @param index 通道索引（0=A，1=B）
+    void abort_event_wave(int index);
+    /// @brief 规则侧波形剩余时长
+    /// @param index 通道索引（0=A，1=B）
+    /// @return 剩余秒数；未开始（事件波形期间暂存）返回完整时长，已结束返回 0
+    int rule_wave_remaining(int index) const;
+    /// @brief 波形停止定时器
+    /// @param index 通道索引（0=A，1=B）
+    QTimer* wave_stop_timer(int index) const;
+    /// @brief 取走该通道自上次调用以来设备写入的波形帧数
+    /// @param index 通道索引（0=A，1=B）
+    /// @return 写入帧数；无蓝牙回执时按每帧一次返回 1
+    int take_event_wave_writes(int index);
 
     DglabRelayServer* relay_ = nullptr;
     QrImageProvider* qr_provider_ = nullptr;
@@ -179,4 +220,8 @@ private:
     int relay_limit_b_ = 0; ///< 中转回执记录的 B 通道上限
     bool strength_from_ble_ = false; ///< 当前强度回执来源是否为蓝牙直连
     ChannelOutputState channel_output_[2]; ///< A/B 通道输出合并状态（0=A，1=B）
+    EventWaveState event_wave_[2]; ///< A/B 通道事件波形播放状态（0=A，1=B）
+    RuleWaveState rule_wave_[2];   ///< A/B 通道规则侧波形状态（0=A，1=B）
+    QString last_refused_wave_[2]; ///< 最近一次缺帧拒绝的波形名（0=A，1=B，避免重复提示）
+    int event_wave_writes_[2] = {0, 0}; ///< 蓝牙 B0 写入计数（0=A，1=B，事件波形播完的判据）
 };

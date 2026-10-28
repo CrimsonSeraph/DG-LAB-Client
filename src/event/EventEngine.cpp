@@ -109,6 +109,8 @@ void EventEngine::configure(const std::string& module_name, const std::vector<Ev
         const std::map<std::string, EventConfig>::const_iterator config_it = configs.find(definition.id);
         const EventConfig config = config_it == configs.end() ? EventConfig() : config_it->second;
         event.enabled = config.enabled;
+        event.data_type = config.dataType;
+        event.wave_name = config.wave;
         event.merge = config.merge;
         event.weight = config.weight;
         event.window_frames = std::min(std::max(config.frames, 1), MAX_EVENT_FRAMES);
@@ -187,6 +189,10 @@ void EventEngine::clear() {
     }
     last_values_.clear();
     channel_outputs_.clear();
+    pending_waves_[0].clear();
+    pending_waves_[1].clear();
+    frame_waves_[0].clear();
+    frame_waves_[1].clear();
     last_time_ms_ = 0;
     frame_index_ = 0;
 }
@@ -220,6 +226,14 @@ void EventEngine::on_value_changed(const std::string& module_name, const std::st
         }
         event.triggered = true;
         event.remaining_frames = event.window_frames;
+        // dataType=wave 的事件把波形名登记为受影响通道下一帧要播放的波形
+        if (event.data_type == EventDataType::WAVE && !event.wave_name.empty()) {
+            for (int index = 0; index < 2; ++index) {
+                if (event.on_channel[index]) {
+                    pending_waves_[index] = QString::fromStdString(event.wave_name);
+                }
+            }
+        }
         const RuntimeOption* set_choices[2] = {nullptr, nullptr};
         for (const RuntimeOption& option : event.options) {
             if (option.output.operation != EventOperation::SET) {
@@ -252,6 +266,11 @@ void EventEngine::on_value_changed(const std::string& module_name, const std::st
 void EventEngine::advance_frame(std::int64_t now_ms) {
     last_time_ms_ = now_ms;
     ++frame_index_;
+    // 待播波形只在触发后的下一帧生效一帧，设备侧据此启动播放并自行计时
+    for (int index = 0; index < 2; ++index) {
+        frame_waves_[index] = pending_waves_[index];
+        pending_waves_[index].clear();
+    }
     for (int index = 0; index < 2; ++index) {
         const std::string channel = CHANNELS[index];
         double accumulator = 0.0;
@@ -315,6 +334,14 @@ int EventEngine::channel_output(const std::string& channel) const {
     }
     const std::map<std::string, int>::const_iterator it = channel_outputs_.find(normalized);
     return it == channel_outputs_.end() ? 0 : it->second;
+}
+
+QString EventEngine::frame_wave(const std::string& channel) const {
+    std::string normalized;
+    if (!normalize_channel_text(channel, normalized)) {
+        return QString();
+    }
+    return frame_waves_[channel_index(normalized)];
 }
 
 std::vector<TriggerRecord> EventEngine::recent_triggers(int limit) const {
