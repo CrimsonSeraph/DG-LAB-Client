@@ -397,6 +397,11 @@ ApplicationWindow {
         id: waveConflictDialog
     }
 
+    // 波形标签选择器（波形页「编辑标签」入口打开，C++ 侧按 objectName 驱动）
+    WaveTagDialog {
+        id: waveTagDialog
+    }
+
     // 系统文件对话框：只负责挑选路径，JSON / .pulse 的读写全部落在 WaveLibrary
     FileDialog {
         objectName: "waveExportFileDialog"

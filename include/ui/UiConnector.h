@@ -126,6 +126,12 @@ private slots:
     void on_wave_conflict_rename_clicked();
     void on_wave_conflict_skip_clicked();
     void on_wave_conflict_cancel_clicked();
+    // 波形标签
+    void on_wave_tag_edit_clicked();
+    void on_wave_tag_toggle_clicked();
+    void on_wave_tag_create_clicked();
+    void on_wave_tag_delete_clicked();
+    void on_wave_tag_dialog_close_clicked();
     // 蓝牙直连
     void on_ble_scan_clicked();
     void on_ble_device_clicked();

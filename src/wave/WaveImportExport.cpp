@@ -23,11 +23,15 @@ namespace {
     const char* const V2_KEYS[] = { "expectedV2", "framesV2", "frames_v2" };
     /// @brief V3 帧的字段别名（按优先级；frames 为旧存储格式）
     const char* const V3_KEYS[] = { "expectedV3", "framesV3", "frames_v3", "frames" };
+    /// @brief 标签字段的别名（按优先级；labels 为兼容别名）
+    const char* const TAG_KEYS[] = { "tags", "labels" };
 
     /// @brief 别名列表长度
     constexpr int KEY_COUNT_V2 = static_cast<int>(sizeof(V2_KEYS) / sizeof(V2_KEYS[0]));
     /// @brief 别名列表长度
     constexpr int KEY_COUNT_V3 = static_cast<int>(sizeof(V3_KEYS) / sizeof(V3_KEYS[0]));
+    /// @brief 别名列表长度
+    constexpr int KEY_COUNT_TAG = static_cast<int>(sizeof(TAG_KEYS) / sizeof(TAG_KEYS[0]));
 
     /// @brief 读取条目的字符串字段；缺失或类型不符返回空串
     std::string string_field(const nlohmann::json& item, const char* key) {
@@ -78,6 +82,15 @@ namespace {
         return array;
     }
 
+    /// @brief 标签序列转 JSON 字符串数组
+    nlohmann::json tags_to_json(const QStringList& tags) {
+        nlohmann::json array = nlohmann::json::array();
+        for (const QString& tag : tags) {
+            array.push_back(tag.toStdString());
+        }
+        return array;
+    }
+
     /// @brief 解析单条目为波形；失败时写跳过原因并返回 false
     bool parse_entry(const nlohmann::json& item, int index, Wave& wave, QString& reason) {
         if (!item.is_object()) {
@@ -105,6 +118,16 @@ namespace {
                 reason = QStringLiteral("《%1》V3 帧非法（%2），已跳过").arg(label, bad_frame);
                 return false;
             }
+        }
+        // 标签：缺失按空数组处理，非字符串元素丢弃，统一规范化去重
+        if (const nlohmann::json* tags = find_array(item, TAG_KEYS, KEY_COUNT_TAG)) {
+            QStringList collected;
+            for (const auto& element : *tags) {
+                if (element.is_string()) {
+                    collected.append(QString::fromStdString(element.get<std::string>()));
+                }
+            }
+            wave.tags = Wave::normalize_tags(collected);
         }
         if (wave.frames_v2.isEmpty() && wave.frames_v3.isEmpty() && wave.raw.empty()) {
             reason = QStringLiteral("《%1》既没有 raw 也没有帧，已跳过").arg(label);
@@ -149,6 +172,7 @@ QString wave_io::build_json(const std::vector<Wave>& waves, QStringList& notes) 
         nlohmann::json item;
         item["name"] = wave.name;
         item["raw"] = wave.raw;
+        item["tags"] = tags_to_json(wave.tags);
         item["expectedV2"] = frames_to_json(wave.frames_v2);
         item["expectedV3"] = frames_to_json(wave.frames_v3);
         array.push_back(item);

@@ -442,6 +442,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/dialogs/WaveEditorDialog.qml
 		src/ui/qml/dialogs/WaveExportDialog.qml
 		src/ui/qml/dialogs/WaveConflictDialog.qml
+		src/ui/qml/dialogs/WaveTagDialog.qml
 		src/ui/qml/dialogs/RuleEditorDialog.qml
 		src/ui/qml/dialogs/UpdateDialog.qml
 		src/ui/qml/dialogs/IpSelectDialog.qml
@@ -967,6 +968,41 @@ target_include_directories(wave_zip_test
 		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
 )
 add_test(NAME wave_zip_test COMMAND wave_zip_test)
+
+# 波形标签库（标签规范化、波形上的标签 round-trip、旧库无 tags 字段兼容、导入自动登记、
+# 内置标签不可删、删除自定义标签从使用中的波形移除、JSON 导出含 tags 且可再导入）
+# 需要配置层（wave.path）与 DGLABClient.qrc 内的官方波形资源；
+# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+add_executable(wave_tag_test
+	tests/wave_tag_test.cpp
+	${WAVE}
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${CORE_CONFIG}
+	${CORE_LOG}
+	DGLABClient.qrc
+)
+target_link_libraries(wave_tag_test
+	PRIVATE
+		Qt::Core
+		Qt::Network
+		Qt::Qml
+		nlohmann_json
+		miniz
+)
+target_include_directories(wave_tag_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+)
+add_test(NAME wave_tag_test COMMAND wave_tag_test)
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；

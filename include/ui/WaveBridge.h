@@ -54,6 +54,11 @@ class WaveBridge : public QObject {
     Q_PROPERTY(int conflictCount READ conflict_count NOTIFY importChanged)
     Q_PROPERTY(QString conflictNamesText READ conflict_names_text NOTIFY importChanged)
     Q_PROPERTY(QString pendingRename READ pending_rename NOTIFY importChanged)
+    Q_PROPERTY(QVariantList tagLibrary READ tag_library NOTIFY tagsChanged)
+    Q_PROPERTY(QStringList builtinTags READ builtin_tags NOTIFY tagsChanged)
+    Q_PROPERTY(QStringList customTags READ custom_tags NOTIFY tagsChanged)
+    Q_PROPERTY(QString tagTargetName READ tag_target_name NOTIFY tagsChanged)
+    Q_PROPERTY(int tagMaxLength READ tag_max_length NOTIFY tagsChanged)
 
 public:
     explicit WaveBridge(DeviceController* device, QObject* parent = nullptr);
@@ -106,6 +111,16 @@ public:
     QString conflict_names_text() const { return conflict_names_.join(QStringLiteral("、")); }
     /// @brief 重命名冲突时的建议名称
     QString pending_rename() const { return pending_rename_; }
+    /// @brief 标签选择器条目：{ name, builtin, usage, checked }（checked 针对当前编辑目标波形）
+    QVariantList tag_library() const;
+    /// @brief 内置标签（代码常量，不可删除）
+    QStringList builtin_tags() const;
+    /// @brief 自定义标签（config/waves/tags.json）
+    QStringList custom_tags() const;
+    /// @brief 当前编辑标签的波形名（未打开标签选择器时为空）
+    QString tag_target_name() const { return tag_target_name_; }
+    /// @brief 标签名长度上限
+    int tag_max_length() const;
 
     /// @brief 写入发送协议（只接受 v2 / v3）
     Q_INVOKABLE void setProtocol(const QString& protocol);
@@ -150,6 +165,20 @@ public:
     /// @brief 放弃待导入条目（关闭冲突弹窗时调用）
     Q_INVOKABLE void cancelPendingImport();
 
+    // 波形标签
+    /// @brief 进入指定波形的标签编辑（标签选择器按它给出勾选态）
+    Q_INVOKABLE void beginTagEdit(const QString& name);
+    /// @brief 结束标签编辑（关闭标签选择器时清空目标）
+    Q_INVOKABLE void endTagEdit();
+    /// @brief 勾选 / 取消当前目标波形上的标签（勾选时自动登记进标签库）
+    Q_INVOKABLE void toggleTag(const QString& tag);
+    /// @brief 新建标签并勾选到当前目标波形（大小写不同即沿用库里的写法；超长拒绝）
+    Q_INVOKABLE bool createTag(const QString& tag);
+    /// @brief 使用该标签的波形数量（删除确认用）
+    Q_INVOKABLE int tagUsage(const QString& tag);
+    /// @brief 删除自定义标签，并把该标签从使用中的波形上一并移除（内置标签拒绝）
+    Q_INVOKABLE void removeTag(const QString& tag);
+
 signals:
     void dataChanged();
     void draftChanged();
@@ -167,6 +196,8 @@ signals:
     void importChanged();
     /// @brief 导出选择变化（格式 / 范围 / 可用性与建议路径）
     void exportChanged();
+    /// @brief 标签库 / 标签选择器状态变化
+    void tagsChanged();
 
 private:
     QVariantList points_from_frames(const QStringList& frames) const;
@@ -205,4 +236,5 @@ private:
     bool has_pending_import_ = false;                  ///< 是否存在待处理的导入
     QStringList conflict_names_;                       ///< 待导入条目里与库重名的名称
     QString pending_rename_;                           ///< 重命名冲突时的建议名称
+    QString tag_target_name_;                          ///< 当前离线标签选择器对应的波形名
 };

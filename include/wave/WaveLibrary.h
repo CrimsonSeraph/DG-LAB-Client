@@ -85,6 +85,39 @@ public:
     int frame_count(const std::string& name) const;
     int duration_ms(const std::string& name) const;
 
+    // 标签库分两层：内置标签是代码常量（随版本走，用户不可删除），
+    // 自定义标签存在 config/waves/tags.json；波形按名字引用标签，读到时统一规范化。
+    /// @brief 内置标签（代码常量，随版本走，用户不可删除；本批为空，结构已就位）
+    QStringList builtin_tags() const;
+    /// @brief 自定义标签（config/waves/tags.json 里的顺序表）
+    QStringList custom_tags() const;
+    /// @brief 全部可选标签：内置在前、自定义在后，再补上被波形引用但未入库的标签
+    QStringList all_tags() const;
+    /// @brief 是否内置标签（不可删除）
+    bool is_builtin_tag(const QString& tag) const;
+    /// @brief 标签库里的统一写法；库中没有时返回规范化后的输入，非法（空 / 超长）返回空串
+    QString canonical_tag(const QString& tag) const;
+    /// @brief 使用该标签的波形数量（大小写不敏感）
+    int tag_usage(const QString& tag) const;
+
+    /// @brief 新增自定义标签（大小写不敏感去重，重复写入沿用库里的写法）；成功或已存在均返回 true
+    /// @param error 失败原因（超长在此拒绝）
+    bool add_custom_tag(const QString& tag, QString* error = nullptr);
+    /// @brief 删除自定义标签，并从使用中的波形上一并移除该标签（内置标签拒绝）
+    /// @return 从波形上移除该标签的波形数；拒绝或不存在返回 -1，原因写 error
+    int remove_custom_tag(const QString& tag, QString* error = nullptr);
+    /// @brief 给指定波形加标签（同时登记进标签库）；官方内置波形只读，拒绝
+    /// @param wave_name 波形名
+    /// @param tag 标签名（大小写不敏感匹配库里已有写法）
+    /// @param error 失败原因
+    bool attach_tag(const std::string& wave_name, const QString& tag, QString* error = nullptr);
+    /// @brief 从指定波形上移除该标签（不动标签库）
+    bool detach_tag(const std::string& wave_name, const QString& tag);
+    /// @brief 批量自动登记标签（导入用）：只写非内置且未入库的标签，返回新增条数
+    int register_tags(const QStringList& tags);
+    /// @brief 注入内置标签（仅测试用：验证内置标签不可删除）
+    void set_builtin_tags_for_test(const QStringList& tags);
+
     /// @brief 解析导入文件（按扩展名分派 .json / .pulse），只解析不写入
     WaveImportPlan plan_import(const QString& path) const;
     /// @brief 按冲突策略把解析结果写入波形库
@@ -111,6 +144,7 @@ public:
 signals:
     void library_changed();
     void current_changed();
+    void tags_changed();
 
 private:
     WaveLibrary() = default;
@@ -122,8 +156,15 @@ private:
     void load_official();
     void persist() const;
     std::string file_path() const;
+    /// @brief 自定义标签库文件路径（config/waves/tags.json）
+    std::string tags_file_path() const;
+    /// @brief 读取自定义标签库（文件缺失或损坏时为空，不报错）
+    void load_tags();
+    /// @brief 写入自定义标签库
+    void persist_tags() const;
 
     std::map<std::string, Wave> waves_;
+    QStringList custom_tags_; ///< 自定义标签（顺序即标签库展示顺序）
     std::string dir_;
     std::string current_a_;
     std::string current_b_;

@@ -402,6 +402,14 @@ void UiConnector::attach(QObject* root_object) {
         QObject::connect(export_scope, SIGNAL(selected(int)), this,
             SLOT(on_wave_export_scope_selected(int)));
     }
+    connect_clicked(root_object, "waveTagDialogCloseButton", SLOT(on_wave_tag_dialog_close_clicked()));
+    connect_clicked(root_object, "waveTagDialogCreateButton", SLOT(on_wave_tag_create_clicked()));
+    watch_items(root_object, "waveTagWaveList", QStringLiteral("waveTagEditClick"),
+        SLOT(on_wave_tag_edit_clicked()));
+    watch_items(root_object, "waveTagDialogList", QStringLiteral("waveTagToggleClick"),
+        SLOT(on_wave_tag_toggle_clicked()));
+    watch_items(root_object, "waveTagDialogList", QStringLiteral("waveTagDeleteClick"),
+        SLOT(on_wave_tag_delete_clicked()));
     // 系统文件对话框：只用它挑选路径，读写全部落在 WaveLibrary
     if (auto* export_file = root_object->findChild<QObject*>(QStringLiteral("waveExportFileDialog"))) {
         QObject::connect(export_file, SIGNAL(accepted()), this, SLOT(on_wave_export_file_accepted()));
@@ -669,6 +677,10 @@ bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
         }
         if (dialog_visible("ipSelectDialog")) {
             on_ip_select_cancel_clicked();
+            return true;
+        }
+        if (dialog_visible("waveTagDialog")) {
+            on_wave_tag_dialog_close_clicked();
             return true;
         }
         if (dialog_visible("waveExportDialog")) {
@@ -1329,6 +1341,70 @@ void UiConnector::on_wave_conflict_cancel_clicked() {
         wave_->cancelPendingImport();
     }
     close_dialog("waveConflictDialog");
+}
+
+void UiConnector::on_wave_tag_edit_clicked() {
+    auto* item = sender();
+    if (item == nullptr || wave_ == nullptr) {
+        return;
+    }
+    const QString name = item->property("waveName").toString();
+    if (name.isEmpty()) {
+        return;
+    }
+    wave_->beginTagEdit(name);
+    open_dialog("waveTagDialog");
+}
+
+void UiConnector::on_wave_tag_toggle_clicked() {
+    auto* item = sender();
+    if (item == nullptr || wave_ == nullptr) {
+        return;
+    }
+    wave_->toggleTag(item->property("tagName").toString());
+}
+
+void UiConnector::on_wave_tag_create_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    auto* field = find("waveTagDialogNewField");
+    const QString tag = field == nullptr ? QString() : field->property("text").toString();
+    // 空输入直接忽略；超长与非法由 WaveBridge 经 operationFailed 弹 Toast 说明
+    if (wave_->createTag(tag) && field != nullptr) {
+        field->setProperty("text", QString());
+    }
+}
+
+void UiConnector::on_wave_tag_delete_clicked() {
+    auto* item = sender();
+    if (item == nullptr || wave_ == nullptr) {
+        return;
+    }
+    const QString tag = item->property("tagName").toString();
+    if (tag.isEmpty()) {
+        return;
+    }
+    const int usage = wave_->tagUsage(tag);
+    if (usage <= 0) {
+        wave_->removeTag(tag);
+        return;
+    }
+    // 仍被波形引用：先确认，确认后连同这些波形上的该标签一起移除
+    ask_confirm(tr("删除标签「%1」？").arg(tag),
+        tr("%1 个波形正在使用该标签，仍要删除吗？删除后这些波形上的该标签也会一并移除。").arg(usage),
+        true, [this, tag]() {
+            if (wave_ != nullptr) {
+                wave_->removeTag(tag);
+            }
+        });
+}
+
+void UiConnector::on_wave_tag_dialog_close_clicked() {
+    close_dialog("waveTagDialog");
+    if (wave_ != nullptr) {
+        wave_->endTagEdit();
+    }
 }
 
 void UiConnector::on_ble_scan_clicked() {

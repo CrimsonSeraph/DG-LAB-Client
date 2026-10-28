@@ -34,7 +34,8 @@ src/ui/
 │   │   ├── WaveSelectDialog.qml
 │   │   ├── WaveEditorDialog.qml
 │   │   ├── WaveExportDialog.qml   # 波形导出：格式（JSON / .pulse）与范围（当前波形 / 全部波形）
-│   │   └── WaveConflictDialog.qml # 导入名称冲突：覆盖 / 重命名 / 跳过，整批生效
+│   │   ├── WaveConflictDialog.qml # 导入名称冲突：覆盖 / 重命名 / 跳过，整批生效
+│   │   └── WaveTagDialog.qml      # 波形标签选择器：勾选 / 新建 / 删除自定义标签
 │   ├── pages/
 │   │   ├── HomePage.qml        # 主页看板：设备 / 通道 / 插件 / 触发流水（导航第 1 项）
 │   │   ├── home/              # 看板卡片：设备状态、通道行与通道卡、已启用插件、触发流水
@@ -88,7 +89,7 @@ src/ui/
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
-| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）（波形数据结构见 [docs/wave-data.md](../../docs/wave-data.md)） |
+| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）；标签库分两层（内置标签是代码常量、不可删，自定义标签存 `config/waves/tags.json`），`tagLibrary` / `builtinTags` / `customTags` / `tagTargetName` / `tagMaxLength` 供波形页与标签选择器使用，删除自定义标签时把该标签从使用中的波形上一并移除（波形数据结构与标签规则见 [docs/wave-data.md](../../docs/wave-data.md)） |
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
@@ -211,6 +212,9 @@ src/ui/
 | `waveSelectButton` / `waveCreateButton` | 打开波形库 / 直接新建波形（打开 `waveEditorDialog`） |
 | `waveImportButton` | 导入波形 → `on_wave_import_clicked()`：打开 `waveImportFileDialog`（`.json` / `.pulse` / `.zip` 按扩展名自动判格式，zip 解压后逐个 `.pulse` 复用同一套冲突三选与汇总） |
 | `waveExportButton` | 导出波形 → `on_wave_export_clicked()`：打开 `waveExportDialog` 先选格式与范围 |
+| `waveTagCard` | 波形标签卡根节点（`GlassCard`）：标签库（内置标签带锁标识、自定义标签用语义色，均为只读展示）与波形列表 |
+| `waveTagWaveList` | 波形列表容器（`Repeater` 按 `waveBridge.waves` 生成）：每个条目的标签显示在波形名上方，无标签时该行不占位；本页不提供删除入口，删除在标签选择器里做 |
+| `waveTagEditClick` | 条目内「编辑标签」（`AppButton`，`waveName` 属性）→ `on_wave_tag_edit_clicked()`：写 `WaveBridge::beginTagEdit` 并打开 `waveTagDialog`；内置官方波形条目置灰 |
 
 日志页（`pages/LogPage.qml`）：页面用 `ColumnLayout` 撑满窗口高度，日志列表吃满面板剩余高度并自行滚动；手动导出设置写入 `user.json` 的 `app.log.manual.*`，导出时按该设置逐行过滤。
 
@@ -304,6 +308,10 @@ src/ui/
 | `waveConflictRenameField` | 重命名用的新名称输入框：`enabled: waveBridge.conflictCount === 1`（多条冲突时按序号自动生成），内容由 C++ 在点「重命名」时读取 |
 | `waveConflictOverwriteButton` / `waveConflictRenameButton` / `waveConflictSkipButton` | 覆盖（`danger` + `outline`，同名官方波形仍会被拒绝并记原因）/ 重命名（`primary`）/ 跳过：选择对整批生效，结果走 `importFinished` 汇总 Toast |
 | `waveImportFileDialog` / `waveExportFileDialog` | 系统文件对话框（`MainWindow.qml` 内的 `FileDialog`，`import QtQuick.Dialogs`）：打开 / 保存模式，只负责挑路径，读写全部由 `WaveLibrary` 完成；导入侧过滤器含 `.json` / `.pulse` / `.zip`，导出侧按当前格式切换过滤器与默认后缀（json / pulse / zip）；保存对话框打开前由 C++ 把建议路径写进 `currentFile`，`accepted` 经 `on_wave_import_file_accepted()` / `on_wave_export_file_accepted()` 交给 `WaveBridge`（`exportToFile` 会先去掉已知的波形扩展名再补目标后缀，避免保存框补错后缀） |
+| `waveTagDialog` | 波形标签选择器（`dialogs/WaveTagDialog.qml`）：标题带波形名，列出内置标签（锁标识 + 「内置」徽标，不可删）与自定义标签（`danger` + `outline` 的删除按钮）；勾选即写入该波形，取消勾选只从波形上移除、不动标签库；Esc 经 `UiConnector::eventFilter` 收起（等同「完成」） |
+| `waveTagDialogList` / `waveTagToggleClick` / `waveTagDeleteClick` | 标签列表、行热区（`tagName` 属性，勾选 / 取消）与行内删除（`tagName` 属性）：删除仍有波形在用的标签先经 `confirmDialog` 确认「N 个波形正在使用该标签」，确认后连同这些波形上的该标签一起移除 |
+| `waveTagDialogNewField` / `waveTagDialogCreateButton` | 新建标签输入框（占位提示带 `tagMaxLength`）与「新建并勾选」→ `on_wave_tag_create_clicked()`：名字大小写不同即沿用库里已有写法，空名字忽略，超长与写入失败经 `operationFailed` 弹 danger Toast |
+| `waveTagDialogCloseButton` | 「完成」：关闭对话框并调用 `WaveBridge::endTagEdit()` 清掉编辑目标 |
 | `waveEditorDialog` | 波形编辑器；`closePolicy: Popup.NoAutoClose`，关闭只走按钮，由 C++ 判断 `draftDirty` 后先弹确认 |
 | `waveEditorCloseButton` | 关闭编辑器：草稿未保存时先弹确认，取消则对话框保持打开 |
 | `waveEditorStatusLine` | 编辑器状态行：`waveBridge.lastError` 非空显示红字失败原因；否则 `draftDirty` 显示「草稿未保存」，已保存显示「已保存」 |
@@ -402,7 +410,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `WaveBridge::draftChanged` + `lastError` 由空转非空 | Toast（danger）：失败原因；编辑器状态行同时显示红字 |
 | `WaveBridge::importConflictRequested(count)` | 打开 `waveConflictDialog` 并写入建议名称，不弹 Toast |
 | `WaveBridge::importFinished(summary, clean)` | Toast（info / warning）：一条汇总文案，含跳过与缺帧原因摘要 |
-| `WaveBridge::exportFinished(summary)` / `WaveBridge::operationFailed(message)` | Toast（info）导出路径与缺帧说明 / Toast（danger）导入导出失败原因 |
+| `WaveBridge::exportFinished(summary)` / `WaveBridge::operationFailed(message)` | Toast（info）导出路径与缺帧说明 / Toast（danger）导入导出、标签新建与标签删除的失败原因 |
 | `ModuleBridge::pluginToggled(file, ok, error)` | `ok` 不弹（徽标变化）；失败弹 Toast（danger，含文件名与原因） |
 | `LogBridge::exportChanged` | Toast（info）：`日志已导出：<path>`，路径取 `lastExportPath` |
 | `LogBridge::statusMessage` | 仅导出失败时发出 → Toast（danger） |

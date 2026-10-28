@@ -40,6 +40,19 @@ namespace {
 
 } // namespace
 
+bool Wave::has_tag(const QString& tag) const {
+    const QString normalized = tag.trimmed();
+    if (normalized.isEmpty()) {
+        return false;
+    }
+    for (const QString& existing : tags) {
+        if (existing.compare(normalized, Qt::CaseInsensitive) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 int Wave::frame_count() const {
     return frames_v3.isEmpty() ? static_cast<int>(frames_v2.size()) : static_cast<int>(frames_v3.size());
 }
@@ -110,6 +123,35 @@ QString Wave::normalize_hex_frame(const QString& text, int byte_count) {
     return hex;
 }
 
+QString Wave::normalize_tag(const QString& tag) {
+    const QString normalized = tag.trimmed();
+    if (normalized.isEmpty() || normalized.size() > TAG_MAX_LENGTH) {
+        return QString();
+    }
+    return normalized;
+}
+
+QStringList Wave::normalize_tags(const QStringList& tags) {
+    QStringList result;
+    for (const QString& tag : tags) {
+        const QString normalized = normalize_tag(tag);
+        if (normalized.isEmpty()) {
+            continue;
+        }
+        bool duplicated = false;
+        for (const QString& existing : result) {
+            if (existing.compare(normalized, Qt::CaseInsensitive) == 0) {
+                duplicated = true;
+                break;
+            }
+        }
+        if (!duplicated) {
+            result.append(normalized);
+        }
+    }
+    return result;
+}
+
 const char* Wave::source_name(WaveSource source) {
     return source == WaveSource::Official ? "official" : "user";
 }
@@ -145,6 +187,12 @@ nlohmann::json Wave::to_json() const {
         frame_v3_array.push_back(frame.toStdString());
     }
     json["frames_v3"] = frame_v3_array;
+
+    nlohmann::json tag_array = nlohmann::json::array();
+    for (const QString& tag : tags) {
+        tag_array.push_back(tag.toStdString());
+    }
+    json["tags"] = tag_array;
     return json;
 }
 
@@ -153,6 +201,23 @@ Wave Wave::from_json(const std::string& name, const nlohmann::json& json) {
     wave.name = json.value("name", name);
     wave.source = source_from_name(json.value("source", std::string("user")));
     wave.raw = json.value("raw", std::string());
+
+    // 标签：主名 tags，别名 labels（与 JSON 导入同一套别名）；逐条规范化并去重
+    auto read_tags = [](const nlohmann::json& array) {
+        QStringList collected;
+        for (const auto& item : array) {
+            if (item.is_string()) {
+                collected.append(QString::fromStdString(item.get<std::string>()));
+            }
+        }
+        return normalize_tags(collected);
+    };
+    if (json.contains("tags") && json["tags"].is_array()) {
+        wave.tags = read_tags(json["tags"]);
+    }
+    else if (json.contains("labels") && json["labels"].is_array()) {
+        wave.tags = read_tags(json["labels"]);
+    }
 
     if (json.contains("sections") && json["sections"].is_array()) {
         for (const auto& item : json["sections"]) {

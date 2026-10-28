@@ -32,12 +32,14 @@ namespace wave_io {
     constexpr qint64 ZIP_MAX_TOTAL_BYTES = 32 * 1024 * 1024;
 
     /// @brief 导出 JSON 的数组文本；缺某一版本帧时写空数组并把说明追加到 notes
+    /// @note 每条同时写出 tags 数组（无标签写空数组）
     /// @param waves 待导出的波形
     /// @param notes 逐条补充说明（缺 V2 / V3 帧）
     /// @return JSON 数组文本（4 空格缩进）
     QString build_json(const std::vector<Wave>& waves, QStringList& notes);
 
     /// @brief 解析导入用的 JSON 文本（接受单个对象或数组）
+    /// @note tags 字段缺失按空数组处理，别名 labels 同样接受；标签逐条规范化去重
     /// @param text JSON 文本
     /// @param waves 解析成功的波形（来源一律按用户波形）
     /// @param skipped 逐条跳过原因

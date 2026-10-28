@@ -27,6 +27,9 @@ void WaveBridge::initialize() {
     // 导出文案依赖库内容与通道当前波形：库变化时一并刷新
     connect(&library, &WaveLibrary::library_changed, this, &WaveBridge::exportChanged);
     connect(&library, &WaveLibrary::current_changed, this, &WaveBridge::exportChanged);
+    // 标签库变化与波形内容变化都会影响标签选择器的勾选态与用量
+    connect(&library, &WaveLibrary::tags_changed, this, &WaveBridge::tagsChanged);
+    connect(&library, &WaveLibrary::library_changed, this, &WaveBridge::tagsChanged);
     beginCreate();
     LOG_MODULE("WaveBridge", "initialize", LOG_INFO, "波形桥接初始化完成");
 }
@@ -50,6 +53,7 @@ QVariantList WaveBridge::waves() const {
         item.insert(QStringLiteral("durationMs"), wave->duration_ms());
         // 当前协议缺帧时列表项不可发送
         item.insert(QStringLiteral("sendable"), !wave->frames_of(active_protocol).isEmpty());
+        item.insert(QStringLiteral("tags"), wave->tags);
         list.append(item);
     }
     return list;
@@ -217,6 +221,33 @@ QString WaveBridge::export_suggested_path() const {
 
 int WaveBridge::conflict_count() const {
     return static_cast<int>(conflict_names_.size());
+}
+
+QVariantList WaveBridge::tag_library() const {
+    QVariantList list;
+    auto& library = WaveLibrary::instance();
+    const Wave* target = tag_target_name_.isEmpty() ? nullptr : library.get(tag_target_name_.toStdString());
+    for (const QString& tag : library.all_tags()) {
+        QVariantMap item;
+        item.insert(QStringLiteral("name"), tag);
+        item.insert(QStringLiteral("builtin"), library.is_builtin_tag(tag));
+        item.insert(QStringLiteral("usage"), library.tag_usage(tag));
+        item.insert(QStringLiteral("checked"), target != nullptr && target->has_tag(tag));
+        list.append(item);
+    }
+    return list;
+}
+
+QStringList WaveBridge::builtin_tags() const {
+    return WaveLibrary::instance().builtin_tags();
+}
+
+QStringList WaveBridge::custom_tags() const {
+    return WaveLibrary::instance().custom_tags();
+}
+
+int WaveBridge::tag_max_length() const {
+    return Wave::TAG_MAX_LENGTH;
 }
 
 void WaveBridge::setProtocol(const QString& protocol) {
@@ -415,6 +446,10 @@ bool WaveBridge::saveDraft(const QString& name) {
     wave.sections = draft_sections_;
     wave.frames_v2 = draft_frames_v2_;
     wave.frames_v3 = draft_frames_v3_;
+    // 覆盖已有波形时保留它的标签：编辑器不编辑标签，不能因为保存而丢
+    if (const Wave* existing = WaveLibrary::instance().get(name.toStdString())) {
+        wave.tags = existing->tags;
+    }
     draft_name_ = name;
     const bool ok = WaveLibrary::instance().save(wave);
     if (ok) {
@@ -608,6 +643,93 @@ void WaveBridge::cancelPendingImport() {
     pending_rename_.clear();
     emit importChanged();
     LOG_MODULE("WaveBridge", "cancelPendingImport", LOG_INFO, "已取消待写入的导入波形");
+}
+
+void WaveBridge::beginTagEdit(const QString& name) {
+    tag_target_name_ = name.trimmed();
+    emit tagsChanged();
+}
+
+void WaveBridge::endTagEdit() {
+    if (tag_target_name_.isEmpty()) {
+        return;
+    }
+    tag_target_name_.clear();
+    emit tagsChanged();
+}
+
+void WaveBridge::toggleTag(const QString& tag) {
+    auto& library = WaveLibrary::instance();
+    if (tag_target_name_.isEmpty() || tag.trimmed().isEmpty()) {
+        return;
+    }
+    const Wave* wave = library.get(tag_target_name_.toStdString());
+    if (wave == nullptr) {
+        emit operationFailed(QStringLiteral("波形《%1》不在波形库中").arg(tag_target_name_));
+        return;
+    }
+    if (wave->has_tag(tag)) {
+        library.detach_tag(tag_target_name_.toStdString(), tag);
+        LOG_MODULE("WaveBridge", "toggleTag", LOG_INFO,
+            "波形已移除标签: " + tag_target_name_.toStdString() + " / " + tag.toStdString());
+        return;
+    }
+    QString error;
+    // 勾选时自动登记进标签库（内置标签天然在库里，add_custom_tag 不会重复写入）
+    if (!library.add_custom_tag(library.canonical_tag(tag), &error)) {
+        emit operationFailed(error);
+        return;
+    }
+    if (!library.attach_tag(tag_target_name_.toStdString(), tag, &error)) {
+        emit operationFailed(error);
+    }
+}
+
+bool WaveBridge::createTag(const QString& tag) {
+    auto& library = WaveLibrary::instance();
+    const QString trimmed = tag.trimmed();
+    // 空标签名直接忽略，不打断输入
+    if (trimmed.isEmpty()) {
+        return false;
+    }
+    if (trimmed.size() > Wave::TAG_MAX_LENGTH) {
+        emit operationFailed(QStringLiteral("标签名最长 %1 个字符，已拒绝：%2")
+                                 .arg(Wave::TAG_MAX_LENGTH)
+                                 .arg(trimmed));
+        return false;
+    }
+    // 大小写不同视为同一个标签：沿用标签库里的写法，不产生第二条
+    const QString canonical = library.canonical_tag(trimmed);
+    QString error;
+    if (!library.add_custom_tag(canonical, &error)) {
+        emit operationFailed(error);
+        return false;
+    }
+    if (tag_target_name_.isEmpty()) {
+        return true;
+    }
+    const Wave* wave = library.get(tag_target_name_.toStdString());
+    if (wave != nullptr && !wave->has_tag(canonical)
+        && !library.attach_tag(tag_target_name_.toStdString(), canonical, &error)) {
+        emit operationFailed(error);
+    }
+    LOG_MODULE("WaveBridge", "createTag", LOG_INFO, "已新建标签: " + canonical.toStdString());
+    return true;
+}
+
+int WaveBridge::tagUsage(const QString& tag) {
+    return WaveLibrary::instance().tag_usage(tag);
+}
+
+void WaveBridge::removeTag(const QString& tag) {
+    QString error;
+    const int detached = WaveLibrary::instance().remove_custom_tag(tag, &error);
+    if (detached < 0) {
+        emit operationFailed(error);
+        return;
+    }
+    LOG_MODULE("WaveBridge", "removeTag", LOG_INFO,
+        "已删除标签: " + tag.toStdString() + "（从 " + std::to_string(detached) + " 个波形上移除）");
 }
 
 bool WaveBridge::draft_dirty() const {

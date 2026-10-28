@@ -40,12 +40,19 @@ struct Wave {
     std::vector<WaveSection> sections;
     QStringList frames_v2;        ///< V2 HEX 帧（偶数长度，帧长不固定）
     QStringList frames_v3;        ///< V3 8 字节 HEX 帧
+    QStringList tags;             ///< 标签（按名字引用标签库，大小写不敏感去重、已 trim）
 
     /// @brief 是否官方内置波形（不可删除、不可改名、不可覆盖）
     bool is_official() const { return source == WaveSource::Official; }
 
     /// @brief 是否同时具备 V2 与 V3 帧
     bool has_both_protocols() const { return !frames_v2.isEmpty() && !frames_v3.isEmpty(); }
+
+    /// @brief 标签名长度上限（字符数）；超长的标签被拒绝
+    static constexpr int TAG_MAX_LENGTH = 32;
+
+    /// @brief 是否已含该标签（大小写不敏感）
+    bool has_tag(const QString& tag) const;
 
     /// @brief 帧数（优先取 V3，仅缺 V3 时取 V2）
     int frame_count() const;
@@ -64,6 +71,12 @@ struct Wave {
     /// @param byte_count 期望字节数（V3 传 8；V2 传 0 表示任意偶数长度）
     /// @return 规范化后的帧，不合规返回空串
     static QString normalize_hex_frame(const QString& text, int byte_count);
+
+    /// @brief 单个标签规范化：去首尾空白；空串或超过 TAG_MAX_LENGTH 返回空串
+    static QString normalize_tag(const QString& tag);
+
+    /// @brief 标签列表规范化：逐条规范化、丢弃非法项、按大小写不敏感去重（保留首次出现的写法）
+    static QStringList normalize_tags(const QStringList& tags);
 
     /// @brief 波形来源转 JSON 字符串
     static const char* source_name(WaveSource source);
