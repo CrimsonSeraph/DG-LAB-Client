@@ -843,12 +843,14 @@ AppDialog {
                         onTriggered: ruleGraph.addAdvancedNode("expression", canvas.toWorldX(canvas.lastMouseX), canvas.toWorldY(canvas.lastMouseY))
                     }
                     MenuSeparator {}
-                    MenuItem {
-                        objectName: "ruleDeleteEdgeMenu"
-                        text: qsTr("删除此连线")
-                        // 只有右键命中连线时才出现；删除仍走 C++ 的 ruleGraph.deleteEdge
-                        visible: canvas.contextEdgeId > 0
-                        onTriggered: ruleGraph.deleteEdge(canvas.contextEdgeId)
+                    // 仅右键命中连线时生成该项，删除走 C++ 的 ruleGraph.deleteEdge
+                    Repeater {
+                        model: canvas.contextEdgeId > 0 ? 1 : 0
+                        MenuItem {
+                            objectName: "ruleDeleteEdgeMenu"
+                            text: qsTr("删除此连线")
+                            onTriggered: ruleGraph.deleteEdge(canvas.contextEdgeId)
+                        }
                     }
                     MenuItem {
                         text: qsTr("删除选中节点")

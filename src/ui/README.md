@@ -287,7 +287,7 @@ src/ui/
 | `ruleGraphTitle` / `ruleBackToTopButton` | 标题栏图名（总图「总规则图」、插件图「<插件> 规则图」）与「返回总图」按钮（仅插件图下可见，点击 `ruleGraph.loadPluginGraph("")`，处理器尚未迁到 C++） |
 | `ruleCanvas` / `ruleZoomLabel` | 画布根项（C++ 通过它读写 `panX`/`panY`/`zoom`）与左下缩放百分比标签（纯绑定 `zoom`） |
 | `ruleFitViewButton` | 适配视图：点击由 C++ 连接，按节点包围盒重置缩放与平移；无节点时回到 1.0 居中 |
-| `ruleDeleteEdgeMenu` | 右键菜单「删除此连线」：仅当右键命中连线（`canvas.contextEdgeId > 0`）时可见，`onTriggered` 调用 `ruleGraph.deleteEdge()` |
+| `ruleDeleteEdgeMenu` | 右键菜单「删除此连线」：仅当右键命中连线（`canvas.contextEdgeId > 0`）时才生成（`Repeater` 条件构建，未命中时不占菜单槽位），`onTriggered` 调用 `ruleGraph.deleteEdge()` |
 | `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层（`components/ConfirmDialog.qml`）：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭；键盘由 `UiConnector::eventFilter` 在弹层可见时接管——Enter 确认、Esc 取消（弹层内出现输入框时 Enter 仍归输入），默认焦点按危险性分配：危险操作落在取消上、普通操作落在确认上，空白键只作用于默认焦点按钮；弹层是主窗口内的 `Popup`，主窗口隐藏到托盘或最小化时 `ask_confirm()` 先把主窗口 `show()` / `showNormal()` + `raise()` + `requestActivate()` 再打开，否则迷你窗触发的确认（如「关闭运行中的通道」）落在不可见的窗口里无法确认 |
 | `ipSelectDialog` | 网卡 IP 选择对话框（`dialogs/IpSelectDialog.qml`）：左右两列维护黑/白名单、下方列出过滤后的候选网卡；`pendingIp` 属性保存待写入的地址，Esc / 点击遮罩走取消，Enter 走确定（`UiConnector::eventFilter`） |
 | `ipBlacklistList` / `ipWhitelistList` | 黑名单 / 白名单列表，模型为 `device.ipSelector.blacklist` / `whitelist` |

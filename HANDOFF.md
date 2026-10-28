@@ -6,7 +6,7 @@
 你是 DG-LAB-Client 项目的资深 C++20 / Qt6 / QML 开发与任务编排代理，工作目录 F:\\Projects\\DG-LAB-Client。
 先完整阅读根目录 HANDOFF.md，再读 CodingStyle.md、docs/theme.md、docs/event-mapping.md、docs/rule-graph.md。
 严格遵守 HANDOFF.md 里的「不可变要求」与「环境事实」，不要重新发明规范。
-阶段三（UI 重构）已收口并全部提交（见 7.1）；功能上只剩一条待办「事件运行时每帧结果 → 设备下发」，且必须先定产品口径再动手（见 7.2）。
+阶段三（UI 重构）与波形库、设备链路扩展均已提交（见 7.1）。剩余待办见 7.2：新设备驱动需要实机才能验收，打磨项随时可做。
 任何不确定的实现细节，先读代码取证再动手；任何产品口径不确定，先提问再实现。
 ```
 
@@ -53,7 +53,7 @@
   cd /f/Projects/DG-LAB-Client && export TMP="$PWD/build-agent/tmp" TEMP="$PWD/build-agent/tmp" TMPDIR="$PWD/build-agent/tmp" && cmake --build build-agent --config Release --parallel 8
   ```
   前台调用有 300s 上限，长构建用 `run_in_background: true` + `job_output(wait: true)`。
-- 测试：`cd build-agent && ctest -C Release --output-on-failure`（当前 2 个目标：event_engine_test、rule_graph_eval_test）。
+- 测试：`cd build-agent && ctest -C Release --output-on-failure`（当前 9/9 全绿，9 个目标：event_engine / rule_graph_eval / event_engine_module / event_merge / wave_library / wave_import_export / wave_zip / wave_tag / event_wave）。
 - **构建前必须清实例**：`powershell -NoProfile -Command "Get-Process -Name 'DG-LAB-Client' -ErrorAction SilentlyContinue | Stop-Process -Force"`。共享 build-agent 时两个代理同时构建会 LNK1104。
 - 本机 125% 缩放：截图脚本**必须 DPI 感知**（`SetProcessDpiAwarenessContext(-4)`），否则 GetWindowRect 给 ×0.8 假尺寸，会把正确布局误报成裁切。
 - QML 运行期错误的唯一可靠抓法：
@@ -61,6 +61,7 @@
   cd build-agent/Release && (QT_FORCE_STDERR_LOGGING=1 QT_ASSUME_STDERR_HAS_CONSOLE=1 ./DG-LAB-Client.exe > out.txt 2> err.txt &) ; sleep 8
   ```
   验收要求 `err.txt` 0 字节。日志文件开关：config 里 `app.log.file_enabled=true` 会写 `<exe>/log/dglab-YYYYMMDD.log`。
+- 界面取证禁用 PostMessage 注入：本机 PostMessage 注入的鼠标与键盘消息对该 Qt 进程无效（返回成功但界面无反应），历史上曾据此得出「已点击验证」的假结论。界面取证一律改用 **UI Automation**（InvokePattern / ValuePattern），或直接函数级单测 + PrintWindow 静态截图，并在报告里区分「界面验证」与「函数级验证」。
 
 ## 五、已落地的关键架构决策
 
@@ -72,10 +73,14 @@
 - 设备分发：应用只做收集/处理/分发，向所有已连接设备同时下发，插件配置不选设备。
 - 连接状态：蓝牙 0/1 + App WebSocket 在线客户端数（`DglabRelayServer::client_count()` → `DeviceController::appClientCount`），任一连接即「已连接设备 ×N」。
 - 图标：Font Awesome Free 7.3.1 两个 otf 入库 + `AppIcon` 组件；**FA7 两字重共用族名，必须显式 font.weight（solid=Black）**，否则 solid-only 图标渲染成方框。
+- 波形库：官方 16 个波形作为只读资源（`assets/waves/official_waves.json`），`Wave` 同时持有 raw 与两种协议的帧（`frames_v2` / `frames_v3`），`app.wave.protocol` 决定发送用哪套、缺帧拒发。
+- 波形导入导出：JSON / `.pulse` / `.zip`（vendor miniz，读支持 store 与 deflate，含路径穿越与大小上限防护）。
+- 波形标签：两层库（内置为代码常量、自定义存 `config/waves/tags.json`），官方波形的标签是用户侧叠加数据（`official_wave_tags` 段）。
+- 设备：`IOutputDevice` 抽象 + 47L1 型号识别（未支持型号拒绝连接）+ 每通道输出目标 `app.output.<A|B>.target`；事件波形（`dataType=wave`）按设备实际写入帧数推进。
 
 ## 六、提交历史要点（便于回溯）
 
-`git log --oneline` 关键节点：主题 17 套与 classic 默认、插件侧车元数据、事件引擎与测试、EventRuntime/EventBridge、规则数据层（插件图/输出节点）、规则求值+启用级联、全局通道上限+dataType、事件面板只读、图标与双连接、首页看板与波形卡、更新模块修复（含恢复被误删的 `is_newer_version`）。当前 HEAD 为 `463d2a1 fix(ui): 打磨插件详情全局上限、菜单与滚动条样式`，阶段三 UI 重构已全部提交（工作区仅 `build-agent/` 未跟踪）。
+`git log --oneline` 关键节点：主题 17 套与 classic 默认、插件侧车元数据、事件引擎与测试、EventRuntime/EventBridge、规则数据层（插件图/输出节点）、规则求值+启用级联、全局通道上限+dataType、事件面板只读、图标与双连接、首页看板与波形卡、更新模块修复（含恢复被误删的 `is_newer_version`）。当前 HEAD 以 `git log -1` 为准（阶段三 UI 重构与波形库、事件波形下发、输出设备抽象均已提交；工作区仅 `build-agent/`、`out/` 未跟踪）。
 
 ## 七、当前状态与未完成事项
 
@@ -91,19 +96,15 @@
 - 系统托盘常驻；主窗口关闭改为隐藏到托盘，退出唯一路径是托盘菜单。
 - 对话框统一继承 `AppDialog`；`AppMenu` 承接菜单外观；侧车头图经 `ModuleBannerImageProvider` 渲染。
 - `EventEngine::remove_module` 与 `module_unregistered` 接线；`AppBridge::openPluginDetail` 直达插件详情。
-- 验收基线：构建 0 error、`ctest` 4/4、启动 9 秒 `err` / `out` 均 0 字节。
+- 事件运行时每帧结果 → 设备下发（strength / percent / wave 全部接线）：强度与规则命令按通道取较大值、按 `min(limit, safety)` 钳制、相同值不重复下发（`include/event/EventMath.h` 的 `ChannelOutputState`，测试目标 `event_merge_test`）。
+- 事件波形（`dataType=wave`）：按设备实际 B0 写入帧数推进、播完恢复接管前的规则波形、缺帧拒绝并 Toast（纯函数 `advance_event_wave()`，测试目标 `event_wave_test`）；实机 47L121000 已核对，详见 `docs/event-mapping.md` 的「事件波形下发」。
+- 验收基线：构建 0 error、`ctest` 9/9、启动 9 秒 `err` / `out` 均 0 字节。
 
 ### 7.2 剩余待办
-- **事件运行时每帧结果 → 设备下发**：**已完成（strength / percent / wave 全部接线）**。B0 的 100ms 写入在 `CoyoteBleController.cpp`；`EventRuntime::channelsChanged` 经 `main.cpp` 交给 `DeviceController::set_event_output()`（强度）与 `DeviceController::apply_event_wave()`（波形），强度与规则命令最近值按通道取较大值、按 `min(limit, safety)` 钳制、相同值不重复下发（合并逻辑是 `include/event/EventMath.h` 的 `ChannelOutputState`，测试目标 `event_merge_test`）。
-  - 已定口径：事件输出与规则命令写同一通道时取较大值；相对增减（`mode≠2`）无法折算成绝对强度，保持直发不参与合并。
-  - 已完成：`dataType=wave` 的波形帧下发。事件触发的波形名由 `EventEngine::frame_wave()` 按帧给出，`DeviceController::apply_event_wave()` 按 `app.wave.protocol` 解析帧下发一次、播完恢复接管前的规则波形（事件期间到达的规则波形命令优先恢复）、缺帧拒绝并走 Toast 提示；状态机与去重是 `include/event/EventMath.h` 的纯函数 `advance_event_wave()`（测试目标 `event_wave_test`），播放进度按设备实际 B0 写入帧数推进。实机（47L121000）已核对 B0 波形区帧序列与库中 `frames_v3` 逐帧一致、播完恢复、缺帧拒绝并 Toast 提示，详见 `docs/event-mapping.md` 的「事件波形下发」。
+- 新设备驱动：爪印 V1.1 / 灵猫 V1 / 负鼠 V1（协议文档已读，**需要实机才能验收**；负鼠还要先确认 B2 写 24 字节与文档标称 20 字节上限的冲突）。
+- 打磨项：`ColorDialog` 为系统原生取色框无法主题化、退出耗时约 5.6s 全在 QML 引擎析构、Win11 托盘图标默认在折叠区、工作区有 31 个文本文件为 LF（`.gitattributes` 要求 CRLF，提交不受影响，属工作区卫生）。
 
 ### 7.3 打磨与已知局限
-- 主题化边界：`ColorDialog` 是 Windows 原生取色框，由系统绘制，无法套用 `Theme` 令牌。
-- 换行：`.gitattributes` 为 `* text=auto eol=crlf`，索引内统一 LF，但工作区有 31 个文本文件是 LF（应为 CRLF）。提交不受影响，要归一需重新 checkout 这批文件，属工作区卫生而非仓库问题。
-- 退出耗时约 5.6s，全部落在 QML 引擎析构阶段，与应用逻辑无关。
-- Windows 11 托盘图标默认收在折叠区，需用户手动拖到任务栏可见位置。
-- 右键菜单空槽：规则编辑器右键菜单里 `visible: false` 的「删除此连线」仍占一个槽位，表现为两条分隔线之间一段空白。
 - 未启用插件的详情：通道上限已改为读通道级全局配置（不再是 `0/0`），但该插件的事件与数值列表仍为空，属预期。
 
 ## 八、已知坑（血泪清单）
