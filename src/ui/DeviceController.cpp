@@ -219,6 +219,7 @@ void DeviceController::disconnectDevice() {
     relay_->stop();
     connected_ = false;
     pairing_url_.clear();
+    pairing_url_text_.clear();
     ++qr_revision_;
     if (qr_provider_ != nullptr) {
         qr_provider_->set_text(QString());
@@ -306,11 +307,13 @@ void DeviceController::set_event_output(const QString& channel, int value) {
     update_channel_output(index);
 }
 
+// 刷新二维码载荷与界面展示文本
 void DeviceController::update_pairing_url() {
     if (relay_ == nullptr) {
         return;
     }
     pairing_url_ = relay_->pairing_url(ip_);
+    pairing_url_text_ = relay_->pairing_url_display(ip_);
     ++qr_revision_;
     if (qr_provider_ != nullptr) {
         qr_provider_->set_text(pairing_url_);

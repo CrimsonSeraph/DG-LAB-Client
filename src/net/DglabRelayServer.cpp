@@ -25,6 +25,9 @@
 
 namespace {
 
+    // 官方二维码规范的载荷前缀（来源：上游 socket/v2/README.md「终端二维码协议」）
+    constexpr char PAIRING_PAYLOAD_PREFIX[] = "https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#";
+
     QString new_id() {
         return QUuid::createUuid().toString(QUuid::WithoutBraces);
     }
@@ -209,6 +212,10 @@ QString DglabRelayServer::v4_pairing_url(const QString& ip) const {
 }
 
 QString DglabRelayServer::pairing_url(const QString& ip) const {
+    return QString::fromLatin1(PAIRING_PAYLOAD_PREFIX) + v3_pairing_url(ip);
+}
+
+QString DglabRelayServer::pairing_url_display(const QString& ip) const {
     return v3_pairing_url(ip);
 }
 

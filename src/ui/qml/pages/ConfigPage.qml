@@ -182,9 +182,10 @@ Item {
                             }
 
                             Text {
+                                objectName: "configPairingUrlText"
                                 Layout.fillWidth: true
                                 visible: device.connected
-                                text: device.pairingUrl
+                                text: device.pairingUrlText
                                 color: Theme.textMuted
                                 font.pixelSize: Typography.fontBody
                                 elide: Text.ElideMiddle

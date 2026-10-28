@@ -31,6 +31,7 @@ class DeviceController : public QObject {
     Q_PROPERTY(QString ip READ ip NOTIFY endpointChanged)
     Q_PROPERTY(int port READ port NOTIFY endpointChanged)
     Q_PROPERTY(QString pairingUrl READ pairing_url NOTIFY qrUrlChanged)
+    Q_PROPERTY(QString pairingUrlText READ pairing_url_text NOTIFY qrUrlChanged)
     Q_PROPERTY(QString qrImageUrl READ qr_image_url NOTIFY qrUrlChanged)
     Q_PROPERTY(bool v3Paired READ v3_paired NOTIFY pairingChanged)
     Q_PROPERTY(bool v4Attached READ v4_attached NOTIFY pairingChanged)
@@ -62,6 +63,7 @@ public:
     QString ip() const { return ip_; }
     int port() const { return port_; }
     QString pairing_url() const { return pairing_url_; }
+    QString pairing_url_text() const { return pairing_url_text_; }
     QString qr_image_url() const;
     bool v3_paired() const;
     bool v4_attached() const;
@@ -146,7 +148,8 @@ private:
     QTimer* ble_wave_timer_b_ = nullptr; ///< B 通道蓝牙波形停止定时器
     QString ip_ = QStringLiteral("127.0.0.1");
     int port_ = 9999;
-    QString pairing_url_;
+    QString pairing_url_; ///< 二维码载荷（官方格式，含前缀与 DGLAB-SOCKET 标签）
+    QString pairing_url_text_; ///< 界面展示的友好文本（裸 V3 服务地址）
     int qr_revision_ = 0;
     bool connected_ = false;
     bool connecting_ = false;

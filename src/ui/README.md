@@ -82,7 +82,7 @@ src/ui/
 | 上下文属性 | 类型 | 职责 |
 | --- | --- | --- |
 | `app` | `AppBridge` | 应用名称/版本、当前页面（`currentPage`）、一次性反馈浮层（`toastText` / `toastLevel` / `showToast()`） |
-| `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、配对链接 `pairingUrl` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发 |
+| `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
 | `waveBridge` | `WaveBridge` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
@@ -97,7 +97,7 @@ src/ui/
 
 | 协议 | 提供器 | 说明 |
 | --- | --- | --- |
-| `image://dglabqr/<rev>` | `QrImageProvider` | 配对链接二维码，由 `DeviceController` 持有 |
+| `image://dglabqr/<rev>` | `QrImageProvider` | 配对二维码，由 `DeviceController` 持有；载荷为官方终端二维码协议格式（官网下载地址 + `DGLAB-SOCKET` + `ws://<ip>:<V3 端口>/<终端 ID>`），`qrcodegen` 按内容自动提升版本 |
 | `image://modulebanner/<插件文件名>/<头图文件名>` | `ModuleBannerImageProvider` | 插件侧车头图：按 id 解析 `<插件扫描目录>/<dll 主干名>/<头图文件名>`（扫描目录取自 `ModuleManager::get_plugin_dir()`，不按程序目录另拼）；id 只允许「插件文件名 + 纯文件名」两段，含 `..`、盘符、路径分隔符或多余段一律拒绝；文件缺失或不是图片时返回空图，QML 侧保持空态 |
 
 ## objectName 契约表
@@ -181,7 +181,8 @@ src/ui/
 | `configConnectionFormColumn` / `configQrColumn` | 连接卡左列表单列 / 右列二维码列（右列固定宽度） |
 | `configIpField` / `configPortField` | 连接地址与端口（连接时读取并持久化） |
 | `configConnectButton` | 连接 / 断开 |
-| `configQrImage` | 连接成功后展示二维码 |
+| `configQrImage` | 连接成功后展示二维码（载荷为 `device.pairingUrl`） |
+| `configPairingUrlText` | 二维码下方的短地址文本（`device.pairingUrlText`，仅连接后可见）：完整二维码载荷过长，界面上只展示去掉官方前缀的 `ws://<ip>:<端口>/<终端 ID>` |
 | `configThemeSelectButton` | 打开预设主题对话框 |
 | `configThemeCustomButton` | 打开自定义主题对话框 |
 | `themePresetList` / `themePresetClick` | 预设主题列表与行热区（`mode` 属性） |

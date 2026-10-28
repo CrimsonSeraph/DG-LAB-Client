@@ -40,9 +40,12 @@ public:
     bool v3_paired() const;
     bool v4_attached() const;
     QString v3_pairing_url(const QString& ip) const;
+    /// @brief V4 配对链接（V4 端口仍在监听，但不进入二维码）
     QString v4_pairing_url(const QString& ip) const;
-    /// @brief 当前可用协议对应的配对链接（优先 V3）
+    /// @brief 二维码载荷：官网下载地址 + DGLAB-SOCKET 标签 + V3 服务地址与终端 ID
     QString pairing_url(const QString& ip) const;
+    /// @brief 界面展示用的友好文本（裸 V3 服务地址，不含二维码前缀）
+    QString pairing_url_display(const QString& ip) const;
 
     /// @brief 目标强度（mode: 0 减 / 1 增 / 2 设为；V3 语义）
     void send_strength(int channel, int mode, int value);

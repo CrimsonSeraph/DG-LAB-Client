@@ -70,7 +70,7 @@ include/
 | `wave/Wave.h`               | V3 波形模型（段落 → 八字节帧） |
 | `wave/WaveLibrary.h`        | 波形库与 A/B 当前波形          |
 | `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1）   |
-| `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务          |
+| `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务（含二维码载荷与展示文本接口） |
 
 ## 五、plugin/
 
@@ -86,13 +86,13 @@ include/
 | -------------------- | --------------------------------------------- |
 | `ThemeManager.h`     | 主题令牌（QML 单例 `Theme`）                  |
 | `AppBridge.h`        | 应用信息与页面导航                            |
-| `DeviceController.h` | 内置中转服务、二维码、指令下发与回传          |
+| `DeviceController.h` | 内置中转服务、二维码载荷与展示文本、指令下发与回传 |
 | `HomeBridge.h`       | 首页通道面板数据                              |
 | `ModuleBridge.h`     | 模块页数据与操作                              |
 | `WaveBridge.h`       | 波形库与波形编辑器草稿                        |
 | `RuleGraphBridge.h`  | 规则图编辑器桥接                              |
 | `LogBridge.h`        | 界面日志收集与导出                            |
-| `QrImageProvider.h`  | 二维码图像提供者                              |
+| `QrImageProvider.h`  | 二维码图像提供者（载荷为官方终端二维码协议格式） |
 | `ModuleBannerImageProvider.h` | 插件侧车头图提供者（`image://modulebanner`，id 只接受「插件文件名 + 纯文件名」两段） |
 | `UiConnector.h`      | QML↔C++ 连接集中点                            |
 | `UpdateBridge.h`     | 更新界面桥接（QML 上下文属性 `updateBridge`） |
@@ -110,6 +110,8 @@ include/
 | V4 | 9998 | 控制方（clientId）+ 多个被控方（tid） | `hello` / `client_attached` / `controller_attached` / `message`（RPC，如 `device.op`） |
 
 服务由应用自身托管，取代原先「Python Bridge + Node 官方 V2 后端」的链路：DG-LAB APP 扫码接入后，应用直接与 APP 配对并下发强度/波形指令。外部协议参考 `DG-LAB-OPENSOURCE/socket/v2/README.md` 与 `dglab-kit/README.md`。
+
+二维码载荷由 `DglabRelayServer::pairing_url()` 按官方「终端二维码协议」拼成：`https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<局域网 IP>:<V3 端口>/<终端 ID>`，恰好两个 `#`、SOCKET 地址后不带额外路径，缺少官网下载地址或 `DGLAB-SOCKET` 标签时 APP 无法识别。`pairing_url_display()` 返回同一条连接去掉前缀后的短地址供界面展示；`v4_pairing_url()` 保留（V4 端口仍在监听），但不出现在二维码里。
 
 ### 郊狼 V3 蓝牙（`ble/CoyoteBleController.h`）
 

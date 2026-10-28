@@ -36,7 +36,7 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 项目采用 **C++20 + Qt6/QML** 实现，分为 `core`（配置/日志）、`module`（数值与插件）、`rule`（规则与规则图）、`wave`（波形）、`ble`（蓝牙）、`net`（WebSocket 中转）与 `ui`（界面桥接 + QML）七层，依赖单向。整体架构如下:
 
 - **C++ 主程序**: 负责界面桥接、多级配置（main/system/user）、规则与规则图、波形库、日志系统与传输调度。
-- **内置 WebSocket 中转服务**: 应用自身托管 DG-LAB 中转服务（V3 端口 9999 / V4 端口 9998），由 DG-LAB APP 扫码配对，应用直接下发强度/波形/清除指令并接收回传；配对二维码由内嵌 `qrcodegen` 生成。`Bridge.py` / `WebSocketCore.py` 已退出 WebSocket 链路（Python 仅保留给插件工具 `PathFinder.py`）。
+- **内置 WebSocket 中转服务**: 应用自身托管 DG-LAB 中转服务（V3 端口 9999 / V4 端口 9998），由 DG-LAB APP 扫码配对，应用直接下发强度/波形/清除指令并接收回传；配对二维码由内嵌 `qrcodegen` 生成，载荷按官方终端二维码协议拼成 `https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<局域网 IP>:<V3 端口>/<终端 ID>`（恰好两个 `#`，SOCKET 地址后不带额外路径），缺少官网下载地址或 `DGLAB-SOCKET` 标签时 APP 无法识别。`Bridge.py` / `WebSocketCore.py` 已退出 WebSocket 链路（Python 仅保留给插件工具 `PathFinder.py`）。
 - **规则引擎**: 支持加载带占位符 `{}` 的 JSON 规则文件，动态填入参数（例如从外部数据模块接收的数值），生成最终命令。规则可指定通道（A/B）、模式（0~4）和值计算表达式（支持四则运算、括号）。
 - **数据扩展机制（插件化）**: 通过动态库插件（`module/`）从不同外部源获取数据——现已内置 CS2 GSI 插件（从 CS2 游戏读取状态数据），未来可扩展更多插件；主程序仅负责接收数值序列并按规则处理，不关心数据具体含义，实现灵活的社区扩展。
 
@@ -46,7 +46,7 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 - **QML 界面层** `Dglab` QML 模块包含主窗口、页面、组件与对话框，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 17 套预设与自定义主/副色，令牌与对比度说明见 [docs/theme.md](docs/theme.md)）；QML 默认不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接（画布类手势为登记在案的例外）。详见 [src/ui/README.md](src/ui/README.md)。
 
-- **内置 WebSocket 中转服务** `DglabRelayServer` 基于 `Qt WebSockets` 在应用内托管 DG-LAB 中转服务（V3 / V4）：分配 clientId、处理 bind 配对与心跳、转发强度/波形/清除指令、解析 APP 回传；V4 额外维护被控方设备列表并下发 `device.op` / `device.op.clear`。配对二维码由内嵌 `qrcodegen`（MIT）经 `QrImageProvider` 提供给 QML。
+- **内置 WebSocket 中转服务** `DglabRelayServer` 基于 `Qt WebSockets` 在应用内托管 DG-LAB 中转服务（V3 / V4）：分配 clientId、处理 bind 配对与心跳、转发强度/波形/清除指令、解析 APP 回传；V4 额外维护被控方设备列表并下发 `device.op` / `device.op.clear`。配对二维码由内嵌 `qrcodegen`（MIT）经 `QrImageProvider` 提供给 QML：二维码载荷固定为官方终端二维码协议格式（`https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<局域网 IP>:<V3 端口>/<终端 ID>`），端口取 V3（V4 端口继续监听，但不进入二维码），界面上二维码下方另给一行便于阅读的短地址。
 
 - **配置系统** 采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。
 
@@ -678,6 +678,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 | 手机与电脑不在同一局域网 | 确保手机连接与电脑相同的 Wi-Fi 网络 |
 | 防火墙拦截了端口 | 在防火墙中放行 WebSocket 服务使用的端口（默认 9999） |
 | 二维码中的地址错误 | 检查二维码中的 IP 是否为电脑的正确局域网 IP，不要使用 `127.0.0.1` 或 `localhost` |
+| APP 提示无法识别二维码 | 二维码载荷必须是官方终端二维码协议格式：`https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<局域网 IP>:<V3 端口>/<终端 ID>`，恰好两个 `#`、SOCKET 地址后不带额外路径；二维码下方那行短地址只供阅读，不参与扫码 |
 | 服务未正常启动 | 查看页面状态栏与日志输出，确认中转服务已启动 |
 | 某些 VPN 会拦截非代理流量 | 关闭 VPN |
 
