@@ -10,12 +10,11 @@
 #include "DebugLog.h"
 #include "DglabRelayServer.h"
 #include "EventMapping.h"
+#include "IpSelector.h"
 #include "QrImageProvider.h"
 #include "RuleManager.h"
 
-#include <QHostAddress>
 #include <QJsonArray>
-#include <QNetworkInterface>
 #include <QTimer>
 
 #include <algorithm>
@@ -46,29 +45,11 @@ namespace {
         return (channel == 1 || channel == 2) ? channel : 1;
     }
 
-    /// @brief 选择一个可用于手机扫码的局域网 IPv4 地址（无则回退环回）
-    QString detect_lan_ip() {
-        const auto interfaces = QNetworkInterface::allInterfaces();
-        for (const auto& interface : interfaces) {
-            const auto flags = interface.flags();
-            if (!flags.testFlag(QNetworkInterface::IsUp) || !flags.testFlag(QNetworkInterface::IsRunning)
-                || flags.testFlag(QNetworkInterface::IsLoopBack)) {
-                continue;
-            }
-            for (const auto& entry : interface.addressEntries()) {
-                const QHostAddress address = entry.ip();
-                if (address.protocol() == QAbstractSocket::IPv4Protocol && !address.isLoopback()) {
-                    return address.toString();
-                }
-            }
-        }
-        return QStringLiteral("127.0.0.1");
-    }
-
 } // namespace
 
 DeviceController::DeviceController(QObject* parent)
-    : QObject(parent) {
+    : QObject(parent)
+    , ip_selector_(new IpSelector(this)) {
 }
 
 DeviceController::~DeviceController() = default;
@@ -142,6 +123,10 @@ int DeviceController::channel_limit(const QString& channel) const {
     const int limit = std::clamp(config.limit, 0, MAX_STRENGTH);
     const int safety = std::clamp(config.safety, 0, MAX_STRENGTH);
     return std::min(limit, safety);
+}
+
+QObject* DeviceController::ip_selector() const {
+    return ip_selector_;
 }
 
 QString DeviceController::qr_image_url() const {
@@ -305,6 +290,10 @@ void DeviceController::set_event_output(const QString& channel, int value) {
     }
     channel_output_[index].event_value = std::max(0, value);
     update_channel_output(index);
+}
+
+QString DeviceController::detect_lan_ip() const {
+    return ip_selector_ != nullptr ? ip_selector_->active_ip() : QStringLiteral("127.0.0.1");
 }
 
 // 刷新二维码载荷与界面展示文本

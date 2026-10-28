@@ -30,6 +30,7 @@ src/ui/
 │   ├── dialogs/
 │   │   ├── RuleEditorDialog.qml # 规则可视化编辑器（画布手势例外见下）
 │   │   ├── UpdateDialog.qml     # 软件更新：版本 / 完整更新说明 / 进度 / 更新动作（左下角面板入口打开）
+│   │   ├── IpSelectDialog.qml   # 网卡 IP 选择：黑/白名单维护 + 过滤后的候选地址（配置页入口打开）
 │   │   ├── WaveSelectDialog.qml
 │   │   └── WaveEditorDialog.qml
 │   ├── pages/
@@ -82,7 +83,7 @@ src/ui/
 | 上下文属性 | 类型 | 职责 |
 | --- | --- | --- |
 | `app` | `AppBridge` | 应用名称/版本、当前页面（`currentPage`）、一次性反馈浮层（`toastText` / `toastLevel` / `showToast()`） |
-| `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发 |
+| `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
 | `waveBridge` | `WaveBridge` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
@@ -180,6 +181,7 @@ src/ui/
 | `configConnectionCard` | 连接卡根节点（`GlassCard`），左列表单 + 右列二维码 |
 | `configConnectionFormColumn` / `configQrColumn` | 连接卡左列表单列 / 右列二维码列（右列固定宽度） |
 | `configIpField` / `configPortField` | 连接地址与端口（连接时读取并持久化） |
+| `configSelectIpButton` | 打开 `ipSelectDialog`（`UiConnector::on_config_select_ip_clicked()`）：先刷新候选并把当前地址填进 `pendingIp`；确定后写回 `configIpField` 并走既有 `setEndpoint()`，地址栏、绑定地址与二维码载荷不会分叉 |
 | `configConnectButton` | 连接 / 断开 |
 | `configQrImage` | 连接成功后展示二维码（载荷为 `device.pairingUrl`） |
 | `configPairingUrlText` | 二维码下方的短地址文本（`device.pairingUrlText`，仅连接后可见）：完整二维码载荷过长，界面上只展示去掉官方前缀的 `ws://<ip>:<端口>/<终端 ID>` |
@@ -194,7 +196,7 @@ src/ui/
 | `configBleStatusText` | 蓝牙直连状态行：已连接显示「已连接 <设备名>」，未连接只显示「未连接」（单一状态行，不重复） |
 | `configBleStatusDetail` | 蓝牙状态明细（绑 `ble.status`）：与状态行文案相同时隐藏，扫描中 / 连接中 / 错误 / 断开等有价值的状态保留；只读 |
 | `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备 |
-| `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性） |
+| `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性）：行是 `Rectangle`（`Theme.surface` 底 + `Metrics.radiusSm` 圆角 + 常驻 `Theme.divider` 细边框），热区 `hoverEnabled: true`，悬停靠 `containsMouse` 绑定把底色换 `Theme.surfaceAlt`、描边换 `Theme.accent`，并给出手型光标；不新增任何 QML 信号处理器 |
 | `bleStrengthA{Increase,Decrease}` / `bleStrengthB{Increase,Decrease}` | 蓝牙通道强度增减 |
 
 波形设置页（`pages/WavePage.qml`）：外层 `ScrollView` 撑满窗口，页面只在窗口高度不足时滚动；波形内容全部来自配置页迁移，行为不变。
@@ -268,7 +270,7 @@ src/ui/
 
 对话框：
 
-下列 6 个对话框（`dialogs/` 下 4 个、`ConfirmDialog`、`ConfigPage` 内的预设主题与自定义主题）全部继承 `components/AppDialog.qml`，底色 / 描边 / 遮罩 / 标题行 / 尺寸钳制由基类统一提供；`title` 即标题行文本。
+下列对话框（`dialogs/` 下 5 个、`ConfirmDialog`、`ConfigPage` 内的预设主题与自定义主题）全部继承 `components/AppDialog.qml`，底色 / 描边 / 遮罩 / 标题行 / 尺寸钳制由基类统一提供；`title` 即标题行文本。
 
 | objectName | 行为 |
 | --- | --- |
@@ -278,6 +280,14 @@ src/ui/
 | `ruleFitViewButton` | 适配视图：点击由 C++ 连接，按节点包围盒重置缩放与平移；无节点时回到 1.0 居中 |
 | `ruleDeleteEdgeMenu` | 右键菜单「删除此连线」：仅当右键命中连线（`canvas.contextEdgeId > 0`）时可见，`onTriggered` 调用 `ruleGraph.deleteEdge()` |
 | `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层（`components/ConfirmDialog.qml`）：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭；键盘由 `UiConnector::eventFilter` 在弹层可见时接管——Enter 确认、Esc 取消（弹层内出现输入框时 Enter 仍归输入），默认焦点按危险性分配：危险操作落在取消上、普通操作落在确认上，空白键只作用于默认焦点按钮；弹层是主窗口内的 `Popup`，主窗口隐藏到托盘或最小化时 `ask_confirm()` 先把主窗口 `show()` / `showNormal()` + `raise()` + `requestActivate()` 再打开，否则迷你窗触发的确认（如「关闭运行中的通道」）落在不可见的窗口里无法确认 |
+| `ipSelectDialog` | 网卡 IP 选择对话框（`dialogs/IpSelectDialog.qml`）：左右两列维护黑/白名单、下方列出过滤后的候选网卡；`pendingIp` 属性保存待写入的地址，Esc / 点击遮罩走取消，Enter 走确定（`UiConnector::eventFilter`） |
+| `ipBlacklistList` / `ipWhitelistList` | 黑名单 / 白名单列表，模型为 `device.ipSelector.blacklist` / `whitelist` |
+| `ipBlacklistRemoveClick` / `ipWhitelistRemoveClick` | 行内「删除」按钮（`keyword` 属性，`AppButton.danger` + `outline`）：删除该关键词并刷新候选；委托热区由 `watch_items` 扫描 |
+| `ipBlacklistField` / `ipWhitelistField` / `ipBlacklistAddButton` / `ipWhitelistAddButton` | 关键词输入框与「添加」按钮：空白关键词弹一次 `warning` Toast，重复关键词不写入 |
+| `ipCandidateList` / `ipCandidateClick` | 候选网卡列表（网卡名 / 描述 / 地址）与行热区（`address` 属性）：点击把该地址写入 `dialog.pendingIp`，行描边转 `accent` 并显示「已选中」徽标 |
+| `ipCandidateSelectedBadge` / `ipCandidateEmpty` | 选中态徽标与无可用网卡时的空态文案：只读 |
+| `ipSelectActiveText` | 对话框内「当前使用：<activeIp>」提示行：只读绑定 `device.ipSelector.activeIp` |
+| `ipSelectConfirmButton` / `ipSelectCancelButton` / `ipSelectAutoButton` | 确定（写回地址栏 + `app.websocket.ip` 并刷新二维码载荷，落 `app.network.selected_ip`）/ 取消（只关闭）/ 恢复自动选择（清掉手动选中、按名单重选一次并立即生效，对话框收起）；`确定` 在未选中时置灰 |
 | `waveSelectDialog` / `waveLibraryList` | 波形库对话框与列表；`waveSelectCloseButton` 关闭 |
 | `waveSelectClick` | 行热区（`waveName` 属性）：指派该波形到目标通道并关闭对话框；委托热区由 `watch_items` 扫描 |
 | `waveDeleteClick` | 行内删除（`waveName` 属性，`AppButton.danger`）：先经 `confirmDialog` 确认不可恢复，确认后按名字删除 |

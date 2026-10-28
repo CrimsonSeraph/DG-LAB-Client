@@ -15,6 +15,7 @@
 
 class CoyoteBleController;
 class DglabRelayServer;
+class IpSelector;
 class QrImageProvider;
 class QQuickImageProvider;
 class QTimer;
@@ -40,6 +41,7 @@ class DeviceController : public QObject {
     Q_PROPERTY(QString lastError READ last_error NOTIFY lastErrorChanged)
     Q_PROPERTY(bool outputReady READ output_ready NOTIFY outputReadyChanged)
     Q_PROPERTY(int pairingStage READ pairing_stage NOTIFY pairingStageChanged)
+    Q_PROPERTY(QObject* ipSelector READ ip_selector CONSTANT)
 
 public:
     explicit DeviceController(QObject* parent = nullptr);
@@ -60,6 +62,8 @@ public:
     /// @param channel 通道（"A"/"B"）
     /// @return 上限值；通道非法时返回 0
     int channel_limit(const QString& channel) const;
+    /// @brief 局域网地址选择器（QML 侧经 device.ipSelector 读取候选网卡与黑/白名单）
+    QObject* ip_selector() const;
     QString ip() const { return ip_; }
     int port() const { return port_; }
     QString pairing_url() const { return pairing_url_; }
@@ -119,6 +123,8 @@ signals:
     void pairingStageChanged();
 
 private:
+    /// @brief 解析当前使用的局域网地址（手动选中优先，其次按名单自动选择，最后回退环回）
+    QString detect_lan_ip() const;
     void update_pairing_url();
     /// @brief 蓝牙是否可作为输出通道
     bool ble_ready() const;
@@ -146,6 +152,7 @@ private:
     CoyoteBleController* ble_ = nullptr; ///< 蓝牙控制器（main 注入，可为空）
     QTimer* ble_wave_timer_a_ = nullptr; ///< A 通道蓝牙波形停止定时器
     QTimer* ble_wave_timer_b_ = nullptr; ///< B 通道蓝牙波形停止定时器
+    IpSelector* ip_selector_ = nullptr; ///< 局域网地址选择器（黑/白名单与手动选中地址）
     QString ip_ = QStringLiteral("127.0.0.1");
     int port_ = 9999;
     QString pairing_url_; ///< 二维码载荷（官方格式，含前缀与 DGLAB-SOCKET 标签）

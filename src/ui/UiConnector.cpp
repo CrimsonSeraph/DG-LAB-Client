@@ -10,6 +10,7 @@
 #include "DebugLog.h"
 #include "DeviceController.h"
 #include "HomeBridge.h"
+#include "IpSelector.h"
 #include "LogBridge.h"
 #include "ModuleBridge.h"
 #include "RuleGraphBridge.h"
@@ -298,6 +299,20 @@ void UiConnector::attach(QObject* root_object) {
     }
 
     connect_clicked(root_object, "configConnectButton", SLOT(on_config_connect_clicked()));
+    // 网卡 IP 选择：入口在连接卡表单下方，对话框与候选列表全部按 objectName 连接
+    ip_selector_ = (device_ != nullptr) ? qobject_cast<IpSelector*>(device_->ip_selector()) : nullptr;
+    connect_clicked(root_object, "configSelectIpButton", SLOT(on_config_select_ip_clicked()));
+    connect_clicked(root_object, "ipBlacklistAddButton", SLOT(on_ip_blacklist_add_clicked()));
+    connect_clicked(root_object, "ipWhitelistAddButton", SLOT(on_ip_whitelist_add_clicked()));
+    connect_clicked(root_object, "ipSelectAutoButton", SLOT(on_ip_auto_clicked()));
+    connect_clicked(root_object, "ipSelectConfirmButton", SLOT(on_ip_select_confirm_clicked()));
+    connect_clicked(root_object, "ipSelectCancelButton", SLOT(on_ip_select_cancel_clicked()));
+    watch_items(root_object, "ipBlacklistList", QStringLiteral("ipBlacklistRemoveClick"),
+        SLOT(on_ip_blacklist_remove_clicked()));
+    watch_items(root_object, "ipWhitelistList", QStringLiteral("ipWhitelistRemoveClick"),
+        SLOT(on_ip_whitelist_remove_clicked()));
+    watch_items(root_object, "ipCandidateList", QStringLiteral("ipCandidateClick"),
+        SLOT(on_ip_candidate_clicked()));
     connect_clicked(root_object, "configThemeSelectButton", SLOT(on_theme_select_clicked()));
     connect_clicked(root_object, "configThemeCustomButton", SLOT(on_theme_custom_clicked()));
     connect_clicked(root_object, "customThemeSaveButton", SLOT(on_custom_theme_save_clicked()));
@@ -406,6 +421,42 @@ QObject* UiConnector::find(const char* object_name) const {
         return nullptr;
     }
     return root_->findChild<QObject*>(QString::fromLatin1(object_name));
+}
+
+void UiConnector::apply_selected_ip(const QString& ip) {
+    if (device_ == nullptr || ip.isEmpty()) {
+        return;
+    }
+    auto* port_field = find("configPortField");
+    const int port = (port_field != nullptr) ? port_field->property("text").toInt() : device_->port();
+    // 先把地址写回地址栏，再走既有 setEndpoint：地址栏、绑定地址与二维码载荷不会分叉
+    if (auto* ip_field = find("configIpField")) {
+        ip_field->setProperty("text", ip);
+    }
+    device_->setEndpoint(ip, port > 0 ? port : device_->port());
+}
+
+void UiConnector::add_keyword_from_field(const char* field_name, bool whitelist) {
+    if (ip_selector_ == nullptr) {
+        return;
+    }
+    auto* field = find(field_name);
+    const QString keyword = (field != nullptr) ? field->property("text").toString().trimmed() : QString();
+    if (keyword.isEmpty()) {
+        if (app_ != nullptr) {
+            app_->showToast(QStringLiteral("关键词不能为空"), AppBridge::StatusWarning);
+        }
+        return;
+    }
+    const bool added = whitelist ? ip_selector_->add_whitelist_keyword(keyword)
+                                 : ip_selector_->add_blacklist_keyword(keyword);
+    if (!added) {
+        return;
+    }
+    if (field != nullptr) {
+        field->setProperty("text", QString());
+    }
+    ip_selector_->refresh_candidates();
 }
 
 void UiConnector::setup_mini_window(QObject* root_object) {
@@ -559,6 +610,10 @@ bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
             on_wave_select_close_clicked();
             return true;
         }
+        if (dialog_visible("ipSelectDialog")) {
+            on_ip_select_cancel_clicked();
+            return true;
+        }
         return false;
     }
     if (key_event->key() == Qt::Key_Return || key_event->key() == Qt::Key_Enter) {
@@ -574,6 +629,10 @@ bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
         }
         if (dialog_visible("waveEditorDialog")) {
             on_wave_save_clicked();
+            return true;
+        }
+        if (dialog_visible("ipSelectDialog")) {
+            on_ip_select_confirm_clicked();
             return true;
         }
         return false;
@@ -1230,6 +1289,89 @@ void UiConnector::on_config_connect_clicked() {
     else {
         device_->connectDevice();
     }
+}
+
+void UiConnector::on_config_select_ip_clicked() {
+    if (ip_selector_ == nullptr) {
+        return;
+    }
+    ip_selector_->refresh_candidates();
+    auto* dialog = find("ipSelectDialog");
+    if (dialog != nullptr) {
+        dialog->setProperty("pendingIp", device_ != nullptr ? device_->ip() : ip_selector_->active_ip());
+    }
+    open_dialog("ipSelectDialog");
+}
+
+void UiConnector::on_ip_blacklist_add_clicked() {
+    add_keyword_from_field("ipBlacklistField", false);
+}
+
+void UiConnector::on_ip_blacklist_remove_clicked() {
+    auto* button = sender();
+    if (ip_selector_ == nullptr || button == nullptr) {
+        return;
+    }
+    if (ip_selector_->remove_blacklist_keyword(button->property("keyword").toString())) {
+        ip_selector_->refresh_candidates();
+    }
+}
+
+void UiConnector::on_ip_whitelist_add_clicked() {
+    add_keyword_from_field("ipWhitelistField", true);
+}
+
+void UiConnector::on_ip_whitelist_remove_clicked() {
+    auto* button = sender();
+    if (ip_selector_ == nullptr || button == nullptr) {
+        return;
+    }
+    if (ip_selector_->remove_whitelist_keyword(button->property("keyword").toString())) {
+        ip_selector_->refresh_candidates();
+    }
+}
+
+void UiConnector::on_ip_candidate_clicked() {
+    auto* item = sender();
+    auto* dialog = find("ipSelectDialog");
+    if (item == nullptr || dialog == nullptr) {
+        return;
+    }
+    dialog->setProperty("pendingIp", item->property("address").toString());
+}
+
+void UiConnector::on_ip_auto_clicked() {
+    if (ip_selector_ == nullptr) {
+        return;
+    }
+    // 恢复自动选择：清掉手动选中后立即按名单选一次并生效，对话框同时收起
+    ip_selector_->set_selected_ip(QString());
+    ip_selector_->refresh_candidates();
+    const QString ip = ip_selector_->active_ip();
+    auto* dialog = find("ipSelectDialog");
+    if (dialog != nullptr) {
+        dialog->setProperty("pendingIp", ip);
+    }
+    apply_selected_ip(ip);
+    close_dialog("ipSelectDialog");
+}
+
+void UiConnector::on_ip_select_confirm_clicked() {
+    auto* dialog = find("ipSelectDialog");
+    if (dialog == nullptr || ip_selector_ == nullptr) {
+        return;
+    }
+    const QString ip = dialog->property("pendingIp").toString();
+    if (ip.isEmpty()) {
+        return;
+    }
+    ip_selector_->set_selected_ip(ip);
+    apply_selected_ip(ip);
+    close_dialog("ipSelectDialog");
+}
+
+void UiConnector::on_ip_select_cancel_clicked() {
+    close_dialog("ipSelectDialog");
 }
 
 void UiConnector::on_theme_select_clicked() {

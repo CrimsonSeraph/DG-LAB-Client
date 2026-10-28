@@ -81,6 +81,10 @@
 
 | 路径 | 类型 | 说明 |
 | --- | --- | --- |
+| `app.network.ip_blacklist` | string[] | 中转地址选择的黑名单关键词（网卡名或描述包含则忽略）；缺省时用 `IpSelector` 内置默认值，首次修改后整份名单落盘 |
+| `app.network.ip_whitelist` | string[] | 白名单关键词（命中的网卡优先用于自动选择）；缺省时用内置默认值 |
+| `app.network.selected_ip` | string | 手动选中的中转地址（空字符串表示按名单自动选择）；非空时优先于自动选择 |
+| `app.websocket.ip` / `app.websocket.port` | string / int | 中转服务地址与端口，点「连接」或「选择网卡 IP」确定时写入 |
 | `app.gsi.cs_dir` | string | CS2 GSI 插件记录的 CS 游戏目录（`CS2GsiPlugin` 通过 `PathFinder.py` 查找） |
 | `app.gsi.config_path` | string | CS2 GSI 插件生成的 `gamestate_integration_dglab.cfg` 完整路径 |
 | `app.gsi.port` | int | CS2 GSI 插件当前监听端口（端口被占用时自动重选并更新） |

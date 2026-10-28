@@ -9,7 +9,7 @@
 | `module/` | 数值模块 | `ModuleValue` / `Module` / `ModuleManager`（插件宿主）与 `DataListener` |
 | `wave/` | 波形 | `Wave` 与 `WaveLibrary` |
 | `ble/` | 蓝牙 | `CoyoteBleController` |
-| `net/` | 网络 | `DglabRelayServer` |
+| `net/` | 网络 | `DglabRelayServer`、`IpSelector` |
 | `plugin/` | 插件接口 | `IPlugin`、`PluginHost`、`plugin_export.h` |
 | `ui/` | 界面层 | 桥接对象、`ThemeManager`、`QrImageProvider`、`UiConnector` |
 
@@ -24,7 +24,7 @@ include/
 ├── module/   # 数值模块 + 数据接收器
 ├── wave/     # 波形模型与库
 ├── ble/      # 郊狼 V3 蓝牙直连
-├── net/      # 应用内 WebSocket 中转服务
+├── net/      # 应用内 WebSocket 中转服务与网卡地址选择器
 ├── plugin/   # 插件接口
 ├── ui/       # 界面桥接对象
 └── README.md # 本说明文件
@@ -71,6 +71,7 @@ include/
 | `wave/WaveLibrary.h`        | 波形库与 A/B 当前波形          |
 | `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1）   |
 | `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务（含二维码载荷与展示文本接口） |
+| `net/IpSelector.h`          | 局域网地址选择器（候选网卡枚举、黑/白名单、手动选中地址，QML 侧经 `device.ipSelector` 读取） |
 
 ## 五、plugin/
 

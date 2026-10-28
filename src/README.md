@@ -9,7 +9,7 @@
 | `module/` | 数值模块 | 数值模型与调度（`ModuleValue`/`Module`/`ModuleManager`，同时是插件宿主）、通用数据接收器 `DataListener` |
 | `wave/` | 波形 | 波形模型 `Wave`（V3 八字节帧）与波形库 `WaveLibrary` |
 | `ble/` | 蓝牙 | 郊狼 V3 蓝牙直连 `CoyoteBleController` |
-| `net/` | 网络 | 应用内 DG-LAB WebSocket 中转服务 `DglabRelayServer`（V3 / V4） |
+| `net/` | 网络 | 应用内 DG-LAB WebSocket 中转服务 `DglabRelayServer`（V3 / V4）与局域网地址选择器 `IpSelector` |
 | `ui/` | 界面层（C++ 侧） | 桥接对象（`AppBridge`/`DeviceController`/`HomeBridge`/`ModuleBridge`/`WaveBridge`/`RuleGraphBridge`/`LogBridge`）、主题令牌 `ThemeManager`、二维码 `QrImageProvider`、QML 连接集中点 `UiConnector`，以及 QML 文件 `qml/` |
 
 > 说明：`src/` 下除分类子目录外不再存放散落文件。
@@ -23,7 +23,7 @@ src/
 ├── module/   # 数值模块与插件宿主 + 数据接收器
 ├── wave/     # 波形模型与波形库
 ├── ble/      # 郊狼 V3 蓝牙直连
-├── net/      # 应用内 WebSocket 中转服务（V3 / V4）
+├── net/      # 应用内 WebSocket 中转服务（V3 / V4）与网卡地址选择器
 ├── ui/       # 界面桥接对象 + QML 界面
 └── README.md # 本说明文件
 ```
@@ -96,6 +96,7 @@ ui     ->  core, module, rule, wave, net, ble
 
 | 文件 | 描述 |
 | --- | --- |
+| `IpSelector.cpp` | 局域网地址选择器：枚举候选网卡（已启用、正在运行、非回环，含网卡名 / 描述 / 地址）、黑名单过滤与白名单优先、手动选中地址，名单与选中地址持久化到 `user.json` 的 `app.network.*`；`active_ip()` 是 `DeviceController::detect_lan_ip()` 的唯一来源，无 Widgets 依赖 |
 | `DglabRelayServer.cpp` | 应用内托管 V3（默认 9999）/ V4（默认 9998）中转服务：clientId 分配、bind 配对、心跳、断开通知、强度/波形/清除指令与回传解析；V4 维护被控方设备列表并下发 `device.op`；配对载荷由 `pairing_url()` 按官方终端二维码协议拼成（官网下载地址 + `DGLAB-SOCKET` 标签 + `ws://<ip>:<V3 端口>/<终端 ID>`），`pairing_url_display()` 另给界面展示用的裸 V3 地址，V4 端口继续监听但不进入二维码 |
 
 ## 七、ui/ —— 界面层（C++ 侧与 QML）

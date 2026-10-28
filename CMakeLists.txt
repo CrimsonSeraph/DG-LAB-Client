@@ -246,8 +246,10 @@ set(BLE
 set(NET
 	# 源文件
 	src/net/DglabRelayServer.cpp
+	src/net/IpSelector.cpp
 	# 头文件
 	include/net/DglabRelayServer.h
+	include/net/IpSelector.h
 )
 
 # 波形（wave）
@@ -425,6 +427,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/dialogs/WaveEditorDialog.qml
 		src/ui/qml/dialogs/RuleEditorDialog.qml
 		src/ui/qml/dialogs/UpdateDialog.qml
+		src/ui/qml/dialogs/IpSelectDialog.qml
 		src/ui/qml/components/AppIcon.qml
 		src/ui/qml/components/NavButton.qml
 		src/ui/qml/components/GlassCard.qml

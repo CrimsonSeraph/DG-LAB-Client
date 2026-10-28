@@ -397,6 +397,11 @@ ApplicationWindow {
         id: updateDialog
     }
 
+    // 网卡 IP 选择对话框（配置页「选择网卡 IP」打开，C++ 侧按 objectName 驱动）
+    IpSelectDialog {
+        id: ipSelectDialog
+    }
+
     // 通用确认弹层（C++ 侧 UiConnector::ask_confirm 驱动，声明在最后以便盖在更新对话框之上）
     ConfirmDialog {
         id: confirmDialog

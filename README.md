@@ -325,9 +325,13 @@ LOG_MODULE("MyModule", "my_function", LOG_INFO, "This is a log message.");
 
 ### 8. IP 自动选择与手动选择
 
-程序启动时读取配置中的 `app.websocket.ip`；当该值为空或为 `127.0.0.1` 时，自动挑选第一个「已启用且非回环」网卡的 IPv4 地址，没有可用网卡时回退到 `127.0.0.1`。
+中转连接的地址按三级顺序确定：**手动选中地址优先**；没有手动选中时**按黑/白名单自动选择**；名单过滤后没有可用网卡时回退 `127.0.0.1`。
 
-如需指定地址，在“配置”页面的“连接”卡片中直接填写 IP 与端口，连接时会读取并持久化。
+自动选择的判定顺序：候选网卡先过黑名单（网卡名或描述包含关键词即忽略），剩下的按枚举顺序取第一个；白名单命中的网卡优先返回。默认黑名单跳过 VMware / Hyper-V / WSL / Radmin VPN / TAP / 蓝牙等虚拟与 VPN 网卡，默认白名单优先「以太网 / ethernet / wlan / wi-fi / en0」。默认值写在 `IpSelector` 里，首次修改名单后整份名单落到 `user.json`。
+
+界面上点「选择网卡 IP」（`configSelectIpButton`）打开 IP 选择对话框：左侧维护黑名单、右侧维护白名单（关键词 + 添加 / 逐条删除），下方列出过滤后的候选网卡（网卡名 / 描述 / 地址），点某一行即选中，「确定」把选中地址写回地址栏并立即刷新二维码载荷，「恢复自动选择」清掉手动选中并按名单重选一次。也可以直接在地址栏填写 IP 与端口，连接时读取并持久化。
+
+持久化位置（`config/user.json`）：`app.network.ip_blacklist`、`app.network.ip_whitelist`、`app.network.selected_ip`，以及连接时写入的 `app.websocket.ip` / `app.websocket.port`。名单与手动选中地址**重启后仍生效**。
 
 ### 9. 主题切换
 

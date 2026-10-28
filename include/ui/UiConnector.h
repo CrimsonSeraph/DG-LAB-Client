@@ -19,6 +19,7 @@ class AppBridge;
 class CoyoteBleController;
 class DeviceController;
 class HomeBridge;
+class IpSelector;
 class LogBridge;
 class ModuleBridge;
 class RuleGraphBridge;
@@ -73,6 +74,16 @@ private slots:
     void on_channel_toggle_clicked();
     // 配置：连接
     void on_config_connect_clicked();
+    // 配置：网卡 IP 选择
+    void on_config_select_ip_clicked();
+    void on_ip_blacklist_add_clicked();
+    void on_ip_blacklist_remove_clicked();
+    void on_ip_whitelist_add_clicked();
+    void on_ip_whitelist_remove_clicked();
+    void on_ip_candidate_clicked();
+    void on_ip_auto_clicked();
+    void on_ip_select_confirm_clicked();
+    void on_ip_select_cancel_clicked();
     // 配置：主题
     void on_theme_select_clicked();
     void on_theme_custom_clicked();
@@ -145,6 +156,12 @@ private:
     void watch_items(QObject* root_object, const char* owner_name, const QString& item_name, const char* slot);
     void scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot);
     QObject* find(const char* object_name) const;
+    /// @brief 把选中地址写入地址栏并走既有地址更新路径（二维码载荷随之刷新）
+    void apply_selected_ip(const QString& ip);
+    /// @brief 按关键词输入框的内容增删名单（空关键词给出提示）
+    /// @param field_name 关键词输入框 objectName
+    /// @param whitelist 为 true 时操作白名单，否则操作黑名单
+    void add_keyword_from_field(const char* field_name, bool whitelist);
     /// @brief 定位迷你窗并恢复上次保存的位置（越界时夹回可见区域）
     void setup_mini_window(QObject* root_object);
     /// @brief 把迷你窗当前位置、尺寸、透明度与大小档位写回配置
@@ -165,6 +182,7 @@ private:
     ModuleBridge* module_ = nullptr;
     WaveBridge* wave_ = nullptr;
     CoyoteBleController* ble_ = nullptr;
+    IpSelector* ip_selector_ = nullptr; ///< 局域网地址选择器（device.ipSelector）
     RuleGraphBridge* rule_graph_ = nullptr;
     LogBridge* log_ = nullptr;
     QPointer<QObject> root_;

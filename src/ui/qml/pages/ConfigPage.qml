@@ -125,6 +125,25 @@ Item {
                                 }
                             }
 
+                            // 网卡 IP 选择：按黑/白名单过滤后手动指定中转地址
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: Metrics.spacingMd
+
+                                AppButton {
+                                    objectName: "configSelectIpButton"
+                                    text: qsTr("选择网卡 IP")
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: qsTr("自动选择会跳过 VPN 与虚拟网卡")
+                                    color: Theme.textMuted
+                                    font.pixelSize: Typography.fontBody
+                                    elide: Text.ElideRight
+                                }
+                            }
+
                             // 状态行：按配对阶段显示
                             Text {
                                 Layout.fillWidth: true
@@ -263,7 +282,7 @@ Item {
                             elide: Text.ElideRight
                         }
 
-                        // 设备行只靠留白分行，不再画内层描边/填色
+                        // 设备行常驻细边框与圆角，悬停改底色与描边并在热区上给出手型光标
                         ListView {
                             id: bleDeviceList
 
@@ -275,22 +294,33 @@ Item {
                             model: ble.devices
                             spacing: Metrics.spacing2xs
 
-                            delegate: Item {
+                            delegate: Rectangle {
                                 width: bleDeviceList.width
                                 height: ComponentStyle.inputHeight
+                                radius: Metrics.radiusSm
+                                color: deviceRowArea.containsMouse ? Theme.surfaceAlt : Theme.surface
+                                border.width: Metrics.borderWidth
+                                border.color: deviceRowArea.containsMouse ? Theme.accent : Theme.divider
 
                                 Text {
                                     anchors.left: parent.left
                                     anchors.leftMargin: Metrics.spacingMd
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: Metrics.spacingMd
                                     anchors.verticalCenter: parent.verticalCenter
                                     text: modelData.name + "   " + modelData.address
                                     color: Theme.textSecondary
                                     font.pixelSize: Typography.fontBody
+                                    elide: Text.ElideRight
                                 }
 
                                 MouseArea {
+                                    id: deviceRowArea
+
                                     objectName: "bleDeviceClick"
                                     anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
                                     property string address: modelData.address
                                 }
                             }
