@@ -60,7 +60,17 @@ void DeviceController::initialize() {
 
     connect(relay_, &DglabRelayServer::statusMessage, this, &DeviceController::statusMessage);
     connect(relay_, &DglabRelayServer::errorOccurred, this, &DeviceController::report_error);
-    connect(relay_, &DglabRelayServer::strengthFeedback, this, &DeviceController::strengthFeedback);
+    // 中转回执只记录不外发：蓝牙在线时以蓝牙回执为准，避免两条链路互相覆盖导致数值抖动
+    connect(relay_, &DglabRelayServer::strengthFeedback, this,
+        [this](int a_strength, int b_strength, int a_limit, int b_limit) {
+            relay_strength_a_ = a_strength;
+            relay_strength_b_ = b_strength;
+            relay_limit_a_ = a_limit;
+            relay_limit_b_ = b_limit;
+            if (!ble_ready()) {
+                emit strengthFeedback(a_strength, b_strength, a_limit, b_limit);
+            }
+        });
     connect(relay_, &DglabRelayServer::deviceFeedback, this, &DeviceController::deviceFeedback);
     connect(relay_, &DglabRelayServer::clientCountChanged, this, &DeviceController::appClientCountChanged);
     connect(relay_, &DglabRelayServer::pairingChanged, this, [this]() {
@@ -109,6 +119,17 @@ void DeviceController::attach_ble(CoyoteBleController* ble) {
         // 蓝牙连接状态直接决定输出可用性，属性需要跟着广播
         connect(ble_, &CoyoteBleController::stateChanged, this, [this]() {
             emit outputReadyChanged();
+            // 链路切换后强度来源随之切换，需要按新链路广播一次
+            emit_authoritative_strength();
+        });
+        // 蓝牙回执是蓝牙在线时的强度唯一来源（B1 每 100ms 回传）
+        connect(ble_, &CoyoteBleController::strengthChanged, this, [this]() {
+            if (ble_ready()) {
+                emit_authoritative_strength();
+            }
+        });
+        connect(ble_, &CoyoteBleController::waveStateChanged, this, [this]() {
+            emit waveOutputChanged();
         });
     }
 }
@@ -123,6 +144,30 @@ int DeviceController::channel_limit(const QString& channel) const {
     const int limit = std::clamp(config.limit, 0, MAX_STRENGTH);
     const int safety = std::clamp(config.safety, 0, MAX_STRENGTH);
     return std::min(limit, safety);
+}
+
+bool DeviceController::wave_sending(const QString& channel) const {
+    const int index = channel_index_of(channel);
+    if (index < 0 || !ble_ready()) {
+        return false;
+    }
+    return ble_->wave_sending(index + 1);
+}
+
+int DeviceController::wave_frame(const QString& channel) const {
+    const int index = channel_index_of(channel);
+    if (index < 0 || !ble_ready()) {
+        return 0;
+    }
+    return ble_->wave_frame(index + 1);
+}
+
+int DeviceController::wave_frames(const QString& channel) const {
+    const int index = channel_index_of(channel);
+    if (index < 0 || !ble_ready()) {
+        return 0;
+    }
+    return ble_->wave_frames(index + 1);
 }
 
 QObject* DeviceController::ip_selector() const {
@@ -367,4 +412,23 @@ void DeviceController::report_error(const QString& message) {
 void DeviceController::notify_output_state() {
     emit outputReadyChanged();
     emit pairingStageChanged();
+}
+
+void DeviceController::emit_authoritative_strength() {
+    const bool from_ble = ble_ready();
+    if (from_ble != strength_from_ble_) {
+        strength_from_ble_ = from_ble;
+        if (from_ble) {
+            LOG_MODULE("DeviceController", "emit_authoritative_strength", LOG_INFO, "强度回执来源切换为蓝牙直连");
+        }
+        else {
+            LOG_MODULE("DeviceController", "emit_authoritative_strength", LOG_INFO, "强度回执来源切换为内置中转");
+        }
+    }
+    if (from_ble) {
+        emit strengthFeedback(ble_->strength_a(), ble_->strength_b(),
+            channel_limit(QStringLiteral("A")), channel_limit(QStringLiteral("B")));
+        return;
+    }
+    emit strengthFeedback(relay_strength_a_, relay_strength_b_, relay_limit_a_, relay_limit_b_);
 }

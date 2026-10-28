@@ -86,11 +86,11 @@ src/ui/
 | 上下文属性 | 类型 | 职责 |
 | --- | --- | --- |
 | `app` | `AppBridge` | 应用名称/版本、当前页面（`currentPage`）、一次性反馈浮层（`toastText` / `toastLevel` / `showToast()`） |
-| `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源 |
-| `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
+| `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发（强度回执按当前生效链路二选一：蓝牙在线只认 BLE 的 B1 回执，中转回执只记录不外发，链路切换时按新链路重播一次，两条链路不会互相覆盖）；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源 |
+| `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整；另带波形下发状态 `waveSending{A,B}`（是否正在下发）、`waveFrame{A,B}`（当前帧序号，1 起）、`waveFrames{A,B}`（总帧数，未下发时为 0），三者同随 `waveStateChanged` 广播 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
 | `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）；标签库分两层（内置标签是代码常量、不可删，自定义标签存 `config/waves/tags.json`），`tagLibrary` / `builtinTags` / `customTags` / `tagTargetName` / `tagMaxLength` 供波形页与标签选择器使用，删除自定义标签时把该标签从使用中的波形上一并移除；官方 16 个波形的标签是用户侧叠加数据（存同一文件的 `official_wave_tags` 段，重新加载官方资源后恢复），其帧与名称仍只读（波形数据结构与标签规则见 [docs/wave-data.md](../../docs/wave-data.md)） |
-| `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
+| `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务）。电量特征（0x1500）订阅通知并主动读取一次，两者回包都解析成百分比写入 `battery`，连接期间每 60 秒再读一次；重连后按最近一次绝对强度重发 |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
 | `Theme` | `ThemeManager`（QML 单例） | 主题令牌（17 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
@@ -152,7 +152,8 @@ src/ui/
 | `dashboardWaveCard` / `dashboardWaveName{A,B}` | 通道波形卡与 A/B 当前波形名（`waveBridge.currentA/currentB`）；未绑定波形时名称行隐藏 |
 | `dashboardWaveSparkline{A,B}` | A/B 强度曲线：取 `waveBridge.amplitudeA/amplitudeB`（每帧 4 个强度字节取均值，0~100），静态绘制 |
 | `dashboardWaveStrength{A,B}` | A/B「强度 / 上限」数字行（`home.strength{A,B}` / `home.limit{A,B}`）：只读 |
-| `dashboardWaveEmpty{A,B}` / `dashboardWaveHint` | 未绑定波形时的空态文案与卡底说明「静态预览 · 滚动播放在迷你窗提供」：只读 |
+| `dashboardWaveSending{A,B}` | A/B 下发指示行「正在下发 · 第 n/N 帧」（`home.waveSending{A,B}` / `home.waveFrame{A,B}` / `home.waveFrames{A,B}`）：正在下发时可见，停止或清除后自动隐藏 |
+| `dashboardWaveEmpty{A,B}` / `dashboardWaveHint` | 未绑定波形时的空态文案与卡底说明「静态预览 · 强度与下发帧随通道实时刷新，滚动播放在迷你窗提供」：只读 |
 | `homeMiniWindowEntryButton` | 首页页头「迷你窗」入口 → `UiConnector::on_home_mini_window_clicked()`：显示迷你窗并置于前台 |
 
 迷你窗（`MiniWindow.qml`：`Qt.Tool` + 无边框 + 置顶，不进任务栏；声明在 `MainWindow.qml` 内跟随应用生命周期）：

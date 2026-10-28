@@ -62,11 +62,19 @@ public:
     /// @brief 写入软上限与平衡参数（BF）
     Q_INVOKABLE void applyLimits(int limitA, int limitB, int freqBalance, int strengthBalance);
 
+    /// @brief 通道是否正在经蓝牙循环下发波形
+    bool wave_sending(int channel) const;
+    /// @brief 当前下发到第几帧（1 起，未下发时为 0）
+    int wave_frame(int channel) const;
+    /// @brief 正在下发的波形总帧数（未下发时为 0）
+    int wave_frames(int channel) const;
+
 signals:
     void stateChanged();
     void devicesChanged();
     void batteryChanged();
     void strengthChanged();
+    void waveStateChanged();
     void statusChanged();
     void errorOccurred(const QString& message);
 
@@ -84,6 +92,9 @@ private:
     void do_start_scan();
     QByteArray build_b0();
     QByteArray frame_for_channel(const QStringList& frames, int index) const;
+    void subscribe_battery();
+    void read_battery();
+    void apply_battery_value(const QByteArray& value); // 解析电量特征值并广播
 
     struct ChannelState {
         QStringList frames;
@@ -94,11 +105,15 @@ private:
         int pending_seq = 0;
     };
 
+    /// @brief 取通道状态（channel: 1=A，其它按 B）
+    const ChannelState& state_of(int channel) const;
+
     QBluetoothDeviceDiscoveryAgent* discovery_ = nullptr;
     QLowEnergyController* controller_ = nullptr;
     QLowEnergyService* coyote_service_ = nullptr;
     QLowEnergyService* battery_service_ = nullptr;
     std::unique_ptr<QTimer> tick_timer_;
+    std::unique_ptr<QTimer> battery_timer_;
     QBluetoothUuid write_char_uuid_;
     QBluetoothUuid notify_char_uuid_;
     QVariantList devices_;
@@ -113,6 +128,9 @@ private:
     int limit_a_ = 200;
     int limit_b_ = 200;
     int sequence_ = 0;
+    int last_set_a_ = -1; ///< 最近一条绝对强度（A），-1 表示未下发过
+    int last_set_b_ = -1; ///< 最近一条绝对强度（B），-1 表示未下发过
+    bool identity_frame_logged_ = false; ///< 设备身份帧是否已记录
     QString status_;
     ChannelState channel_a_;
     ChannelState channel_b_;

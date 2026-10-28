@@ -3,7 +3,7 @@ import QtQuick.Layouts
 
 // 通道波形卡：A / B 当前绑定波形的强度曲线并排只读预览。
 // 曲线取 WaveBridge 的逐帧强度均值（每帧 4 个强度字节取均值，0~100），静态绘制；
-// 强度与上限数字跟随设备回传实时刷新，滚动播放留给迷你窗批次。
+// 强度与上限数字跟随设备回传实时刷新，正在下发时额外显示当前帧序号，滚动播放留给迷你窗批次。
 GlassCard {
     id: root
 
@@ -26,6 +26,18 @@ GlassCard {
 
     function limitOf(channel) {
         return (channel === "B") ? home.limitB : home.limitA;
+    }
+
+    function sendingOf(channel) {
+        return (channel === "B") ? home.waveSendingB : home.waveSendingA;
+    }
+
+    function frameOf(channel) {
+        return (channel === "B") ? home.waveFrameB : home.waveFrameA;
+    }
+
+    function framesOf(channel) {
+        return (channel === "B") ? home.waveFramesB : home.waveFramesA;
     }
 
     RowLayout {
@@ -95,6 +107,16 @@ GlassCard {
                 }
 
                 Text {
+                    objectName: "dashboardWaveSending" + channelColumn.modelData
+                    Layout.fillWidth: true
+                    visible: root.sendingOf(channelColumn.modelData)
+                    text: qsTr("正在下发 · 第 %1/%2 帧").arg(root.frameOf(channelColumn.modelData)).arg(root.framesOf(channelColumn.modelData))
+                    color: Theme.success
+                    font.pixelSize: Typography.fontBody
+                    elide: Text.ElideRight
+                }
+
+                Text {
                     objectName: "dashboardWaveStrength" + channelColumn.modelData
                     Layout.fillWidth: true
                     text: qsTr("强度 %1 / 上限 %2").arg(root.strengthOf(channelColumn.modelData)).arg(root.limitOf(channelColumn.modelData))
@@ -109,7 +131,7 @@ GlassCard {
     Text {
         objectName: "dashboardWaveHint"
         width: parent.width
-        text: qsTr("静态预览 · 强度随通道实时刷新，滚动播放在迷你窗提供")
+        text: qsTr("静态预览 · 强度与下发帧随通道实时刷新，滚动播放在迷你窗提供")
         color: Theme.textMuted
         font.pixelSize: Typography.fontBody
         wrapMode: Text.WordWrap

@@ -30,6 +30,12 @@ class HomeBridge : public QObject {
     Q_PROPERTY(QString waveB READ wave_b NOTIFY dataChanged)
     Q_PROPERTY(QString channelAState READ channel_a_state NOTIFY dataChanged)
     Q_PROPERTY(QString channelBState READ channel_b_state NOTIFY dataChanged)
+    Q_PROPERTY(bool waveSendingA READ wave_sending_a NOTIFY waveStateChanged)
+    Q_PROPERTY(int waveFrameA READ wave_frame_a NOTIFY waveStateChanged)
+    Q_PROPERTY(int waveFramesA READ wave_frames_a NOTIFY waveStateChanged)
+    Q_PROPERTY(bool waveSendingB READ wave_sending_b NOTIFY waveStateChanged)
+    Q_PROPERTY(int waveFrameB READ wave_frame_b NOTIFY waveStateChanged)
+    Q_PROPERTY(int waveFramesB READ wave_frames_b NOTIFY waveStateChanged)
     Q_PROPERTY(bool miniWindowLocked READ mini_window_locked NOTIFY miniWindowLockedChanged)
     Q_PROPERTY(qreal miniWindowOpacity READ mini_window_opacity NOTIFY miniWindowOpacityChanged)
     Q_PROPERTY(QString miniWindowSize READ mini_window_size NOTIFY miniWindowSizeChanged)
@@ -59,6 +65,18 @@ public:
     /// @brief 通道状态：idle / running / runningNoOutput
     QString channel_a_state() const { return channel_state(QStringLiteral("A")); }
     QString channel_b_state() const { return channel_state(QStringLiteral("B")); }
+    /// @brief A 通道波形是否正在下发
+    bool wave_sending_a() const { return wave_sending_a_; }
+    /// @brief A 通道当前下发帧序号（1 起，未下发时为 0）
+    int wave_frame_a() const { return wave_frame_a_; }
+    /// @brief A 通道下发波形总帧数（未下发时为 0）
+    int wave_frames_a() const { return wave_frames_a_; }
+    /// @brief B 通道波形是否正在下发
+    bool wave_sending_b() const { return wave_sending_b_; }
+    /// @brief B 通道当前下发帧序号（1 起，未下发时为 0）
+    int wave_frame_b() const { return wave_frame_b_; }
+    /// @brief B 通道下发波形总帧数（未下发时为 0）
+    int wave_frames_b() const { return wave_frames_b_; }
     /// @brief 迷你窗是否已锁定（锁定后不可拖动与调整尺寸）
     bool mini_window_locked() const { return mini_window_locked_; }
     /// @brief 迷你窗上次保存的位置与尺寸，未保存过时为 0
@@ -97,6 +115,7 @@ public:
 
 signals:
     void dataChanged();
+    void waveStateChanged();
     void miniWindowLockedChanged();
     void channelWaveSelectRequested(const QString& channel);
     void miniWindowOpacityChanged();
@@ -110,10 +129,18 @@ private:
     void apply_strength(const QString& channel, int value);
     QVariantList build_modules(const QString& channel) const;
     QVariantList build_rules(const QString& channel) const;
+    /// @brief 重新读取 A/B 波形下发状态并广播
+    void refresh_wave_state();
 
     DeviceController* device_ = nullptr;
     int strength_a_ = 0;
     int strength_b_ = 0;
+    bool wave_sending_a_ = false; ///< A 通道是否正在下发波形
+    int wave_frame_a_ = 0; ///< A 通道当前下发帧序号
+    int wave_frames_a_ = 0; ///< A 通道下发波形总帧数
+    bool wave_sending_b_ = false; ///< B 通道是否正在下发波形
+    int wave_frame_b_ = 0; ///< B 通道当前下发帧序号
+    int wave_frames_b_ = 0; ///< B 通道下发波形总帧数
     bool mini_window_locked_ = false;
     int mini_window_x_ = 0;
     int mini_window_y_ = 0;

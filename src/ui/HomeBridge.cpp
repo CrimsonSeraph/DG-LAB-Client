@@ -38,13 +38,21 @@ void HomeBridge::initialize() {
         // 上限不再取 APP 回传值：它属于通道配置（app.channels.<通道>），由 DeviceController 同源提供
         connect(device_, &DeviceController::strengthFeedback, this,
             [this](int a_strength, int b_strength, int, int) {
+                const bool changed = a_strength != strength_a_ || b_strength != strength_b_;
                 strength_a_ = a_strength;
                 strength_b_ = b_strength;
+                if (changed) {
+                    LOG_MODULE("HomeBridge", "strengthFeedback", LOG_DEBUG,
+                        "通道强度回执: A=" << strength_a_ << " B=" << strength_b_);
+                }
                 emit dataChanged();
             });
         connect(device_, &DeviceController::connectedChanged, this, &HomeBridge::dataChanged);
         // 通道状态包含输出可用性，蓝牙 / 中转任一路变化都要重算
         connect(device_, &DeviceController::outputReadyChanged, this, &HomeBridge::dataChanged);
+        // 波形下发状态（蓝牙帧推进）单独走一条信号，避免每帧连带刷新整张看板
+        connect(device_, &DeviceController::waveOutputChanged, this, &HomeBridge::refresh_wave_state);
+        refresh_wave_state();
     }
 
     auto& rules = RuleManager::instance();
@@ -253,6 +261,26 @@ QVariantList HomeBridge::build_modules(const QString& channel) const {
         list.append(item);
     }
     return list;
+}
+
+void HomeBridge::refresh_wave_state() {
+    const bool sending_a = device_ != nullptr && device_->wave_sending(QStringLiteral("A"));
+    const int frame_a = sending_a ? device_->wave_frame(QStringLiteral("A")) : 0;
+    const int frames_a = sending_a ? device_->wave_frames(QStringLiteral("A")) : 0;
+    const bool sending_b = device_ != nullptr && device_->wave_sending(QStringLiteral("B"));
+    const int frame_b = sending_b ? device_->wave_frame(QStringLiteral("B")) : 0;
+    const int frames_b = sending_b ? device_->wave_frames(QStringLiteral("B")) : 0;
+    if (sending_a == wave_sending_a_ && frame_a == wave_frame_a_ && frames_a == wave_frames_a_
+        && sending_b == wave_sending_b_ && frame_b == wave_frame_b_ && frames_b == wave_frames_b_) {
+        return;
+    }
+    wave_sending_a_ = sending_a;
+    wave_frame_a_ = frame_a;
+    wave_frames_a_ = frames_a;
+    wave_sending_b_ = sending_b;
+    wave_frame_b_ = frame_b;
+    wave_frames_b_ = frames_b;
+    emit waveStateChanged();
 }
 
 QVariantList HomeBridge::build_rules(const QString& channel) const {

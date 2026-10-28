@@ -62,6 +62,15 @@ public:
     /// @param channel 通道（"A"/"B"）
     /// @return 上限值；通道非法时返回 0
     int channel_limit(const QString& channel) const;
+    /// @brief 波形是否正在经蓝牙下发
+    /// @param channel 通道（"A"/"B"）
+    bool wave_sending(const QString& channel) const;
+    /// @brief 正在下发的帧序号（1 起，未下发时为 0）
+    /// @param channel 通道（"A"/"B"）
+    int wave_frame(const QString& channel) const;
+    /// @brief 正在下发的波形总帧数（未下发时为 0）
+    /// @param channel 通道（"A"/"B"）
+    int wave_frames(const QString& channel) const;
     /// @brief 局域网地址选择器（QML 侧经 device.ipSelector 读取候选网卡与黑/白名单）
     QObject* ip_selector() const;
     QString ip() const { return ip_; }
@@ -115,6 +124,7 @@ signals:
     void pairingChanged();
     void appClientCountChanged();
     void strengthFeedback(int aStrength, int bStrength, int aLimit, int bLimit);
+    void waveOutputChanged();
     void deviceFeedback(int channel, int button);
     void errorOccurred(const QString& message);
     void statusMessage(const QString& message);
@@ -146,6 +156,8 @@ private:
     void report_error(const QString& message);
     /// @brief 输出可用性与配对阶段变化后广播派生属性
     void notify_output_state();
+    /// @brief 按当前生效链路广播一次强度回执（蓝牙在线取蓝牙，否则取中转记录值）
+    void emit_authoritative_strength();
 
     DglabRelayServer* relay_ = nullptr;
     QrImageProvider* qr_provider_ = nullptr;
@@ -161,5 +173,10 @@ private:
     bool connected_ = false;
     bool connecting_ = false;
     QString last_error_; ///< 最近一次错误文案
+    int relay_strength_a_ = 0; ///< 中转回执记录的 A 通道强度（蓝牙离线时作为展示来源）
+    int relay_strength_b_ = 0; ///< 中转回执记录的 B 通道强度
+    int relay_limit_a_ = 0; ///< 中转回执记录的 A 通道上限
+    int relay_limit_b_ = 0; ///< 中转回执记录的 B 通道上限
+    bool strength_from_ble_ = false; ///< 当前强度回执来源是否为蓝牙直连
     ChannelOutputState channel_output_[2]; ///< A/B 通道输出合并状态（0=A，1=B）
 };

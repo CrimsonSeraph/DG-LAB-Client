@@ -43,6 +43,9 @@ CoyoteBleController::CoyoteBleController(QObject* parent)
             write_b0();
         }
     });
+    battery_timer_ = std::make_unique<QTimer>(this);
+    battery_timer_->setInterval(60000);
+    connect(battery_timer_.get(), &QTimer::timeout, this, [this]() { read_battery(); });
 }
 
 CoyoteBleController::~CoyoteBleController() {
@@ -99,6 +102,27 @@ QByteArray CoyoteBleController::frame_for_channel(const QStringList& frames, int
     }
     const QByteArray bytes = QByteArray::fromHex(frames.at(index % frames.size()).toLatin1());
     return bytes.size() == 8 ? bytes : QByteArray::fromHex(kSilentFrame);
+}
+
+const CoyoteBleController::ChannelState& CoyoteBleController::state_of(int channel) const {
+    return (channel == 1) ? channel_a_ : channel_b_;
+}
+
+bool CoyoteBleController::wave_sending(int channel) const {
+    return !state_of(channel).frames.isEmpty();
+}
+
+int CoyoteBleController::wave_frame(int channel) const {
+    const ChannelState& state = state_of(channel);
+    if (state.frames.isEmpty()) {
+        return 0;
+    }
+    // frame_index 指向下一帧，已下发的那一帧是它的前一格（1 起计数）
+    return (state.frame_index + state.frames.size() - 1) % state.frames.size() + 1;
+}
+
+int CoyoteBleController::wave_frames(int channel) const {
+    return state_of(channel).frames.size();
 }
 
 void CoyoteBleController::startScan() {
@@ -196,18 +220,21 @@ void CoyoteBleController::connectDevice(const QString& address) {
         if (battery_service_ != nullptr) {
             connect(battery_service_, &QLowEnergyService::stateChanged, this,
                 [this](QLowEnergyService::ServiceState state) {
-                    if (state == QLowEnergyService::RemoteServiceDiscovered && battery_service_ != nullptr) {
-                        const auto characteristic = battery_service_->characteristic(kBatteryCharacteristic);
-                        if (characteristic.isValid()) {
-                            battery_service_->readCharacteristic(characteristic);
-                        }
+                    if (state == QLowEnergyService::RemoteServiceDiscovered) {
+                        subscribe_battery();
                     }
                 });
             connect(battery_service_, &QLowEnergyService::characteristicChanged, this,
-                [this](const QLowEnergyCharacteristic&, const QByteArray& value) {
-                    if (!value.isEmpty()) {
-                        battery_ = static_cast<quint8>(value.at(0));
-                        emit batteryChanged();
+                [this](const QLowEnergyCharacteristic& characteristic, const QByteArray& value) {
+                    if (characteristic.uuid() == kBatteryCharacteristic) {
+                        apply_battery_value(value);
+                    }
+                });
+            // 主动读取的回包同样带电量：不接这个信号读回值会被丢弃
+            connect(battery_service_, &QLowEnergyService::characteristicRead, this,
+                [this](const QLowEnergyCharacteristic& characteristic, const QByteArray& value) {
+                    if (characteristic.uuid() == kBatteryCharacteristic) {
+                        apply_battery_value(value);
                     }
                 });
             battery_service_->discoverDetails();
@@ -223,6 +250,10 @@ void CoyoteBleController::connectDevice(const QString& address) {
 }
 
 void CoyoteBleController::on_controller_connected() {
+    // 重连时旧控制器可能补发信号，只认当前控制器的事件
+    if (sender() != controller_) {
+        return;
+    }
     connected_ = true;
     emit stateChanged();
     set_status(QStringLiteral("已连接 %1，正在发现服务…").arg(device_name_));
@@ -238,6 +269,10 @@ void CoyoteBleController::on_controller_connected() {
 }
 
 void CoyoteBleController::on_controller_disconnected() {
+    // 重连时旧控制器可能补发信号，只认当前控制器的事件
+    if (sender() != controller_) {
+        return;
+    }
     LOG_MODULE("CoyoteBleController", "on_controller_disconnected", LOG_INFO, "蓝牙连接已断开");
     connected_ = false;
     ready_ = false;
@@ -245,9 +280,15 @@ void CoyoteBleController::on_controller_disconnected() {
     strength_b_ = 0;
     battery_ = -1;
     tick_timer_->stop();
+    battery_timer_->stop();
+    for (auto& channel : {&channel_a_, &channel_b_}) {
+        channel->frames.clear();
+        channel->frame_index = 0;
+    }
     emit stateChanged();
     emit strengthChanged();
     emit batteryChanged();
+    emit waveStateChanged();
     set_status(QStringLiteral("蓝牙已断开"));
 }
 
@@ -285,7 +326,57 @@ void CoyoteBleController::ensure_characteristics() {
     emit stateChanged();
     set_status(QStringLiteral("已连接 %1").arg(device_name_));
     applyLimits(limit_a_, limit_b_, 128, 128);
+    // 重连后重发上次绝对强度：设备不会保留断连前的目标值
+    if (last_set_a_ >= 0) {
+        setStrength(1, 2, last_set_a_);
+    }
+    if (last_set_b_ >= 0) {
+        setStrength(2, 2, last_set_b_);
+    }
     tick_timer_->start();
+}
+
+void CoyoteBleController::subscribe_battery() {
+    if (battery_service_ == nullptr) {
+        return;
+    }
+    const auto characteristic = battery_service_->characteristic(kBatteryCharacteristic);
+    if (!characteristic.isValid()) {
+        LOG_MODULE("CoyoteBleController", "subscribe_battery", LOG_WARN, "未找到电量特征");
+        return;
+    }
+    // 支持 Notify 时写入 CCCD 订阅电量变化，让电量能随时间刷新
+    const auto cccd = characteristic.descriptor(QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
+    if (cccd.isValid() && (characteristic.properties() & QLowEnergyCharacteristic::Notify)) {
+        battery_service_->writeDescriptor(cccd, QByteArray::fromHex("0100"));
+    }
+    read_battery();
+    battery_timer_->start();
+}
+
+void CoyoteBleController::read_battery() {
+    if (battery_service_ == nullptr || !connected_) {
+        return;
+    }
+    const auto characteristic = battery_service_->characteristic(kBatteryCharacteristic);
+    if (!characteristic.isValid()) {
+        return;
+    }
+    battery_service_->readCharacteristic(characteristic);
+}
+
+void CoyoteBleController::apply_battery_value(const QByteArray& value) {
+    if (value.isEmpty()) {
+        return;
+    }
+    const int percent = static_cast<quint8>(value.at(0));
+    LOG_MODULE("CoyoteBleController", "apply_battery_value", LOG_INFO,
+        "电量回传:" << value.toHex().toStdString() << " → " << percent << "%");
+    if (percent == battery_) {
+        return;
+    }
+    battery_ = percent;
+    emit batteryChanged();
 }
 
 void CoyoteBleController::on_characteristic_changed(const QLowEnergyCharacteristic& characteristic,
@@ -294,6 +385,15 @@ void CoyoteBleController::on_characteristic_changed(const QLowEnergyCharacterist
         if (!value.isEmpty()) {
             battery_ = static_cast<quint8>(value.at(0));
             emit batteryChanged();
+        }
+        return;
+    }
+    if (!value.isEmpty() && static_cast<quint8>(value.at(0)) == 0x53) {
+        // 设备自报身份帧（0x53 + MAC）：只记一次，避免 100ms 级刷屏
+        if (!identity_frame_logged_) {
+            identity_frame_logged_ = true;
+            LOG_MODULE("CoyoteBleController", "on_characteristic_changed", LOG_DEBUG,
+                "设备身份帧:" << value.toHex().toStdString());
         }
         return;
     }
@@ -386,6 +486,9 @@ void CoyoteBleController::write_b0() {
     if (!channel_b_.frames.isEmpty()) {
         channel_b_.frame_index = (channel_b_.frame_index + 1) % channel_b_.frames.size();
     }
+    if (!channel_a_.frames.isEmpty() || !channel_b_.frames.isEmpty()) {
+        emit waveStateChanged();
+    }
 }
 
 void CoyoteBleController::write_bf() {
@@ -434,6 +537,13 @@ void CoyoteBleController::setStrength(int channel, int mode, int value) {
     else {
         state.pending_mode = 3;
         state.pending_value = std::clamp(value, 0, 200);
+        // 记录最后一条绝对强度：重连后按它重发，避免界面值与设备实际强度脱节
+        if (channel == 1) {
+            last_set_a_ = state.pending_value;
+        }
+        else {
+            last_set_b_ = state.pending_value;
+        }
     }
 }
 
@@ -441,16 +551,19 @@ void CoyoteBleController::playWave(int channel, const QStringList& frames) {
     ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
     state.frames = frames;
     state.frame_index = 0;
+    emit waveStateChanged();
 }
 
 void CoyoteBleController::stopWave(int channel) {
     ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
     state.frames.clear();
     state.frame_index = 0;
+    emit waveStateChanged();
 }
 
 void CoyoteBleController::disconnectDevice() {
     tick_timer_->stop();
+    battery_timer_->stop();
     if (controller_ != nullptr) {
         controller_->disconnectFromDevice();
         controller_->deleteLater();
@@ -462,8 +575,13 @@ void CoyoteBleController::disconnectDevice() {
         discovery_->stop();
         discovery_ = nullptr;
     }
+    for (auto& channel : {&channel_a_, &channel_b_}) {
+        channel->frames.clear();
+        channel->frame_index = 0;
+    }
     scanning_ = false;
     connected_ = false;
     ready_ = false;
     emit stateChanged();
+    emit waveStateChanged();
 }
