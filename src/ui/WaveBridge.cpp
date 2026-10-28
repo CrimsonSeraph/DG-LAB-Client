@@ -140,7 +140,10 @@ bool WaveBridge::draft_sendable() const {
 }
 
 int WaveBridge::export_format_index() const {
-    return export_format_ == QStringLiteral("pulse") ? 1 : 0;
+    if (export_format_ == QStringLiteral("pulse")) {
+        return 1;
+    }
+    return export_format_ == QStringLiteral("zip") ? 2 : 0;
 }
 
 int WaveBridge::export_scope_index() const {
@@ -151,6 +154,10 @@ bool WaveBridge::export_allowed() const {
     if (export_format_ == QStringLiteral("pulse")) {
         // .pulse 一次只装一个波形：范围必须是当前波形且该通道已绑定波形
         return export_scope_ == QStringLiteral("current") && !target_wave_name().isEmpty();
+    }
+    if (export_format_ == QStringLiteral("zip")) {
+        // zip 是多波形批量归档：范围必须是全部波形且库中有波形
+        return export_scope_ == QStringLiteral("all") && !WaveLibrary::instance().names().empty();
     }
     if (export_scope_ == QStringLiteral("all")) {
         return !WaveLibrary::instance().names().empty();
@@ -171,6 +178,17 @@ QString WaveBridge::export_hint() const {
         }
         return QStringLiteral("将把通道 %1 的《%2》导出为 .pulse，文件内容为该波形的 raw 原文。")
             .arg(target_channel_, current);
+    }
+    if (export_format_ == QStringLiteral("zip")) {
+        if (export_scope_ != QStringLiteral("all")) {
+            return QStringLiteral(
+                "zip 是多波形批量归档：请把范围改为「全部波形」。单波形请用 .pulse，"
+                "需要 V2 / V3 帧数据请用 JSON。");
+        }
+        const int count = static_cast<int>(WaveLibrary::instance().names().size());
+        return QStringLiteral("将把波形库中全部 %1 个波形导出为一个 zip：每个波形一个 .pulse，"
+                              "另附 index.json 名称清单（与官方 App 的 .pulse 互通）。")
+            .arg(count);
     }
     if (export_scope_ == QStringLiteral("all")) {
         const int count = static_cast<int>(WaveLibrary::instance().names().size());
@@ -453,7 +471,13 @@ void WaveBridge::loadIntoEditor(const QString& name) {
 }
 
 void WaveBridge::setExportFormat(int index) {
-    const QString format = (index == 1) ? QStringLiteral("pulse") : QStringLiteral("json");
+    QString format = QStringLiteral("json");
+    if (index == 1) {
+        format = QStringLiteral("pulse");
+    }
+    else if (index == 2) {
+        format = QStringLiteral("zip");
+    }
     if (format == export_format_) {
         return;
     }
@@ -477,10 +501,15 @@ void WaveBridge::exportToFile(const QString& path) {
         emit operationFailed(QStringLiteral("未选择导出文件"));
         return;
     }
+    // 保存对话框可能补上别的波形扩展名（如按格式切换前的 .json）：先去掉已知后缀再补目标后缀
     const QString suffix = export_suffix();
-    if (!target.endsWith(QLatin1Char('.') + suffix, Qt::CaseInsensitive)) {
-        target += QLatin1Char('.') + suffix;
+    for (const QString& known : { QStringLiteral("json"), QStringLiteral("pulse"), QStringLiteral("zip") }) {
+        if (target.endsWith(QLatin1Char('.') + known, Qt::CaseInsensitive)) {
+            target.chop(known.size() + 1);
+            break;
+        }
     }
+    target += QLatin1Char('.') + suffix;
 
     QString error;
     QStringList notes;
@@ -492,6 +521,21 @@ void WaveBridge::exportToFile(const QString& path) {
             return;
         }
         ok = library.export_pulse(target, name.toStdString(), error);
+    }
+    else if (export_format_ == QStringLiteral("zip")) {
+        std::vector<std::string> names;
+        if (export_scope_ == QStringLiteral("all")) {
+            names = library.names();
+        }
+        else {
+            const QString name = target_wave_name();
+            if (name.isEmpty()) {
+                emit operationFailed(QStringLiteral("目标通道没有绑定波形，未导出"));
+                return;
+            }
+            names.push_back(name.toStdString());
+        }
+        ok = library.export_zip(target, names, error, notes);
     }
     else {
         std::vector<std::string> names;
@@ -606,7 +650,10 @@ QString WaveBridge::target_wave_name() const {
 }
 
 QString WaveBridge::export_suffix() const {
-    return export_format_ == QStringLiteral("pulse") ? QStringLiteral("pulse") : QStringLiteral("json");
+    if (export_format_ == QStringLiteral("pulse")) {
+        return QStringLiteral("pulse");
+    }
+    return export_format_ == QStringLiteral("zip") ? QStringLiteral("zip") : QStringLiteral("json");
 }
 
 QString WaveBridge::export_directory() {

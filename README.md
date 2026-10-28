@@ -68,7 +68,7 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 - **日志导出（自动 + 手动）** `LogExporter` 提供两类日志记录：**自动日志**在程序启动、配置系统加载完毕后自动开始记录运行日志（默认写入程序目录 `log/`，受导出级别/数量/大小限制，超限分片、退出或导出后自动清理多余日志）；**手动日志**在点击“导出日志”时写入手动目录（默认 `log/handle/`），仅应用级别过滤，不受数量与大小限制。自动与手动各有独立的级别过滤设置（导出级别、仅指定级别、范围、位置）：手动日志的导出级别 / 范围 / 目录在左侧「日志」页直接配置，持久化到 `user.json` 的 `app.log.manual` 下；自动日志的 `app.log.auto` 仍由配置文件维护，界面不暴露。
 
-- **波形库** 波形模型同时持有 V2 与 V3 两套帧（另有设计层原始串 `raw` 与可再编辑的段落 `sections`）：官方开源示例的 16 个波形（呼吸、潮汐、连击、快速按捏、按捏渐强、心跳节奏、压缩、节奏步伐、颗粒摩擦、渐变弹跳、波浪涟漪、雨水冲刷、变速敲击、信号灯、挑逗1、挑逗2）作为只读资源 `assets/waves/official_waves.json` 随包发布，启动时加载、不可删除或改名；用户波形存在 `config/waves/waves.json`。发送协议由 `app.wave.protocol`（`v2` / `v3`，缺省 `v3`）决定，目标版本缺帧时拒发并提示，不回落另一版本。波形可在波形设置页导入导出：JSON（单个对象或数组，V2 与 V3 帧同时写出、缺帧写空数组）与 `.pulse`（单波形纯文本，内容为 `raw` 原文，`raw` 为空时拒绝导出）；导入遇重名可选覆盖 / 重命名 / 跳过（对整批生效），只有 `raw` 或只有一套帧的条目照常入库并标记不可发送。数据结构、存储格式与导入导出规则见 [docs/wave-data.md](docs/wave-data.md)。
+- **波形库** 波形模型同时持有 V2 与 V3 两套帧（另有设计层原始串 `raw` 与可再编辑的段落 `sections`）：官方开源示例的 16 个波形（呼吸、潮汐、连击、快速按捏、按捏渐强、心跳节奏、压缩、节奏步伐、颗粒摩擦、渐变弹跳、波浪涟漪、雨水冲刷、变速敲击、信号灯、挑逗1、挑逗2）作为只读资源 `assets/waves/official_waves.json` 随包发布，启动时加载、不可删除或改名；用户波形存在 `config/waves/waves.json`。发送协议由 `app.wave.protocol`（`v2` / `v3`，缺省 `v3`）决定，目标版本缺帧时拒发并提示，不回落另一版本。波形可在波形设置页导入导出：JSON（单个对象或数组，V2 与 V3 帧同时写出、缺帧写空数组）与 `.pulse`（单波形纯文本，内容为 `raw` 原文，`raw` 为空时拒绝导出）；导入遇重名可选覆盖 / 重命名 / 跳过（对整批生效），只有 `raw` 或只有一套帧的条目照常入库并标记不可发送。批量互操作可选择 zip：归档内每个波形一个 `.pulse`（文件名按波形名生成、非法字符替换并去重）另附 `index.json` 名称清单，读取同时支持 store 与 deflate，并对单文件 4 MiB / 总量 32 MiB 解压上限与路径穿越条目名做拦截。数据结构、存储格式与导入导出规则见 [docs/wave-data.md](docs/wave-data.md)。
 
 - **设备通信** 应用通过内置中转服务（`DglabRelayServer`）与 DG-LAB APP 扫码配对后直接下发强度/波形/清除指令；郊狼 V3 设备可经蓝牙直连，蓝牙已连接时规则输出与波形发送优先走蓝牙。原先的 Python `Bridge.py` / `WebSocketCore.py` 通信层已移除。
 
@@ -487,6 +487,7 @@ DG-LAB-Client/
 ├── screenshot/                 # 文档用截图（pages：当前界面四页）
 ├── src/                        # C++ 源文件，与 include/ 一一对应（见 src/README.md）
 │   └── ui/qml/                 # QML 界面：MainWindow、pages/、home/、dialogs/、components/、style/
+├── third_party/miniz/          # 内嵌 zip 归档读写库（MIT，单文件 amalgamation）
 ├── third_party/qrcodegen/      # 内嵌二维码生成库（MIT）
 ├── CHANGELOG.md                # 更新日志
 ├── CMakeLists.txt              # 主构建脚本（配套 CMakePresets.json、qt.cmake、cmake/）
@@ -809,6 +810,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 - **Qt 框架**（Core, Gui, Network, Qml, Quick, QuickControls2, QuickDialogs2, WebSockets, Bluetooth, Concurrent）: GNU Lesser General Public License v3.0（LGPLv3）
 - **nlohmann/json**: MIT 许可证
 - **Nayuki qrcodegen**（`third_party/qrcodegen`）: MIT 许可证
+- **miniz 3.0.2**（`third_party/miniz`）: MIT 许可证（波形库 zip 批量导入导出的归档读写）
 
 有关第三方许可证的完整声明和文本，请查看 [NOTICE](NOTICE) 及 `licenses/` 目录。
 

@@ -90,11 +90,11 @@ public:
     QString protocol() const;
     /// @brief 当前协议下草稿是否具备可发送的帧
     bool draft_sendable() const;
-    /// @brief 导出格式下标（0 = JSON，1 = .pulse）
+    /// @brief 导出格式下标（0 = JSON，1 = .pulse，2 = zip）
     int export_format_index() const;
     /// @brief 导出范围下标（0 = 目标通道当前波形，1 = 全部波形）
     int export_scope_index() const;
-    /// @brief 当前导出选择是否可执行（.pulse 只能导出单个波形）
+    /// @brief 当前导出选择是否可执行（.pulse 只能导出单个波形，zip 只能导出全部波形）
     bool export_allowed() const;
     /// @brief 导出对话框的说明文案（含不可导出原因）
     QString export_hint() const;
@@ -135,7 +135,7 @@ public:
     Q_INVOKABLE void loadIntoEditor(const QString& name);
 
     // 导入导出
-    /// @brief 设置导出格式（0 = JSON，1 = .pulse）
+    /// @brief 设置导出格式（0 = JSON，1 = .pulse，2 = zip）
     Q_INVOKABLE void setExportFormat(int index);
     /// @brief 设置导出范围（0 = 目标通道当前波形，1 = 全部波形）
     Q_INVOKABLE void setExportScope(int index);
@@ -178,7 +178,7 @@ private:
     void regenerate_frames();
     /// @brief 目标通道当前绑定的波形名（导出「当前波形」用）
     QString target_wave_name() const;
-    /// @brief 当前导出格式对应的文件后缀（json / pulse）
+    /// @brief 当前导出格式对应的文件后缀（json / pulse / zip）
     QString export_suffix() const;
     /// @brief 导出默认目录（文档目录，缺失时回退到用户主目录）
     static QString export_directory();
@@ -199,7 +199,7 @@ private:
     QString last_error_;
     QString saved_fingerprint_; ///< 上次保存（或载入）时的草稿指纹
     bool has_saved_ = false;    ///< 草稿是否对应过库中内容
-    QString export_format_ = QStringLiteral("json");   ///< 导出格式：json / pulse
+    QString export_format_ = QStringLiteral("json");   ///< 导出格式：json / pulse / zip
     QString export_scope_ = QStringLiteral("current");  ///< 导出范围：current / all
     WaveImportPlan pending_import_;                    ///< 待写入波形库的导入计划
     bool has_pending_import_ = false;                  ///< 是否存在待处理的导入

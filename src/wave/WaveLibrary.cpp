@@ -12,7 +12,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 
+#include <exception>
 #include <fstream>
 
 namespace {
@@ -55,14 +57,16 @@ namespace {
         return true;
     }
 
-    /// @brief 以 UTF-8 无 BOM 写入文本文件
-    bool write_text_file(const QString& path, const QString& text, QString& error) {
+    /// @brief zip 归档内的名称清单文件名
+    const char* const INDEX_ENTRY_NAME = "index.json";
+
+    /// @brief 以二进制写入文件
+    bool write_bytes_file(const QString& path, const QByteArray& data, QString& error) {
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
             error = QStringLiteral("无法写入文件：%1").arg(path);
             return false;
         }
-        const QByteArray data = text.toUtf8();
         const qint64 written = file.write(data);
         file.close();
         if (written != data.size()) {
@@ -70,6 +74,82 @@ namespace {
             return false;
         }
         return true;
+    }
+
+    /// @brief 以 UTF-8 无 BOM 写入文本文件
+    bool write_text_file(const QString& path, const QString& text, QString& error) {
+        return write_bytes_file(path, text.toUtf8(), error);
+    }
+
+    /// @brief 波形名转换为安全的文件名主干：非法字符替换为下划线，去掉结尾的点与空白
+    QString sanitize_file_stem(const QString& name) {
+        QString stem;
+        for (const QChar ch : name) {
+            if (ch.unicode() < 0x20 || QStringLiteral("\\/:*?\"<>|").contains(ch)) {
+                stem.append(QLatin1Char('_'));
+            }
+            else {
+                stem.append(ch);
+            }
+        }
+        stem = stem.trimmed();
+        while (stem.endsWith(QLatin1Char('.')) || stem.endsWith(QLatin1Char(' '))) {
+            stem.chop(1);
+        }
+        if (stem.isEmpty()) {
+            stem = QStringLiteral("wave");
+        }
+        return stem;
+    }
+
+    /// @brief 生成归档内不重复的文件名主干（重复时追加 (2)、(3)…，比较忽略大小写）
+    QString unique_file_stem(const QString& stem, QStringList& used) {
+        QString candidate = stem;
+        int index = 2;
+        while (used.contains(candidate, Qt::CaseInsensitive)) {
+            candidate = QStringLiteral("%1 (%2)").arg(stem).arg(index);
+            ++index;
+        }
+        used.append(candidate);
+        return candidate;
+    }
+
+    /// @brief 读取 zip 内 index.json 清单：条目名到波形名的映射与清单列出的文件顺序
+    void read_index_manifest(const QString& text, QHash<QString, QString>& names, QStringList& files) {
+        names.clear();
+        files.clear();
+        nlohmann::json root;
+        try {
+            root = nlohmann::json::parse(text.toStdString());
+        }
+        catch (const std::exception&) {
+            return;
+        }
+        const auto waves = root.find("waves");
+        if (waves == root.end() || !waves->is_array()) {
+            return;
+        }
+        for (const auto& item : *waves) {
+            if (!item.is_object()) {
+                continue;
+            }
+            const auto file = item.find("file");
+            if (file == item.end() || !file->is_string()) {
+                continue;
+            }
+            const QString file_name = QString::fromStdString(file->get<std::string>());
+            if (file_name.isEmpty()) {
+                continue;
+            }
+            files.append(file_name);
+            const auto name = item.find("name");
+            if (name != item.end() && name->is_string()) {
+                const QString wave_name = QString::fromStdString(name->get<std::string>());
+                if (!wave_name.isEmpty()) {
+                    names.insert(file_name, wave_name);
+                }
+            }
+        }
     }
 
 } // namespace
@@ -287,8 +367,60 @@ WaveImportPlan WaveLibrary::plan_import(const QString& path) const {
             plan.error = error;
         }
     }
+    else if (suffix == QStringLiteral("zip")) {
+        std::vector<wave_io::ZipEntry> entries;
+        QStringList zip_skipped;
+        QString zip_error;
+        if (!wave_io::parse_zip(data, entries, zip_skipped, zip_error)) {
+            plan.error = zip_error;
+        }
+        else {
+            plan.skipped = zip_skipped;
+            // index.json 清单不是波形：读它只为恢复被文件名字符替换掉的原名称
+            QHash<QString, QString> manifest_names;
+            QStringList manifest_files;
+            for (const wave_io::ZipEntry& entry : entries) {
+                if (entry.name.compare(QString::fromLatin1(INDEX_ENTRY_NAME), Qt::CaseInsensitive) == 0) {
+                    read_index_manifest(QString::fromUtf8(entry.data), manifest_names, manifest_files);
+                    break;
+                }
+            }
+            for (const wave_io::ZipEntry& entry : entries) {
+                if (entry.name.compare(QString::fromLatin1(INDEX_ENTRY_NAME), Qt::CaseInsensitive) == 0) {
+                    continue;
+                }
+                const QFileInfo entry_info(entry.name);
+                if (entry_info.suffix().compare(QStringLiteral("pulse"), Qt::CaseInsensitive) != 0) {
+                    plan.skipped.append(QStringLiteral("「%1」不是 .pulse 文件，已跳过").arg(entry.name));
+                    continue;
+                }
+                const QString file_name = entry_info.fileName();
+                const QString wave_name = manifest_names.value(entry.name, entry_info.completeBaseName());
+                Wave wave;
+                QString reason;
+                if (wave_io::parse_pulse(QString::fromUtf8(entry.data), wave_name, wave, reason)) {
+                    plan.waves.push_back(wave);
+                }
+                else {
+                    plan.skipped.append(QStringLiteral("「%1」导入失败：%2").arg(file_name, reason));
+                }
+            }
+            for (const QString& file : manifest_files) {
+                bool present = false;
+                for (const wave_io::ZipEntry& entry : entries) {
+                    if (entry.name.compare(file, Qt::CaseInsensitive) == 0) {
+                        present = true;
+                        break;
+                    }
+                }
+                if (!present) {
+                    plan.skipped.append(QStringLiteral("index.json 列出的「%1」在包内不存在，已跳过").arg(file));
+                }
+            }
+        }
+    }
     else {
-        plan.error = QStringLiteral("不支持的文件类型：.%1（只支持 .json / .pulse）").arg(suffix);
+        plan.error = QStringLiteral("不支持的文件类型：.%1（只支持 .json / .pulse / .zip）").arg(suffix);
     }
     if (!plan.error.isEmpty()) {
         LOG_MODULE("WaveLibrary", "plan_import", LOG_ERROR, plan.error.toStdString());
@@ -447,6 +579,77 @@ bool WaveLibrary::export_pulse(const QString& path, const std::string& name, QSt
     }
     LOG_MODULE("WaveLibrary", "export_pulse", LOG_INFO,
         "已导出波形 " << name << " 到 " << path.toStdString());
+    return true;
+}
+
+bool WaveLibrary::export_zip(const QString& path, const std::vector<std::string>& names, QString& error,
+    QStringList& notes) const {
+    error.clear();
+    notes.clear();
+    std::vector<Wave> waves;
+    if (names.empty()) {
+        for (const auto& [name, wave] : waves_) {
+            waves.push_back(wave);
+        }
+    }
+    else {
+        for (const auto& name : names) {
+            const Wave* wave = get(name);
+            if (wave == nullptr) {
+                error = QStringLiteral("波形不存在：%1").arg(QString::fromStdString(name));
+                return false;
+            }
+            waves.push_back(*wave);
+        }
+    }
+    if (waves.empty()) {
+        error = QStringLiteral("波形库为空，没有可导出的波形");
+        return false;
+    }
+
+    std::vector<wave_io::ZipEntry> entries;
+    QStringList used_stems;
+    nlohmann::json manifest;
+    manifest["version"] = "1.0";
+    manifest["generator"] = "DG-LAB-Client";
+    manifest["waves"] = nlohmann::json::array();
+    for (const Wave& wave : waves) {
+        const QString label = QString::fromStdString(wave.name);
+        if (wave.raw.empty()) {
+            notes.append(QStringLiteral("《%1》没有原始串（raw 为空），未写入 zip").arg(label));
+            continue;
+        }
+        const QString stem = unique_file_stem(sanitize_file_stem(label), used_stems);
+        wave_io::ZipEntry entry;
+        entry.name = stem + QStringLiteral(".pulse");
+        entry.data = QString::fromStdString(wave.raw).toUtf8();
+        entries.push_back(entry);
+        manifest["waves"].push_back({ { "name", wave.name },
+            { "file", entry.name.toStdString() },
+            { "durationMs", wave.duration_ms() },
+            { "frameCountV2", static_cast<int>(wave.frames_v2.size()) },
+            { "frameCountV3", static_cast<int>(wave.frames_v3.size()) } });
+    }
+    if (entries.empty()) {
+        error = QStringLiteral("没有可写入 zip 的波形（原始串均为空）");
+        return false;
+    }
+    wave_io::ZipEntry index_entry;
+    index_entry.name = QString::fromLatin1(INDEX_ENTRY_NAME);
+    index_entry.data = QString::fromStdString(manifest.dump(4)).toUtf8();
+    entries.push_back(index_entry);
+
+    QByteArray archive;
+    if (!wave_io::build_zip(entries, archive, error)) {
+        LOG_MODULE("WaveLibrary", "export_zip", LOG_ERROR, error.toStdString());
+        return false;
+    }
+    if (!write_bytes_file(path, archive, error)) {
+        LOG_MODULE("WaveLibrary", "export_zip", LOG_ERROR, error.toStdString());
+        return false;
+    }
+    LOG_MODULE("WaveLibrary", "export_zip", LOG_INFO,
+        "已导出 " << entries.size() - 1 << " 个波形到 zip：" << path.toStdString());
     return true;
 }
 

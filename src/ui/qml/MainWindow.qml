@@ -402,17 +402,22 @@ ApplicationWindow {
         objectName: "waveExportFileDialog"
         title: qsTr("导出波形")
         fileMode: FileDialog.SaveFile
-        defaultSuffix: waveBridge.exportFormatIndex === 1 ? "pulse" : "json"
+        defaultSuffix: waveBridge.exportFormatIndex === 1
+            ? "pulse"
+            : (waveBridge.exportFormatIndex === 2 ? "zip" : "json")
         nameFilters: waveBridge.exportFormatIndex === 1
             ? [qsTr("DG-LAB 波形 (*.pulse)")]
-            : [qsTr("JSON 波形数组 (*.json)")]
+            : (waveBridge.exportFormatIndex === 2
+                ? [qsTr("波形归档 (*.zip)")]
+                : [qsTr("JSON 波形数组 (*.json)")])
     }
 
     FileDialog {
         objectName: "waveImportFileDialog"
         title: qsTr("导入波形")
         fileMode: FileDialog.OpenFile
-        nameFilters: [qsTr("波形文件 (*.json *.pulse)"), qsTr("JSON (*.json)"), qsTr(".pulse (*.pulse)")]
+        nameFilters: [qsTr("波形文件 (*.json *.pulse *.zip)"), qsTr("JSON (*.json)"), qsTr(".pulse (*.pulse)"),
+            qsTr("波形归档 (*.zip)")]
     }
 
     // 规则可视化编辑器（首页 / 配置页入口打开）

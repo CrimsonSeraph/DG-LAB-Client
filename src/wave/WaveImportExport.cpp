@@ -5,8 +5,11 @@
 
 #include "WaveImportExport.h"
 
+// miniz 3.0.2（MIT，third_party/miniz）：仅使用内存 zip 读写 API
+#include <miniz.h>
 #include <nlohmann/json.hpp>
 
+#include <cstring>
 #include <exception>
 #include <string>
 #include <vector>
@@ -110,6 +113,33 @@ namespace {
         return true;
     }
 
+    /// @brief 按 UTF-8 解码 zip 条目名；非法 UTF-8 回退本地 8 位编码（部分压缩工具写 GBK）
+    QString decode_entry_name(const char* raw) {
+        const QByteArray bytes(raw);
+        const QString name = QString::fromUtf8(bytes);
+        if (name.contains(QChar::ReplacementCharacter)) {
+            return QString::fromLocal8Bit(bytes);
+        }
+        return name;
+    }
+
+    /// @brief 条目名是否含绝对路径或 .. 路径段（路径穿越）
+    bool unsafe_entry_name(const QString& name) {
+        if (name.startsWith(QLatin1Char('/')) || name.startsWith(QLatin1Char('\\'))) {
+            return true;
+        }
+        if (name.size() >= 2 && name.at(1) == QLatin1Char(':') && name.at(0).isLetter()) {
+            return true;
+        }
+        const QString normalized = QString(name).replace(QLatin1Char('\\'), QLatin1Char('/'));
+        for (const QString& part : normalized.split(QLatin1Char('/'))) {
+            if (part == QStringLiteral("..")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 } // namespace
 
 QString wave_io::build_json(const std::vector<Wave>& waves, QStringList& notes) {
@@ -183,6 +213,95 @@ bool wave_io::parse_json(const QString& text, std::vector<Wave>& waves, QStringL
     return true;
 }
 
+bool wave_io::parse_zip(const QByteArray& archive, std::vector<ZipEntry>& entries, QStringList& skipped,
+    QString& error) {
+    entries.clear();
+    skipped.clear();
+    error.clear();
+    if (archive.isEmpty()) {
+        error = QStringLiteral("zip 文件为空，没有可读取的内容");
+        return false;
+    }
+
+    mz_zip_archive zip_archive;
+    std::memset(&zip_archive, 0, sizeof(zip_archive));
+    if (!mz_zip_reader_init_mem(&zip_archive, archive.constData(), static_cast<size_t>(archive.size()), 0)) {
+        error = QStringLiteral("不是有效的 zip 归档：无法读取中央目录");
+        return false;
+    }
+
+    const mz_uint file_count = mz_zip_reader_get_num_files(&zip_archive);
+    if (file_count == 0) {
+        mz_zip_reader_end(&zip_archive);
+        error = QStringLiteral("zip 归档里没有任何文件");
+        return false;
+    }
+    if (file_count > static_cast<mz_uint>(ZIP_MAX_ENTRIES)) {
+        mz_zip_reader_end(&zip_archive);
+        error = QStringLiteral("zip 归档条目数 %1 超过上限 %2，已拒绝整个归档")
+                    .arg(file_count)
+                    .arg(ZIP_MAX_ENTRIES);
+        return false;
+    }
+
+    qint64 total_bytes = 0;
+    for (mz_uint index = 0; index < file_count; ++index) {
+        mz_zip_archive_file_stat stat;
+        std::memset(&stat, 0, sizeof(stat));
+        if (!mz_zip_reader_file_stat(&zip_archive, index, &stat)) {
+            skipped.append(QStringLiteral("zip 第 %1 个条目无法读取头部信息，已跳过").arg(index + 1));
+            continue;
+        }
+        if (stat.m_is_directory) {
+            continue;
+        }
+        const QString name = decode_entry_name(stat.m_filename);
+        if (name.isEmpty()) {
+            skipped.append(QStringLiteral("zip 第 %1 个条目没有名称，已跳过").arg(index + 1));
+            continue;
+        }
+        if (unsafe_entry_name(name)) {
+            skipped.append(QStringLiteral("「%1」的条目名是绝对路径或含 ..，已拒绝").arg(name));
+            continue;
+        }
+        if (static_cast<qint64>(stat.m_uncomp_size) > ZIP_MAX_ENTRY_BYTES) {
+            mz_zip_reader_end(&zip_archive);
+            entries.clear();
+            error = QStringLiteral("「%1」解压后 %2 字节，超过单文件上限 %3 字节（4 MiB），已拒绝整个 zip")
+                        .arg(name)
+                        .arg(static_cast<qulonglong>(stat.m_uncomp_size))
+                        .arg(ZIP_MAX_ENTRY_BYTES);
+            return false;
+        }
+        total_bytes += static_cast<qint64>(stat.m_uncomp_size);
+        if (total_bytes > ZIP_MAX_TOTAL_BYTES) {
+            mz_zip_reader_end(&zip_archive);
+            entries.clear();
+            error = QStringLiteral("zip 解压后总量超过上限 %1 字节（32 MiB），已拒绝整个 zip").arg(ZIP_MAX_TOTAL_BYTES);
+            return false;
+        }
+        if (!mz_zip_reader_is_file_supported(&zip_archive, index)
+            || mz_zip_reader_is_file_encrypted(&zip_archive, index)) {
+            skipped.append(QStringLiteral("「%1」的压缩方式不支持或已加密，已跳过").arg(name));
+            continue;
+        }
+
+        size_t size = 0;
+        void* raw = mz_zip_reader_extract_to_heap(&zip_archive, index, &size, 0);
+        if (raw == nullptr) {
+            skipped.append(QStringLiteral("「%1」解压失败（条目数据损坏），已跳过").arg(name));
+            continue;
+        }
+        ZipEntry entry;
+        entry.name = name;
+        entry.data = QByteArray(static_cast<const char*>(raw), static_cast<qsizetype>(size));
+        entries.push_back(entry);
+        mz_free(raw);
+    }
+    mz_zip_reader_end(&zip_archive);
+    return true;
+}
+
 bool wave_io::parse_pulse(const QString& text, const QString& name, Wave& wave, QString& error) {
     error.clear();
     const QString content = text.trimmed();
@@ -215,5 +334,48 @@ bool wave_io::build_pulse(const Wave& wave, QString& text, QString& error) {
         return false;
     }
     text = QString::fromStdString(wave.raw);
+    return true;
+}
+
+bool wave_io::build_zip(const std::vector<ZipEntry>& entries, QByteArray& out, QString& error) {
+    out.clear();
+    error.clear();
+    if (entries.empty()) {
+        error = QStringLiteral("没有可写入 zip 的波形");
+        return false;
+    }
+    if (entries.size() > static_cast<size_t>(ZIP_MAX_ENTRIES)) {
+        error = QStringLiteral("条目数 %1 超过上限 %2，无法写入 zip").arg(entries.size()).arg(ZIP_MAX_ENTRIES);
+        return false;
+    }
+
+    mz_zip_archive zip_archive;
+    std::memset(&zip_archive, 0, sizeof(zip_archive));
+    if (!mz_zip_writer_init_heap(&zip_archive, 0, 64 * 1024)) {
+        error = QStringLiteral("无法初始化 zip 写入器");
+        return false;
+    }
+    for (const ZipEntry& entry : entries) {
+        const QByteArray name = entry.name.toUtf8();
+        const bool ok = mz_zip_writer_add_mem(&zip_archive, name.constData(), entry.data.constData(),
+            static_cast<size_t>(entry.data.size()), static_cast<mz_uint>(MZ_DEFAULT_LEVEL));
+        if (!ok) {
+            mz_zip_writer_end(&zip_archive);
+            error = QStringLiteral("写入 zip 条目失败：%1").arg(entry.name);
+            return false;
+        }
+    }
+
+    void* buffer = nullptr;
+    size_t size = 0;
+    const bool finalized = mz_zip_writer_finalize_heap_archive(&zip_archive, &buffer, &size);
+    if (!finalized || buffer == nullptr) {
+        mz_zip_writer_end(&zip_archive);
+        error = QStringLiteral("生成 zip 归档失败");
+        return false;
+    }
+    out = QByteArray(static_cast<const char*>(buffer), static_cast<qsizetype>(size));
+    mz_free(buffer);
+    mz_zip_writer_end(&zip_archive);
     return true;
 }

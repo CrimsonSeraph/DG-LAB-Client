@@ -55,6 +55,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# 第三方 C 源码（third_party/miniz 为 C89 风格实现）需要启用 C 语言
+enable_language(C)
+
 # Qt 相关设置（自动处理 moc/rcc；已无 .ui 文件，不再需要 AUTOUIC）
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -100,6 +103,16 @@ endif()
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json
 	INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}"
+)
+
+# -------------------- 第三方库：miniz（zip 归档读写，MIT）--------------------
+# 单文件 amalgamation（3.0.2），来源与生成方式见 third_party/miniz/README.md
+add_library(miniz STATIC
+	third_party/miniz/miniz.c
+	third_party/miniz/miniz.h
+)
+target_include_directories(miniz
+	PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniz
 )
 
 # -------------------- 查找 Qt --------------------
@@ -699,7 +712,9 @@ target_link_libraries(${PROJECT_NAME}
 		Qt::Bluetooth
 		Qt::Widgets
 		Qt::Concurrent
-	PRIVATE nlohmann_json
+	PRIVATE
+		nlohmann_json
+		miniz
 )
 target_include_directories(${PROJECT_NAME}
 	PRIVATE
@@ -789,6 +804,7 @@ target_link_libraries(rule_graph_eval_test
 		Qt::Network
 		Qt::Qml
 		nlohmann_json
+		miniz
 )
 target_include_directories(rule_graph_eval_test
 	PRIVATE
@@ -820,6 +836,7 @@ target_link_libraries(event_engine_module_test
 		Qt::Network
 		Qt::Qml
 		nlohmann_json
+		miniz
 )
 target_include_directories(event_engine_module_test
 	PRIVATE
@@ -868,6 +885,7 @@ target_link_libraries(wave_library_test
 		Qt::Network
 		Qt::Qml
 		nlohmann_json
+		miniz
 )
 target_include_directories(wave_library_test
 	PRIVATE
@@ -901,6 +919,7 @@ target_link_libraries(wave_import_export_test
 		Qt::Network
 		Qt::Qml
 		nlohmann_json
+		miniz
 )
 target_include_directories(wave_import_export_test
 	PRIVATE
@@ -914,6 +933,40 @@ target_include_directories(wave_import_export_test
 		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
 )
 add_test(NAME wave_import_export_test COMMAND wave_import_export_test)
+
+# 波形 zip 批量互操作（多波形导出 zip 后重新导入、非 .pulse 与损坏条目、路径穿越、
+# 解压大小上限、store 与 deflate 两种压缩方式）：需要配置层、波形库与 DGLABClient.qrc 内的官方波形资源；
+# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+add_executable(wave_zip_test
+	tests/wave_zip_test.cpp
+	${WAVE}
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${CORE_CONFIG}
+	${CORE_LOG}
+	DGLABClient.qrc
+)
+target_link_libraries(wave_zip_test
+	PRIVATE
+		Qt::Core
+		Qt::Network
+		Qt::Qml
+		nlohmann_json
+		miniz
+)
+target_include_directories(wave_zip_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+)
+add_test(NAME wave_zip_test COMMAND wave_zip_test)
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；

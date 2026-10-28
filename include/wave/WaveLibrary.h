@@ -100,6 +100,13 @@ public:
         QStringList& notes) const;
     /// @brief 导出单个波形为 .pulse 文件（内容为 raw 原文）
     bool export_pulse(const QString& path, const std::string& name, QString& error) const;
+    /// @brief 导出多个波形为 zip：每个波形一个 <波形名>.pulse，另附 index.json 名称清单
+    /// @param path 归档文件路径
+    /// @param names 待导出的波形名；为空表示导出库中全部波形
+    /// @param error 失败原因
+    /// @param notes 逐条说明（raw 为空而未写入 zip 的波形）
+    bool export_zip(const QString& path, const std::vector<std::string>& names, QString& error,
+        QStringList& notes) const;
 
 signals:
     void library_changed();

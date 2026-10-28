@@ -88,7 +88,7 @@ src/ui/
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
-| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送（波形数据结构见 [docs/wave-data.md](../../docs/wave-data.md)） |
+| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）（波形数据结构见 [docs/wave-data.md](../../docs/wave-data.md)） |
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
@@ -209,7 +209,7 @@ src/ui/
 | `waveChannelCard` | 通道波形卡根节点（`GlassCard`）：目标通道、A/B 预览与波形库入口 |
 | `waveChannelAButton` / `waveChannelBButton` | 选择波形目标通道（对应 `waveBridge.targetChannel`） |
 | `waveSelectButton` / `waveCreateButton` | 打开波形库 / 直接新建波形（打开 `waveEditorDialog`） |
-| `waveImportButton` | 导入波形 → `on_wave_import_clicked()`：打开 `waveImportFileDialog`（`.json` / `.pulse` 按扩展名自动判格式） |
+| `waveImportButton` | 导入波形 → `on_wave_import_clicked()`：打开 `waveImportFileDialog`（`.json` / `.pulse` / `.zip` 按扩展名自动判格式，zip 解压后逐个 `.pulse` 复用同一套冲突三选与汇总） |
 | `waveExportButton` | 导出波形 → `on_wave_export_clicked()`：打开 `waveExportDialog` 先选格式与范围 |
 
 日志页（`pages/LogPage.qml`）：页面用 `ColumnLayout` 撑满窗口高度，日志列表吃满面板剩余高度并自行滚动；手动导出设置写入 `user.json` 的 `app.log.manual.*`，导出时按该设置逐行过滤。
@@ -298,12 +298,12 @@ src/ui/
 | `waveCurrentABadge` / `waveCurrentBBadge` | 行内「当前 A / 当前 B」徽标（`StatusBadge` level 0），按 `waveBridge.currentA/currentB` 显示 |
 | `waveLibraryEmptyText` | 波形库空态文案，`waveBridge.waves` 为空时可见 |
 | `waveSelectCreateButton` | 关闭波形库并新建波形（打开编辑器） |
-| `waveExportDialog` | 波形导出对话框（`dialogs/WaveExportDialog.qml`）：先选格式与范围，确认后由 C++ 打开系统保存对话框；`waveExportFormatSegment` / `waveExportScopeSegment` 的 `selected(index)` 由 `UiConnector` 接到 `WaveBridge::setExportFormat` / `setExportScope`，`currentIndex` 反向绑定 `exportFormatIndex` / `exportScopeIndex` |
-| `waveExportHintText` / `waveExportConfirmButton` / `waveExportCancelButton` | 说明行（绑 `waveBridge.exportHint`，可导出时取 `textMuted`、不可导出时取 `warning`）、导出（`enabled: waveBridge.exportAllowed`，`.pulse` + 全部波形等组合直接置灰并给出改选提示，绝不静默只导一个）/ 取消 |
+| `waveExportDialog` | 波形导出对话框（`dialogs/WaveExportDialog.qml`）：先选格式（JSON / .pulse / zip）与范围（当前波形 / 全部波形），确认后由 C++ 打开系统保存对话框；`waveExportFormatSegment` / `waveExportScopeSegment` 的 `selected(index)` 由 `UiConnector` 接到 `WaveBridge::setExportFormat` / `setExportScope`，`currentIndex` 反向绑定 `exportFormatIndex` / `exportScopeIndex` |
+| `waveExportHintText` / `waveExportConfirmButton` / `waveExportCancelButton` | 说明行（绑 `waveBridge.exportHint`，可导出时取 `textMuted`、不可导出时取 `warning`）、导出（`enabled: waveBridge.exportAllowed`，`.pulse` + 全部波形、zip + 当前波形等组合直接置灰并给出改选提示，绝不静默只导一个或多导）/ 取消 |
 | `waveConflictDialog` | 导入名称冲突对话框（`dialogs/WaveConflictDialog.qml`，`closePolicy: Popup.NoAutoClose`）：标题下列出与库重名的名称；`on_wave_conflict_requested()` 打开前把建议名称写进输入框 |
 | `waveConflictRenameField` | 重命名用的新名称输入框：`enabled: waveBridge.conflictCount === 1`（多条冲突时按序号自动生成），内容由 C++ 在点「重命名」时读取 |
 | `waveConflictOverwriteButton` / `waveConflictRenameButton` / `waveConflictSkipButton` | 覆盖（`danger` + `outline`，同名官方波形仍会被拒绝并记原因）/ 重命名（`primary`）/ 跳过：选择对整批生效，结果走 `importFinished` 汇总 Toast |
-| `waveImportFileDialog` / `waveExportFileDialog` | 系统文件对话框（`MainWindow.qml` 内的 `FileDialog`，`import QtQuick.Dialogs`）：打开 / 保存模式，只负责挑路径，读写全部由 `WaveLibrary` 完成；保存对话框打开前由 C++ 把建议路径写进 `currentFile`，`accepted` 经 `on_wave_import_file_accepted()` / `on_wave_export_file_accepted()` 交给 `WaveBridge` |
+| `waveImportFileDialog` / `waveExportFileDialog` | 系统文件对话框（`MainWindow.qml` 内的 `FileDialog`，`import QtQuick.Dialogs`）：打开 / 保存模式，只负责挑路径，读写全部由 `WaveLibrary` 完成；导入侧过滤器含 `.json` / `.pulse` / `.zip`，导出侧按当前格式切换过滤器与默认后缀（json / pulse / zip）；保存对话框打开前由 C++ 把建议路径写进 `currentFile`，`accepted` 经 `on_wave_import_file_accepted()` / `on_wave_export_file_accepted()` 交给 `WaveBridge`（`exportToFile` 会先去掉已知的波形扩展名再补目标后缀，避免保存框补错后缀） |
 | `waveEditorDialog` | 波形编辑器；`closePolicy: Popup.NoAutoClose`，关闭只走按钮，由 C++ 判断 `draftDirty` 后先弹确认 |
 | `waveEditorCloseButton` | 关闭编辑器：草稿未保存时先弹确认，取消则对话框保持打开 |
 | `waveEditorStatusLine` | 编辑器状态行：`waveBridge.lastError` 非空显示红字失败原因；否则 `draftDirty` 显示「草稿未保存」，已保存显示「已保存」 |
