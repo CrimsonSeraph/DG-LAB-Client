@@ -29,11 +29,22 @@ void WaveBridge::initialize() {
 QVariantList WaveBridge::waves() const {
     QVariantList list;
     auto& library = WaveLibrary::instance();
+    const QString active_protocol = library.protocol();
     for (const auto& name : library.names()) {
+        const Wave* wave = library.get(name);
+        if (wave == nullptr) {
+            continue;
+        }
         QVariantMap item;
         item.insert(QStringLiteral("name"), QString::fromStdString(name));
-        item.insert(QStringLiteral("frameCount"), library.frame_count(name));
-        item.insert(QStringLiteral("durationMs"), library.duration_ms(name));
+        item.insert(QStringLiteral("source"), QString::fromLatin1(Wave::source_name(wave->source)));
+        item.insert(QStringLiteral("official"), wave->is_official());
+        item.insert(QStringLiteral("frameCount"), wave->frame_count());
+        item.insert(QStringLiteral("frameCountV2"), static_cast<int>(wave->frames_v2.size()));
+        item.insert(QStringLiteral("frameCountV3"), static_cast<int>(wave->frames_v3.size()));
+        item.insert(QStringLiteral("durationMs"), wave->duration_ms());
+        // 当前协议缺帧时列表项不可发送
+        item.insert(QStringLiteral("sendable"), !wave->frames_of(active_protocol).isEmpty());
         list.append(item);
     }
     return list;
@@ -112,6 +123,45 @@ QVariantList WaveBridge::amplitudes_from_frames(const QStringList& frames) const
     return amplitudes;
 }
 
+QString WaveBridge::protocol() const {
+    return WaveLibrary::instance().protocol();
+}
+
+bool WaveBridge::draft_sendable() const {
+    const QString active_protocol = WaveLibrary::instance().protocol();
+    const QStringList& frames
+        = active_protocol == QStringLiteral("v2") ? draft_frames_v2_ : draft_frames_v3_;
+    return !frames.isEmpty();
+}
+
+void WaveBridge::setProtocol(const QString& protocol) {
+    WaveLibrary::instance().set_protocol(protocol);
+    last_error_.clear();
+    emit dataChanged();
+    emit draftChanged();
+}
+
+QStringList WaveBridge::library_frames_for_send(const Wave& wave, QString& error) const {
+    const QString active_protocol = WaveLibrary::instance().protocol();
+    const QStringList frames = wave.frames_of(active_protocol);
+    if (frames.isEmpty()) {
+        error = QStringLiteral("波形《%1》缺少 %2 帧，未发送")
+                    .arg(QString::fromStdString(wave.name), active_protocol.toUpper());
+    }
+    return frames;
+}
+
+QStringList WaveBridge::draft_frames_for_send(QString& error) const {
+    const QString active_protocol = WaveLibrary::instance().protocol();
+    const QStringList& frames
+        = active_protocol == QStringLiteral("v2") ? draft_frames_v2_ : draft_frames_v3_;
+    if (frames.isEmpty()) {
+        error = QStringLiteral("当前发送协议为 %1，草稿缺少 %1 帧，未发送")
+                    .arg(active_protocol.toUpper());
+    }
+    return frames;
+}
+
 void WaveBridge::setTargetChannel(const QString& channel) {
     if (channel != QStringLiteral("A") && channel != QStringLiteral("B")) {
         return;
@@ -134,6 +184,12 @@ void WaveBridge::deleteWave(const QString& name) {
     if (name.isEmpty()) {
         return;
     }
+    if (WaveLibrary::instance().is_official(name.toStdString())) {
+        last_error_ = QStringLiteral("「%1」是内置官方波形，不可删除").arg(name);
+        LOG_MODULE("WaveBridge", "deleteWave", LOG_WARN, last_error_.toStdString());
+        emit draftChanged();
+        return;
+    }
     WaveLibrary::instance().remove(name.toStdString());
     emit dataChanged();
 }
@@ -143,11 +199,22 @@ void WaveBridge::sendWave(const QString& name, const QString& channel) {
     if (wave == nullptr || device_ == nullptr) {
         return;
     }
+    QString error;
+    const QStringList frames = library_frames_for_send(*wave, error);
+    if (frames.isEmpty()) {
+        last_error_ = error;
+        LOG_MODULE("WaveBridge", "sendWave", LOG_WARN, error.toStdString());
+        emit draftChanged();
+        return;
+    }
     const int channel_index = (channel == QStringLiteral("B")) ? 2 : 1;
-    const int seconds = std::max(1, (static_cast<int>(wave->frames.size()) * 100 + 999) / 1000);
-    device_->sendWave(channel_index, wave->frames, seconds);
+    const int seconds = std::max(1, (static_cast<int>(frames.size()) * 100 + 999) / 1000);
+    device_->sendWave(channel_index, frames, seconds);
     WaveLibrary::instance().set_current(channel.toStdString(), name.toStdString());
+    last_error_.clear();
     LOG_MODULE("WaveBridge", "sendWave", LOG_INFO, "已发送波形: " + name.toStdString());
+    emit dataChanged();
+    emit draftChanged();
 }
 
 void WaveBridge::beginCreate() {
@@ -236,7 +303,8 @@ void WaveBridge::applyRawFrames(const QString& text) {
     }
     draft_sections_.clear();
     selected_section_ = -1;
-    draft_frames_ = frames;
+    draft_frames_v2_.clear();
+    draft_frames_v3_ = frames;
     emit draftChanged();
 }
 
@@ -246,15 +314,22 @@ bool WaveBridge::saveDraft(const QString& name) {
         emit draftChanged();
         return false;
     }
-    if (draft_frames_.isEmpty()) {
+    if (WaveLibrary::instance().is_official(name.toStdString())) {
+        last_error_ = QStringLiteral("「%1」是内置官方波形，不可覆盖，请换一个名称").arg(name);
+        emit draftChanged();
+        return false;
+    }
+    if (draft_frames_v3_.isEmpty() && draft_frames_v2_.isEmpty()) {
         last_error_ = QStringLiteral("当前草稿没有可保存的波形帧");
         emit draftChanged();
         return false;
     }
     Wave wave;
     wave.name = name.toStdString();
+    wave.source = WaveSource::User;
     wave.sections = draft_sections_;
-    wave.frames = draft_frames_;
+    wave.frames_v2 = draft_frames_v2_;
+    wave.frames_v3 = draft_frames_v3_;
     draft_name_ = name;
     const bool ok = WaveLibrary::instance().save(wave);
     if (ok) {
@@ -271,19 +346,22 @@ bool WaveBridge::saveDraft(const QString& name) {
 
 void WaveBridge::sendDraft(const QString& channel) {
     const QString channel_label = (channel == QStringLiteral("B")) ? QStringLiteral("B") : QStringLiteral("A");
-    if (draft_frames_.isEmpty()) {
-        last_error_ = QStringLiteral("当前草稿没有可发送的波形帧");
-        emit draftChanged();
-        return;
-    }
     if (device_ == nullptr) {
         last_error_ = QStringLiteral("设备未就绪，波形未发送");
         emit draftChanged();
         return;
     }
+    QString error;
+    const QStringList frames = draft_frames_for_send(error);
+    if (frames.isEmpty()) {
+        last_error_ = error;
+        LOG_MODULE("WaveBridge", "sendDraft", LOG_WARN, error.toStdString());
+        emit draftChanged();
+        return;
+    }
     const int channel_index = (channel_label == QStringLiteral("B")) ? 2 : 1;
-    const int seconds = std::max(1, (static_cast<int>(draft_frames_.size()) * 100 + 999) / 1000);
-    device_->sendWave(channel_index, draft_frames_, seconds);
+    const int seconds = std::max(1, (static_cast<int>(frames.size()) * 100 + 999) / 1000);
+    device_->sendWave(channel_index, frames, seconds);
     last_error_.clear();
     LOG_MODULE("WaveBridge", "sendDraft", LOG_INFO, "已发送草稿波形");
     emit draftChanged();
@@ -297,7 +375,8 @@ void WaveBridge::loadIntoEditor(const QString& name) {
     }
     draft_name_ = name;
     draft_sections_ = wave->sections;
-    draft_frames_ = wave->frames;
+    draft_frames_v2_ = wave->frames_v2;
+    draft_frames_v3_ = wave->frames_v3;
     selected_section_ = draft_sections_.empty() ? -1 : 0;
     // 载入的正是库中内容：草稿与已保存内容一致
     has_saved_ = true;
@@ -321,7 +400,9 @@ QString WaveBridge::draft_fingerprint() const {
                            .arg(section.strength_end);
     }
     fingerprint += QLatin1Char('#');
-    fingerprint += draft_frames_.join(QLatin1Char(','));
+    fingerprint += draft_frames_v2_.join(QLatin1Char(','));
+    fingerprint += QLatin1Char('#');
+    fingerprint += draft_frames_v3_.join(QLatin1Char(','));
     return fingerprint;
 }
 
@@ -329,7 +410,9 @@ void WaveBridge::regenerate_frames() {
     if (draft_sections_.empty()) {
         return;
     }
-    draft_frames_ = Wave::generate_frames(draft_sections_);
+    // 段落只生成 V3 帧，V2 帧置空由发送前按协议校验
+    draft_frames_v2_.clear();
+    draft_frames_v3_ = Wave::generate_frames(draft_sections_);
 }
 
 QString WaveBridge::section_summary(const WaveSection& section) const {
@@ -385,9 +468,9 @@ int WaveBridge::section_strength_end() const {
 }
 
 QVariantList WaveBridge::draft_points() const {
-    return points_from_frames(draft_frames_);
+    return points_from_frames(draft_frames_v3_);
 }
 
 QString WaveBridge::draft_frames_text() const {
-    return draft_frames_.join(QStringLiteral("\n"));
+    return draft_frames_v3_.join(QStringLiteral("\n"));
 }

@@ -845,6 +845,39 @@ target_include_directories(event_merge_test
 )
 add_test(NAME event_merge_test COMMAND event_merge_test)
 
+# 波形库数据层（官方内置波形资源、V2/V3 双版本帧、存储 round-trip、旧格式兼容与非法帧拒绝）
+# 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；
+# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+add_executable(wave_library_test
+	tests/wave_library_test.cpp
+	${WAVE}
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${CORE_CONFIG}
+	${CORE_LOG}
+	DGLABClient.qrc
+)
+target_link_libraries(wave_library_test
+	PRIVATE
+		Qt::Core
+		Qt::Network
+		Qt::Qml
+		nlohmann_json
+)
+target_include_directories(wave_library_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+)
+add_test(NAME wave_library_test COMMAND wave_library_test)
+
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；
 # 因此 Windows 把可执行文件连同它运行所需的数据（config / python / assets 等）

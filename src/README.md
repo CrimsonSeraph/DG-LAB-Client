@@ -83,8 +83,8 @@ ui     ->  core, module, rule, wave, net, ble
 
 | 文件 | 描述 |
 | --- | --- |
-| `Wave.cpp` | V3 波形模型：段落（起止频率/强度）生成八字节帧、JSON 互转 |
-| `WaveLibrary.cpp` | 波形库（`config/waves/waves.json`）：列表/保存/删除、A/B 通道当前波形、内置波形 |
+| `Wave.cpp` | 波形模型：`name` / `source` / `raw` / `sections` 与 V2、V3 两套帧；段落（起止频率/强度）生成 V3 帧、HEX 规范化与校验、JSON 互转。字段与规范见 [docs/wave-data.md](../docs/wave-data.md) |
+| `WaveLibrary.cpp` | 波形库（`config/waves/waves.json`）：列表/保存/删除、A/B 通道当前波形；启动加载只读资源 `assets/waves/official_waves.json` 的 16 个官方波形（不可删除 / 改名 / 覆盖），发送帧按 `app.wave.protocol`（v2 / v3，缺省 v3）选择 |
 
 ## 五、ble/ —— 蓝牙直连
 
@@ -110,7 +110,7 @@ C++ 侧提供桥接对象与连接集中点，QML 只做绑定与渲染；界面
 | `DeviceController.cpp` | 启停内置中转服务、二维码载荷 `pairingUrl`（官方格式）与展示文本 `pairingUrlText`、强度/波形/清除下发与回传转发；事件输出（`set_event_output()`）与规则命令按通道合并——取较大值、按通道上限钳制、相同值不重复下发 |
 | `HomeBridge.cpp` | 首页 A/B 通道强度、上限、启用状态、模块与规则摘要 |
 | `ModuleBridge.cpp` | 模块页卡片、统一查询周期、选中模块数值 |
-| `WaveBridge.cpp` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
+| `WaveBridge.cpp` | 波形库、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`，发送按协议取 V2 / V3 帧，目标版本缺帧时写 `lastError` 并拒发（不回落另一版本） |
 | `RuleGraphBridge.cpp` | 规则图节点/连线数据、模块数值面板、节点编辑与保存写回 |
 | `LogBridge.cpp` | 界面日志收集、级别过滤与导出 |
 | `QrImageProvider.cpp` | 由内嵌 `qrcodegen` 生成配对二维码（`image://dglabqr`）；载荷为官方终端二维码协议格式（约 117 字符，版本按内容自动提升到 7） |

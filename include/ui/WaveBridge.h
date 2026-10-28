@@ -43,6 +43,8 @@ class WaveBridge : public QObject {
     Q_PROPERTY(int draftDurationMs READ draft_duration_ms NOTIFY draftChanged)
     Q_PROPERTY(QString lastError READ last_error NOTIFY draftChanged)
     Q_PROPERTY(bool draftDirty READ draft_dirty NOTIFY draftChanged)
+    Q_PROPERTY(QString protocol READ protocol NOTIFY dataChanged)
+    Q_PROPERTY(bool draftSendable READ draft_sendable NOTIFY draftChanged)
 
 public:
     explicit WaveBridge(DeviceController* device, QObject* parent = nullptr);
@@ -69,18 +71,24 @@ public:
     QString draft_name() const { return draft_name_; }
     QVariantList draft_points() const;
     QString draft_frames_text() const;
-    int draft_frame_count() const { return static_cast<int>(draft_frames_.size()); }
-    int draft_duration_ms() const { return static_cast<int>(draft_frames_.size()) * 100; }
+    int draft_frame_count() const { return static_cast<int>(draft_frames_v3_.size()); }
+    int draft_duration_ms() const { return static_cast<int>(draft_frames_v3_.size()) * 100; }
     /// @brief 最近一次保存/发送失败的原因（成功后清空）
     QString last_error() const { return last_error_; }
     /// @brief 草稿与已保存内容是否不一致（从未保存过的草稿视为不一致）
     bool draft_dirty() const;
+    /// @brief 当前发送协议（"v2" / "v3"，读配置 app.wave.protocol）
+    QString protocol() const;
+    /// @brief 当前协议下草稿是否具备可发送的帧
+    bool draft_sendable() const;
 
+    /// @brief 写入发送协议（只接受 v2 / v3）
+    Q_INVOKABLE void setProtocol(const QString& protocol);
     /// @brief 设置选择/指派目标通道（"A"/"B"）
     Q_INVOKABLE void setTargetChannel(const QString& channel);
     /// @brief 将库中波形指派给目标通道
     Q_INVOKABLE void assignWave(const QString& name);
-    /// @brief 删除库中波形
+    /// @brief 删除库中波形（内置官方波形不可删除）
     Q_INVOKABLE void deleteWave(const QString& name);
     /// @brief 发送库中波形到指定通道
     Q_INVOKABLE void sendWave(const QString& name, const QString& channel);
@@ -98,7 +106,7 @@ public:
     Q_INVOKABLE bool saveDraft(const QString& name);
     /// @brief 发送当前草稿到指定通道
     Q_INVOKABLE void sendDraft(const QString& channel);
-    /// @brief 从库中波形载入编辑器（复用其段落）
+    /// @brief 从库中波形载入编辑器（复用其段落与 V2/V3 帧）
     Q_INVOKABLE void loadIntoEditor(const QString& name);
 
 signals:
@@ -110,6 +118,10 @@ signals:
 private:
     QVariantList points_from_frames(const QStringList& frames) const;
     QVariantList amplitudes_from_frames(const QStringList& frames) const;
+    /// @brief 按当前协议取库中波形的待发送帧；缺帧时写入错误原因并返回空
+    QStringList library_frames_for_send(const Wave& wave, QString& error) const;
+    /// @brief 按当前协议取草稿的待发送帧；缺帧时写入错误原因并返回空
+    QStringList draft_frames_for_send(QString& error) const;
     void regenerate_frames();
     /// @brief 草稿内容指纹：用于比较草稿是否偏离已保存内容
     QString draft_fingerprint() const;
@@ -119,7 +131,8 @@ private:
     DeviceController* device_ = nullptr;
     QString target_channel_ = QStringLiteral("A");
     std::vector<WaveSection> draft_sections_;
-    QStringList draft_frames_;
+    QStringList draft_frames_v2_; ///< 草稿 V2 帧（来自库中波形，段落生成不产出）
+    QStringList draft_frames_v3_; ///< 草稿 V3 帧
     int selected_section_ = -1;
     QString draft_name_ = QStringLiteral("新波形");
     QString last_error_;

@@ -12,4 +12,8 @@
         <file>assets/font/fa-solid-900.otf</file>
         <file>assets/font/fa-regular-400.otf</file>
     </qresource>
+    <!-- 官方内置波形：WaveLibrary 从 qrc:/waves/assets/waves/official_waves.json 只读加载 -->
+    <qresource prefix="/waves">
+        <file>assets/waves/official_waves.json</file>
+    </qresource>
 </RCC>

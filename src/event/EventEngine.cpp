@@ -96,7 +96,7 @@ void EventEngine::configure(const std::string& module_name, const std::vector<Ev
     module.output_merge = output_config.merge;
     const Wave* output_wave = WaveLibrary::instance().get(output_config.wave);
     if (output_wave != nullptr) {
-        module.output_frames = output_wave->frames;
+        module.output_frames = output_wave->frames_v3;
     }
     for (const EventDefinition& definition : definitions) {
         if (definition.id.empty() || definition.trigger.value_id.empty()) {
@@ -119,7 +119,7 @@ void EventEngine::configure(const std::string& module_name, const std::vector<Ev
         }
         const Wave* event_wave = WaveLibrary::instance().get(config.wave);
         if (event_wave != nullptr) {
-            event.frames = event_wave->frames;
+            event.frames = event_wave->frames_v3;
         }
         if (definition.options.empty()) {
             RuntimeOption option;

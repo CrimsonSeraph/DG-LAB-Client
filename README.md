@@ -68,6 +68,8 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 - **日志导出（自动 + 手动）** `LogExporter` 提供两类日志记录：**自动日志**在程序启动、配置系统加载完毕后自动开始记录运行日志（默认写入程序目录 `log/`，受导出级别/数量/大小限制，超限分片、退出或导出后自动清理多余日志）；**手动日志**在点击“导出日志”时写入手动目录（默认 `log/handle/`），仅应用级别过滤，不受数量与大小限制。自动与手动各有独立的级别过滤设置（导出级别、仅指定级别、范围、位置）：手动日志的导出级别 / 范围 / 目录在左侧「日志」页直接配置，持久化到 `user.json` 的 `app.log.manual` 下；自动日志的 `app.log.auto` 仍由配置文件维护，界面不暴露。
 
+- **波形库** 波形模型同时持有 V2 与 V3 两套帧（另有设计层原始串 `raw` 与可再编辑的段落 `sections`）：官方开源示例的 16 个波形（呼吸、潮汐、连击、快速按捏、按捏渐强、心跳节奏、压缩、节奏步伐、颗粒摩擦、渐变弹跳、波浪涟漪、雨水冲刷、变速敲击、信号灯、挑逗1、挑逗2）作为只读资源 `assets/waves/official_waves.json` 随包发布，启动时加载、不可删除或改名；用户波形存在 `config/waves/waves.json`。发送协议由 `app.wave.protocol`（`v2` / `v3`，缺省 `v3`）决定，目标版本缺帧时拒发并提示，不回落另一版本。数据结构与存储格式见 [docs/wave-data.md](docs/wave-data.md)。
+
 - **设备通信** 应用通过内置中转服务（`DglabRelayServer`）与 DG-LAB APP 扫码配对后直接下发强度/波形/清除指令；郊狼 V3 设备可经蓝牙直连，蓝牙已连接时规则输出与波形发送优先走蓝牙。原先的 Python `Bridge.py` / `WebSocketCore.py` 通信层已移除。
 
 - **自动更新** `UpdateManager` 从 GitHub Releases 的 `manifest.json` 检查新版本，按平台（Windows NSIS / macOS DMG / Linux AppImage）下载更新包并校验 SHA256；`UpdateBridge` 将检查 / 下载 / 安装状态与进度暴露给 QML，安装经 `confirmDialog` 二次确认后由平台脚本替换文件并自动重启。新进程带 `--updated` 参数启动并写入健康标记：macOS / Linux 脚本据此决定保留新版或回滚旧版；Windows 因 NSIS 直接覆盖安装目录不做回滚，失败时仅写失败标记。
@@ -123,7 +125,7 @@ cmake --build . --config Release
 
 编译完成后，可执行文件位于 `build/Release`（Windows）或 `build`（Linux/macOS）目录下。运行时需要确保以下目录与可执行文件同级:
 
-- `config/`: 包含 `main.json`、`system.json`、`user.json`、规则子目录（`config/rules/`）与波形库目录（`config/waves/`）
+- `config/`: 包含 `main.json`、`system.json`、`user.json`、规则子目录（`config/rules/`）与波形库目录（`config/waves/`，官方内置波形的只读资源在 `assets/waves/`）
 - `python/`: 可选，仅 `PathFinder.py`（GSI 插件查找游戏目录用）
 - `assets/`: 包含资源文件（如图片）
 - Qt 运行时（DLL / 平台插件 / QML 模块）由构建后自动 `windeployqt` 部署到可执行文件目录

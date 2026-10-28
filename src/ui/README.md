@@ -86,7 +86,7 @@ src/ui/
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
-| `waveBridge` | `WaveBridge` | 波形库、A/B 当前波形与预览点、波形编辑器草稿 |
+| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送（波形数据结构见 [docs/wave-data.md](../../docs/wave-data.md)） |
 | `ble` | `CoyoteBleController` | 郊狼 V3 蓝牙扫描/连接、电量、强度、波形播放；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务） |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
@@ -290,7 +290,7 @@ src/ui/
 | `ipSelectConfirmButton` / `ipSelectCancelButton` / `ipSelectAutoButton` | 确定（写回地址栏 + `app.websocket.ip` 并刷新二维码载荷，落 `app.network.selected_ip`）/ 取消（只关闭）/ 恢复自动选择（清掉手动选中、按名单重选一次并立即生效，对话框收起）；`确定` 在未选中时置灰 |
 | `waveSelectDialog` / `waveLibraryList` | 波形库对话框与列表；`waveSelectCloseButton` 关闭 |
 | `waveSelectClick` | 行热区（`waveName` 属性）：指派该波形到目标通道并关闭对话框；委托热区由 `watch_items` 扫描 |
-| `waveDeleteClick` | 行内删除（`waveName` 属性，`AppButton.danger`）：先经 `confirmDialog` 确认不可恢复，确认后按名字删除 |
+| `waveDeleteClick` | 行内删除（`waveName` 属性，`AppButton.danger`）：先经 `confirmDialog` 确认不可恢复，确认后按名字删除；内置官方波形删除被 C++ 拒绝并弹 Toast（`「X」是内置官方波形，不可删除`） |
 | `waveCurrentABadge` / `waveCurrentBBadge` | 行内「当前 A / 当前 B」徽标（`StatusBadge` level 0），按 `waveBridge.currentA/currentB` 显示 |
 | `waveLibraryEmptyText` | 波形库空态文案，`waveBridge.waves` 为空时可见 |
 | `waveSelectCreateButton` | 关闭波形库并新建波形（打开编辑器） |
@@ -298,10 +298,10 @@ src/ui/
 | `waveEditorCloseButton` | 关闭编辑器：草稿未保存时先弹确认，取消则对话框保持打开 |
 | `waveEditorStatusLine` | 编辑器状态行：`waveBridge.lastError` 非空显示红字失败原因；否则 `draftDirty` 显示「草稿未保存」，已保存显示「已保存」 |
 | `waveNameField` / `waveSaveButton` | 波形名称输入与保存；成败由 `lastError` + 状态行承担，保存成功不弹 Toast |
-| `waveSendAButton` / `waveSendBButton` | 发送草稿到 A/B：`WaveBridge::draftSent` 按下发链路是否可用弹「已发送（通道与秒数）」或「未连接设备，波形未下发」 |
+| `waveSendAButton` / `waveSendBButton` | 发送草稿到 A/B：`WaveBridge::draftSent` 按下发链路是否可用弹「已发送（通道与秒数）」或「未连接设备，波形未下发」；当前协议（`app.wave.protocol`）下草稿缺帧时不发送，经 `lastError` 弹 danger Toast |
 | `waveAddSectionButton` / `waveRemoveSectionButton` / `waveApplySectionButton` / `waveApplyRawButton` | 段落增删、应用段落参数、应用原始帧 |
 | `waveSectionList` / `waveSectionClick` | 段落列表与行热区（`sectionIndex` 属性） |
-| `waveRawFramesArea` | 原始 V3 帧文本域（每行一个 8 字节 HEX） |
+| `waveRawFramesArea` | 原始 V3 帧文本域（每行一个 8 字节 HEX；空白、逗号、分号、`:`、`-`、`_` 分隔与 `0x` 前缀会被去掉，非法帧丢弃） |
 | `waveSection{Duration,FreqStart,FreqEnd,StrengthStart,StrengthEnd}Spin` | 段落参数输入（`Binding` 回写选中段落） |
 | `updateDialog` | 软件更新对话框（`dialogs/UpdateDialog.qml`）：`modal`，可经 Esc / 点击遮罩 / 「关闭」收起；关闭只隐藏窗口，下载状态保存在 `UpdateBridge`，重开后继续显示进度 |
 | `updateDialogVersionText` / `updateDialogUpdateBadge` | 当前版本行，以及「新版本 v<remote_version>」徽标（`hasUpdate` 时可见）：只读 |
