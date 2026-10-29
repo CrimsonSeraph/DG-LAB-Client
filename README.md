@@ -28,7 +28,7 @@
 2. 配置：`cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/path/to/qt`
 3. 编译：`cmake --build build --config Release`
 4. 运行：可执行文件在 `build/Release`；同级的 `config/`、`assets/`、`python/` 由构建自动复制。
-5. 验证：`cd build && ctest -C Release --output-on-failure`；打包用 `cpack`。
+5. 验证：默认构建不含单元测试；需要跑测试时重新配置加 `-DDGLAB_BUILD_TESTS=ON` 再执行 `ctest`（测试产物在 `build/tests`）。打包用 `cpack`。
 
 > 完整依赖、自动化构建、测试目标与验收清单见 [docs/build.md](docs/build.md)。
 

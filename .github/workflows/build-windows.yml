@@ -118,7 +118,7 @@ jobs:
           exit 1
           }
 
-      - name: 配置 CMake（Release，关闭测试与自检）
+      - name: 配置 CMake（Release，含单元测试）
         shell: pwsh
         env:
           VS_GENERATOR: ${{ steps.vs.outputs.generator }}
@@ -128,8 +128,7 @@ jobs:
             -DCMAKE_PREFIX_PATH="$env:QTDIR" `
             -DPython_ROOT_DIR="$env:pythonLocation" `
             -DPYTHON_PACKAGES_DIR="${{ github.workspace }}/_packages" `
-            -DBUILD_TESTS=OFF `
-            -DBUILD_SELFTEST=OFF
+            -DDGLAB_BUILD_TESTS=ON
           if ($LASTEXITCODE -ne 0) { throw "CMake 配置失败" }
 
       - name: 编译
@@ -137,6 +136,15 @@ jobs:
         run: |
           cmake --build build --config Release --parallel
           if ($LASTEXITCODE -ne 0) { throw "编译失败" }
+
+      - name: 运行单元测试
+        shell: pwsh
+        run: |
+          # 测试程序落在 build/tests/Release，不在 windeployqt 部署过的输出目录里；
+          # Qt 的 bin 由 CMake 写进测试的 PATH，这里再兜一次底。
+          $env:PATH = (Join-Path $env:QT_ROOT_DIR 'bin') + ';' + $env:PATH
+          ctest -C Release --output-on-failure --test-dir build
+          if ($LASTEXITCODE -ne 0) { throw "单元测试未通过" }
 
       - name: 安装到 install_root
         shell: pwsh

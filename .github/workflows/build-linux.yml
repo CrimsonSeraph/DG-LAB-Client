@@ -140,7 +140,7 @@ jobs:
             ccache-linux-x64-
             ccache-linux-
 
-      - name: 配置 CMake（Release，关闭测试与自检）
+      - name: 配置 CMake（Release，含单元测试）
         shell: bash
         run: |
           set -euo pipefail
@@ -151,8 +151,7 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DPython_ROOT_DIR="${{ env.pythonLocation }}" \
             -DPYTHON_PACKAGES_DIR="${{ github.workspace }}/_packages" \
-            -DBUILD_TESTS=OFF \
-            -DBUILD_SELFTEST=OFF
+            -DDGLAB_BUILD_TESTS=ON
 
       - name: 编译
         shell: bash
@@ -160,6 +159,12 @@ jobs:
           set -euo pipefail
           cmake --build build --parallel "$(nproc)"
           ccache --show-stats || true
+
+      - name: 运行单元测试
+        shell: bash
+        run: |
+          set -euo pipefail
+          ctest -C Release --output-on-failure --test-dir build
 
       - name: 安装到 install_root
         shell: bash
@@ -435,6 +440,6 @@ jobs:
             echo ""
             echo "- Qt 版本：${QT_VERSION}（linux_gcc_64，含 qtwebsockets）"
             echo "- Python：${PYTHON_VERSION}（websockets 打入 PYTHON_PACKAGES_DIR）"
-            echo "- 构建类型：Release（BUILD_TESTS=OFF / BUILD_SELFTEST=OFF）"
+            echo "- 构建类型：Release（含单元测试：构建后执行 ctest -C Release）"
             echo "- 签名：${{ steps.gpg.outputs.ready == 'true' && '已执行（GPG 分离签名）' || '已跳过' }}"
           } >> "$GITHUB_STEP_SUMMARY"

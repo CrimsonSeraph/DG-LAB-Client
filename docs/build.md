@@ -76,15 +76,28 @@ cpack
 
 你可以在 GitHub 仓库的 **Actions** 页面下载最新构建产物，或从 **Releases** 页面获取正式发布的版本。
 
-## 测试
+## 单元测试（可选构建）
 
-单元测试是裸断言测试，只链接 `Qt::Core`，通过 CTest 运行:
+单元测试是裸断言测试，由 CMake 开关 `DGLAB_BUILD_TESTS` 控制，**默认 OFF**：普通构建与发布构建都不编译测试目标。测试程序落在构建目录的 `tests/` 下（多配置生成器再追加一层配置子目录，如 `build/tests/Release`），既不与应用、`module/` 插件混在同一个输出目录，也不在 `install()` 清单里，因此不会进安装包。
+
+### 默认构建（不含测试）
 
 ```bash
-cd build && ctest -C Release --output-on-failure
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/path/to/qt
+cmake --build build --config Release
 ```
 
-当前 14 个目标全绿：`event_engine` / `rule_graph_eval` / `event_engine_module` / `event_merge` / `wave_library` / `wave_import_export` / `wave_zip` / `wave_tag` / `event_wave` / `opossum_frames` / `paw_device` / `civet_device` / `model_recognition` / `config_reload`。
+输出目录里只有 `DG-LAB-Client`、插件与 Qt 运行时；此时 `ctest` 无测试可跑，报 `No tests were found`。
+
+### 启用测试的构建与运行
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/path/to/qt -DDGLAB_BUILD_TESTS=ON
+cmake --build build --config Release
+ctest -C Release --output-on-failure --test-dir build
+```
+
+当前 14 个目标：`event_engine` / `rule_graph_eval` / `event_engine_module` / `event_merge` / `event_wave` / `opossum_frames` / `paw_device` / `civet_device` / `model_recognition` / `wave_library` / `wave_import_export` / `wave_zip` / `wave_tag` / `config_reload`。测试程序不与 windeployqt 部署过的输出目录同处一地，Windows 上加载 Qt DLL 所需的环境变量由 CMake 从 `Qt6::Core` 的导入位置推导后写进 `ctest` 环境，不需要手工配 PATH；三个平台的 CI 工作流都带 `-DDGLAB_BUILD_TESTS=ON` 构建并执行 `ctest`，测试失败即工作流失败。
 
 ## 开发环境事实
 
@@ -125,7 +138,7 @@ cd build-agent/Release && (QT_FORCE_STDERR_LOGGING=1 QT_ASSUME_STDERR_HAS_CONSOL
 
 每次交付按此核对:
 
-1. 构建 `cmake --build build-agent --config Release` 0 error；`ctest -C Release` 全绿。
+1. 构建 `cmake --build build-agent --config Release` 0 error；带 `-DDGLAB_BUILD_TESTS=ON` 配置时 `ctest -C Release --test-dir build-agent` 14/14 全绿。
 2. 启动 `QT_FORCE_STDERR_LOGGING=1 QT_ASSUME_STDERR_HAS_CONSOLE=1`，`err.txt` 与 `out.txt` 均 0 字节。
 3. DPI 感知截图与需求 / 参考截图对照；界面无颜色字面量（只用 `Theme` 令牌）。
 4. 文档同步项已更新（接口、字段、objectName、节点表）。

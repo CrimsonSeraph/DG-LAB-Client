@@ -62,6 +62,11 @@ enable_language(C)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
+# -------------------- 构建开关 --------------------
+# 单元测试默认不构建（OFF）：普通构建与发布构建都不编 14 个测试目标，测试产物也不进
+# 应用输出目录；需要跑测试时显式传 -DDGLAB_BUILD_TESTS=ON（见 docs/build.md）。
+option(DGLAB_BUILD_TESTS "构建单元测试" OFF)
+
 # -------------------- 第三方库自动获取（FetchContent）--------------------
 include(FetchContent)
 
@@ -784,441 +789,493 @@ dgl_add_plugin(dgl_gsi_plugin
 
 # -------------------- 单元测试 --------------------
 # 纯函数测试只链接 Qt::Core，不含 ModuleManager / AppConfig / WaveLibrary
-enable_testing()
-add_executable(event_engine_test
-	tests/event_engine_test.cpp
-	src/event/EventMath.cpp
-	src/event/EventConflict.cpp
-)
-target_link_libraries(event_engine_test
-	PRIVATE Qt::Core
-)
-target_include_directories(event_engine_test
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-)
-add_test(NAME event_engine_test COMMAND event_engine_test)
+# 由 option(DGLAB_BUILD_TESTS) 控制，默认 OFF：普通构建与发布构建都不编译测试目标
+if(DGLAB_BUILD_TESTS)
+	enable_testing()
+	add_executable(event_engine_test
+		tests/event_engine_test.cpp
+		src/event/EventMath.cpp
+		src/event/EventConflict.cpp
+	)
+	target_link_libraries(event_engine_test
+		PRIVATE Qt::Core
+	)
+	target_include_directories(event_engine_test
+		PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+	)
+	add_test(NAME event_engine_test COMMAND event_engine_test)
 
-# 规则图求值链路与启用级联（多图求值 + 依赖集合级联）：需要规则、模块、事件与配置层
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(rule_graph_eval_test
-	tests/rule_graph_eval_test.cpp
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${WAVE}
-	${CORE_CONFIG}
-	${CORE_LOG}
-)
-target_link_libraries(rule_graph_eval_test
-	PRIVATE
-		Qt::Core
-		Qt::Network
-		Qt::Qml
-		nlohmann_json
-		miniz
-)
-target_include_directories(rule_graph_eval_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-)
-add_test(NAME rule_graph_eval_test COMMAND rule_graph_eval_test)
+	# 规则图求值链路与启用级联（多图求值 + 依赖集合级联）：需要规则、模块、事件与配置层
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(rule_graph_eval_test
+		tests/rule_graph_eval_test.cpp
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${WAVE}
+		${CORE_CONFIG}
+		${CORE_LOG}
+	)
+	target_link_libraries(rule_graph_eval_test
+		PRIVATE
+			Qt::Core
+			Qt::Network
+			Qt::Qml
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(rule_graph_eval_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+	)
+	add_test(NAME rule_graph_eval_test COMMAND rule_graph_eval_test)
 
-# 事件引擎模块移除（插件卸载清理）：需要规则、模块、事件、波形与配置层
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(event_engine_module_test
-	tests/event_engine_module_test.cpp
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${WAVE}
-	${CORE_CONFIG}
-	${CORE_LOG}
-)
-target_link_libraries(event_engine_module_test
-	PRIVATE
-		Qt::Core
-		Qt::Network
-		Qt::Qml
-		nlohmann_json
-		miniz
-)
-target_include_directories(event_engine_module_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-)
-add_test(NAME event_engine_module_test COMMAND event_engine_module_test)
+	# 事件引擎模块移除（插件卸载清理）：需要规则、模块、事件、波形与配置层
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(event_engine_module_test
+		tests/event_engine_module_test.cpp
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${WAVE}
+		${CORE_CONFIG}
+		${CORE_LOG}
+	)
+	target_link_libraries(event_engine_module_test
+		PRIVATE
+			Qt::Core
+			Qt::Network
+			Qt::Qml
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(event_engine_module_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+	)
+	add_test(NAME event_engine_module_test COMMAND event_engine_module_test)
 
-# 通道强度合并（事件输出与规则命令取较大值、按通道上限钳制、相同值不重复下发）：纯函数，只链接 Qt::Core
-add_executable(event_merge_test
-	tests/event_merge_test.cpp
-	src/event/EventMath.cpp
-)
-target_link_libraries(event_merge_test
-	PRIVATE Qt::Core
-)
-target_include_directories(event_merge_test
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-)
-add_test(NAME event_merge_test COMMAND event_merge_test)
+	# 通道强度合并（事件输出与规则命令取较大值、按通道上限钳制、相同值不重复下发）：纯函数，只链接 Qt::Core
+	add_executable(event_merge_test
+		tests/event_merge_test.cpp
+		src/event/EventMath.cpp
+	)
+	target_link_libraries(event_merge_test
+		PRIVATE Qt::Core
+	)
+	target_include_directories(event_merge_test
+		PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+	)
+	add_test(NAME event_merge_test COMMAND event_merge_test)
 
-# 事件波形下发状态机（首次启动、连续触发不重启、播完恢复、被新波形替换、缺帧拒绝、通道关闭中止）：
-# 纯函数，只链接 Qt::Core
-add_executable(event_wave_test
-	tests/event_wave_test.cpp
-	src/event/EventMath.cpp
-)
-target_link_libraries(event_wave_test
-	PRIVATE Qt::Core
-)
-target_include_directories(event_wave_test
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-)
-add_test(NAME event_wave_test COMMAND event_wave_test)
+	# 事件波形下发状态机（首次启动、连续触发不重启、播完恢复、被新波形替换、缺帧拒绝、通道关闭中止）：
+	# 纯函数，只链接 Qt::Core
+	add_executable(event_wave_test
+		tests/event_wave_test.cpp
+		src/event/EventMath.cpp
+	)
+	target_link_libraries(event_wave_test
+		PRIVATE Qt::Core
+	)
+	target_include_directories(event_wave_test
+		PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+	)
+	add_test(NAME event_wave_test COMMAND event_wave_test)
 
-# 负鼠振动控制器指令构造（B0 布局与越界整通道弃用、郊狼 V3 帧转强度字节、B3 的 0xFF 语义、
-# B2 的 24 / 20 两种形态）：纯函数，只链接 Qt::Core
-add_executable(opossum_frames_test
-	tests/opossum_frames_test.cpp
-)
-target_link_libraries(opossum_frames_test
-	PRIVATE Qt::Core
-)
-target_include_directories(opossum_frames_test
-	PRIVATE
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
-)
-add_test(NAME opossum_frames_test COMMAND opossum_frames_test)
+	# 负鼠振动控制器指令构造（B0 布局与越界整通道弃用、郊狼 V3 帧转强度字节、B3 的 0xFF 语义、
+	# B2 的 24 / 20 两种形态）：纯函数，只链接 Qt::Core
+	add_executable(opossum_frames_test
+		tests/opossum_frames_test.cpp
+	)
+	target_link_libraries(opossum_frames_test
+		PRIVATE Qt::Core
+	)
+	target_include_directories(opossum_frames_test
+		PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+	)
+	add_test(NAME opossum_frames_test COMMAND opossum_frames_test)
 
-# 爪印无线按钮传感器 V1.1 输入侧（50 指令构造、51/5A/5B/5C/D0/F1 解析与 F1 的 /2 展示、数值钳制、
-# 内置事件声明进入 EventRuntime）：解析为纯函数，事件声明用例需要模块、事件、波形与配置层
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(paw_device_test
-	tests/paw_device_test.cpp
-	src/ble/CivetBleController.cpp
-	src/ble/CoyoteBleController.cpp
-	src/ble/OpossumBleController.cpp
-	src/ble/PawPrintsBleController.cpp
-	include/ble/CivetBleController.h
-	include/ble/CoyoteBleController.h
-	include/ble/IOutputDevice.h
-	include/ble/OpossumBleController.h
-	include/ble/PawPrintsBleController.h
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${WAVE}
-	${CORE_CONFIG}
-	${CORE_LOG}
-)
-target_link_libraries(paw_device_test
-	PRIVATE
-		Qt::Core
-		Qt::Gui
-		Qt::Network
-		Qt::Qml
-		Qt::Bluetooth
-		nlohmann_json
-		miniz
-)
-target_include_directories(paw_device_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
-		${CMAKE_CURRENT_SOURCE_DIR}/include/device
-)
-add_test(NAME paw_device_test COMMAND paw_device_test)
+	# 爪印无线按钮传感器 V1.1 输入侧（50 指令构造、51/5A/5B/5C/D0/F1 解析与 F1 的 /2 展示、数值钳制、
+	# 内置事件声明进入 EventRuntime）：解析为纯函数，事件声明用例需要模块、事件、波形与配置层
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(paw_device_test
+		tests/paw_device_test.cpp
+		src/ble/CivetBleController.cpp
+		src/ble/CoyoteBleController.cpp
+		src/ble/OpossumBleController.cpp
+		src/ble/PawPrintsBleController.cpp
+		include/ble/CivetBleController.h
+		include/ble/CoyoteBleController.h
+		include/ble/IOutputDevice.h
+		include/ble/OpossumBleController.h
+		include/ble/PawPrintsBleController.h
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${WAVE}
+		${CORE_CONFIG}
+		${CORE_LOG}
+	)
+	target_link_libraries(paw_device_test
+		PRIVATE
+			Qt::Core
+			Qt::Gui
+			Qt::Network
+			Qt::Qml
+			Qt::Bluetooth
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(paw_device_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+			${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+			${CMAKE_CURRENT_SOURCE_DIR}/include/device
+	)
+	add_test(NAME paw_device_test COMMAND paw_device_test)
 
-# 灵猫边缘控制传感器 V1 输入侧（50 指令构造、D0 气压宽容解析、66 指令 13 / 14 两形态、
-# 气压换算与阈值抑制、数值钳制、内置事件声明进入 EventRuntime）：解析为纯函数，
-# 事件声明用例需要模块、事件、波形与配置层
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(civet_device_test
-	tests/civet_device_test.cpp
-	src/ble/CivetBleController.cpp
-	src/ble/CoyoteBleController.cpp
-	src/ble/OpossumBleController.cpp
-	src/ble/PawPrintsBleController.cpp
-	include/ble/CivetBleController.h
-	include/ble/CivetFrames.h
-	include/ble/CoyoteBleController.h
-	include/ble/IOutputDevice.h
-	include/ble/OpossumBleController.h
-	include/ble/PawPrintsBleController.h
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${WAVE}
-	${CORE_CONFIG}
-	${CORE_LOG}
-)
-target_link_libraries(civet_device_test
-	PRIVATE
-		Qt::Core
-		Qt::Gui
-		Qt::Network
-		Qt::Qml
-		Qt::Bluetooth
-		nlohmann_json
-		miniz
-)
-target_include_directories(civet_device_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
-		${CMAKE_CURRENT_SOURCE_DIR}/include/device
-)
-add_test(NAME civet_device_test COMMAND civet_device_test)
+	# 灵猫边缘控制传感器 V1 输入侧（50 指令构造、D0 气压宽容解析、66 指令 13 / 14 两形态、
+	# 气压换算与阈值抑制、数值钳制、内置事件声明进入 EventRuntime）：解析为纯函数，
+	# 事件声明用例需要模块、事件、波形与配置层
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(civet_device_test
+		tests/civet_device_test.cpp
+		src/ble/CivetBleController.cpp
+		src/ble/CoyoteBleController.cpp
+		src/ble/OpossumBleController.cpp
+		src/ble/PawPrintsBleController.cpp
+		include/ble/CivetBleController.h
+		include/ble/CivetFrames.h
+		include/ble/CoyoteBleController.h
+		include/ble/IOutputDevice.h
+		include/ble/OpossumBleController.h
+		include/ble/PawPrintsBleController.h
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${WAVE}
+		${CORE_CONFIG}
+		${CORE_LOG}
+	)
+	target_link_libraries(civet_device_test
+		PRIVATE
+			Qt::Core
+			Qt::Gui
+			Qt::Network
+			Qt::Qml
+			Qt::Bluetooth
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(civet_device_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+			${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+			${CMAKE_CURRENT_SOURCE_DIR}/include/device
+	)
+	add_test(NAME civet_device_test COMMAND civet_device_test)
 
-# 型号识别（名称命中型号表、名称未命中时按 MAC 记忆补齐型号、首帧反推含 0xD0 歧义）
-# 只调纯函数，不连接设备；不进 PROJECT_SOURCES / 安装规则，不触碰仓库 config/
-add_executable(model_recognition_test
-	tests/model_recognition_test.cpp
-	src/ble/CivetBleController.cpp
-	src/ble/CoyoteBleController.cpp
-	src/ble/OpossumBleController.cpp
-	src/ble/PawPrintsBleController.cpp
-	include/ble/CivetBleController.h
-	include/ble/CoyoteBleController.h
-	include/ble/IOutputDevice.h
-	include/ble/OpossumBleController.h
-	include/ble/PawPrintsBleController.h
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${WAVE}
-	${CORE_CONFIG}
-	${CORE_LOG}
-)
-target_link_libraries(model_recognition_test
-	PRIVATE
-		Qt::Core
-		Qt::Gui
-		Qt::Network
-		Qt::Qml
-		Qt::Bluetooth
-		nlohmann_json
-		miniz
-)
-target_include_directories(model_recognition_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
-		${CMAKE_CURRENT_SOURCE_DIR}/include/device
-)
-add_test(NAME model_recognition_test COMMAND model_recognition_test)
+	# 型号识别（名称命中型号表、名称未命中时按 MAC 记忆补齐型号、首帧反推含 0xD0 歧义）
+	# 只调纯函数，不连接设备；不进 PROJECT_SOURCES / 安装规则，不触碰仓库 config/
+	add_executable(model_recognition_test
+		tests/model_recognition_test.cpp
+		src/ble/CivetBleController.cpp
+		src/ble/CoyoteBleController.cpp
+		src/ble/OpossumBleController.cpp
+		src/ble/PawPrintsBleController.cpp
+		include/ble/CivetBleController.h
+		include/ble/CoyoteBleController.h
+		include/ble/IOutputDevice.h
+		include/ble/OpossumBleController.h
+		include/ble/PawPrintsBleController.h
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${WAVE}
+		${CORE_CONFIG}
+		${CORE_LOG}
+	)
+	target_link_libraries(model_recognition_test
+		PRIVATE
+			Qt::Core
+			Qt::Gui
+			Qt::Network
+			Qt::Qml
+			Qt::Bluetooth
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(model_recognition_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+			${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+			${CMAKE_CURRENT_SOURCE_DIR}/include/device
+	)
+	add_test(NAME model_recognition_test COMMAND model_recognition_test)
 
-# 波形库数据层（官方内置波形资源、V2/V3 双版本帧、存储 round-trip、旧格式兼容与非法帧拒绝）
-# 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(wave_library_test
-	tests/wave_library_test.cpp
-	${WAVE}
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${CORE_CONFIG}
-	${CORE_LOG}
-	DGLABClient.qrc
-)
-target_link_libraries(wave_library_test
-	PRIVATE
-		Qt::Core
-		Qt::Network
-		Qt::Qml
-		nlohmann_json
-		miniz
-)
-target_include_directories(wave_library_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-)
-add_test(NAME wave_library_test COMMAND wave_library_test)
+	# 波形库数据层（官方内置波形资源、V2/V3 双版本帧、存储 round-trip、旧格式兼容与非法帧拒绝）
+	# 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(wave_library_test
+		tests/wave_library_test.cpp
+		${WAVE}
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${CORE_CONFIG}
+		${CORE_LOG}
+		DGLABClient.qrc
+	)
+	target_link_libraries(wave_library_test
+		PRIVATE
+			Qt::Core
+			Qt::Network
+			Qt::Qml
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(wave_library_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+	)
+	add_test(NAME wave_library_test COMMAND wave_library_test)
 
-# 波形导入导出（JSON 单对象 / 数组、.pulse 单文件、名称冲突三选、逐条容错与缺帧标记）
-# 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(wave_import_export_test
-	tests/wave_import_export_test.cpp
-	${WAVE}
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${CORE_CONFIG}
-	${CORE_LOG}
-	DGLABClient.qrc
-)
-target_link_libraries(wave_import_export_test
-	PRIVATE
-		Qt::Core
-		Qt::Network
-		Qt::Qml
-		nlohmann_json
-		miniz
-)
-target_include_directories(wave_import_export_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-)
-add_test(NAME wave_import_export_test COMMAND wave_import_export_test)
+	# 波形导入导出（JSON 单对象 / 数组、.pulse 单文件、名称冲突三选、逐条容错与缺帧标记）
+	# 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(wave_import_export_test
+		tests/wave_import_export_test.cpp
+		${WAVE}
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${CORE_CONFIG}
+		${CORE_LOG}
+		DGLABClient.qrc
+	)
+	target_link_libraries(wave_import_export_test
+		PRIVATE
+			Qt::Core
+			Qt::Network
+			Qt::Qml
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(wave_import_export_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+	)
+	add_test(NAME wave_import_export_test COMMAND wave_import_export_test)
 
-# 波形 zip 批量互操作（多波形导出 zip 后重新导入、非 .pulse 与损坏条目、路径穿越、
-# 解压大小上限、store 与 deflate 两种压缩方式）：需要配置层、波形库与 DGLABClient.qrc 内的官方波形资源；
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(wave_zip_test
-	tests/wave_zip_test.cpp
-	${WAVE}
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${CORE_CONFIG}
-	${CORE_LOG}
-	DGLABClient.qrc
-)
-target_link_libraries(wave_zip_test
-	PRIVATE
-		Qt::Core
-		Qt::Network
-		Qt::Qml
-		nlohmann_json
-		miniz
-)
-target_include_directories(wave_zip_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-)
-add_test(NAME wave_zip_test COMMAND wave_zip_test)
+	# 波形 zip 批量互操作（多波形导出 zip 后重新导入、非 .pulse 与损坏条目、路径穿越、
+	# 解压大小上限、store 与 deflate 两种压缩方式）：需要配置层、波形库与 DGLABClient.qrc 内的官方波形资源；
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(wave_zip_test
+		tests/wave_zip_test.cpp
+		${WAVE}
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${CORE_CONFIG}
+		${CORE_LOG}
+		DGLABClient.qrc
+	)
+	target_link_libraries(wave_zip_test
+		PRIVATE
+			Qt::Core
+			Qt::Network
+			Qt::Qml
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(wave_zip_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+	)
+	add_test(NAME wave_zip_test COMMAND wave_zip_test)
 
-# 波形标签库（标签规范化、波形上的标签 round-trip、旧库无 tags 字段兼容、导入自动登记、
-# 内置标签不可删、删除自定义标签从使用中的波形移除、JSON 导出含 tags 且可再导入）
-# 需要配置层（wave.path）与 DGLABClient.qrc 内的官方波形资源；
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(wave_tag_test
-	tests/wave_tag_test.cpp
-	${WAVE}
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${CORE_CONFIG}
-	${CORE_LOG}
-	DGLABClient.qrc
-)
-target_link_libraries(wave_tag_test
-	PRIVATE
-		Qt::Core
-		Qt::Network
-		Qt::Qml
-		nlohmann_json
-		miniz
-)
-target_include_directories(wave_tag_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-)
-add_test(NAME wave_tag_test COMMAND wave_tag_test)
+	# 波形标签库（标签规范化、波形上的标签 round-trip、旧库无 tags 字段兼容、导入自动登记、
+	# 内置标签不可删、删除自定义标签从使用中的波形移除、JSON 导出含 tags 且可再导入）
+	# 需要配置层（wave.path）与 DGLABClient.qrc 内的官方波形资源；
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(wave_tag_test
+		tests/wave_tag_test.cpp
+		${WAVE}
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${CORE_CONFIG}
+		${CORE_LOG}
+		DGLABClient.qrc
+	)
+	target_link_libraries(wave_tag_test
+		PRIVATE
+			Qt::Core
+			Qt::Network
+			Qt::Qml
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(wave_tag_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+	)
+	add_test(NAME wave_tag_test COMMAND wave_tag_test)
 
-# 配置热重读（外部改动经 reload 生效、load 保持幂等、保存不丢外部新增键、损坏 JSON 保留旧值、
-# 文件删除后重建、文件监听去抖与自身写盘抑制、AppConfig::reload_all 走同一条链路）
-# AppConfig::reload_all 依赖规则系统，故带上规则 / 模块 / 事件 / 波形层；
-# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
-add_executable(config_reload_test
-	tests/config_reload_test.cpp
-	${RULE}
-	${MODULE}
-	${EVENT}
-	${WAVE}
-	${CORE_CONFIG}
-	${CORE_LOG}
-)
-target_link_libraries(config_reload_test
-	PRIVATE
-		Qt::Core
-		Qt::Network
-		Qt::Qml
-		nlohmann_json
-		miniz
-)
-target_include_directories(config_reload_test
-	PRIVATE
-		${DGLAB_GENERATED_DIR}
-		${CMAKE_CURRENT_SOURCE_DIR}/include
-		${CMAKE_CURRENT_SOURCE_DIR}/include/core
-		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
-		${CMAKE_CURRENT_SOURCE_DIR}/include/module
-		${CMAKE_CURRENT_SOURCE_DIR}/include/event
-		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
-		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
-)
-add_test(NAME config_reload_test COMMAND config_reload_test)
+	# 配置热重读（外部改动经 reload 生效、load 保持幂等、保存不丢外部新增键、损坏 JSON 保留旧值、
+	# 文件删除后重建、文件监听去抖与自身写盘抑制、AppConfig::reload_all 走同一条链路）
+	# AppConfig::reload_all 依赖规则系统，故带上规则 / 模块 / 事件 / 波形层；
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(config_reload_test
+		tests/config_reload_test.cpp
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${WAVE}
+		${CORE_CONFIG}
+		${CORE_LOG}
+	)
+	target_link_libraries(config_reload_test
+		PRIVATE
+			Qt::Core
+			Qt::Network
+			Qt::Qml
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(config_reload_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+	)
+	add_test(NAME config_reload_test COMMAND config_reload_test)
+
+	# 测试产物统一落在 ${CMAKE_BINARY_DIR}/tests，不与应用 / 插件共用输出目录：
+	# Visual Studio / Xcode 这类多配置生成器会再追加配置子目录（tests/Release、tests/Debug），
+	# 单配置生成器（Ninja / Makefile）直接用 tests/。新增测试目标时请加进下面的列表。
+	set(DGLAB_TEST_TARGETS
+		event_engine_test
+		rule_graph_eval_test
+		event_engine_module_test
+		event_merge_test
+		event_wave_test
+		opossum_frames_test
+		paw_device_test
+		civet_device_test
+		model_recognition_test
+		wave_library_test
+		wave_import_export_test
+		wave_zip_test
+		wave_tag_test
+		config_reload_test
+	)
+
+	# Windows 上测试程序不再与 windeployqt 部署过的输出目录同处一地，加载 Qt DLL 只能靠 PATH：
+	# 从 Qt6::Core 的导入位置反推 Qt 的 bin 目录，写进每个测试的 ENVIRONMENT；其余平台靠
+	# 构建树里的 rpath 找 Qt，不需要这一步。
+	if(WIN32)
+		get_target_property(_dglab_qt_core_dll Qt6::Core IMPORTED_LOCATION_RELEASE)
+		if(NOT _dglab_qt_core_dll)
+			get_target_property(_dglab_qt_core_dll Qt6::Core IMPORTED_LOCATION)
+		endif()
+		if(_dglab_qt_core_dll)
+			get_filename_component(_dglab_qt_bin "${_dglab_qt_core_dll}" DIRECTORY)
+			set(DGLAB_TEST_ENVIRONMENT "PATH=${_dglab_qt_bin};$ENV{PATH}")
+		endif()
+	endif()
+
+	# 测试名与目标名一一对应（add_test(NAME x COMMAND x)），才能按目标名批量设属性
+	foreach(_dglab_test IN LISTS DGLAB_TEST_TARGETS)
+		set_target_properties(${_dglab_test} PROPERTIES
+			RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
+		)
+		if(DGLAB_TEST_ENVIRONMENT)
+			set_tests_properties(${_dglab_test} PROPERTIES ENVIRONMENT "${DGLAB_TEST_ENVIRONMENT}")
+		endif()
+	endforeach()
+else()
+	# 复用同一个构建目录时，上一次开启测试留下的 CTestTestfile.cmake 不会自动清掉：
+	# 它还指向已被移除的测试程序，ctest 会逐个报 Not Run。这里显式删除，让默认构建的
+	# ctest 回到「No tests were found」。
+	file(REMOVE "${CMAKE_BINARY_DIR}/CTestTestfile.cmake")
+endif()
 
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；

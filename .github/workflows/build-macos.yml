@@ -137,8 +137,7 @@ jobs:
             -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
             -DPython_ROOT_DIR="${{ env.pythonLocation }}" \
             -DPYTHON_PACKAGES_DIR="${{ github.workspace }}/_packages" \
-            -DBUILD_TESTS=OFF \
-            -DBUILD_SELFTEST=OFF
+            -DDGLAB_BUILD_TESTS=ON
 
       - name: 编译
         shell: bash
@@ -146,6 +145,12 @@ jobs:
           set -euo pipefail
           cmake --build "$BUILD_DIR" --config Release --parallel "$(sysctl -n hw.ncpu)" -- -quiet
           command -v ccache >/dev/null 2>&1 && ccache --show-stats || true
+
+      - name: 运行单元测试
+        shell: bash
+        run: |
+          set -euo pipefail
+          ctest -C Release --output-on-failure --test-dir "$BUILD_DIR"
 
       - name: 安装到 install_root
         shell: bash

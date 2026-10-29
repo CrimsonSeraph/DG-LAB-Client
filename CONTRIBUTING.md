@@ -172,7 +172,7 @@ Prevent PathFinder.py from aborting when the Steam library file is absent.
 ```
 
   type 与 scope 用英文，subject 与 body 用中文，body 简述关键变动。
-- 提交前要求构建通过（`cmake --build` 0 error），能跑测试就跑到 `ctest` 全绿。
+- 提交前要求构建通过（`cmake --build` 0 error）；单元测试默认不参与构建，需要时用 `-DDGLAB_BUILD_TESTS=ON` 配置后跑到 `ctest` 全绿。
 - 提交与推送由任务编排者统一执行；自动化代理不自行运行 git 写操作。
 - 提交信息只需在最后一次提交 / 发布时确保符号规范，日常开发不必严格苛求。
 
