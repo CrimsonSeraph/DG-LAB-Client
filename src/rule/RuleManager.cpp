@@ -1299,6 +1299,9 @@ void RuleManager::evaluate_graphs_locked(std::vector<QJsonObject>& pending_comma
         cmd["channel"] = QString::fromStdString(channel);
         cmd["mode"] = 2; // 通道节点给出的是绝对强度（设为）
         cmd["value"] = value.value();
+        // 目标设备随命令带出：空串 = 跟随默认设备，非空 = 指定设备 MAC。
+        // 设备解析与「离线不输出」的判定在 DeviceController（设备名单的唯一持有者）完成
+        cmd["device"] = node.target_device;
         pending_commands.push_back(cmd);
         pending_results.emplace_back(node.name.toStdString(), channel, value.value());
     }

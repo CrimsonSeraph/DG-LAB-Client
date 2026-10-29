@@ -15,6 +15,8 @@
 
 #include <vector>
 
+class DeviceController;
+
 // RuleGraphBridge - 规则可视化编辑器桥接（QML 上下文属性 ruleGraph）
 // 视图交互（拖动 / 连线 / 右键 / 快捷键）在 QML，图的增删改、复制粘贴、写回
 // 全部在本类完成；QML 只调用 Q_INVOKABLE 并绑定属性。
@@ -31,12 +33,17 @@ class RuleGraphBridge : public QObject {
     Q_PROPERTY(QVariantList pluginGraphs READ plugin_graphs NOTIFY pluginGraphsChanged)
     Q_PROPERTY(QString currentGraphPlugin READ current_graph_plugin NOTIFY graphChanged)
     Q_PROPERTY(QVariantList outputReferences READ output_references NOTIFY graphChanged)
+    Q_PROPERTY(QVariantList channelDeviceOptions READ channel_device_options NOTIFY channelDeviceOptionsChanged)
 
 public:
     explicit RuleGraphBridge(QObject* parent = nullptr);
 
     /// @brief 初始化：载入当前规则文件对应的规则图
     void initialize();
+
+    /// @brief 注入设备控制器（通道节点的目标设备下拉与「跟随默认设备」解析都取自它）
+    /// @param device 设备控制器，可为空
+    void attach_device(DeviceController* device);
 
     QVariantList nodes() const;
     QVariantList edges() const;
@@ -49,6 +56,7 @@ public:
     QVariantList plugin_graphs() const;
     QString current_graph_plugin() const { return current_graph_plugin_; }
     QVariantList output_references() const;
+    QVariantList channel_device_options() const;
 
     Q_INVOKABLE void loadRuleFile(const QString& file_name);
     Q_INVOKABLE bool save();
@@ -86,6 +94,14 @@ public:
     Q_INVOKABLE void setRuleMode(int id, int mode);
     Q_INVOKABLE void setRuleEnabled(int id, bool enabled);
     Q_INVOKABLE void setRuleExpression(int id, const QString& expression);
+    /// @brief 通道节点目标设备下拉的当前下标
+    /// @param target_device 节点的 targetDevice（空表示跟随默认设备）
+    /// @return 在 channelDeviceOptions 中的下标，找不到返回 0（跟随默认设备）
+    Q_INVOKABLE int channelDeviceIndex(const QString& target_device) const;
+    /// @brief 按 channelDeviceOptions 下标设置通道节点的目标设备（0 = 跟随默认设备）
+    /// @param node_id 节点 id
+    /// @param index channelDeviceOptions 的下标
+    Q_INVOKABLE void setChannelDeviceTargetByIndex(int node_id, int index);
 
     // 连线
     Q_INVOKABLE void connectNodes(int from, int to, int port);
@@ -102,16 +118,23 @@ signals:
     void selectionChanged();
     void dirtyChanged();
     void pluginGraphsChanged();
+    void channelDeviceOptionsChanged();
     void statusMessage(const QString& message);
 
 private:
     void rebuild_module_values();
     void mark_dirty();
+    /// @brief 把当前默认设备写进图（通道节点「跟随默认设备」的唯一入边判定用）
+    void apply_default_device();
+    /// @brief 通道节点的目标设备显示文本
+    /// @param target_device 节点的 targetDevice（空表示跟随默认设备）
+    QString device_label_for(const QString& target_device) const;
     QVariantMap node_to_map(const GraphNode& node) const;
     QPointF input_port_position(const GraphNode& node, int port) const;
     QPointF output_port_position(const GraphNode& node) const;
 
     RuleGraph graph_;
+    DeviceController* device_ = nullptr; ///< 设备控制器（设备目标列表与默认设备）
     QString current_rule_file_;
     QString current_graph_plugin_; ///< 当前图所属插件（空表示总规则图）
     QVariantList module_values_;

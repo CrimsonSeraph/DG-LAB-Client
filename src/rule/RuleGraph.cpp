@@ -154,6 +154,46 @@ const GraphNode* RuleGraph::find_node(int id) const {
     return nullptr;
 }
 
+QString rule_graph_normalize_device(const QString& mac) {
+    return mac.trimmed().toUpper();
+}
+
+QString rule_graph_channel_scope_key(const QString& channel, const QString& target_device,
+    const QString& default_device) {
+    const QString device = rule_graph_normalize_device(target_device);
+    // 跟随默认设备：用当前默认设备落成具体设备，让「跟随默认」与「指定该设备」落进同一作用域；
+    // 没有默认设备时退化成 "default" 组，避免一台都没连时所有通道节点各自成组
+    const QString resolved = device.isEmpty() ? rule_graph_normalize_device(default_device) : device;
+    return channel.trimmed().toUpper()
+        + QLatin1Char('@') + (resolved.isEmpty() ? QStringLiteral("default") : resolved);
+}
+
+ChannelTargetResolution rule_graph_resolve_channel_target(const QString& target_device,
+    const QString& default_device, const QStringList& online_devices) {
+    const QString device = rule_graph_normalize_device(target_device);
+    const QString fallback = rule_graph_normalize_device(default_device);
+    // 跟随默认设备：目标取默认设备；没有默认设备即无设备可下发
+    const QString resolved = device.isEmpty() ? fallback : device;
+    if (resolved.isEmpty()) {
+        return ChannelTargetResolution{QString(), ChannelTargetStatus::NoDefault};
+    }
+    for (const auto& online : online_devices) {
+        if (rule_graph_normalize_device(online) == resolved) {
+            return ChannelTargetResolution{resolved, ChannelTargetStatus::Ready};
+        }
+    }
+    // 指定了具体 MAC 但不在在线列表：记离线；跟随默认设备时默认设备必然在线，同样按离线处理
+    return ChannelTargetResolution{QString(), ChannelTargetStatus::Offline};
+}
+
+QString RuleGraph::channel_scope_key(int node_id) const {
+    const GraphNode* node = find_node(node_id);
+    if (node == nullptr || node->type != GraphNodeType::Channel) {
+        return QString();
+    }
+    return rule_graph_channel_scope_key(node->channel, node->target_device, default_device_);
+}
+
 int RuleGraph::input_count(int id) const {
     const GraphNode* node = find_node(id);
     if (node == nullptr) {
@@ -168,6 +208,9 @@ int RuleGraph::input_count(int id) const {
         if (node->advanced == QStringLiteral("expression")) {
             return std::max(1, static_cast<int>(parse_placeholders(node->expression).size()));
         }
+        return 1;
+    case GraphNodeType::Channel:
+        // 通道节点是数据汇：上游接入后由它负责按目标设备下发
         return 1;
     case GraphNodeType::DefaultOutput:
         return 1;
@@ -195,7 +238,7 @@ QString RuleGraph::input_label(int id, int port) const {
     if (node->type == GraphNodeType::Advanced) {
         return QStringLiteral("输入%1").arg(port + 1);
     }
-    if (node->type == GraphNodeType::DefaultOutput) {
+    if (node->type == GraphNodeType::Channel || node->type == GraphNodeType::DefaultOutput) {
         return QStringLiteral("输入");
     }
     return QString();
@@ -260,6 +303,15 @@ int RuleGraph::connect_nodes(int from, int to, int port) {
     if (target != nullptr
         && (target->type == GraphNodeType::Channel || target->type == GraphNodeType::DefaultOutput)) {
         port = 0;
+        // 通道节点额外按「设备 + 通道」唯一：同设备同通道的其它通道节点上的入边一并断开
+        if (target->type == GraphNodeType::Channel) {
+            const int removed = supersede_channel_edges(to, channel_scope_key(to));
+            if (removed > 0) {
+                LOG_MODULE("RuleGraph", "connect_nodes", LOG_INFO,
+                    "同一设备同一通道只允许一条入边，已断开既有入边 "
+                        << removed << " 条: " << channel_scope_key(to).toStdString());
+            }
+        }
         edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
                          [to](const GraphEdge& e) { return e.to == to; }),
             edges_.end());
@@ -274,6 +326,27 @@ int RuleGraph::connect_nodes(int from, int to, int port) {
     edge.port = port;
     edges_.push_back(edge);
     return edge.id;
+}
+
+int RuleGraph::supersede_channel_edges(int keep_node_id, const QString& scope) {
+    if (scope.isEmpty()) {
+        return 0;
+    }
+    int removed = 0;
+    for (const auto& node : nodes_) {
+        if (node.id == keep_node_id || node.type != GraphNodeType::Channel) {
+            continue;
+        }
+        if (channel_scope_key(node.id) != scope) {
+            continue;
+        }
+        const auto before = edges_.size();
+        edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
+                         [id = node.id](const GraphEdge& e) { return e.to == id; }),
+            edges_.end());
+        removed += static_cast<int>(before - edges_.size());
+    }
+    return removed;
 }
 
 bool RuleGraph::disconnect_edge(int edge_id) {
@@ -878,6 +951,7 @@ nlohmann::json RuleGraph::to_json() const {
             {"advanced", node.advanced.toStdString()},
             {"expression", node.expression.toStdString()},
             {"channel", node.channel.toStdString()},
+            {"targetDevice", node.target_device.toStdString()},
             {"mode", node.mode},
             {"enabled", node.enabled},
             {"x", node.x},
@@ -915,6 +989,9 @@ void RuleGraph::from_json(const nlohmann::json& json) {
             node.advanced = QString::fromStdString(item.value("advanced", "abs"));
             node.expression = QString::fromStdString(item.value("expression", ""));
             node.channel = QString::fromStdString(item.value("channel", "A"));
+            // 旧规则文件没有 targetDevice：缺省为空 = 跟随默认设备，不改写文件
+            node.target_device = rule_graph_normalize_device(
+                QString::fromStdString(item.value("targetDevice", "")));
             node.mode = item.value("mode", 1);
             node.enabled = item.value("enabled", true);
             node.x = item.value("x", 0.0);

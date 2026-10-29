@@ -6,7 +6,6 @@
 #include "UiConnector.h"
 
 #include "AppBridge.h"
-#include "AppConfig.h"
 #include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DeviceController.h"
@@ -30,7 +29,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScreen>
-#include <QSet>
+#include <QTimer>
 #include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
@@ -274,6 +273,8 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
         }
     }
     if (rule_graph_ != nullptr) {
+        // 通道节点的目标设备下拉与「跟随默认设备」解析都取自设备控制器
+        rule_graph_->attach_device(device_);
         QObject::connect(rule_graph_, &RuleGraphBridge::statusMessage, this,
             [this](const QString& message) {
                 if (app_ != nullptr) {
@@ -1115,8 +1116,9 @@ void UiConnector::on_rule_fit_view_clicked() {
         const QVariantMap node = entry.toMap();
         const qreal x = node.value(QStringLiteral("x")).toReal();
         const qreal y = node.value(QStringLiteral("y")).toReal();
-        // 节点高度与 QML 委托同一公式：头 + 端口内缩 + 端口数 × 端口间距 + 底部留白
-        const qreal node_height = node.value(QStringLiteral("headerHeight")).toReal() + node.value(QStringLiteral("portInset")).toReal() + qMax(1, node.value(QStringLiteral("inputCount")).toInt()) * node.value(QStringLiteral("portSpacing")).toReal() + bottom_inset;
+        // 节点高度与 QML 委托同一公式：头 + 端口内缩 + 行数 × 端口间距 + 底部留白
+        // （行数含通道节点的目标设备行与默认输出节点的引用行，由桥接的 rowCount 给出）
+        const qreal node_height = node.value(QStringLiteral("headerHeight")).toReal() + node.value(QStringLiteral("portInset")).toReal() + qMax(1, node.value(QStringLiteral("rowCount")).toInt()) * node.value(QStringLiteral("portSpacing")).toReal() + bottom_inset;
         const qreal right = x + node.value(QStringLiteral("width")).toReal();
         const qreal bottom = y + node_height;
         if (!has_node) {
@@ -1551,60 +1553,8 @@ void UiConnector::on_device_limits_changed() {
 
 
 QVariantList UiConnector::limit_targets() const {
-    QVariantList targets;
-    QSet<QString> seen;
-    // 在线输出设备：顺序与候选评选一致，前段下标即默认设备下标
-    const QVariantList online = (device_ == nullptr) ? QVariantList() : device_->output_devices();
-    for (const QVariant& item : online) {
-        const QVariantMap device_map = item.toMap();
-        const QString address = device_map.value(QStringLiteral("address")).toString().trimmed().toUpper();
-        if (address.isEmpty() || seen.contains(address)) {
-            continue;
-        }
-        seen.insert(address);
-        QVariantMap entry;
-        entry.insert(QStringLiteral("address"), address);
-        entry.insert(QStringLiteral("label"), device_map.value(QStringLiteral("label")));
-        entry.insert(QStringLiteral("name"), device_map.value(QStringLiteral("name")));
-        entry.insert(QStringLiteral("online"), true);
-        targets.append(entry);
-    }
-    // 已记忆设备：app.devices 里出现过的 MAC，设备下线后仍可查看与编辑其上下限
-    const nlohmann::json devices = AppConfig::instance().get_value<nlohmann::json>(
-        "app.devices", nlohmann::json::object());
-    if (!devices.is_object()) {
-        return targets;
-    }
-    for (auto it = devices.begin(); it != devices.end(); ++it) {
-        if (!it.value().is_object()) {
-            continue;
-        }
-        const QString address = QString::fromStdString(it.key()).trimmed().toUpper();
-        if (address.isEmpty() || seen.contains(address)) {
-            continue;
-        }
-        // 已记忆的型号：纯输入设备（爪印 / 灵猫）没有输出通道，不进上下限下拉
-        std::string model;
-        const nlohmann::json::const_iterator model_it = it.value().find("model");
-        if (model_it != it.value().end() && model_it->is_string()) {
-            model = model_it->get<std::string>();
-        }
-        if (model == "pawprint" || model == "civet") {
-            continue;
-        }
-        const QString label = model == "coyote" ? QStringLiteral("郊狼 V3")
-            : model == "opossum"                ? QStringLiteral("负鼠")
-                                                : QStringLiteral("已记忆设备");
-        seen.insert(address);
-        QVariantMap entry;
-        entry.insert(QStringLiteral("address"), address);
-        entry.insert(QStringLiteral("label"), label);
-        entry.insert(QStringLiteral("name"),
-            label + QStringLiteral(" · ") + address + QStringLiteral(" · 离线"));
-        entry.insert(QStringLiteral("online"), false);
-        targets.append(entry);
-    }
-    return targets;
+    // 在线输出设备 + 已记忆设备（离线项标注「离线」）：规则编辑器通道节点的设备下拉共用同一份实现
+    return device_ == nullptr ? QVariantList() : device_->outputDeviceTargets();
 }
 
 void UiConnector::refresh_device_limits_fields() {

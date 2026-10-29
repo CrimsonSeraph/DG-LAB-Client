@@ -27,7 +27,7 @@ enum class GraphNodeType {
     Module,       ///< 模块源节点：来自某个已启用模块的数值
     Operator,     ///< 基础运算节点：+ - * /
     Advanced,     ///< 高级节点：abs / square / sqrt / expression
-    Channel,      ///< 通道输出节点：A / B
+    Channel,      ///< 通道输出节点（数据汇）：A / B，单输入端口，按目标设备下发
     PluginOutput, ///< 插件输出节点（只属于总规则图）：代表某插件规则图的最终输出，无输入
     DefaultOutput ///< 默认输出节点（只属于插件规则图）：本图唯一出口，单输入
 };
@@ -52,6 +52,39 @@ QString rule_graph_ref_plugin(const QString& ref);
 /// @param ref 图标识
 QString rule_graph_ref_display(const QString& ref);
 
+/// @brief 通道节点的目标设备解析状态（规则图求值与设备下发共用同一份判定）
+enum class ChannelTargetStatus {
+    Ready,     ///< 解析到一台在线输出设备
+    NoDefault, ///< 跟随默认设备，但当前没有默认设备
+    Offline    ///< 指定了设备 MAC，但该设备不在在线输出设备列表中
+};
+
+/// @brief 通道节点的目标设备解析结果
+struct ChannelTargetResolution {
+    QString mac;                                                 ///< 解析到的设备 MAC（未解析成功时为空）
+    ChannelTargetStatus status = ChannelTargetStatus::NoDefault; ///< 解析状态
+};
+
+/// @brief 设备 MAC 归一（去首尾空白 + 大写，空字符串保持为空）
+/// @param mac 设备 MAC
+QString rule_graph_normalize_device(const QString& mac);
+
+/// @brief 通道节点的唯一入边作用域键（同一设备同一通道只允许一条入边）
+/// @param channel 通道（"A"/"B"）
+/// @param target_device 节点的 targetDevice（空表示跟随默认设备）
+/// @param default_device 当前默认设备 MAC（跟随默认设备时用它落成具体设备）
+/// @return 作用域键（"<通道>@<MAC>"；设备未知时按 "<通道>@default" 成组）
+QString rule_graph_channel_scope_key(const QString& channel, const QString& target_device,
+    const QString& default_device);
+
+/// @brief 解析通道节点的目标设备（纯逻辑：跟随默认设备 / 指定 MAC / 离线 MAC）
+/// @param target_device 节点的 targetDevice（空表示跟随默认设备）
+/// @param default_device 当前默认设备 MAC（无默认设备时为空）
+/// @param online_devices 在线输出设备的 MAC 列表（大小写不敏感比较）
+/// @return 解析结果：Ready 带目标 MAC，NoDefault / Offline 的 mac 为空
+ChannelTargetResolution rule_graph_resolve_channel_target(const QString& target_device,
+    const QString& default_device, const QStringList& online_devices);
+
 /// @brief 规则图依赖集合（启用级联：启动通道或图输出时其子规则/事件一并启用）
 struct GraphDependency {
     std::vector<std::string> rules;     ///< 上游可达的规则节点名（去重排序）
@@ -72,6 +105,8 @@ struct GraphNode {
     QString advanced;    ///< Advanced：abs / square / sqrt / expression
     QString expression;  ///< Rule：基础 valuePattern；Advanced：自定义表达式
     QString channel;     ///< Channel：A / B
+    /// @brief Channel：目标设备 MAC；空字符串表示跟随默认设备（旧文件缺该字段时为空的缺省值）
+    QString target_device;
     int mode = 1;        ///< Rule：模式 0-4
     bool enabled = true; ///< Rule：启用
     double x = 0.0;
@@ -108,6 +143,17 @@ public:
 
     GraphNode* find_node(int id);
     const GraphNode* find_node(int id) const;
+
+    /// @brief 当前默认设备 MAC（通道节点「跟随默认设备」的唯一入边判定用）
+    const QString& default_device() const { return default_device_; }
+
+    /// @brief 设置当前默认设备 MAC（归一为大写）
+    /// @param mac 默认设备 MAC；无默认设备时传空
+    void set_default_device(const QString& mac) { default_device_ = rule_graph_normalize_device(mac); }
+
+    /// @brief 通道节点的唯一入边作用域键
+    /// @param node_id 节点 id（非通道节点返回空）
+    QString channel_scope_key(int node_id) const;
 
     /// @brief 节点输入端口数量
     int input_count(int id) const;
@@ -214,9 +260,16 @@ private:
     /// @brief 默认输出节点唯一性归一（保留首个，丢弃多余的节点与连线）
     void normalize_output_nodes();
 
+    /// @brief 断开同一设备同一通道上其它通道节点的入边（唯一入边）
+    /// @param keep_node_id 本次连入的通道节点 id（它的入边由调用方另行处理）
+    /// @param scope 作用域键（见 rule_graph_channel_scope_key）
+    /// @return 被顶掉的入边数量
+    int supersede_channel_edges(int keep_node_id, const QString& scope);
+
     std::vector<GraphNode> nodes_;
     std::vector<GraphEdge> edges_;
     QString plugin_id_;
+    QString default_device_; ///< 当前默认设备 MAC（通道节点唯一入边与「跟随默认设备」的落点）
     int next_node_id_ = 1;
     int next_edge_id_ = 1;
 };

@@ -13,12 +13,14 @@
 #include "IOutputDevice.h"
 #include "IpSelector.h"
 #include "QrImageProvider.h"
+#include "RuleGraph.h"
 #include "RuleManager.h"
 #include "WaveLibrary.h"
 
 #include <QDateTime>
 #include <QJsonArray>
 #include <QPointer>
+#include <QSet>
 #include <QTimer>
 #include <QVariantMap>
 
@@ -390,6 +392,124 @@ QVariantList DeviceController::output_devices() const {
     return list;
 }
 
+QVariantList DeviceController::outputDeviceTargets() const {
+    QVariantList targets;
+    QSet<QString> seen;
+    // 在线输出设备：顺序与候选评选一致，前段下标即默认设备下标
+    for (const QVariant& item : output_devices()) {
+        const QVariantMap device_map = item.toMap();
+        const QString address = rule_graph_normalize_device(
+            device_map.value(QStringLiteral("address")).toString());
+        if (address.isEmpty() || seen.contains(address)) {
+            continue;
+        }
+        seen.insert(address);
+        QVariantMap entry;
+        entry.insert(QStringLiteral("address"), address);
+        entry.insert(QStringLiteral("label"), device_map.value(QStringLiteral("label")));
+        entry.insert(QStringLiteral("name"), device_map.value(QStringLiteral("name")));
+        entry.insert(QStringLiteral("online"), true);
+        targets.append(entry);
+    }
+    // 已记忆设备：app.devices 里出现过的 MAC，设备下线后仍可选中（规则会记 WARN 且不输出）
+    const nlohmann::json devices = AppConfig::instance().get_value<nlohmann::json>(
+        "app.devices", nlohmann::json::object());
+    if (!devices.is_object()) {
+        return targets;
+    }
+    for (auto it = devices.begin(); it != devices.end(); ++it) {
+        if (!it.value().is_object()) {
+            continue;
+        }
+        const QString address = rule_graph_normalize_device(QString::fromStdString(it.key()));
+        if (address.isEmpty() || seen.contains(address)) {
+            continue;
+        }
+        // 已记忆的型号：纯输入设备（爪印 / 灵猫）没有输出通道，不进输出目标列表
+        std::string model;
+        const nlohmann::json::const_iterator model_it = it.value().find("model");
+        if (model_it != it.value().end() && model_it->is_string()) {
+            model = model_it->get<std::string>();
+        }
+        if (model == "pawprint" || model == "civet") {
+            continue;
+        }
+        const QString label = model == "coyote" ? QStringLiteral("郊狼 V3")
+            : model == "opossum"                ? QStringLiteral("负鼠")
+                                                : QStringLiteral("已记忆设备");
+        seen.insert(address);
+        QVariantMap entry;
+        entry.insert(QStringLiteral("address"), address);
+        entry.insert(QStringLiteral("label"), label);
+        entry.insert(QStringLiteral("name"),
+            label + QStringLiteral(" · ") + address + QStringLiteral(" · 离线"));
+        entry.insert(QStringLiteral("online"), false);
+        targets.append(entry);
+    }
+    return targets;
+}
+
+QString DeviceController::send_device_strength(const QString& target_device, const QString& channel, int value) {
+    const int index = channel_index_of(channel);
+    if (index < 0) {
+        return QString();
+    }
+    const QString requested = rule_graph_normalize_device(target_device);
+    const QString default_device = rule_graph_normalize_device(default_device_address());
+    QStringList online;
+    for (const IOutputDevice* device : online_outputs()) {
+        online.append(device->device_address());
+    }
+    const ChannelTargetResolution target = rule_graph_resolve_channel_target(requested, default_device, online);
+    if (target.status != ChannelTargetStatus::Ready) {
+        // 离线 / 不存在 / 无默认设备：不下发、不更新通道状态，只记一条按「通道 + 目标」限流的 WARN
+        const std::string key = "channel-target:" + channel.toStdString() + ":" + requested.toStdString();
+        if (DebugLogUtil::should_log_once(key)) {
+            LOG_MODULE("DeviceController", "send_device_strength", LOG_WARN,
+                "通道 " << channel_name_of(index).toStdString() << " 的目标设备不可用，本次不输出: 目标 "
+                        << (requested.isEmpty() ? std::string("（跟随默认设备）") : requested.toStdString())
+                        << " 原因 "
+                        << (target.status == ChannelTargetStatus::NoDefault ? "当前没有默认设备"
+                                                                           : "设备离线或不存在"));
+        }
+        return QString();
+    }
+    // 目标就是默认设备：沿用「规则 + 事件取较大值 → 通道上限」的唯一实现
+    if (default_device == target.mac) {
+        LOG_MODULE("DeviceController", "send_device_strength", LOG_INFO,
+            "通道 " << channel_name_of(index).toStdString() << " 目标设备 " << target.mac.toStdString()
+                    << " 下发强度 " << value << "（默认设备合并路径）");
+        apply_rule_strength(index, value);
+        return target.mac;
+    }
+    // 指定了另一台在线设备：直接按该设备的通道上下限下发，不参与默认设备的合并状态
+    IOutputDevice* device = nullptr;
+    for (IOutputDevice* candidate : outputs_) {
+        if (candidate->connected() && candidate->output_capable()
+            && rule_graph_normalize_device(candidate->device_address()) == target.mac) {
+            device = candidate;
+            break;
+        }
+    }
+    if (device == nullptr) {
+        if (DebugLogUtil::should_log_once("channel-target-missing:" + target.mac.toStdString())) {
+            LOG_MODULE("DeviceController", "send_device_strength", LOG_WARN,
+                "通道 " << channel_name_of(index).toStdString() << " 的目标设备无法接管输出: "
+                        << target.mac.toStdString());
+        }
+        return QString();
+    }
+    const EventChannelConfig config = limits_for(target.mac, channel);
+    const int limit = std::min(std::clamp(config.limit, 0, MAX_STRENGTH),
+        std::clamp(config.safety, 0, MAX_STRENGTH));
+    const int clamped = std::clamp(value, 0, limit);
+    device->set_strength(index + 1, MODE_SET, clamped);
+    LOG_MODULE("DeviceController", "send_device_strength", LOG_INFO,
+        "通道 " << channel_name_of(index).toStdString() << " 目标设备 " << target.mac.toStdString()
+                << " 下发强度 " << clamped);
+    return target.mac;
+}
+
 bool DeviceController::wave_sending(const QString& channel) const {
     const int index = channel_index_of(channel);
     const IOutputDevice* device = default_output();
@@ -636,6 +756,13 @@ void DeviceController::send_command(const QJsonObject& cmd) {
     }
     const QString type = cmd.value("cmd").toString();
     if (type == QStringLiteral("send_strength")) {
+        // 带 device 字段的命令来自规则图通道节点：按目标设备解析后下发（离线 / 无默认设备不出值）
+        if (cmd.contains(QStringLiteral("device"))) {
+            const int index = channel_index_of(cmd.value("channel").toString());
+            send_device_strength(cmd.value("device").toString(),
+                index < 0 ? QStringLiteral("A") : channel_name_of(index), cmd.value("value").toInt(0));
+            return;
+        }
         sendStrength(strength_channel(cmd.value("channel")), cmd.value("mode").toInt(0),
             cmd.value("value").toInt(0));
     }

@@ -6,6 +6,7 @@
 #include "RuleGraphBridge.h"
 
 #include "DebugLog.h"
+#include "DeviceController.h"
 #include "ModuleManager.h"
 #include "RuleManager.h"
 
@@ -50,6 +51,24 @@ RuleGraphBridge::RuleGraphBridge(QObject* parent)
     : QObject(parent) {
 }
 
+void RuleGraphBridge::attach_device(DeviceController* device) {
+    device_ = device;
+    if (device_ != nullptr) {
+        // 设备上下线 / 默认设备切换后刷新目标设备下拉（离线项带「离线」）
+        connect(device_, &DeviceController::outputDevicesChanged, this,
+            &RuleGraphBridge::channelDeviceOptionsChanged);
+        connect(device_, &DeviceController::defaultDeviceChanged, this,
+            &RuleGraphBridge::channelDeviceOptionsChanged);
+    }
+    apply_default_device();
+    emit channelDeviceOptionsChanged();
+    emit graphChanged();
+}
+
+void RuleGraphBridge::apply_default_device() {
+    graph_.set_default_device(device_ == nullptr ? QString() : device_->default_device_address());
+}
+
 void RuleGraphBridge::initialize() {
     auto& rules = RuleManager::instance();
     current_rule_file_ = QString::fromStdString(rules.get_current_rule_file());
@@ -68,6 +87,7 @@ void RuleGraphBridge::initialize() {
     if (!current_rule_file_.isEmpty()) {
         graph_.load(current_rule_file_);
     }
+    apply_default_device();
     rebuild_module_values();
     emit graphChanged();
     emit ruleFilesChanged();
@@ -169,6 +189,83 @@ QVariantList RuleGraphBridge::output_references() const {
     return list;
 }
 
+QVariantList RuleGraphBridge::channel_device_options() const {
+    QVariantList list;
+    // 第 0 项固定是「跟随默认设备」：目标设备字段留空，求值时按当时的默认设备解析
+    QVariantMap follow;
+    follow.insert(QStringLiteral("address"), QString());
+    follow.insert(QStringLiteral("name"), device_label_for(QString()));
+    follow.insert(QStringLiteral("online"), device_ != nullptr && !device_->default_device_address().isEmpty());
+    list.append(follow);
+    if (device_ == nullptr) {
+        return list;
+    }
+    for (const QVariant& item : device_->outputDeviceTargets()) {
+        const QVariantMap target = item.toMap();
+        QVariantMap entry;
+        entry.insert(QStringLiteral("address"), target.value(QStringLiteral("address")));
+        entry.insert(QStringLiteral("name"), target.value(QStringLiteral("name")));
+        entry.insert(QStringLiteral("online"), target.value(QStringLiteral("online")));
+        list.append(entry);
+    }
+    return list;
+}
+
+QString RuleGraphBridge::device_label_for(const QString& target_device) const {
+    const QString device = rule_graph_normalize_device(target_device);
+    // 跟随默认设备：文案带上当前默认设备，避免用户不知道会打在哪台设备上
+    if (device.isEmpty()) {
+        const QString fallback = device_ == nullptr ? QString() : device_->default_device_address();
+        return fallback.isEmpty() ? QStringLiteral("跟随默认设备（当前无默认设备）")
+                                  : QStringLiteral("跟随默认设备（%1）").arg(fallback);
+    }
+    if (device_ != nullptr) {
+        for (const QVariant& item : device_->outputDeviceTargets()) {
+            const QVariantMap target = item.toMap();
+            if (rule_graph_normalize_device(target.value(QStringLiteral("address")).toString()) == device) {
+                return target.value(QStringLiteral("name")).toString();
+            }
+        }
+    }
+    return device + QStringLiteral(" · 离线");
+}
+
+int RuleGraphBridge::channelDeviceIndex(const QString& target_device) const {
+    const QString device = rule_graph_normalize_device(target_device);
+    const QVariantList options = channel_device_options();
+    for (int index = 0; index < options.size(); ++index) {
+        const QString address = rule_graph_normalize_device(
+            options.at(index).toMap().value(QStringLiteral("address")).toString());
+        if (address == device) {
+            return index;
+        }
+    }
+    // 目标设备已不在列表（记忆被清掉等）：退回「跟随默认设备」，不回写模型
+    return 0;
+}
+
+void RuleGraphBridge::setChannelDeviceTargetByIndex(int node_id, int index) {
+    GraphNode* node = graph_.find_node(node_id);
+    if (node == nullptr || node->type != GraphNodeType::Channel) {
+        return;
+    }
+    const QVariantList options = channel_device_options();
+    if (index < 0 || index >= options.size()) {
+        return;
+    }
+    const QString address = rule_graph_normalize_device(
+        options.at(index).toMap().value(QStringLiteral("address")).toString());
+    if (node->target_device == address) {
+        return;
+    }
+    node->target_device = address;
+    mark_dirty();
+    emit selectionChanged();
+    emit graphChanged();
+    emit statusMessage(address.isEmpty() ? QStringLiteral("通道 %1 已改为跟随默认设备").arg(node->channel)
+                                         : QStringLiteral("通道 %1 的目标设备已设为 %2").arg(node->channel, address));
+}
+
 QVariantMap RuleGraphBridge::selected_node() const {
     const GraphNode* node = graph_.find_node(selected_node_id_);
     return node == nullptr ? QVariantMap() : node_to_map(*node);
@@ -188,6 +285,7 @@ void RuleGraphBridge::loadRuleFile(const QString& file_name) {
     current_rule_file_ = file_name;
     current_graph_plugin_.clear();
     graph_.load(file_name);
+    apply_default_device();
     selected_node_id_ = 0;
     dirty_ = false;
     emit dirtyChanged();
@@ -231,6 +329,7 @@ void RuleGraphBridge::loadPluginGraph(const QString& plugin_id) {
         return;
     }
     graph_ = RuleManager::instance().get_plugin_rule_graph(plugin_id.toStdString());
+    apply_default_device();
     current_graph_plugin_ = plugin_id;
     selected_node_id_ = 0;
     dirty_ = false;
@@ -365,6 +464,7 @@ int RuleGraphBridge::addChannelNode(const QString& channel, double x, double y) 
     GraphNode node;
     node.type = GraphNodeType::Channel;
     node.channel = (channel == QStringLiteral("B")) ? QStringLiteral("B") : QStringLiteral("A");
+    // 缺省跟随默认设备：target_device 留空，求值时按当时的默认设备解析
     node.name = QStringLiteral("通道 %1").arg(node.channel);
     node.x = x;
     node.y = y;
@@ -488,6 +588,8 @@ void RuleGraphBridge::setRuleExpression(int id, const QString& expression) {
 }
 
 void RuleGraphBridge::connectNodes(int from, int to, int port) {
+    // 唯一入边按「设备 + 通道」判定：先把当前默认设备写进图，跟随默认设备的节点才能落成同一作用域
+    apply_default_device();
     if (graph_.connect_nodes(from, to, port) > 0) {
         mark_dirty();
         emit graphChanged();
@@ -566,6 +668,8 @@ QVariantMap RuleGraphBridge::node_to_map(const GraphNode& node) const {
     item.insert(QStringLiteral("advanced"), node.advanced);
     item.insert(QStringLiteral("expression"), node.expression);
     item.insert(QStringLiteral("channel"), node.channel);
+    item.insert(QStringLiteral("targetDevice"), node.target_device);
+    item.insert(QStringLiteral("deviceLabel"), device_label_for(node.target_device));
     item.insert(QStringLiteral("mode"), node.mode);
     item.insert(QStringLiteral("enabled"), node.enabled);
     item.insert(QStringLiteral("x"), node.x);
@@ -585,6 +689,15 @@ QVariantMap RuleGraphBridge::node_to_map(const GraphNode& node) const {
         labels.append(graph_.input_label(node.id, i));
     }
     item.insert(QStringLiteral("inputLabels"), labels);
+    // 节点占用的行数（高度公式的唯一来源）：输入端口 + 通道节点的目标设备行 + 默认输出节点的引用行
+    int rows = std::max(1, graph_.input_count(node.id));
+    if (node.type == GraphNodeType::Channel) {
+        rows += 1;
+    }
+    if (node.type == GraphNodeType::DefaultOutput) {
+        rows += static_cast<int>(node.references.size());
+    }
+    item.insert(QStringLiteral("rowCount"), rows);
     item.insert(QStringLiteral("width"), kNodeWidth);
     item.insert(QStringLiteral("headerHeight"), kHeaderHeight);
     item.insert(QStringLiteral("portSpacing"), kPortSpacing);

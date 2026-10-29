@@ -103,6 +103,15 @@ public:
     int default_device_index() const;
     /// @brief 在线输出设备列表（含地址、名称、型号、类型与驱动支持程度）
     QVariantList output_devices() const;
+    /// @brief 通道输出设备目标列表：在线输出设备 + 已记忆设备（离线项名称带「离线」）
+    /// @return 列表项含 address / label / name / online；与设备管理页上下限下拉同一数据源
+    Q_INVOKABLE QVariantList outputDeviceTargets() const;
+    /// @brief 按目标设备下发通道强度（规则图通道节点的输出入口）
+    /// @param target_device 目标设备 MAC（空串表示跟随默认设备）
+    /// @param channel 通道（"A"/"B"）
+    /// @param value 强度（按该设备的通道上下限钳制）
+    /// @return 实际下发到的设备 MAC；目标设备离线 / 不存在 / 无默认设备时返回空串，记一条 WARN 且不下发
+    QString send_device_strength(const QString& target_device, const QString& channel, int value);
     /// @brief 波形是否正在经蓝牙下发
     /// @param channel 通道（"A"/"B"）
     bool wave_sending(const QString& channel) const;

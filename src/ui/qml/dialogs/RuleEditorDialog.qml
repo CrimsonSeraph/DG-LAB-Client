@@ -329,13 +329,10 @@ AppDialog {
                     return (y - panY) / zoom;
                 }
 
-                // 节点高度：输入行 + 默认输出节点的引用行（代理与命中测试共用同一公式）
+                // 节点高度：行数由 C++ 给出（输入端口 + 通道节点的目标设备行 + 默认输出节点的引用行），
+                // 代理、命中测试与 C++ 的适配视图共用同一个 rowCount
                 function nodeHeight(n) {
-                    var rows = Math.max(1, n.inputCount);
-                    if (n.type === "defaultOutput") {
-                        rows += n.references.length;
-                    }
-                    return n.headerHeight + n.portInset + rows * n.portSpacing + Metrics.spacingLg;
+                    return n.headerHeight + n.portInset + n.rowCount * n.portSpacing + Metrics.spacingLg;
                 }
 
                 function nodeAt(wx, wy) {
@@ -640,6 +637,17 @@ AppDialog {
                                     }
                                 }
 
+                                // 通道节点：目标设备一行（跟随默认设备 / 指定 MAC）
+                                Text {
+                                    visible: nodeData.type === "channel"
+                                    height: Typography.fontBody + Metrics.spacingXs
+                                    text: nodeData.deviceLabel
+                                    color: Theme.textMuted
+                                    font.pixelSize: Typography.fontBody
+                                    width: nodeData.width - Metrics.spacingSm
+                                    elide: Text.ElideRight
+                                }
+
                                 // 默认输出节点的引用文本（可能多条）：单击跳到对应图
                                 Repeater {
                                     model: nodeData.type === "defaultOutput" ? nodeData.references : []
@@ -884,57 +892,24 @@ AppDialog {
                 Layout.fillWidth: true
             }
 
-            AppTextField {
-                id: nameField
-
-                placeholderText: qsTr("规则名")
-                text: ruleGraph.selectedNode.type === "rule" ? ruleGraph.selectedNode.ruleName : ""
+            // 属性面板按节点类型只构建适用的控件：不适用的组根本不创建，而不是置灰
+            Loader {
                 Layout.fillWidth: true
-                enabled: ruleGraph.selectedNode.type === "rule"
-                onEditingFinished: if (ruleGraph.selectedNode.type === "rule")
-                    ruleGraph.renameRuleNode(ruleGraph.selectedNode.id, text)
+                active: ruleGraph.selectedNode.type === "rule"
+                sourceComponent: ruleFields
             }
 
-            AppComboBox {
-                id: modeCombo
-
+            Loader {
                 Layout.fillWidth: true
-                enabled: ruleGraph.selectedNode.type === "rule"
-                model: [qsTr("递减"), qsTr("递增"), qsTr("设为"), qsTr("连减"), qsTr("连增")]
-                currentIndex: ruleGraph.selectedNode.mode === undefined ? 1 : ruleGraph.selectedNode.mode
-                onActivated: ruleGraph.setRuleMode(ruleGraph.selectedNode.id, currentIndex)
+                active: ruleGraph.selectedNode.type === "rule"
+                    || ruleGraph.selectedNode.advanced === "expression"
+                sourceComponent: expressionFields
             }
 
-            AppCheckBox {
-                text: qsTr("启用规则")
-                enabled: ruleGraph.selectedNode.type === "rule"
-                checked: ruleGraph.selectedNode.enabled === true
-                onClicked: ruleGraph.setRuleEnabled(ruleGraph.selectedNode.id, checked)
-            }
-
-            Text {
-                text: qsTr("值模式 / 表达式")
-                color: Theme.textSecondary
-                font.pixelSize: Typography.fontBody
-            }
-
-            AppTextArea {
-                id: expressionArea
-
+            Loader {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 90
-                wrapMode: TextArea.Wrap
-                font.family: Typography.fontMonoFamily
-                font.pixelSize: Typography.fontBody
-                text: ruleGraph.selectedNode.expression === undefined ? "" : ruleGraph.selectedNode.expression
-                enabled: ruleGraph.selectedNode.type === "rule" || ruleGraph.selectedNode.advanced === "expression"
-                onEditingFinished: ruleGraph.setRuleExpression(ruleGraph.selectedNode.id, text)
-            }
-
-            AppButton {
-                Layout.fillWidth: true
-                text: qsTr("应用表达式")
-                onClicked: ruleGraph.setRuleExpression(ruleGraph.selectedNode.id, expressionArea.text)
+                active: ruleGraph.selectedNode.type === "channel"
+                sourceComponent: channelFields
             }
 
             Text {
@@ -953,6 +928,106 @@ AppDialog {
 
             Item {
                 Layout.fillHeight: true
+            }
+        }
+    }
+
+    // 规则节点专用：规则名 / 值模式 / 启用
+    Component {
+        id: ruleFields
+
+        ColumnLayout {
+            spacing: Metrics.spacingMd
+
+            AppTextField {
+                id: nameField
+
+                Layout.fillWidth: true
+                placeholderText: qsTr("规则名")
+                text: ruleGraph.selectedNode.ruleName === undefined ? "" : ruleGraph.selectedNode.ruleName
+                onEditingFinished: ruleGraph.renameRuleNode(ruleGraph.selectedNode.id, text)
+            }
+
+            AppComboBox {
+                id: modeCombo
+
+                Layout.fillWidth: true
+                model: [qsTr("递减"), qsTr("递增"), qsTr("设为"), qsTr("连减"), qsTr("连增")]
+                currentIndex: ruleGraph.selectedNode.mode === undefined ? 1 : ruleGraph.selectedNode.mode
+                onActivated: ruleGraph.setRuleMode(ruleGraph.selectedNode.id, currentIndex)
+            }
+
+            AppCheckBox {
+                text: qsTr("启用规则")
+                checked: ruleGraph.selectedNode.enabled === true
+                onClicked: ruleGraph.setRuleEnabled(ruleGraph.selectedNode.id, checked)
+            }
+        }
+    }
+
+    // 规则节点与自定义表达式节点共用：值模式 / 表达式
+    Component {
+        id: expressionFields
+
+        ColumnLayout {
+            spacing: Metrics.spacingMd
+
+            Text {
+                text: qsTr("值模式 / 表达式")
+                color: Theme.textSecondary
+                font.pixelSize: Typography.fontBody
+            }
+
+            AppTextArea {
+                id: expressionArea
+
+                Layout.fillWidth: true
+                Layout.preferredHeight: 90
+                wrapMode: TextArea.Wrap
+                font.family: Typography.fontMonoFamily
+                font.pixelSize: Typography.fontBody
+                text: ruleGraph.selectedNode.expression === undefined ? "" : ruleGraph.selectedNode.expression
+                onEditingFinished: ruleGraph.setRuleExpression(ruleGraph.selectedNode.id, text)
+            }
+
+            AppButton {
+                Layout.fillWidth: true
+                text: qsTr("应用表达式")
+                onClicked: ruleGraph.setRuleExpression(ruleGraph.selectedNode.id, expressionArea.text)
+            }
+        }
+    }
+
+    // 通道节点专用：目标设备（跟随默认设备 / 在线输出设备 / 已记忆设备，离线项标注「离线」）
+    Component {
+        id: channelFields
+
+        ColumnLayout {
+            spacing: Metrics.spacingMd
+
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("目标设备")
+                color: Theme.textSecondary
+                font.pixelSize: Typography.fontBody
+            }
+
+            AppComboBox {
+                objectName: "ruleChannelDeviceCombo"
+                Layout.fillWidth: true
+                model: ruleGraph.channelDeviceOptions
+                textRole: "name"
+                currentIndex: ruleGraph.channelDeviceIndex(
+                    ruleGraph.selectedNode.targetDevice === undefined ? "" : ruleGraph.selectedNode.targetDevice)
+                onActivated: ruleGraph.setChannelDeviceTargetByIndex(ruleGraph.selectedNode.id, currentIndex)
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: qsTr("通道节点是输出端点：把上游节点的输出端口拖到它的输入端口，求值结果按上面选中的设备下发。同一设备同一通道只保留一条入边，连入新连线会顶掉原连线。")
+                color: Theme.textMuted
+                font.pixelSize: Typography.fontBody
+                wrapMode: Text.WordWrap
             }
         }
     }

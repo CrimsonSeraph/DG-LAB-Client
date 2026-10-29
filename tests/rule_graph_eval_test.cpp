@@ -356,6 +356,126 @@ int main(int argc, char** argv) {
     const nlohmann::json typed_raw = raw_subtree("app.plugins.probe.events.typed");
     CHECK_TRUE("event-enabled-not-persisted", typed_raw.find("enabled") == typed_raw.end());
 
+    // 10) 通道节点改造：目标设备解析（跟随默认 / 指定 MAC / 离线 MAC）
+    const QStringList online = { QStringLiteral("D3:3B:5A:FA:43:0C"),
+        QStringLiteral("AA:BB:CC:DD:EE:01") };
+    const QString default_device = QStringLiteral("d3:3b:5a:fa:43:0c");
+
+    // 跟随默认设备：解析到当前默认设备（大小写不敏感）
+    const ChannelTargetResolution follow = rule_graph_resolve_channel_target(
+        QString(), default_device, online);
+    CHECK_TRUE("target-follow-ready", follow.status == ChannelTargetStatus::Ready);
+    CHECK_STRING("target-follow-mac", "D3:3B:5A:FA:43:0C", follow.mac.toStdString());
+
+    // 指定在线 MAC：解析到该设备
+    const ChannelTargetResolution pinned = rule_graph_resolve_channel_target(
+        QStringLiteral("aa:bb:cc:dd:ee:01"), default_device, online);
+    CHECK_TRUE("target-pinned-ready", pinned.status == ChannelTargetStatus::Ready);
+    CHECK_STRING("target-pinned-mac", "AA:BB:CC:DD:EE:01", pinned.mac.toStdString());
+
+    // 指定离线 MAC：Offline 且不产出目标设备
+    const ChannelTargetResolution offline = rule_graph_resolve_channel_target(
+        QStringLiteral("11:22:33:44:55:66"), default_device, online);
+    CHECK_TRUE("target-offline-status", offline.status == ChannelTargetStatus::Offline);
+    CHECK_TRUE("target-offline-mac-empty", offline.mac.isEmpty());
+
+    // 跟随默认但没有默认设备 / 指定 MAC 且一台设备都没在线：都判为不可下发
+    const ChannelTargetResolution no_default = rule_graph_resolve_channel_target(
+        QString(), QString(), online);
+    CHECK_TRUE("target-no-default", no_default.status == ChannelTargetStatus::NoDefault);
+    const ChannelTargetResolution none_online = rule_graph_resolve_channel_target(
+        QStringLiteral("D3:3B:5A:FA:43:0C"), QString(), QStringList());
+    CHECK_TRUE("target-none-online", none_online.status == ChannelTargetStatus::Offline);
+
+    // 11) 唯一入边：同一设备同一通道只保留一条入边，不同设备互不影响
+    RuleGraph scope_graph;
+    scope_graph.set_default_device(default_device);
+    GraphNode source_a;
+    source_a.type = GraphNodeType::Module;
+    source_a.value_id = QStringLiteral("hp");
+    source_a.name = QStringLiteral("生命值");
+    const int source_a_id = scope_graph.add_node(source_a);
+    GraphNode source_b = source_a;
+    source_b.value_id = QStringLiteral("damage");
+    source_b.name = QStringLiteral("伤害");
+    const int source_b_id = scope_graph.add_node(source_b);
+
+    GraphNode channel_follow;
+    channel_follow.type = GraphNodeType::Channel;
+    channel_follow.channel = QStringLiteral("A");
+    channel_follow.name = QStringLiteral("通道 A");
+    const int channel_follow_id = scope_graph.add_node(channel_follow);
+    // 指定「当前默认设备」的同一 MAC：与「跟随默认设备」落进同一作用域
+    GraphNode channel_same = channel_follow;
+    channel_same.target_device = QStringLiteral("D3:3B:5A:FA:43:0C");
+    const int channel_same_id = scope_graph.add_node(channel_same);
+    // 另一台设备：不同作用域，互不影响
+    GraphNode channel_pinned = channel_follow;
+    channel_pinned.target_device = QStringLiteral("AA:BB:CC:DD:EE:01");
+    const int channel_pinned_id = scope_graph.add_node(channel_pinned);
+    GraphNode channel_offline = channel_follow;
+    channel_offline.target_device = QStringLiteral("11:22:33:44:55:66");
+    const int channel_offline_id = scope_graph.add_node(channel_offline);
+
+    // 通道节点是数据汇：一个输入端口，上游可连入
+    CHECK_INT("channel-input-count", 1, scope_graph.input_count(channel_follow_id));
+    CHECK_STRING("channel-input-label", "输入",
+        scope_graph.input_label(channel_follow_id, 0).toStdString());
+
+    // 11a) 同一设备同一通道：第二条入边顶掉第一条（「跟随默认设备」与「指定该默认设备」同一作用域）
+    CHECK_TRUE("unique-first-connect", scope_graph.connect_nodes(source_a_id, channel_follow_id, 0) > 0);
+    CHECK_INT("unique-first-source", source_a_id, scope_graph.source_at_port(channel_follow_id, 0));
+    CHECK_TRUE("unique-second-connect", scope_graph.connect_nodes(source_b_id, channel_same_id, 0) > 0);
+    CHECK_INT("unique-first-cleared", -1, scope_graph.source_at_port(channel_follow_id, 0));
+    CHECK_INT("unique-second-source", source_b_id, scope_graph.source_at_port(channel_same_id, 0));
+
+    // 11b) 不同设备同名通道互不影响：另一台设备与离线 MAC 的通道 A 各保留自己的入边
+    CHECK_TRUE("unique-other-device-connect",
+        scope_graph.connect_nodes(source_a_id, channel_pinned_id, 0) > 0);
+    CHECK_INT("unique-other-device-kept", source_b_id, scope_graph.source_at_port(channel_same_id, 0));
+    CHECK_INT("unique-other-device-source", source_a_id,
+        scope_graph.source_at_port(channel_pinned_id, 0));
+    CHECK_TRUE("unique-offline-device-connect",
+        scope_graph.connect_nodes(source_b_id, channel_offline_id, 0) > 0);
+    CHECK_INT("unique-offline-device-kept", source_a_id,
+        scope_graph.source_at_port(channel_pinned_id, 0));
+
+    // 11c) 通道 B 与通道 A 不同作用域：同样保留两条
+    GraphNode channel_b;
+    channel_b.type = GraphNodeType::Channel;
+    channel_b.channel = QStringLiteral("B");
+    channel_b.name = QStringLiteral("通道 B");
+    const int channel_b_id = scope_graph.add_node(channel_b);
+    CHECK_TRUE("unique-channel-b-connect", scope_graph.connect_nodes(source_a_id, channel_b_id, 0) > 0);
+    CHECK_INT("unique-channel-a-kept", source_b_id, scope_graph.source_at_port(channel_same_id, 0));
+
+    // 11d) 求值按输入端口取值：通道节点把上游值当作待下发的强度
+    const RuleGraph::ValueResolver resolver = [](const QString& value_id) -> std::optional<int> {
+        return value_id == QStringLiteral("damage") ? std::optional<int>(33) : std::optional<int>();
+    };
+    const std::optional<int> channel_value = scope_graph.evaluate(channel_same_id, resolver);
+    CHECK_TRUE("channel-eval-has-value", channel_value.has_value());
+    CHECK_INT("channel-eval-value", 33, channel_value.value_or(-1));
+
+    // 12) 序列化与迁移：targetDevice 落盘；旧文件缺该字段时按跟随默认设备处理
+    const nlohmann::json serialized = scope_graph.to_json();
+    CHECK_STRING("serialize-target-default", "",
+        serialized["nodes"][static_cast<size_t>(channel_follow_id - 1)].value("targetDevice", ""));
+    CHECK_STRING("serialize-target-pinned", "AA:BB:CC:DD:EE:01",
+        serialized["nodes"][static_cast<size_t>(channel_pinned_id - 1)].value("targetDevice", ""));
+    CHECK_STRING("serialize-target-same-device", "D3:3B:5A:FA:43:0C",
+        serialized["nodes"][static_cast<size_t>(channel_same_id - 1)].value("targetDevice", ""));
+
+    RuleGraph legacy_graph;
+    legacy_graph.from_json(nlohmann::json::parse(R"({
+    "nodes": [ { "id": 1, "type": "channel", "name": "通道 A", "channel": "A" } ],
+    "edges": []
+})"));
+    CHECK_INT("legacy-channel-node-count", 1, static_cast<int>(legacy_graph.nodes().size()));
+    CHECK_TRUE("legacy-target-follow-default",
+        legacy_graph.nodes().front().target_device.isEmpty());
+    CHECK_INT("legacy-input-count", 1, legacy_graph.input_count(legacy_graph.nodes().front().id));
+
     if (failures == 0) {
         std::printf("rule_graph_eval_test: 全部用例通过\n");
         return 0;

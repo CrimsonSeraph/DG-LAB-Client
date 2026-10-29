@@ -339,6 +339,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `ruleGraphTitle` / `ruleBackToTopButton` | 标题栏图名（总图「总规则图」、插件图「<插件> 规则图」）与「返回总图」按钮（仅插件图下可见，点击 `ruleGraph.loadPluginGraph("")`，处理器尚未迁到 C++） |
 | `ruleCanvas` / `ruleZoomLabel` | 画布根项（C++ 通过它读写 `panX`/`panY`/`zoom`）与左下缩放百分比标签（纯绑定 `zoom`） |
 | `ruleFitViewButton` | 适配视图：点击由 C++ 连接，按节点包围盒重置缩放与平移；无节点时回到 1.0 居中 |
+| `ruleChannelDeviceCombo` | 通道节点的目标设备下拉（属性面板按节点类型构建，只在选中通道节点时存在）：模型 `ruleGraph.channelDeviceOptions`（第 0 项「跟随默认设备」，其余为在线输出设备 + 已记忆设备，离线项名称带「离线」，与设备管理页上下限下拉同一份 `DeviceController::outputDeviceTargets()`），切换回调 `ruleGraph.setChannelDeviceTargetByIndex(nodeId, index)` |
 | `ruleDeleteEdgeMenu` | 右键菜单「删除此连线」：仅当右键命中连线（`canvas.contextEdgeId > 0`）时才生成（`Repeater` 条件构建，未命中时不占菜单槽位），`onTriggered` 调用 `ruleGraph.deleteEdge()` |
 | `confirmDialog` / `confirmAcceptButton` / `confirmCancelButton` | 通用确认弹层（`components/ConfirmDialog.qml`）：`UiConnector::ask_confirm()` 填入标题/正文/危险态并打开，确认执行挂起动作，取消只关闭；键盘由 `UiConnector::eventFilter` 在弹层可见时接管——Enter 确认、Esc 取消（弹层内出现输入框时 Enter 仍归输入），默认焦点按危险性分配：危险操作落在取消上、普通操作落在确认上，空白键只作用于默认焦点按钮；弹层是主窗口内的 `Popup`，主窗口隐藏到托盘或最小化时 `ask_confirm()` 先把主窗口 `show()` / `showNormal()` + `raise()` + `requestActivate()` 再打开，否则迷你窗触发的确认（如「关闭运行中的通道」）落在不可见的窗口里无法确认 |
 | `ipSelectDialog` | 网卡 IP 选择对话框（`dialogs/IpSelectDialog.qml`）：左右两列维护黑/白名单、下方列出过滤后的候选网卡；`pendingIp` 属性保存待写入的地址，Esc / 点击遮罩走取消，Enter 走确定（`UiConnector::eventFilter`） |
@@ -481,7 +482,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `dialogs/RuleEditorDialog.qml` 画布 `MouseArea` 的 `onPressed` / `onPositionChanged` / `onReleased` / `onWheel` / `Keys.onPressed` | 拖动节点、拉线、缩放、平移与快捷键都是指针/键盘手势，命中测试无法通过 `objectName` + C++ 连接表达 | 处理器只调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型 |
 | 同文件画布右键菜单的 6 个 `MenuItem.onTriggered`（含 `ruleDeleteEdgeMenu` 删除连线） | 菜单由手势弹出，且需要读画布当前缩放/平移换算世界坐标；删除连线依赖右键命中测试得到的连线 id | 同上，只调用 `ruleGraph` |
 | 同文件 14 个 `onClicked`：调色板 11 个 `AppButton`（`ruleAddAdd` / `ruleAddSub` / `ruleAddMul` / `ruleAddDiv` / `ruleAddAbs` / `ruleAddSquare` / `ruleAddSqrt` / `ruleAddExpr` / `ruleAddRule` / `ruleAddChannelA` / `ruleAddChannelB`）、插件输出与数值源两个列表委托的 `MouseArea`、标题栏 `ruleBackToTopButton` | 遗留：这些点击都能用 `objectName` + `connect_clicked` 迁到 C++，目前尚未迁移 | 只调用 `ruleGraph`（`addOperatorNode` / `addAdvancedNode` / `addRuleNode` / `addChannelNode` / `addPluginOutputNode` / `addModuleNode` / `loadPluginGraph`）；新增控件不得照抄此写法 |
-| 同文件检查器 5 个：`onEditingFinished`（规则名 `nameField` / 表达式 `expressionArea`）、`onActivated`（值模式 `modeCombo`）、`onClicked`（启用勾选、「应用表达式」按钮） | 遗留：输入回灌与表达式应用沿用 QML 处理器；`ruleSaveButton` 已迁到 C++ | 只调用 `ruleGraph`；不得扩大 |
+| 同文件检查器 6 个：`onEditingFinished`（规则名 `nameField` / 表达式 `expressionArea`）、`onActivated`（值模式 `modeCombo`、通道节点的目标设备 `ruleChannelDeviceCombo`）、`onClicked`（启用勾选、「应用表达式」按钮） | 遗留：输入回灌与表达式应用沿用 QML 处理器；`ruleSaveButton` 已迁到 C++。检查器控件按节点类型由 `Loader` 动态创建（属性面板只构建适用项），创建发生在选中节点之后，`UiConnector::attach()` 的执行时刻拿不到这些对象，目标设备下拉因此沿用同一处处理器而非 C++ 连接 | 只调用 `ruleGraph`；不得扩大 |
 | `MiniWindow.qml` 标题条 `MouseArea` 的 `onPressed` / `onPositionChanged` | 无边框窗口的拖动只能由指针按下与位移驱动，指针轨迹无法用 `objectName` + C++ 连接表达 | 处理器只改 `Window.x/y`；锁定态由 `dragArea.enabled` 断掉拖动，位置写回配置全部在 C++（`UiConnector` 的 400 ms 合并计时器） |
 | `MainWindow.qml` 的 `onClosing` | 窗口关闭是窗口事件，`close.accepted` 与「隐藏而不是销毁」必须在事件回调内决定 | 只调 `tray.handleMainWindowClose()`；隐藏 / 退出 / 降级判定全在 `TrayController` |
 | `components/AppTagStrip.qml` 标签条 `MouseArea` 的 `onWheel` | 标签总宽超过可用宽度时用滚轮左右查看剩余标签，滚轮是纯指针事件，无法用 `objectName` + C++ 连接表达；标签全部可见时处理器直接返回、不接管滚轮，页面照常滚动 | 处理器只改 `root.requestedOffset`（经 `clampOffset` 夹在两端之间），不读写任何模型、不导航 |
@@ -492,9 +493,9 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
-复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 66 处（设备管理页这一批新增 0 处：新页面的扫描 / 连接 / 断开 / 下拉 / 上下限全部由 `UiConnector` 连接，故登记条数与总数都不变），按文件分组：
+复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 67 处（规则图通道节点这一批新增 1 处：通道节点目标设备下拉的 `onActivated`，已登记在检查器一行；其余交互仍全部由 C++ 按 `objectName` 连接），按文件分组：
 
-- `dialogs/RuleEditorDialog.qml` 30 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 5，即上表四行，逐处已登记。
+- `dialogs/RuleEditorDialog.qml` 31 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 6（含新增的通道节点目标设备下拉），即上表四行，逐处已登记。
 - `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 8 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
 - `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击（行委托由 `Repeater` 动态生成，本次仍保留处理器）只调 `app.openPluginDetail(fileName)`，导航与定位全在 C++（`AppBridge` + `UiConnector::on_plugin_detail_requested()`），QML 不再自己决定导航目标；处理器本身仍属待迁移项。
 - `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表新增两行，逐处已登记。

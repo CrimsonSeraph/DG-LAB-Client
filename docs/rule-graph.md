@@ -33,7 +33,7 @@
 | `Module` | `module` | 模块数值源 | 0 |
 | `Operator` | `operator` | `+ - * /` | 2 |
 | `Advanced` | `advanced` | `abs` / `square` / `sqrt` / `expression` | 1 或 N |
-| `Channel` | `channel` | 通道输出 `A` / `B`（单来源） | 1 |
+| `Channel` | `channel` | 通道输出 `A` / `B`（**数据汇**：上游接入后按目标设备下发，单来源） | 1 |
 | `PluginOutput` | `pluginOutput` | **插件输出节点**：只出现在总规则图，代表某插件规则图的最终输出 | 0 |
 | `DefaultOutput` | `defaultOutput` | **默认输出节点**：每个插件规则图恰好一个，本图唯一出口 | 1 |
 
@@ -48,6 +48,22 @@
 - 插件规则图恰好一个默认输出节点：载入时多余的节点被丢弃（保留首个），`RuleGraph::add_node` 不会新增第二个，`RuleGraph::remove_node` 拒绝删除默认输出节点。
 - 插件输出节点没有输入端口，`RuleGraph::connect_nodes` 拒绝连入。
 - 默认输出节点单来源，新连线会替换该端口上的既有连线。
+
+### 2.1 通道节点（输出端点）
+
+通道节点是图的**数据汇**，不是数据源：它只有一个输入端口，上游任意节点（数值源、运算、高级、规则、插件输出、默认输出等）把输出端口连到它上面，数据流入后由它负责下发。
+
+- **按设备区分**：通道节点带目标设备字段 `targetDevice`。
+
+| 取值 | 含义 |
+| --- | --- |
+| 空字符串（缺省） | 跟随默认设备：求值时按当时评选出的默认设备解析 |
+| 设备 MAC（归一为大写） | 指定该设备；可以是已连接设备，也可以是已记忆但离线（`app.devices` 里出现过）的设备 |
+
+- **同一设备同一通道只允许一条入边**：作用域键 = `<通道>@<设备>`（见 `rule_graph_channel_scope_key`）。往某设备某通道的通道节点连入新连线时，`RuleGraph::connect_nodes` 会断开同作用域下其它通道节点上的入边并记一条 INFO 日志；不同设备的同名通道、同一设备的不同通道互不影响。跟随默认设备在连入时按**当时的**默认设备落成具体设备，因此「跟随默认设备」的节点与「指定该设备」的节点落在同一作用域，不会出现两条入边同时生效。默认设备之后改变时不会回改已有连线（唯一性只在连入时判定）。
+- **属性面板按节点类型构建**：编辑器右侧检查器用 `Loader` 按节点类型只构建适用控件——规则节点显示规则名 / 值模式 / 启用，自定义表达式节点显示表达式，通道节点只显示「目标设备」下拉与说明；不适用的控件根本不创建，而不是置灰。设备下拉的模型来自 `RuleGraphBridge::channelDeviceOptions`（第 0 项「跟随默认设备」，其余为在线输出设备 + 已记忆设备，离线项名称带「离线」），与设备管理页的上下限下拉同一份实现（`DeviceController::outputDeviceTargets()`）。
+- **求值按目标设备分发**：求值器仍按输入端口取上游值，命令里额外带 `device` 字段（`{"cmd":"send_strength","channel":"A","mode":2,"value":47,"device":"D3:3B:5A:FA:43:0C"}`，空串表示跟随默认设备）。设备解析集中在 `DeviceController::send_device_strength()`：目标就是默认设备时沿用「规则 + 事件取较大值 → 通道上限」的合并下发；目标是另一台在线设备时按该设备的通道上下限直接下发，不参与默认设备的合并状态。
+- **离线处理**：目标设备不在在线输出设备列表（含跟随默认设备但没有默认设备）时**不下发、不更新通道状态**，只记一条按「通道 + 目标」限流的 WARN（日志面板可查）。不弹 Toast：该判定会在每次求值帧重复出现，Toast 会持续刷屏。
 
 ## 3. 引用关系
 
@@ -82,7 +98,9 @@
 
 `EventRuntime`：`set_cascade_events` / `cascade_events`（运行期启用集合，供启用级联使用）。
 
-`RuleGraphBridge`（QML 侧，本批只读）：属性 `pluginGraphs`、`currentGraphPlugin`、`outputReferences`；方法 `loadPluginGraph`、`graphDependencies()`（整图）/ `graphDependencies(nodeId)`（某节点上游）、`outputReferrers`；节点数据新增 `pluginId`、`references`、`referenceLabels`。
+`RuleGraphBridge`（QML 侧）：属性 `pluginGraphs`、`currentGraphPlugin`、`outputReferences`、`channelDeviceOptions`（通道节点目标设备下拉的模型）；方法 `loadPluginGraph`、`graphDependencies()`（整图）/ `graphDependencies(nodeId)`（某节点上游）、`outputReferrers`、`channelDeviceIndex(targetDevice)`、`setChannelDeviceTargetByIndex(nodeId, index)`；节点数据含 `pluginId`、`references`、`referenceLabels`、`targetDevice`、`deviceLabel`、`rowCount`（节点高度公式的行数来源）。`attach_device(DeviceController*)` 由 `UiConnector` 在装配时注入，用于取默认设备与设备目标列表。
+
+通道节点相关的纯函数（`RuleGraph.h`，求值分发与唯一入边共用一份判定）：`rule_graph_normalize_device`、`rule_graph_channel_scope_key(channel, targetDevice, defaultDevice)`、`rule_graph_resolve_channel_target(targetDevice, defaultDevice, onlineDevices)`（返回 `ChannelTargetResolution`：`Ready` / `NoDefault` / `Offline`）；`RuleGraph::set_default_device` 把当前默认设备写进图，供唯一入边判定使用。
 
 ## 6. 多图求值
 
@@ -99,7 +117,7 @@
 
 1. 插件图：以默认输出节点的上游子图为起点求值（`RuleGraph::evaluate`），结果缓存为 `get_plugin_graph_output(plugin_id)`。
 2. 总规则图：`pluginOutput` 节点取对应插件图的上一步结果作为输入；通道节点据此得到强度，结果缓存为 `get_graph_channel_output(channel)`。
-3. 通道节点在通道已启用时才生成 `send_strength`（`mode = 2`，即绝对强度）经 `rule_command_ready` 下发；通道未启用时只记录求值结果。
+3. 通道节点在通道已启用时才生成 `send_strength`（`mode = 2`，即绝对强度，另带 `device` = 该节点的 `targetDevice`）经 `rule_command_ready` 下发；通道未启用时只记录求值结果。设备解析与离线判定在 `DeviceController::send_device_strength()` 里完成（见 2.1）。
 
 节点求值口径与总图的规则节点一致：
 
@@ -108,7 +126,7 @@
 | `module` | 由数值 ID 查模块当前值；无数据源或尚未取到值时为空（不产出） |
 | `rule` | 按端口取值后走 `Rule::compute_value`（空值语义 + 模式钳位） |
 | `operator` / `advanced` | 生成 `Math.floor(...)` 表达式，复用 `valuePattern` 的 QJSEngine 求值路径 |
-| `channel` / `defaultOutput` | 取端口 0 的上游值 |
+| `channel` / `defaultOutput` | 取端口 0 的上游值（通道节点的目标设备不参与求值，只决定下发到哪台设备） |
 | `pluginOutput` | 总图取对应插件图结果，插件图不存在该值按空处理；插件图内出现插件输出节点属当前数据层不支持的情形，按 0 处理并记一条限流 WARN |
 
 插件图每次求值都从 `plugin_<插件标识>.json` 读取，因此保存后下一次求值即生效，不做额外的热重载订阅。
@@ -128,3 +146,4 @@
 2. 内置预置规则已从 `config/rules/rules.json` 移除（`rules` 为空对象），预置图只保留一个示例通道节点；插件图在首次编辑插件规则时按 `plugin_<插件标识>.json` 生成，其默认输出节点由总规则图的插件输出节点引用。老用户文件里的规则仍按第 1 条读入。
 3. 旧侧车文件里的节点位置在首次保存后迁入规则文件；保存后节点 JSON 会补齐缺省字段（`op`、`advanced` 等），属正常归一。
 4. `plugin_*.json` 与 `*.graph.json` 不再出现在规则文件列表（`get_available_rule_files`）中。
+5. 通道节点的 `targetDevice` 是新增字段：旧规则文件（`config/rules/*.json`、`config/rules/rules.json`、插件图）里没有该字段时读作空字符串 = 跟随默认设备，读取过程不改写文件；只有用户保存该图时才会写出该字段。
