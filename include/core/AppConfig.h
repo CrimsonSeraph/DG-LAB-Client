@@ -122,7 +122,7 @@ public:
     /// @return 全部保存成功返回 true
     bool save_all();
 
-    /// @brief 重新加载所有配置文件
+    /// @brief 从磁盘重新加载所有配置文件（整体替换内存数据并通知监听器）
     void reload_all();
 
     // 配置监听
@@ -206,6 +206,9 @@ private:
     void create_default_configs();
     /// @brief 设置配置变更监听
     void setup_listeners();
+    /// @brief 开启/关闭配置文件变更监听（外部手改后由同一个 ConfigManager 实例重读）
+    /// @param enabled 开启为 true
+    void set_file_watch(bool enabled);
     /// @brief 清空所有配置缓存
     void invalidate_caches();
     /// @brief 通知指定配置的监听器配置已变更

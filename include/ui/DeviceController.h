@@ -207,7 +207,7 @@ private:
     /// @brief 实验性设备首次连接成功时提示一次（记录到 app.devices.<MAC>.experimental_notice_shown）
     /// @param device 刚连上的输出设备
     void notify_experimental_device(IOutputDevice* device);
-    /// @brief 上下限配置变化时广播（外部修改 user.json 后界面与下发跟随）
+    /// @brief 上下限配置变化时广播（订阅配置变更后按新值刷新界面与下发）
     void refresh_limits();
     /// @brief 通道当前可用的输出设备
     /// @param index 通道索引（0=A，1=B）
@@ -281,9 +281,6 @@ private:
     int relay_strength_b_ = 0; ///< 中转回执记录的 B 通道强度
     int relay_limit_a_ = 0; ///< 中转回执记录的 A 通道上限
     int relay_limit_b_ = 0; ///< 中转回执记录的 B 通道上限
-    QTimer* limits_timer_ = nullptr;    ///< 上下限配置跟随定时器（外部改配置后刷新界面）
-    QDateTime config_modified_;         ///< 上次读到的 user.json 修改时间
-    QJsonObject config_snapshot_app_;   ///< user.json 的 app 子树快照（设备特有上下限的数据源）
     int cached_limit_a_ = -1;           ///< 上次广播的 A 通道上限
     int cached_limit_b_ = -1;           ///< 上次广播的 B 通道上限
     QHash<QString, int> connection_order_; ///< 设备 MAC → 连接顺序序号

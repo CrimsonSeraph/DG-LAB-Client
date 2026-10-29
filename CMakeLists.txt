@@ -1194,6 +1194,40 @@ target_include_directories(wave_tag_test
 )
 add_test(NAME wave_tag_test COMMAND wave_tag_test)
 
+# 配置热重读（外部改动经 reload 生效、load 保持幂等、保存不丢外部新增键、损坏 JSON 保留旧值、
+# 文件删除后重建、文件监听去抖与自身写盘抑制、AppConfig::reload_all 走同一条链路）
+# AppConfig::reload_all 依赖规则系统，故带上规则 / 模块 / 事件 / 波形层；
+# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+add_executable(config_reload_test
+	tests/config_reload_test.cpp
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${WAVE}
+	${CORE_CONFIG}
+	${CORE_LOG}
+)
+target_link_libraries(config_reload_test
+	PRIVATE
+		Qt::Core
+		Qt::Network
+		Qt::Qml
+		nlohmann_json
+		miniz
+)
+target_include_directories(config_reload_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+)
+add_test(NAME config_reload_test COMMAND config_reload_test)
+
 # -------------------- 安装规则（供 CPack 使用）--------------------
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；
 # 因此 Windows 把可执行文件连同它运行所需的数据（config / python / assets 等）

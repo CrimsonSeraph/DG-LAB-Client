@@ -12,6 +12,9 @@
 #include "MultiConfigManager.h"
 #include "RuleManager.h"
 
+#include <QCoreApplication>
+#include <QObject>
+
 #include <algorithm>
 #include <atomic>
 #include <filesystem>
@@ -146,6 +149,14 @@ bool AppConfig::initialize(const std::string& config_dir) {
 
             initialize_configs_unsafe();
             setup_listeners();
+            // 外部手改配置文件后由同一个 ConfigManager 实例重读，通知沿既有 listener 链下发
+            set_file_watch(true);
+            // 事件循环退出前先停监听，避免 QApplication 销毁后再删除 Qt 对象
+            if (QCoreApplication* application = QCoreApplication::instance()) {
+                QObject::connect(application, &QCoreApplication::aboutToQuit, application, []() {
+                    AppConfig::instance().set_file_watch(false);
+                });
+            }
             initialized_ = true;
             LOG_MODULE("AppConfig", "initialize", LOG_INFO, "配置系统初始化完成");
         }
@@ -177,6 +188,9 @@ void AppConfig::shutdown() {
             LOG_MODULE("AppConfig", "shutdown", LOG_DEBUG, "配置系统未初始化，无需关闭");
             return;
         }
+
+        // 先停文件监听：关闭过程中的写盘不必再触发重读
+        set_file_watch(false);
 
         if (multi_config_) {
             multi_config_->enable_hot_reload(false);
@@ -263,10 +277,24 @@ void AppConfig::reload_all() {
         return;
     }
     try {
-        multi_config_->load_all();
+        // load() 对已加载文件幂等，真正的重读入口是 ConfigManager::reload()
+        bool all_success = true;
+        const std::vector<std::string> names = {"main", "system", "user"};
+        for (const auto& name : names) {
+            std::shared_ptr<ConfigManager> manager = multi_config_->get_config(name);
+            if (!manager) {
+                LOG_MODULE("AppConfig", "reload_all", LOG_WARN, "配置管理器缺失，跳过: " << name);
+                all_success = false;
+                continue;
+            }
+            if (!manager->reload()) {
+                LOG_MODULE("AppConfig", "reload_all", LOG_WARN, "配置重读失败，保留上一份有效数据: " << name);
+                all_success = false;
+            }
+        }
         invalidate_caches();
         notify_config_changed("all");
-        LOG_MODULE("AppConfig", "reload_all", LOG_INFO, "配置重新加载成功");
+        LOG_MODULE("AppConfig", "reload_all", all_success ? LOG_INFO : LOG_WARN, "配置重新加载完成");
     }
     catch (const std::exception& e) {
         LOG_MODULE("AppConfig", "reload_all", LOG_ERROR, "重新加载配置失败: " << e.what());
@@ -489,6 +517,16 @@ void AppConfig::setup_listeners() {
             notify_config_changed("system");
         });
         LOG_MODULE("AppConfig", "setup_listeners", LOG_DEBUG, "系统配置监听器已添加");
+    }
+}
+
+void AppConfig::set_file_watch(bool enabled) {
+    LOG_MODULE("AppConfig", "set_file_watch", LOG_INFO, "设置配置文件监听: " << (enabled ? "开启" : "关闭"));
+    const std::vector<std::shared_ptr<ConfigManager>> managers = {main_config_, system_config_, user_config_};
+    for (const auto& manager : managers) {
+        if (manager) {
+            manager->watch_changes(enabled);
+        }
     }
 }
 

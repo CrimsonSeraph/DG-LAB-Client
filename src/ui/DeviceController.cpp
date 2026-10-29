@@ -16,12 +16,12 @@
 #include "WaveLibrary.h"
 
 #include <QDateTime>
-#include <QFile>
-#include <QFileInfo>
 #include <QJsonArray>
-#include <QJsonDocument>
+#include <QPointer>
 #include <QTimer>
 #include <QVariantMap>
+
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <limits>
@@ -136,11 +136,18 @@ void DeviceController::initialize() {
         rule_wave_[1] = RuleWaveState();
     });
 
-    // 外部修改 user.json 后配置每 2 秒重载一次，这里按同一节奏比对上下限并广播变化
-    limits_timer_ = new QTimer(this);
-    limits_timer_->setInterval(2000);
-    connect(limits_timer_, &QTimer::timeout, this, [this]() { refresh_limits(); });
-    limits_timer_->start();
+    // 配置变化（外部手改文件或应用内写入）后按新上下限广播；延到事件循环再读，
+    // 避免在配置通知持锁期间回调 AppConfig 的加锁接口
+    AppConfig::instance().add_config_listener("all", [self = QPointer<DeviceController>(this)]() {
+        if (self.isNull()) {
+            return;
+        }
+        QTimer::singleShot(0, self.data(), [self]() {
+            if (!self.isNull()) {
+                self->refresh_limits();
+            }
+        });
+    });
     refresh_limits();
 
     // 规则引擎命令统一经本类下发（规则层只依赖本类接口）
@@ -149,6 +156,7 @@ void DeviceController::initialize() {
 
     // 内置中转服务随应用启动，配置页可立即展示配对二维码
     connectDevice();
+
 }
 
 void DeviceController::attach_output(IOutputDevice* output) {
@@ -229,22 +237,28 @@ EventChannelConfig DeviceController::limits_for(const QString& mac, const QStrin
     if (device.isEmpty() || (!is_a && !is_b)) {
         return config;
     }
-    // 设备特有值取 user.json 快照：配置系统对已加载的文件不再重读，快照让外部改动无需重启即可生效
-    const QJsonObject devices = config_snapshot_app_.value(QStringLiteral("devices")).toObject();
-    QJsonObject device_config;
-    for (auto it = devices.constBegin(); it != devices.constEnd(); ++it) {
-        if (it.key().compare(device, Qt::CaseInsensitive) == 0 && it.value().isObject()) {
-            device_config = it.value().toObject();
+    // 设备特有键直接读配置：配置文件改动由配置系统重读后进入内存，这里不再另存快照
+    const nlohmann::json devices = AppConfig::instance().get_value<nlohmann::json>(
+        "app.devices", nlohmann::json::object());
+    if (!devices.is_object()) {
+        return config;
+    }
+    nlohmann::json device_config = nlohmann::json::object();
+    for (auto it = devices.begin(); it != devices.end(); ++it) {
+        if (QString::fromStdString(it.key()).compare(device, Qt::CaseInsensitive) == 0 && it.value().is_object()) {
+            device_config = it.value();
             break;
         }
     }
-    const QString limit_key = is_a ? QStringLiteral("limit_a") : QStringLiteral("limit_b");
-    const QString safety_key = is_a ? QStringLiteral("safety_a") : QStringLiteral("safety_b");
-    if (device_config.contains(limit_key)) {
-        config.limit = device_config.value(limit_key).toInt(config.limit);
+    const char* limit_key = is_a ? "limit_a" : "limit_b";
+    const char* safety_key = is_a ? "safety_a" : "safety_b";
+    const nlohmann::json::const_iterator limit_it = device_config.find(limit_key);
+    if (limit_it != device_config.end() && limit_it->is_number()) {
+        config.limit = static_cast<int>(limit_it->get<double>());
     }
-    if (device_config.contains(safety_key)) {
-        config.safety = device_config.value(safety_key).toInt(config.safety);
+    const nlohmann::json::const_iterator safety_it = device_config.find(safety_key);
+    if (safety_it != device_config.end() && safety_it->is_number()) {
+        config.safety = static_cast<int>(safety_it->get<double>());
     }
     return config;
 }
@@ -659,20 +673,7 @@ void DeviceController::notify_experimental_device(IOutputDevice* device) {
 }
 
 void DeviceController::refresh_limits() {
-    // 设备特有上下限读 user.json 快照：配置系统对已加载文件不再重读，这里按修改时间自行刷新一次
-    const QFileInfo info(QStringLiteral("config/user.json"));
-    const QDateTime modified = info.lastModified();
-    if (modified.isValid() && modified != config_modified_) {
-        config_modified_ = modified;
-        QFile file(info.filePath());
-        if (file.open(QIODevice::ReadOnly)) {
-            const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
-            config_snapshot_app_ = document.object().value(QStringLiteral("app")).toObject();
-            const int device_count = config_snapshot_app_.value(QStringLiteral("devices")).toObject().size();
-            LOG_MODULE("DeviceController", "refresh_limits", LOG_INFO,
-                "user.json 快照已刷新，设备上下限条目 " << device_count);
-        }
-    }
+    // 上下限来自配置系统（外部手改已由 ConfigManager 重读），这里只比较变化并广播
     const int limit_a = channel_limit(QStringLiteral("A"));
     const int limit_b = channel_limit(QStringLiteral("B"));
     if (limit_a == cached_limit_a_ && limit_b == cached_limit_b_) {

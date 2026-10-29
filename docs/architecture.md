@@ -21,7 +21,7 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 
 - **QML 界面层** `Dglab` QML 模块包含主窗口、页面、组件与对话框，样式令牌集中在 `style/` 单例（间距/字号/断点/组件度量）与 C++ 的 `Theme` 单例（颜色，支持 17 套预设与自定义主/副色，令牌与对比度说明见 [docs/theme.md](theme.md)）；QML 默认不写信号处理器，交互由 C++ 的 `UiConnector` 按 `objectName` 集中连接（画布类手势为登记在案的例外）。详见 [src/ui/README.md](../src/ui/README.md)。
 
-- **配置系统** 采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、热重载、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。
+- **配置系统** 采用 `MultiConfigManager` 管理多个 JSON 配置文件（main/user/system），支持优先级覆盖、文件监听式热重载（真重读 + 既有一致性通知链）、配置变更监听。配置项通过 `ConfigValue<T>` 或 `ConfigObject<T>` 包装，提供类型安全访问和缓存。
 
 ## 目录结构
 
@@ -112,7 +112,9 @@ DG-LAB-Client/
 
 **注意: ** 其中 `"version"` 与 `"DGLABClient"` 为检查字段，内容随意，但 **请勿删除或修改** 此字段。`app.ui.theme` 存储当前选中的主题模式。
 
-配置热更只覆盖设备特有键：`ConfigManager::load()` 对已加载文件直接返回，外部手改 `user.json` 的 `app.devices.<MAC>.*` 靠 `DeviceController::refresh_limits()` 每 2 秒比对 mtime 的快照生效；通道级 `app.channels.*` 仍以应用内写入为准，外部手改需重启。要根治得让 core 的配置支持重读，属独立改造。
+配置热更是「重读 + 通知」：三个配置文件各自用 `QFileSystemWatcher` 监听文件与其所在目录，外部写入后去抖 300 ms，由同一个 `ConfigManager` 实例调用 `reload()` 整体替换内存数据，再沿既有 listener 链下发（`ConfigManager::notify_listeners` → `AppConfig` 的 `invalidate_caches` + `notify_config_changed("main"/"system"/"user"/"all")`）。`app.devices.<MAC>.*` 与 `app.channels.<A|B>.*` 都是普通配置键，外部手改后约 0.4 s 生效，界面与下发随之跟随；`DeviceController` 不再自带 mtime 快照与轮询定时器，`limits_for()` 直接读配置，订阅「all」变更后再比对并广播通道上限。`load()` 仍是幂等的首次加载，`AppConfig::reload_all()` 走 `reload()` 这条真重读链路。
+
+三条边界必须一起看：**失败保留**——JSON 损坏、缺 `version` / `DGLABClient` 或端口越界时不动内存数据，记 WARN 并保留上一份有效配置，绝不把配置退化成空对象，也不改写磁盘上的坏文件；**自写抑制**——`save()` 记下写出的内容与时刻，紧随其后的监听事件读到相同内容就丢弃，避免「保存 → 重读 → 再通知」的循环；**删除后重建**——文件级 watch 在删除时会被 Qt 丢掉，目录级事件负责把文件与目录重新 `addPath` 回来。保存路径另做一次三方合并（基准是上次读写的内容）：只有应用与外部都改过的叶子保留内存值，外部新增的键并入内存，因此应用保存不会覆盖掉外部刚加的键。
 
 ## 关键架构决策
 
