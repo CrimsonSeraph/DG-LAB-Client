@@ -127,9 +127,9 @@ DG-LAB-Client/
 
 **规则图**: 插件级规则图存 `config/rules/plugin_<插件>.json`，总图存 `config/rules/rules.json` 的 `graph` 字段；节点类型 `pluginOutput`（仅总图）与 `defaultOutput`（每插件图唯一、不可增删）；求值先插件图后总图；启用级联按 `channel:A/B` 与 `graph:top|plugin:<id>` 生效。见 [rule-graph.md](rule-graph.md)。
 
-**设备分发**: 应用只做收集、处理与分发，向所有已连接设备同时下发，插件配置不选设备。
+**设备分发**: 应用只做收集、处理与分发，向所有已连接设备同时下发，插件配置不选设备。蓝牙输出设备按「扫描入口 + 链路管理」两段组织：扫描入口 `CoyoteBleController` 只做发现与型号识别（结果按 MAC 去重），`BleDeviceManager` 按型号为每台设备创建驱动实例（郊狼 `CoyoteBleDevice` / 负鼠 `OpossumBleController`）并以 MAC 为键登记；任意数量可同时在线，断开只销毁该 MAC 的实例。每台设备的连接状态、电量、强度回执与波形进度都是实例自己的状态，界面读的是默认设备的一份只读快照。
 
-**连接状态口径**: 蓝牙 0/1 + App WebSocket 在线客户端数（`DglabRelayServer::client_count()` → `DeviceController::appClientCount`），任一连接即「已连接设备 ×N」。
+**连接状态口径**: 蓝牙 0/1 + App WebSocket 在线客户端数（`DglabRelayServer::client_count()` → `DeviceController::appClientCount`），任一连接即「已连接设备 ×N」。多台蓝牙设备同时在线时界面仍按 1 计，按台计数留到设备管理页（`ble.connectedLinks` 已给出全部已连接设备）。
 
 **图标**: Font Awesome Free 7.3.1 两个字重入库 + `AppIcon` 组件；FA7 两字重共用族名，必须显式指定 `font.weight`（solid = Black），否则 solid-only 图标渲染成方框。
 
@@ -139,9 +139,9 @@ DG-LAB-Client/
 
 **波形标签**: 标签库分两层（内置为代码常量、自定义存 `config/waves/tags.json`），官方波形的标签是用户侧叠加数据（`official_wave_tags` 段）。
 
-**输出设备接口**: `IOutputDevice` 抽象 + 47L1 型号识别（未支持型号拒绝连接）+ 每通道输出目标 `app.output.<A|B>.target`；事件波形（`dataType=wave`）按设备实际写入帧数推进。
+**输出设备接口**: `IOutputDevice` 抽象 + 47L1 型号识别（未支持型号拒绝连接）+ 每通道输出目标 `app.output.<A|B>.target`；事件波形（`dataType=wave`）按设备实际写入帧数推进。设备实例由链路管理器动态注入 `DeviceController::attach_output()`，销毁时经 `detach_output()` 移出（另有 `QObject::destroyed` 兜底），登记表因此可动态增删。
 
-**默认设备与上下限**: 评选规则与读取链见 [devices.md](devices.md)。
+**默认设备与上下限**: 评选实现在 `include/ble/BleDeviceManager.h` 的 `pick_default_device()`（用户覆盖 → 郊狼 > 负鼠 > 同类型先连接者），`DeviceController` 与 `ble` 快照共用同一份实现；上下限仍集中在 `limits_for(mac, channel)`。规则与读取链见 [devices.md](devices.md)。
 
 ## 开发常见陷阱
 

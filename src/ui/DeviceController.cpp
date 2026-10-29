@@ -6,6 +6,7 @@
 #include "DeviceController.h"
 
 #include "AppConfig.h"
+#include "BleDeviceManager.h"
 #include "DebugLog.h"
 #include "DglabRelayServer.h"
 #include "EventMapping.h"
@@ -51,17 +52,6 @@ namespace {
             return 1;
         }
         return -1;
-    }
-
-    // 设备类型的默认设备优先级（数值越小越优先）：郊狼 > 负鼠 > 其它
-    int device_type_priority(const QString& type) {
-        if (type == QStringLiteral("coyote")) {
-            return 0;
-        }
-        if (type == QStringLiteral("opossum")) {
-            return 1;
-        }
-        return 2;
     }
 
     // 强度命令的通道号（字符串 "A"/"B" 或数字 1/2，其它按 A 处理）
@@ -166,21 +156,35 @@ void DeviceController::attach_output(IOutputDevice* output) {
     outputs_.append(output);
     // 设备先于本类销毁时把它移出列表：设备析构期间仍会发状态信号，回调一路走到
     // online_outputs() 逐个解引用，残留裸指针会踩到已销毁对象（实测段错误）
-    connect(output, &QObject::destroyed, this, [this, output]() { outputs_.removeAll(output); });
+    connect(output, &QObject::destroyed, this, [this, output]() {
+        outputs_.removeAll(output);
+        connection_order_.remove(output);
+        if (last_default_output_ == output) {
+            last_default_output_ = nullptr;
+        }
+    });
     // 蓝牙连接状态直接决定输出可用性，属性需要跟着广播
     connect(output, &IOutputDevice::outputStateChanged, this, [this, output]() {
-        // 链路断开：事件波形与规则波形状态一并清空，重连后不残留「以为在播」的标志
-        if (!output->connected()) {
-            abort_event_wave(0);
-            abort_event_wave(1);
-        }
-        else {
+        if (output->connected()) {
             // 连接顺序用于同类型多台设备时「先连接的优先」评选
-            const QString mac = output->device_address().trimmed().toUpper();
-            if (!mac.isEmpty() && !connection_order_.contains(mac)) {
-                connection_order_.insert(mac, ++connection_seq_);
+            if (!connection_order_.contains(output)) {
+                connection_order_.insert(output, ++connection_seq_);
             }
             notify_experimental_device(output);
+        }
+        // 只有默认设备换了（离线或另一台接管）才清空通道波形；其它设备断开重连不影响在用链路
+        if (IOutputDevice* current = default_output(); current != last_default_output_) {
+            const bool had_default = last_default_output_ != nullptr;
+            last_default_output_ = current;
+            abort_event_wave(0);
+            abort_event_wave(1);
+            for (int index = 0; index < 2; ++index) {
+                channel_output_[index].reset_output();
+                // 从一台在线设备换到另一台时才重发当前强度：首次连接不补发历史强度，避免意外加档
+                if (had_default && current != nullptr) {
+                    update_channel_output(index);
+                }
+            }
         }
         emit outputReadyChanged();
         // 在线设备与默认设备都随链路变化，界面列表与上下限跟着刷新
@@ -202,6 +206,23 @@ void DeviceController::attach_output(IOutputDevice* output) {
         ++event_wave_writes_[1];
         emit waveOutputChanged();
     });
+}
+
+void DeviceController::detach_output(IOutputDevice* output) {
+    if (output == nullptr || !outputs_.contains(output)) {
+        return;
+    }
+    outputs_.removeAll(output);
+    connection_order_.remove(output);
+    if (last_default_output_ == output) {
+        last_default_output_ = nullptr;
+    }
+    // 登记表变化后在线设备与默认设备都要重新评选（波形与强度由随后的一次链路状态变化接管）
+    emit outputReadyChanged();
+    emit outputDevicesChanged();
+    emit defaultDeviceChanged();
+    refresh_limits();
+    emit_authoritative_strength();
 }
 
 void DeviceController::notify_experimental_device(const QString& mac) {
@@ -296,7 +317,7 @@ QVariantList DeviceController::output_devices() const {
             if (left_priority != right_priority) {
                 return left_priority < right_priority;
             }
-            return connection_order(left->device_address()) < connection_order(right->device_address());
+            return connection_order(left) < connection_order(right);
         });
     QVariantList list;
     for (const IOutputDevice* device : devices) {
@@ -308,6 +329,8 @@ QVariantList DeviceController::output_devices() const {
         item.insert(QStringLiteral("name"), label.isEmpty() ? address : label + QStringLiteral(" · ") + address);
         item.insert(QStringLiteral("model"), device->device_model());
         item.insert(QStringLiteral("type"), device->device_type());
+        item.insert(QStringLiteral("battery"), device->battery());
+        item.insert(QStringLiteral("order"), connection_order(device));
         item.insert(QStringLiteral("support"), static_cast<int>(device->support_state()));
         list.append(item);
     }
@@ -635,35 +658,24 @@ IOutputDevice* DeviceController::default_output() const {
     if (online.isEmpty()) {
         return nullptr;
     }
-    // 用户覆盖值只在该设备在线时生效；离线（含用户主动断开）自动回到下面的自动评选
+    // 评选实现只有一份（pick_default_device）：用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者
+    QList<DefaultDeviceCandidate> candidates;
+    for (const IOutputDevice* device : online) {
+        DefaultDeviceCandidate candidate;
+        candidate.address = device->device_address();
+        candidate.type = device->device_type();
+        candidate.order = connection_order(device);
+        candidates.append(candidate);
+    }
+    // 用户覆盖值只在该设备在线时生效；离线（含用户主动断开）自动回到自动评选
     const QString configured = QString::fromStdString(AppConfig::instance().get_value<std::string>(
-        "app.output.default_device", std::string())).trimmed();
-    if (!configured.isEmpty()) {
-        for (IOutputDevice* device : online) {
-            if (device->device_address().compare(configured, Qt::CaseInsensitive) == 0) {
-                return device;
-            }
-        }
-    }
-    IOutputDevice* best = nullptr;
-    for (IOutputDevice* device : online) {
-        if (best == nullptr) {
-            best = device;
-            continue;
-        }
-        const int priority = device_type_priority(device->device_type());
-        const int best_priority = device_type_priority(best->device_type());
-        const bool earlier = connection_order(device->device_address())
-            < connection_order(best->device_address());
-        if (priority < best_priority || (priority == best_priority && earlier)) {
-            best = device;
-        }
-    }
-    return best;
+        "app.output.default_device", std::string()));
+    const int index = pick_default_device(candidates, configured);
+    return index < 0 ? nullptr : online.at(index);
 }
 
-int DeviceController::connection_order(const QString& mac) const {
-    const auto it = connection_order_.constFind(mac.trimmed().toUpper());
+int DeviceController::connection_order(const IOutputDevice* device) const {
+    const auto it = connection_order_.constFind(device);
     // 未登记序号的设备排在同类型设备之后
     return it == connection_order_.constEnd() ? std::numeric_limits<int>::max() : it.value();
 }

@@ -5,6 +5,7 @@
 
 #include "AppBridge.h"
 #include "AppConfig.h"
+#include "BleDeviceManager.h"
 #include "CivetBleController.h"
 #include "Console.h"
 #include "CoyoteBleController.h"
@@ -18,7 +19,6 @@
 #include "ModuleBannerImageProvider.h"
 #include "ModuleBridge.h"
 #include "ModuleManager.h"
-#include "OpossumBleController.h"
 #include "PawPrintsBleController.h"
 #include "RuleGraphBridge.h"
 #include "RuleManager.h"
@@ -197,12 +197,12 @@ int main(int argc, char* argv[]) {
     WaveLibrary::instance().initialize();
     WaveBridge wave(&device);
     wave.initialize();
+    // 蓝牙链路管理器：不持有任何固定设备，按扫描入口识别出的型号为每台设备建实例
+    // （郊狼 / 负鼠可同时在线，各自一份连接状态与电量）；实例以 MAC 为键登记，断开只销毁该 MAC
+    BleDeviceManager ble_links;
     CoyoteBleController ble;
+    ble.attach_link_manager(&ble_links);
     ble.initialize();
-    // 负鼠振动控制器（实验性）：扫描与连接入口复用蓝牙入口对象，写入由负鼠驱动接管
-    OpossumBleController opossum;
-    opossum.initialize();
-    ble.attach_opossum(&opossum);
     // 爪印无线按钮传感器 V1.1（实验性输入设备）：扫描与连接入口复用蓝牙入口对象，写入由爪印驱动接管
     PawPrintsBleController pawprints;
     pawprints.initialize();
@@ -230,9 +230,12 @@ int main(int argc, char* argv[]) {
         }
     });
 
-    // 蓝牙接入输出链路：已连接的设备参与默认设备评选（郊狼优先，其次负鼠）
-    device.attach_output(&ble);
-    device.attach_output(&opossum);
+    // 蓝牙输出链路：链路管理器每建成一台实例就接入设备控制器，销毁时再移出；
+    // 默认设备评选（郊狼优先，其次负鼠，同类型先连接者优先）与上下限都按设备进行
+    QObject::connect(&ble_links, &BleDeviceManager::linkCreated, &device,
+        [&device](IOutputDevice* link) { device.attach_output(link); });
+    QObject::connect(&ble_links, &BleDeviceManager::linkDestroyed, &device,
+        [&device](IOutputDevice* link) { device.detach_output(link); });
 
     QObject::connect(&device, &DeviceController::statusMessage, &bridge,
         [&bridge](const QString& message) { bridge.setStatus(message); });

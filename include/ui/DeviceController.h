@@ -56,9 +56,13 @@ public:
     /// @brief 创建中转服务与二维码提供者（不自动启动监听）
     void initialize();
 
-    /// @brief 绑定蓝牙输出设备（由 main 注入，可多次调用接入多台；已连接时优先走蓝牙输出）
+    /// @brief 绑定蓝牙输出设备（链路管理器按 MAC 动态注入，可多次调用接入多台；已连接时优先走蓝牙输出）
     /// @param output 输出设备接口，可为空
     void attach_output(IOutputDevice* output);
+
+    /// @brief 解绑并移出一台蓝牙输出设备（该设备断开销毁时调用，其它设备保持登记）
+    /// @param output 输出设备接口，可为空
+    void detach_output(IOutputDevice* output);
 
     /// @brief 按 MAC 触发「此设备连接为实验性，功能未经完整验证」一次性提示
     /// @param mac 设备蓝牙 MAC（空串忽略）
@@ -201,9 +205,9 @@ private:
     QList<IOutputDevice*> online_outputs() const;
     /// @brief 按「用户覆盖 → 郊狼 > 负鼠 > 其它 → 先连接优先」选出默认输出设备
     IOutputDevice* default_output() const;
-    /// @brief 设备连接顺序序号（同一类型多台时先连接的优先）
-    /// @param mac 设备 MAC
-    int connection_order(const QString& mac) const;
+    /// @brief 设备连接顺序序号（同一类型多台时先连接的优先；未登记返回 INT_MAX）
+    /// @param device 设备实例（以实例为键，断开销毁后序号随实例一起移除）
+    int connection_order(const IOutputDevice* device) const;
     /// @brief 实验性设备首次连接成功时提示一次（记录到 app.devices.<MAC>.experimental_notice_shown）
     /// @param device 刚连上的输出设备
     void notify_experimental_device(IOutputDevice* device);
@@ -283,8 +287,9 @@ private:
     int relay_limit_b_ = 0; ///< 中转回执记录的 B 通道上限
     int cached_limit_a_ = -1;           ///< 上次广播的 A 通道上限
     int cached_limit_b_ = -1;           ///< 上次广播的 B 通道上限
-    QHash<QString, int> connection_order_; ///< 设备 MAC → 连接顺序序号
-    int connection_seq_ = 0;               ///< 连接顺序发号器
+    QHash<const IOutputDevice*, int> connection_order_; ///< 设备实例 → 连接顺序序号
+    int connection_seq_ = 0;                          ///< 连接顺序发号器
+    const IOutputDevice* last_default_output_ = nullptr; ///< 上次评选出的默认设备（用于判定链路切换）
     bool strength_from_ble_ = false; ///< 当前强度回执来源是否为蓝牙直连
     ChannelOutputState channel_output_[2]; ///< A/B 通道输出合并状态（0=A，1=B）
     EventWaveState event_wave_[2]; ///< A/B 通道事件波形播放状态（0=A，1=B）

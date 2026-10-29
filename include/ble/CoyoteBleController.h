@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "BleDeviceManager.h"
 #include "IOutputDevice.h"
 
 #include <QBluetoothDeviceInfo>
@@ -22,31 +23,33 @@
 class QLowEnergyController;
 class QBluetoothDeviceDiscoveryAgent;
 class CivetBleController;
-class OpossumBleController;
 class PawPrintsBleController;
 class QTimer;
 
-// CoyoteBleController - 郊狼 V3 蓝牙直连（QML 上下文属性 ble）
-// GATT 服务与 B0 / BF / B1 指令格式见 include/README.md 的「关键协议与约定」。
-// 实现 IOutputDevice：上层只经接口下发，GATT 细节留在本类内部。
-// 兼任蓝牙扫描与连接入口：扫描列表里的负鼠（47L127）型号转交 OpossumBleController 写入，
-// 界面上的连接状态、电量与强度读的是当前生效链路（郊狼优先，其次负鼠）。
-class CoyoteBleController : public IOutputDevice {
+// CoyoteBleController - 蓝牙扫描入口与默认设备的只读快照（QML 上下文属性 ble）
+// 扫描是唯一入口：按 MAC 去重、按「MAC 记忆 → 蓝牙名」识别型号，再交给 BleDeviceManager 建实例。
+// 本类不再持有任何设备状态：连接状态、电量、强度与波形都按设备从链路取，界面读到的是
+// 默认设备（用户覆盖 → 郊狼 > 负鼠 → 先连接者）的一份只读快照，多台设备不会互相覆盖。
+// 输入设备（爪印 / 灵猫）本阶段仍各有一个固定实例，只保证不与多链路冲突。
+class CoyoteBleController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool scanning READ scanning NOTIFY stateChanged)
-    Q_PROPERTY(bool connected READ link_connected NOTIFY stateChanged)
-    Q_PROPERTY(QString deviceName READ link_device_name NOTIFY stateChanged)
-    Q_PROPERTY(int battery READ link_battery NOTIFY batteryChanged)
-    Q_PROPERTY(int strengthA READ link_strength_a NOTIFY strengthChanged)
-    Q_PROPERTY(int strengthB READ link_strength_b NOTIFY strengthChanged)
+    Q_PROPERTY(bool connected READ connected NOTIFY stateChanged)
+    Q_PROPERTY(QString deviceName READ device_name NOTIFY stateChanged)
+    Q_PROPERTY(int battery READ battery NOTIFY batteryChanged)
+    Q_PROPERTY(int strengthA READ strength_a NOTIFY strengthChanged)
+    Q_PROPERTY(int strengthB READ strength_b NOTIFY strengthChanged)
     Q_PROPERTY(bool screenSyncAvailable READ screen_sync_available NOTIFY stateChanged)
     Q_PROPERTY(bool pawConnected READ paw_connected NOTIFY stateChanged)
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
-    Q_PROPERTY(QString status READ link_status NOTIFY statusChanged)
+    Q_PROPERTY(QVariantList connectedLinks READ connected_links NOTIFY connectedLinksChanged)
+    Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QString deviceAddress READ device_address NOTIFY stateChanged)
     Q_PROPERTY(QString deviceModel READ device_model NOTIFY stateChanged)
 
 public:
+    using SupportState = IOutputDevice::SupportState;
+
     /// @brief 蓝牙名前缀识别结果（47L1xxxx 的型号段）
     struct DeviceProfile {
         QString model;          ///< 型号段（如 47L127）
@@ -63,15 +66,15 @@ public:
 
     void initialize();
 
-    /// @brief 注入负鼠驱动：扫描列表里的负鼠型号连接与界面状态转交本对象
-    /// @param opossum 负鼠驱动实例，可为空
-    void attach_opossum(OpossumBleController* opossum);
+    /// @brief 注入链路管理器：扫描入口向它申请驱动实例（不接管其生命周期）
+    /// @param manager 链路管理器，可为空
+    void attach_link_manager(BleDeviceManager* manager);
 
-    /// @brief 注入爪印驱动：扫描列表里的爪印型号连接与界面状态转交本对象
+    /// @brief 注入爪印驱动：纯输入设备本阶段仍只有一个固定实例
     /// @param pawprints 爪印驱动实例，可为空
     void attach_pawprints(PawPrintsBleController* pawprints);
 
-    /// @brief 注入灵猫驱动：扫描列表里的灵猫型号连接与界面状态转交本对象
+    /// @brief 注入灵猫驱动：纯输入设备本阶段仍只有一个固定实例
     /// @param civet 灵猫驱动实例，可为空
     void attach_civet(CivetBleController* civet);
 
@@ -102,65 +105,42 @@ public:
     static void remember_model(const QString& mac, const QString& model);
 
     bool scanning() const { return scanning_; }
-    bool connected() const override { return connected_; }
-    QString device_name() const { return device_name_; }
-    int battery() const override { return battery_; }
-    int strength_a() const override { return strength_a_; }
-    int strength_b() const override { return strength_b_; }
-    QVariantList devices() const { return devices_; }
-    QString status() const { return status_; }
-    // 界面口径的链路状态：郊狼在线取郊狼，否则取负鼠（无负鼠时与郊狼自身一致）
-    bool link_connected() const;
-    QString link_device_name() const;
-    int link_battery() const;
-    int link_strength_a() const;
-    int link_strength_b() const;
-    QString link_status() const;
-    // 屏幕强度同步（B2）是否可用：负鼠离线时视为可用
+    /// @brief 默认设备是否在线（多台时只看评选出的那一台）
+    bool connected() const;
+    /// @brief 默认设备显示名（型号名优先，其次 MAC）
+    QString device_name() const;
+    int battery() const;
+    int strength_a() const;
+    int strength_b() const;
+    QString device_address() const;
+    QString device_model() const;
+    /// @brief 界面状态文案（默认设备优先，其次已连接的输入设备，最后是扫描入口自身）
+    QString status() const;
+    /// @brief 屏幕强度同步（B2）是否可用（默认设备为负鼠时按驱动回执，其它情况视为可用）
     bool screen_sync_available() const;
-    // 爪印（纯输入设备）是否已连接
+    /// @brief 爪印（纯输入设备）是否已连接
     bool paw_connected() const;
-    // 灵猫（纯输入设备）是否已连接
+    /// @brief 灵猫（纯输入设备）是否已连接
     bool civet_connected() const;
-    /// @brief 已连接设备的蓝牙 MAC（未连接时为空串）
-    QString device_address() const override { return device_address_; }
-    /// @brief 设备显示名（型号名，如「郊狼 V3」）
-    QString device_label() const override { return device_label_; }
-    QString device_model() const override { return device_model_; }
-    QString device_type() const override { return device_type_; }
-    bool device_output_capable() const { return device_output_capable_; }
-    bool output_capable() const override { return device_output_capable_; }
-    SupportState support_state() const override { return support_state_; }
+    QVariantList devices() const { return devices_; }
+    /// @brief 当前已连接设备快照（MAC / 型号 / 电量 / 连接序号），供设备管理页与下层只读使用
+    QVariantList connected_links() const;
 
     Q_INVOKABLE void startScan();
+    /// @brief 连接指定 MAC 的设备（按型号向链路管理器申请实例；型号无驱动时拒绝并给原因）
+    /// @param address 设备蓝牙 MAC
     Q_INVOKABLE void connectDevice(const QString& address);
+    /// @brief 断开当前链路（默认输出设备；没有输出设备时断开输入设备）
     Q_INVOKABLE void disconnectDevice();
 
-    /// @brief 强度指令（channel: 1=A / 2=B；mode: 0 减 / 1 增 / 2 设为）
+    /// @brief 强度指令（channel: 1=A / 2=B；mode: 0 减 / 1 增 / 2 设为）下发给默认设备
     Q_INVOKABLE void setStrength(int channel, int mode, int value);
-    /// @brief 播放波形（V3 八字节帧，100ms/帧，循环播放直到 stopWave 或替换）
+    /// @brief 播放波形（下发给默认设备，循环播放直到 stopWave 或替换）
     Q_INVOKABLE void playWave(int channel, const QStringList& frames);
-    /// @brief 停止通道波形（输出静音帧）
+    /// @brief 停止通道波形（下发给默认设备）
     Q_INVOKABLE void stopWave(int channel);
-    /// @brief 写入软上限与平衡参数（BF）
+    /// @brief 写入软上限与平衡参数（下发给默认设备）
     Q_INVOKABLE void applyLimits(int limitA, int limitB, int freqBalance, int strengthBalance);
-
-    /// @brief 通道是否正在经蓝牙循环下发波形
-    bool wave_sending(int channel) const override;
-    /// @brief 当前下发到第几帧（1 起，未下发时为 0）
-    int wave_frame(int channel) const override;
-    /// @brief 正在下发的波形总帧数（未下发时为 0）
-    int wave_frames(int channel) const override;
-
-    // 以下为 IOutputDevice 适配，语义与上方同名 Q_INVOKABLE 一一对应
-    // 下发强度（接口版：同 setStrength）
-    void set_strength(int channel, int mode, int value) override { setStrength(channel, mode, value); }
-    // 播放波形（接口版：同 playWave）
-    void play_wave(int channel, const QStringList& frames) override { playWave(channel, frames); }
-    // 停止通道波形（接口版：同 stopWave）
-    void stop_wave(int channel) override { stopWave(channel); }
-    // 写入软上限（接口版：频率/强度平衡参数固定 128，与连接就绪时一致）
-    void apply_limits(int limit_a, int limit_b) override { applyLimits(limit_a, limit_b, 128, 128); }
 
 signals:
     void stateChanged();
@@ -170,20 +150,94 @@ signals:
     void waveStateChanged();
     void statusChanged();
     void errorOccurred(const QString& message);
-    /// @brief 屏幕强度同步（B2）不可用状态变化（负鼠链路）
+    /// @brief 屏幕强度同步（B2）不可用状态变化
     void screenSyncChanged();
+    void connectedLinksChanged();
 
 private:
-    // 负鼠是否为界面上的当前链路（郊狼未连接且负鼠已连接）
-    bool opossum_active() const;
-    // 爪印是否为界面上的当前链路（郊狼与负鼠都未连接且爪印已连接）
-    bool pawprints_active() const;
-    // 灵猫是否为界面上的当前链路（郊狼、负鼠与爪印都未连接且灵猫已连接）
-    bool civet_active() const;
-    // 采用识别结果作为当前设备身份（仅在尚未识别出型号时生效）
-    void adopt_profile(const DeviceProfile& profile);
+    /// @brief 默认输出设备的只读快照（用户覆盖 → 郊狼 > 负鼠 → 先连接者），无在线输出设备时为空
+    IOutputDevice* snapshot_output() const;
+    /// @brief 该 MAC 是否已有实例在连接（输出链路或输入设备的固定实例）
+    /// @param address 设备 MAC
+    bool is_connected_address(const QString& address) const;
+    /// @brief 刷新扫描列表里的「已连接」标记与快照派生属性
+    void refresh_device_rows();
+    /// @brief 接入一台新链路的信号，按设备广播快照变化
+    void watch_link(IOutputDevice* device);
     void on_device_discovered(const QBluetoothDeviceInfo& info);
     void on_scan_finished();
+    void set_status(const QString& text);
+    void do_start_scan();
+
+    BleDeviceManager* manager_ = nullptr; ///< 链路管理器（生命周期归 main）
+    PawPrintsBleController* pawprints_ = nullptr; ///< 爪印驱动（纯输入设备，单一固定实例）
+    CivetBleController* civet_ = nullptr; ///< 灵猫驱动（纯输入设备，单一固定实例）
+    QBluetoothDeviceDiscoveryAgent* discovery_ = nullptr;
+    QVariantList devices_;
+    QHash<QString, QBluetoothDeviceInfo> device_cache_;
+    QString device_name_; ///< 最近一次连接请求的设备名（状态文案用）
+    QString status_;      ///< 扫描入口自身的状态文案（无默认设备时展示）
+    bool scanning_ = false;
+};
+
+// CoyoteBleDevice - 郊狼 V3 蓝牙直连驱动（每台设备一个实例，按 MAC 登记在 BleDeviceManager）
+// GATT 服务与 B0 / BF / B1 指令格式见 include/README.md 的「关键协议与约定」。
+// 连接状态、电量、强度回执与通道波形进度都是本实例自己的状态，多台互不覆盖。
+class CoyoteBleDevice : public IOutputDevice {
+    Q_OBJECT
+
+public:
+    explicit CoyoteBleDevice(QObject* parent = nullptr);
+    ~CoyoteBleDevice() override;
+
+    /// @brief 连接扫描到的郊狼设备（型号段与显示名由扫描入口识别后传入）
+    /// @param info 扫描结果
+    /// @param model 型号段（如 47L121）
+    /// @param label 型号显示名（如 郊狼 V3）
+    void connect_device(const QBluetoothDeviceInfo& info, const QString& model, const QString& label);
+    void disconnect_device();
+
+    bool connected() const override { return connected_; }
+    int battery() const override { return battery_; }
+    int strength_a() const override { return strength_a_; }
+    int strength_b() const override { return strength_b_; }
+    QString device_address() const override { return device_address_; }
+    QString device_label() const override { return device_label_; }
+    QString device_model() const override { return device_model_; }
+    QString device_type() const override { return device_type_; }
+    bool output_capable() const override { return device_output_capable_; }
+    SupportState support_state() const override { return support_state_; }
+    /// @brief 当前状态文案
+    QString status() const { return status_; }
+
+    /// @brief 通道是否正在经蓝牙循环下发波形
+    bool wave_sending(int channel) const override;
+    /// @brief 当前下发到第几帧（1 起，未下发时为 0）
+    int wave_frame(int channel) const override;
+    /// @brief 正在下发的波形总帧数（未下发时为 0）
+    int wave_frames(int channel) const override;
+    /// @brief 强度指令（channel: 1=A / 2=B；mode: 0 减 / 1 增 / 2 设为）
+    void set_strength(int channel, int mode, int value) override;
+    /// @brief 播放波形（循环播放直到 stop_wave 或替换）
+    void play_wave(int channel, const QStringList& frames) override;
+    /// @brief 停止通道波形（输出静音帧）
+    void stop_wave(int channel) override;
+    /// @brief 写入软上限（频率/强度平衡参数固定 128，与连接就绪时一致）
+    void apply_limits(int limit_a, int limit_b) override { applyLimits(limit_a, limit_b, 128, 128); }
+    /// @brief 写入软上限与平衡参数（BF）
+    void applyLimits(int limitA, int limitB, int freqBalance, int strengthBalance);
+
+signals:
+    void stateChanged();
+    void batteryChanged();
+    void strengthChanged();
+    void waveStateChanged();
+    void statusChanged();
+
+private:
+    /// @brief 状态文案用的设备名（型号显示名优先，其次蓝牙名）
+    QString display_name() const;
+    void adopt_profile(const CoyoteBleController::DeviceProfile& profile);
     void on_controller_connected();
     void on_controller_disconnected();
     void on_service_state_changed(QLowEnergyService::ServiceState state);
@@ -192,13 +246,13 @@ private:
     void write_bf();
     void ensure_characteristics();
     void set_status(const QString& text);
-    void do_start_scan();
     QByteArray build_b0();
     QByteArray frame_for_channel(const QStringList& frames, int index) const;
     void subscribe_battery();
     void read_battery();
     void apply_battery_value(const QByteArray& value); // 解析电量特征值并广播
 
+    /// @brief 单通道波形与强度回执状态（每台设备各自一份）
     struct ChannelState {
         QStringList frames;
         int frame_index = 0;
@@ -211,10 +265,6 @@ private:
     /// @brief 取通道状态（channel: 1=A，其它按 B）
     const ChannelState& state_of(int channel) const;
 
-    OpossumBleController* opossum_ = nullptr; ///< 负鼠驱动（扫描与连接入口共用本类）
-    PawPrintsBleController* pawprints_ = nullptr; ///< 爪印驱动（纯输入设备，扫描与连接入口共用本类）
-    CivetBleController* civet_ = nullptr; ///< 灵猫驱动（纯输入设备，扫描与连接入口共用本类）
-    QBluetoothDeviceDiscoveryAgent* discovery_ = nullptr;
     QLowEnergyController* controller_ = nullptr;
     QLowEnergyService* coyote_service_ = nullptr;
     QLowEnergyService* battery_service_ = nullptr;
@@ -222,16 +272,13 @@ private:
     std::unique_ptr<QTimer> battery_timer_;
     QBluetoothUuid write_char_uuid_;
     QBluetoothUuid notify_char_uuid_;
-    QVariantList devices_;
-    QString device_name_;
-    QString pending_address_;
+    QString device_name_; ///< 蓝牙名（状态文案用）
     QString device_address_; ///< 已连接设备的蓝牙 MAC（默认设备配置键）
     QString device_label_;   ///< 设备显示名（型号名）
     QString device_model_;   ///< 设备型号段（如 47L121）
-    QString device_type_ = QStringLiteral("unknown"); ///< 类型标识（coyote / opossum / unknown）
+    QString device_type_ = QStringLiteral("coyote"); ///< 类型标识（coyote）
     bool device_output_capable_ = true; ///< 已连接设备是否具备输出能力
-    SupportState support_state_ = SupportState::Unsupported; ///< 已连接设备的驱动支持程度
-    bool scanning_ = false;
+    SupportState support_state_ = SupportState::Supported; ///< 已连接设备的驱动支持程度
     bool connected_ = false;
     bool ready_ = false;
     int battery_ = -1;
@@ -245,10 +292,8 @@ private:
     bool identity_frame_logged_ = false; ///< 设备身份帧是否已记录
     bool model_ambiguity_logged_ = false; ///< 首帧型号歧义是否已记录
     bool model_conflict_logged_ = false; ///< 首帧反推与记忆冲突是否已记录
-    bool opossum_link_shown_ = false; ///< 负鼠是否已成为界面当前链路（连接信号只在翻转时发）
     QString status_;
     ChannelState channel_a_;
     ChannelState channel_b_;
-    QHash<QString, QBluetoothDeviceInfo> device_cache_;
     bool is_discovering_battery_ = false;
 };

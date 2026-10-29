@@ -252,14 +252,17 @@ set(EVENT
 	include/event/EventRuntime.h
 )
 
-# 蓝牙（ble）：郊狼 V3 直连（兼扫描入口）、负鼠 V1 直连、爪印 V1.1 与灵猫 V1 输入侧直连
+# 蓝牙（ble）：扫描入口（CoyoteBleController）、郊狼 V3 / 负鼠 V1 输出驱动、
+# 爪印 V1.1 与灵猫 V1 输入侧直连，以及按 MAC 登记输出驱动的链路管理器（BleDeviceManager）
 set(BLE
 	# 源文件
+	src/ble/BleDeviceManager.cpp
 	src/ble/CivetBleController.cpp
 	src/ble/CoyoteBleController.cpp
 	src/ble/OpossumBleController.cpp
 	src/ble/PawPrintsBleController.cpp
 	# 头文件
+	include/ble/BleDeviceManager.h
 	include/ble/CivetBleController.h
 	include/ble/CivetFrames.h
 	include/ble/CoyoteBleController.h
@@ -917,15 +920,34 @@ if(DGLAB_BUILD_TESTS)
 	)
 	add_test(NAME opossum_frames_test COMMAND opossum_frames_test)
 
+	# 多链路设备登记与默认设备评选（MAC 登记表增删、用户覆盖、同类型先连接者优先、
+	# 断开一台不影响其它）：纯逻辑用例，用实现 IOutputDevice 的合成设备驱动，不连接真实蓝牙
+	add_executable(device_link_test
+		tests/device_link_test.cpp
+		tests/StubOutputDevice.h
+		include/ble/IOutputDevice.h
+	)
+	target_link_libraries(device_link_test
+		PRIVATE Qt::Core
+	)
+	target_include_directories(device_link_test
+		PRIVATE
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+	)
+	add_test(NAME device_link_test COMMAND device_link_test)
+
 	# 爪印无线按钮传感器 V1.1 输入侧（50 指令构造、51/5A/5B/5C/D0/F1 解析与 F1 的 /2 展示、数值钳制、
 	# 内置事件声明进入 EventRuntime）：解析为纯函数，事件声明用例需要模块、事件、波形与配置层
 	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
 	add_executable(paw_device_test
 		tests/paw_device_test.cpp
+		src/ble/BleDeviceManager.cpp
 		src/ble/CivetBleController.cpp
 		src/ble/CoyoteBleController.cpp
 		src/ble/OpossumBleController.cpp
 		src/ble/PawPrintsBleController.cpp
+		include/ble/BleDeviceManager.h
 		include/ble/CivetBleController.h
 		include/ble/CoyoteBleController.h
 		include/ble/IOutputDevice.h
@@ -969,10 +991,12 @@ if(DGLAB_BUILD_TESTS)
 	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
 	add_executable(civet_device_test
 		tests/civet_device_test.cpp
+		src/ble/BleDeviceManager.cpp
 		src/ble/CivetBleController.cpp
 		src/ble/CoyoteBleController.cpp
 		src/ble/OpossumBleController.cpp
 		src/ble/PawPrintsBleController.cpp
+		include/ble/BleDeviceManager.h
 		include/ble/CivetBleController.h
 		include/ble/CivetFrames.h
 		include/ble/CoyoteBleController.h
@@ -1015,10 +1039,12 @@ if(DGLAB_BUILD_TESTS)
 	# 只调纯函数，不连接设备；不进 PROJECT_SOURCES / 安装规则，不触碰仓库 config/
 	add_executable(model_recognition_test
 		tests/model_recognition_test.cpp
+		src/ble/BleDeviceManager.cpp
 		src/ble/CivetBleController.cpp
 		src/ble/CoyoteBleController.cpp
 		src/ble/OpossumBleController.cpp
 		src/ble/PawPrintsBleController.cpp
+		include/ble/BleDeviceManager.h
 		include/ble/CivetBleController.h
 		include/ble/CoyoteBleController.h
 		include/ble/IOutputDevice.h
@@ -1237,6 +1263,7 @@ if(DGLAB_BUILD_TESTS)
 		event_merge_test
 		event_wave_test
 		opossum_frames_test
+		device_link_test
 		paw_device_test
 		civet_device_test
 		model_recognition_test
