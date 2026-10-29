@@ -15,6 +15,7 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 
 class DglabRelayServer;
 class IOutputDevice;
@@ -84,6 +85,18 @@ public:
     /// @param channel 通道（"A"/"B"）
     /// @return 通道配置（未钳制，钳制在 channel_limit 内完成）
     EventChannelConfig limits_for(const QString& mac, const QString& channel) const;
+    /// @brief 读取指定设备的通道上下限与「设备特有值是否已落盘」（设备管理页按设备编辑用）
+    /// @param mac 设备 MAC（空串表示只读通道回退值）
+    /// @param channel 通道（"A"/"B"）
+    /// @return limit / safety / effective（min(limit, safety) 钳制到 0~200）与 device_limit / device_safety 来源标记
+    Q_INVOKABLE QVariantMap limitsFor(const QString& mac, const QString& channel) const;
+    /// @brief 按设备写入通道上限或安全上限（写入 app.devices.<MAC>.{limit,safety}_{a,b} 并触发刷新）
+    /// @param mac 设备 MAC
+    /// @param channel 通道（"A"/"B"）
+    /// @param kind 类型（limit 上限 / safety 安全上限）
+    /// @param value 写入值（钳制到 0~200）
+    /// @return 是否写入（MAC、通道或类型非法时返回 false）
+    Q_INVOKABLE bool setDeviceLimit(const QString& mac, const QString& channel, const QString& kind, int value);
     /// @brief 当前默认设备 MAC（用户覆盖优先，否则按自动评选），无在线输出设备时为空串
     QString default_device_address() const;
     /// @brief 默认设备在在线输出设备列表中的下标（无默认设备时为 -1）

@@ -141,11 +141,16 @@ private slots:
     void on_wave_tag_create_clicked();
     void on_wave_tag_delete_clicked();
     void on_wave_tag_dialog_close_clicked();
-    // 蓝牙直连
+    // 蓝牙直连（设备管理页）：扫描与强度增减
     void on_ble_scan_clicked();
-    void on_ble_device_clicked();
-    void on_ble_disconnect_clicked();
     void on_ble_strength_clicked();
+    // 设备管理页：扫描结果行连接 / 断开、已连接链路行断开、默认设备、按设备通道上下限
+    void on_device_scan_action_clicked();
+    void on_device_link_disconnect_clicked();
+    void on_device_default_activated(int index);
+    void on_device_limit_device_activated(int index);
+    void on_device_limit_value_modified();
+    void on_device_limits_changed();
     // 日志
     void on_log_export_clicked();
     void on_log_clear_clicked();
@@ -197,6 +202,8 @@ private:
     void save_mini_window_state();
     /// @brief 把滚动波形游标处的最近若干帧推给 HomeBridge
     void apply_mini_window_wave();
+    /// @brief 按当前选中的设备回填四条上下限（无在线设备时回填通道回退值并标注「默认」）
+    void refresh_device_limits_fields();
     /// @brief 打开系统文件对话框（保存对话框先写入建议文件名）
     /// @param object_name 文件对话框 objectName
     /// @param suggested_path 建议文件路径（为空时不写入）
@@ -246,6 +253,7 @@ private:
     QTimer mini_window_save_timer_;          ///< 迷你窗状态保存的延迟合并计时器
     QTimer mini_window_wave_timer_;          ///< 迷你窗波形滚动计时器（100 ms，与波形帧同拍）
     qint64 mini_window_wave_cursor_ = 0;     ///< 波形滚动游标（帧序号，循环播放）
+    QString limits_device_;                   ///< 设备管理页正在编辑上下限的设备 MAC（空串表示通道回退值）
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
     UpdateBridge* update_ = nullptr;

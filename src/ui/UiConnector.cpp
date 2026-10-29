@@ -46,6 +46,7 @@ namespace {
             {QStringLiteral("navWaveButton"), AppBridge::WavePage},
             {QStringLiteral("navMiniGameButton"), AppBridge::MiniGamePage},
             {QStringLiteral("navLogButton"), AppBridge::LogPage},
+            {QStringLiteral("navDeviceButton"), AppBridge::DevicePage},
             {QStringLiteral("panelSettingsButton"), AppBridge::ConfigPage},
             {QStringLiteral("panelAboutButton"), AppBridge::AboutPage}};
         return bindings;
@@ -459,15 +460,38 @@ void UiConnector::attach(QObject* root_object) {
         QObject::connect(import_file, SIGNAL(accepted()), this, SLOT(on_wave_import_file_accepted()));
     }
 
-    // 蓝牙直连
-    connect_clicked(root_object, "bleScanButton", SLOT(on_ble_scan_clicked()));
-    connect_clicked(root_object, "bleDisconnectButton", SLOT(on_ble_disconnect_clicked()));
-    connect_clicked(root_object, "bleStrengthADecrease", SLOT(on_ble_strength_clicked()));
-    connect_clicked(root_object, "bleStrengthAIncrease", SLOT(on_ble_strength_clicked()));
-    connect_clicked(root_object, "bleStrengthBDecrease", SLOT(on_ble_strength_clicked()));
-    connect_clicked(root_object, "bleStrengthBIncrease", SLOT(on_ble_strength_clicked()));
-    watch_items(root_object, "bleDeviceList", QStringLiteral("bleDeviceClick"),
-        SLOT(on_ble_device_clicked()));
+    // 设备管理页：扫描、扫描结果行连接 / 断开、已连接链路行断开、默认设备与按设备上下限
+    connect_clicked(root_object, "deviceScanButton", SLOT(on_ble_scan_clicked()));
+    connect_clicked(root_object, "deviceStrengthADecrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "deviceStrengthAIncrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "deviceStrengthBDecrease", SLOT(on_ble_strength_clicked()));
+    connect_clicked(root_object, "deviceStrengthBIncrease", SLOT(on_ble_strength_clicked()));
+    // 两个列表的委托由 ListView 动态生成：沿可视子树扫描行尾按钮（AppButton 的 clicked()）
+    watch_items(root_object, "deviceScanList", QStringLiteral("deviceScanActionButton"),
+        SLOT(on_device_scan_action_clicked()));
+    watch_items(root_object, "deviceLinkList", QStringLiteral("deviceLinkDisconnectButton"),
+        SLOT(on_device_link_disconnect_clicked()));
+    if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("deviceDefaultCombo"))) {
+        QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_device_default_activated(int)));
+    }
+    if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("deviceLimitDeviceCombo"))) {
+        QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_device_limit_device_activated(int)));
+    }
+    // 四条上下限：SpinBox 只在用户增减或键入后发 valueModified，程序回填不会触发写盘
+    for (const char* spin_name : {"deviceLimitA", "deviceSafetyA", "deviceLimitB", "deviceSafetyB"}) {
+        if (auto* spin = root_object->findChild<QObject*>(QString::fromLatin1(spin_name))) {
+            QObject::connect(spin, SIGNAL(valueModified()), this, SLOT(on_device_limit_value_modified()));
+        }
+    }
+    // 链路与配置变化后回填上下限（新设备上线 / 默认设备切换 / 外部改配置）
+    if (device_ != nullptr) {
+        QObject::connect(device_, &DeviceController::outputDevicesChanged, this,
+            &UiConnector::on_device_limits_changed);
+        QObject::connect(device_, &DeviceController::defaultDeviceChanged, this,
+            &UiConnector::on_device_limits_changed);
+        QObject::connect(device_, &DeviceController::limitsChanged, this, &UiConnector::on_device_limits_changed);
+    }
+    refresh_device_limits_fields();
 
     // 日志
     connect_clicked(root_object, "logExportButton", SLOT(on_log_export_clicked()));
@@ -1461,16 +1485,111 @@ void UiConnector::on_ble_scan_clicked() {
     }
 }
 
-void UiConnector::on_ble_device_clicked() {
-    auto* item = sender();
-    if (item != nullptr && ble_ != nullptr) {
-        ble_->connectDevice(item->property("address").toString());
+void UiConnector::on_device_scan_action_clicked() {
+    auto* button = sender();
+    if (button == nullptr || ble_ == nullptr) {
+        return;
+    }
+    const QString address = button->property("address").toString();
+    if (address.isEmpty()) {
+        return;
+    }
+    // 行尾按钮按该 MAC 当前是否已有链路决定连接还是断开：多台设备可同时在线
+    if (ble_->has_link(address)) {
+        ble_->disconnectDeviceByAddress(address);
+    }
+    else {
+        ble_->connectDevice(address);
     }
 }
 
-void UiConnector::on_ble_disconnect_clicked() {
-    if (ble_ != nullptr) {
-        ble_->disconnectDevice();
+void UiConnector::on_device_link_disconnect_clicked() {
+    auto* button = sender();
+    if (button == nullptr || ble_ == nullptr) {
+        return;
+    }
+    ble_->disconnectDeviceByAddress(button->property("address").toString());
+}
+
+void UiConnector::on_device_default_activated(int index) {
+    if (device_ != nullptr) {
+        device_->setDefaultDeviceByIndex(index);
+    }
+}
+
+void UiConnector::on_device_limit_device_activated(int index) {
+    if (device_ == nullptr) {
+        return;
+    }
+    const QVariantList devices = device_->output_devices();
+    if (index < 0 || index >= devices.size()) {
+        return;
+    }
+    limits_device_ = devices.at(index).toMap().value(QStringLiteral("address")).toString();
+    refresh_device_limits_fields();
+}
+
+void UiConnector::on_device_limit_value_modified() {
+    auto* spin = sender();
+    if (spin == nullptr || device_ == nullptr || limits_device_.isEmpty()) {
+        return;
+    }
+    // 只写被编辑的那一个键，另一个键继续走通道回退
+    const QString name = spin->objectName();
+    const QString channel = name.endsWith(QStringLiteral("A")) ? QStringLiteral("A") : QStringLiteral("B");
+    const bool safety = name.contains(QStringLiteral("Safety"));
+    device_->setDeviceLimit(limits_device_, channel, safety ? QStringLiteral("safety") : QStringLiteral("limit"),
+        spin->property("value").toInt());
+    // 写入后刷新来源标记：该键已落盘，界面不再标「默认」
+    refresh_device_limits_fields();
+}
+
+void UiConnector::on_device_limits_changed() {
+    refresh_device_limits_fields();
+}
+
+
+void UiConnector::refresh_device_limits_fields() {
+    auto* page = find("devicePage");
+    auto* combo = find("deviceLimitDeviceCombo");
+    const QVariantList devices = (device_ == nullptr) ? QVariantList() : device_->output_devices();
+    // 正在编辑的设备仍在线时保持选中；离线或从未选中时退回默认设备
+    int index = -1;
+    for (int candidate = 0; candidate < devices.size(); ++candidate) {
+        const QString address = devices.at(candidate).toMap().value(QStringLiteral("address")).toString();
+        if (!limits_device_.isEmpty() && address.compare(limits_device_, Qt::CaseInsensitive) == 0) {
+            index = candidate;
+            break;
+        }
+    }
+    if (index < 0) {
+        index = (device_ == nullptr) ? -1 : device_->default_device_index();
+    }
+    limits_device_ = (index >= 0 && index < devices.size())
+        ? devices.at(index).toMap().value(QStringLiteral("address")).toString()
+        : QString();
+    if (combo != nullptr) {
+        combo->setProperty("currentIndex", index);
+    }
+    if (page != nullptr) {
+        page->setProperty("limitsAddress", limits_device_);
+    }
+    for (const QString& channel : {QStringLiteral("A"), QStringLiteral("B")}) {
+        const QVariantMap limits = (device_ == nullptr) ? QVariantMap() : device_->limitsFor(limits_device_, channel);
+        const QByteArray limit_name = (QStringLiteral("deviceLimit") + channel).toLatin1();
+        const QByteArray safety_name = (QStringLiteral("deviceSafety") + channel).toLatin1();
+        if (auto* limit_spin = find(limit_name.constData())) {
+            limit_spin->setProperty("value", limits.value(QStringLiteral("limit"), 0));
+        }
+        if (auto* safety_spin = find(safety_name.constData())) {
+            safety_spin->setProperty("value", limits.value(QStringLiteral("safety"), 0));
+        }
+        // 两个键都还没落盘时才标「默认」：部分落盘时已不是纯回退值
+        const bool fallback = !limits.value(QStringLiteral("device_limit")).toBool()
+            && !limits.value(QStringLiteral("device_safety")).toBool();
+        if (page != nullptr) {
+            page->setProperty(channel == QStringLiteral("A") ? "limitsFallbackA" : "limitsFallbackB", fallback);
+        }
     }
 }
 

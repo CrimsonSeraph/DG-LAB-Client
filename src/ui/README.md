@@ -43,7 +43,8 @@ src/ui/
 │   │   ├── WavePage.qml        # 波形设置：目标通道、A/B 波形预览、波形库与编辑器入口（导航第 3 项）
 │   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
 │   │   ├── LogPage.qml         # 日志：列表、级别过滤与手动导出选项（导航第 5 项）
-│   │   ├── ConfigPage.qml      # 设置：连接（中转表单 + 扫码配对 + 蓝牙直连）与主题（仅经左下角面板入口可达）
+│   │   ├── DevicePage.qml      # 设备管理：蓝牙扫描、已连接链路、默认设备与按设备通道上下限（导航第 6 项）
+│   │   ├── ConfigPage.qml      # 设置：连接（中转表单 + 扫码配对）与主题（仅经左下角面板入口可达）
 │   │   ├── plugin/            # 插件中心：插件卡、插件详情、事件映射面板
 │   │   └── AboutPage.qml       # 关于（仅经左下角面板入口可达）
 │   ├── components/
@@ -113,7 +114,7 @@ src/ui/
 
 导航与左下角面板：
 
-左侧导航按「主页 / 插件中心 / 波形设置 / 小游戏 / 日志」排列；模块页已从代码移除（首页入口现为「插件管理」→ 插件中心），`AboutPage` 仅经左下角面板入口可达。导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙 `ble.connected` 计 0/1，加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
+左侧导航按「主页 / 插件中心 / 波形设置 / 小游戏 / 日志 / 设备管理」排列（新页追加在末尾，既有导航项顺序与文案不变）；模块页已从代码移除（首页入口现为「插件管理」→ 插件中心），`AboutPage` 仅经左下角面板入口可达。导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙 `ble.connected` 计 0/1，加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
 
 | objectName | 行为 |
 | --- | --- |
@@ -122,6 +123,7 @@ src/ui/
 | `navWaveButton` | 波形设置（`WavePage`） |
 | `navMiniGameButton` | 小游戏（`MiniGamePage`） |
 | `navLogButton` | 日志（`LogPage`） |
+| `navDeviceButton` | 设备管理（`DevicePage`，图标 `f2db` microchip）：`AppBridge::Page::DevicePage = 8` 追加在枚举末尾，`ModulePage = 2` 的占位槽与既有页索引均未改动，`pageStack` 末尾追加 `DevicePage` 条目 |
 | `panelSettingsButton` / `panelAboutButton` | 左下角面板「设置」→ `ConfigPage`、「关于」→ `AboutPage` |
 | `panelCheckUpdateButton` | 左下角面板「检查更新」→ `UiConnector::on_panel_check_update_clicked()`：先打开 `updateDialog`，再调用既有的 `UpdateBridge::on_check_update_clicked()`（同一入口，不复制检查逻辑）；`checking` / `downloading` 期间置灰，结果由 Toast 与对话框内状态回执 |
 | `mainWindow` / `pageStack` / `statusBar` / `panelFooter` | 窗口根项、内容区页栈、底部状态栏、左下常驻面板容器 |
@@ -204,14 +206,41 @@ src/ui/
 | `colorDialogPreview` / `colorDialogHexField` / `colorDialogHexError` | 取色对话框内的颜色预览块、HEX 输入框与格式错误行；两个实例同名，`UiConnector` 从各自的对话框对象里查找。HEX 接受 `#RRGGBB` / `#RGB`（可省 `#`），非法时显示错误行并禁用「确定」 |
 | `colorDialogHueSlider` / `colorDialogSaturationSlider` / `colorDialogValueSlider` | 色相（0-359 度）/ 饱和度（0-100%）/ 明度（0-100%）三条滑杆，`moved()` 由 C++ 连接后按 HSV 重算颜色与 HEX 回显 |
 | `colorDialogConfirmButton` / `colorDialogCancelButton` | 确定（走 `Dialog::accept()`，由既有 accepted 槽写回主题）与取消（只关闭） |
-| `configBleColumn` | 连接卡内的蓝牙直连子区（位于扫码配对列下方，含状态 / 扫描 / 设备列表 / 强度增减） |
-| `configBleStatusText` | 蓝牙直连状态行：已连接显示「已连接 <设备名>」，未连接只显示「未连接」（单一状态行，不重复） |
-| `configBleStatusDetail` | 蓝牙状态明细（绑 `ble.status`）：与状态行文案相同时隐藏，扫描中 / 连接中 / 错误 / 断开等有价值的状态保留；只读 |
-| `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备；断开按钮在郊狼或负鼠输出链路连接时可用，爪印（纯输入设备）连上后经 `ble.pawConnected` 单独放开 |
-| `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性）：行是 `Rectangle`（`Theme.surface` 底 + `Metrics.radiusSm` 圆角 + 常驻 `Theme.divider` 细边框），热区 `hoverEnabled: true`，悬停靠 `containsMouse` 绑定把底色换 `Theme.surfaceAlt`、描边换 `Theme.accent`，并给出手型光标；不新增任何 QML 信号处理器。行文字取 `Theme.textSecondary`（暂不支持的型号取 `Theme.textMuted`）并在名字后追加 C++ 给出的 `hint`；热区 `enabled: modelData.connectable`，光标随之在箭头与手型之间切换 |
-| `bleDeviceSupportBadge` | 行尾的设备状态徽标（`StatusBadge`）：`modelData.support` 为 2 已支持（绿）/ 1 实验性（黄）/ 0 暂不支持（红），文案由 C++ 的 `modelData.supportText` 给出，QML 不判断型号 |
 
-蓝牙型号三态与提示文案（全部由 `CoyoteBleController::identify()` 的 `kModelTable`、该 MAC 记忆的型号与 `on_device_discovered()` 决定，QML 只显示）：
+蓝牙直连（扫描 / 断开 / 设备列表 / 强度增减）已整体移到设备管理页，上表不再有对应条目：旧 objectName `configBleColumn` / `configBleStatusText` / `configBleStatusDetail` / `configBleScreenSyncText` / `bleScanButton` / `bleDisconnectButton` / `bleDeviceList` / `bleDeviceClick` / `bleDeviceSupportBadge` / `bleStrength{A,B}{Increase,Decrease}` 已全部删除，`ConfigPage.qml` 里不再出现任何 `ble.` 绑定；`UiConnector` 对上述旧名字的连接一并移除，没有悬空连接或空壳卡片。
+
+设备管理页（`pages/DevicePage.qml`，导航第 6 项，`AppBridge::Page::DevicePage = 8`）：四张卡——扫描结果、已连接链路、默认设备、通道上限与安全上限。
+
+| objectName | 行为 |
+| --- | --- |
+| `devicePage` | 页面根项：承载三个由 C++ 写入的编辑态属性 `limitsAddress`（正在编辑上下限的设备 MAC）/ `limitsFallbackA` / `limitsFallbackB`（该通道两个键都未落盘时标「默认」） |
+| `deviceScrollView` | 页面滚动容器 |
+| `deviceScanButton` | 扫描（`UiConnector::on_ble_scan_clicked()` → `CoyoteBleController::startScan()`）；扫描中置灰，文案「扫描中…」 |
+| `deviceScanCard` / `deviceLinksCard` / `deviceDefaultCard` / `deviceLimitCard` | 四张卡的根节点（`GlassCard`）：扫描结果 / 已连接链路 / 默认设备 / 通道上下限，只承载排版，无交互 |
+| `deviceScanStatusText` | 扫描状态行（绑 `ble.status`），无状态文案时给「点击「扫描设备」开始发现附近的设备」引导 |
+| `deviceScanList` | 扫描结果列表（`model: ble.devices`），每行固定细边框与圆角，不加悬停态底色（行本身不再是热区，动作集中在行尾按钮） |
+| `deviceScanRowName` / `deviceScanRowDetail` | 行内两行文本：蓝牙名（暂不支持的型号取 `Theme.textMuted`）与「MAC · 型号 · 原因」 |
+| `deviceScanRowSupport` | 行内支持状态徽标（`StatusBadge`）：`modelData.support` 为 2 已支持（绿）/ 1 实验性（黄）/ 0 暂不支持（红），文案取 C++ 的 `modelData.supportText`，原因取 `modelData.hint`，QML 不判断型号 |
+| `deviceScanActionButton` | 行尾「连接」/「断开」（`AppButton`，`address` 属性）：`watch_items` 扫描委托后连接到 `on_device_scan_action_clicked()`，按 `CoyoteBleController::has_link(address)` 决定连接还是按 MAC 断开；已连接行取 `danger`，暂不支持的行 `enabled: modelData.connectable` |
+| `deviceScanEmpty` | 未扫描到设备时的空态文案 |
+| `deviceLinkCount` / `deviceLinkList` | 已连接链路的条数与列表（`model: ble.connectedLinks`） |
+| `deviceLinkRowTitle` / `deviceLinkRowDetail` | 行内「型号名 · MAC」与「型号 · 电量 · 连接序号」（电量未上报显示 —） |
+| `deviceLinkDisconnectButton` | 行尾「断开」（`address` 属性，`danger`）：`watch_items` → `on_device_link_disconnect_clicked()` → `disconnectDeviceByAddress(address)`，只断该 MAC |
+| `deviceLinkEmpty` | 无已连接链路时的空态文案 |
+| `deviceDefaultCombo` / `deviceDefaultEmpty` | 默认设备下拉（`model: device.outputDevices`、`textRole: "name"`、`currentIndex: device.defaultDeviceIndex`）：只列在线输出设备，切换经 `on_device_default_activated(int)` → `DeviceController::setDefaultDeviceByIndex()` 写 `app.output.default_device`；无在线输出设备时隐藏下拉并显示「无在线输出设备」 |
+| `deviceDefaultRuleText` | 评选规则旁注「用户指定优先，否则郊狼 > 负鼠 > 同类型先连接者」：只读 |
+| `deviceDefaultStrength{A,B}` / `deviceStrength{A,B}{Increase,Decrease}` | 默认设备的当前 A/B 强度与增减按钮：直接复用 `UiConnector::on_ble_strength_clicked()`（该槽按 objectName 里的 `StrengthA`/`StrengthB` 与 `Increase`/`Decrease` 判定通道与方向），与迷你窗同一入口 |
+| `deviceDefaultStrengthHint` | 强度增减的作用范围说明：只读 |
+| `deviceLimitDeviceCombo` / `deviceLimitDeviceEmpty` | 上下限编辑目标下拉（与默认设备同一份 `device.outputDevices`）：`activated` 由 C++ 连接后写 `limits_device_` 并回填四条输入；无在线输出设备时隐藏并显示「无在线输出设备」 |
+| `deviceLimitAddressText` | 当前编辑目标行：有设备时「正在编辑 <MAC> 的通道上下限」，无设备时「未选择设备，显示通道回退值」 |
+| `deviceLimitA` / `deviceSafetyA` / `deviceLimitB` / `deviceSafetyB` | 四台 `AppSpinBox`（0~200，步进 1，可键入）：`valueModified()` 由 C++ 连接后按 objectName（`Limit`/`Safety` + `A`/`B`）走 `DeviceController::setDeviceLimit()` 只写被编辑的那个键；无选中设备时置灰。程序回填走 `value` 属性，SpinBox 不为程序赋值发 `valueModified`，不会反向写盘 |
+| `deviceLimitFallbackBadge{A,B}` | 「默认」徽标（`StatusBadge` level 0）：该通道两个键都未落盘时可见 |
+| `deviceEffective{A,B}` | 生效值行「生效 N」：纯绑定 `Math.min(上限, 安全上限)` |
+| `deviceLimitHint` | 回退链说明「生效值取 min(上限, 安全上限)；未设置的键沿用 app.channels 通道值与内置默认 200 / 150」：只读 |
+
+C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety / effective 与 `device_limit` / `device_safety` 两个来源标记）、`setDeviceLimit(mac, channel, kind, value)`（写 `app.devices.<MAC>.{limit,safety}_{a,b}` 并 `refresh_limits()`）、`CoyoteBleController::has_link(address)` 与 `disconnectDeviceByAddress(address)`（按 MAC 断开，其它设备不受影响）。`UiConnector::refresh_device_limits_fields()` 在加载、链路变化、默认设备切换与配置变化后回填四条输入与两个「默认」标记。
+
+蓝牙型号三态与提示文案（全部由 `CoyoteBleController::identify()` 的 `kModelTable`、该 MAC 记忆的型号与 `on_device_discovered()` 决定，QML 只显示；三态徽标与行内 hint 现由设备管理页 `deviceScanRowSupport` / `deviceScanRowDetail` 呈现）：
 
 | 型号 | 徽标 | 行内 hint | 可点选 |
 | --- | --- | --- | --- |
@@ -225,7 +254,6 @@ src/ui/
 | 任一 MAC 记忆命中型号表 | 按记忆型号 | 按记忆型号 | 按记忆型号 |
 
 爪印连接成功后状态行显示「爪印已连接（实验性输入设备）」；50 指令未被 `51` 确认时显示「爪印未确认 50 指令」并弹一次 danger Toast。爪印不参与 `ble.connected` 的输出链路口径（该属性决定通道强度与默认设备），只体现在 `ble.status` 与型号行上。灵猫同为一类：连接中显示「正在连接灵猫…（需连按 5 次开机键才可被搜到）」，成功后显示「灵猫已连接（实验性输入设备）」，气压上报（首帧 D0）未确认时显示「灵猫未确认 50 指令」并弹一次 danger Toast；灵猫同样不进 `ble.connected` 与默认设备评选，本批没有新增 QML 信号处理器与提示控件。
-| `bleStrengthA{Increase,Decrease}` / `bleStrengthB{Increase,Decrease}` | 蓝牙通道强度增减 |
 
 波形设置页（`pages/WavePage.qml`）：外层 `ScrollView` 撑满窗口，页面只在窗口高度不足时滚动；波形内容全部来自配置页迁移，行为不变。
 
@@ -464,7 +492,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
-复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 66 处（本次新增 3 处，即下表 `AppTagStrip.qml` 三行，登记条数与新增数一致），按文件分组：
+复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 66 处（设备管理页这一批新增 0 处：新页面的扫描 / 连接 / 断开 / 下拉 / 上下限全部由 `UiConnector` 连接，故登记条数与总数都不变），按文件分组：
 
 - `dialogs/RuleEditorDialog.qml` 30 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 5，即上表四行，逐处已登记。
 - `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 8 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。

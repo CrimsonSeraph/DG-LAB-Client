@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 配置页：连接（中转表单 + 扫码配对 + 蓝牙直连）与主题，以及规则编辑器入口。
+// 配置页：连接（中转表单 + 扫码配对）与主题，以及规则编辑器入口；蓝牙直连已移到设备管理页。
 // 波形内容在波形设置页，日志内容在日志页，本页不再承载。
 // 卡片语言与首页一致：层级只在卡片这一层，卡片内分组一律「小标题 + 留白」，
 // 不画内层描边、不填内层底色，分组间距由 ComponentStyle.groupSpacing 承担。
@@ -11,11 +11,6 @@ Item {
     id: page
 
     objectName: "configPage"
-
-    // 蓝牙直连状态行文案：已连接显示设备名，未连接只显示「未连接」
-    readonly property string bleStatusLine: ble.connected
-        ? qsTr("已连接 %1").arg(ble.deviceName)
-        : qsTr("未连接")
 
     ScrollView {
         id: scrollView
@@ -34,9 +29,8 @@ Item {
             PageHeader {
                 Layout.fillWidth: true
                 title: qsTr("配置")
-                subtitle: (device.pairingStage === 2 ? qsTr("已配对")
-                        : (device.pairingStage === 1 ? qsTr("等待 APP 扫码配对") : qsTr("未启动")))
-                    + " · " + (ble.connected ? qsTr("蓝牙已连接") : qsTr("蓝牙未连接"))
+                subtitle: device.pairingStage === 2 ? qsTr("已配对")
+                    : (device.pairingStage === 1 ? qsTr("等待 APP 扫码配对") : qsTr("未启动"))
 
                 AppButton {
                     objectName: "configRuleEditorButton"
@@ -44,7 +38,7 @@ Item {
                 }
             }
 
-            // 连接：上排左列中转表单、右列扫码配对（右列固定宽度，不再独占整卡），蓝牙直连在扫码配对列下方
+            // 连接：上排左列中转表单、右列扫码配对（右列固定宽度，不再独占整卡）
             GlassCard {
                 id: connectCard
 
@@ -217,191 +211,6 @@ Item {
                                 color: (device.v3Paired || device.v4Attached) ? Theme.accent : Theme.textMuted
                                 font.pixelSize: Typography.fontBody
                                 wrapMode: Text.WordWrap
-                            }
-                        }
-                    }
-
-                    // 蓝牙直连（郊狼 V3 / 负鼠）：位于扫码配对列下方，占整卡宽度
-                    ColumnLayout {
-                        objectName: "configBleColumn"
-                        Layout.fillWidth: true
-                        spacing: ComponentStyle.groupTitleGap
-
-                        Text {
-                            text: qsTr("蓝牙直连（郊狼 V3 / 负鼠）")
-                            color: Theme.textSecondary
-                            font.pixelSize: Typography.fontBody
-                            font.bold: true
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: Metrics.spacingMd
-
-                            Text {
-                                objectName: "configBleStatusText"
-                                text: page.bleStatusLine
-                                color: Theme.textSecondary
-                                font.pixelSize: Typography.fontBody
-                            }
-
-                            Text {
-                                visible: ble.battery >= 0
-                                text: qsTr("电量 %1%").arg(ble.battery)
-                                color: Theme.textMuted
-                                font.pixelSize: Typography.fontBody
-                            }
-
-                            Item {
-                                Layout.fillWidth: true
-                            }
-
-                            AppButton {
-                                objectName: "bleScanButton"
-                                text: ble.scanning ? qsTr("扫描中…") : qsTr("扫描设备")
-                                enabled: !ble.scanning
-                            }
-
-                            AppButton {
-                                objectName: "bleDisconnectButton"
-                                text: qsTr("断开")
-                                danger: true
-                                // 爪印是纯输入设备，不进入 ble.connected 的输出链路口径，单独放开断开入口
-                                enabled: ble.connected || ble.pawConnected
-                            }
-                        }
-
-                        // 与状态行文案相同的状态不再重复显示，扫描中 / 错误 / 断开等有价值的状态保留
-                        Text {
-                            objectName: "configBleStatusDetail"
-                            Layout.fillWidth: true
-                            visible: ble.status.length > 0 && ble.status !== page.bleStatusLine
-                            text: ble.status
-                            color: Theme.textMuted
-                            font.pixelSize: Typography.fontBody
-                            elide: Text.ElideRight
-                        }
-
-                        // 负鼠屏幕强度同步（B2）不可用的说明：B0 波形与 B3 强度下发不受影响
-                        Text {
-                            objectName: "configBleScreenSyncText"
-                            Layout.fillWidth: true
-                            visible: !ble.screenSyncAvailable
-                            text: qsTr("负鼠屏幕强度同步不可用，通道输出不受影响")
-                            color: Theme.warning
-                            font.pixelSize: Typography.fontBody
-                            elide: Text.ElideRight
-                        }
-
-                        // 设备行常驻细边框与圆角，悬停改底色与描边并在热区上给出手型光标
-                        ListView {
-                            id: bleDeviceList
-
-                            objectName: "bleDeviceList"
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: Math.min(contentHeight, ComponentStyle.panelBlockMaxHeight)
-                            visible: ble.devices.length > 0
-                            clip: true
-                            model: ble.devices
-                            spacing: Metrics.spacing2xs
-
-                            // 行尾徽标是驱动支持程度三态：已支持（郊狼）/ 实验性（负鼠、爪印已实现未验证、灵猫尚未实现）/ 暂不支持，
-                            // 只有前两态可点选，暂不支持的行热区禁用（爪印 V1.0 属于暂不支持，hint 提示需先升级固件）
-                            delegate: Rectangle {
-                                width: bleDeviceList.width
-                                height: ComponentStyle.inputHeight
-                                radius: Metrics.radiusSm
-                                color: deviceRowArea.containsMouse ? Theme.surfaceAlt : Theme.surface
-                                border.width: Metrics.borderWidth
-                                border.color: deviceRowArea.containsMouse ? Theme.accent : Theme.divider
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.leftMargin: Metrics.spacingMd
-                                    anchors.rightMargin: Metrics.spacingMd
-                                    spacing: Metrics.spacingSm
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        Layout.preferredWidth: 0
-                                        text: modelData.name + "   " + modelData.address
-                                            + (modelData.hint.length > 0 ? "   " + modelData.hint : "")
-                                        color: modelData.connectable ? Theme.textSecondary : Theme.textMuted
-                                        font.pixelSize: Typography.fontBody
-                                        elide: Text.ElideRight
-                                    }
-
-                                    StatusBadge {
-                                        objectName: "bleDeviceSupportBadge"
-                                        Layout.alignment: Qt.AlignVCenter
-                                        text: modelData.supportText
-                                        level: modelData.support === 2 ? 1 : (modelData.support === 1 ? 2 : 3)
-                                    }
-                                }
-
-                                MouseArea {
-                                    id: deviceRowArea
-
-                                    objectName: "bleDeviceClick"
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    enabled: modelData.connectable
-                                    cursorShape: modelData.connectable ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                    property string address: modelData.address
-                                }
-                            }
-                        }
-
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: Metrics.spacingMd
-
-                            Text {
-                                text: qsTr("强度")
-                                color: Theme.textSecondary
-                                font.pixelSize: Typography.fontBody
-                            }
-
-                            Text {
-                                text: "A " + ble.strengthA
-                                color: Theme.accent
-                                font.pixelSize: Typography.fontBody
-                                font.bold: true
-                            }
-
-                            AppButton {
-                                objectName: "bleStrengthADecrease"
-                                text: "A－"
-                                enabled: ble.connected
-                            }
-
-                            AppButton {
-                                objectName: "bleStrengthAIncrease"
-                                text: "A＋"
-                                enabled: ble.connected
-                            }
-
-                            Text {
-                                text: "B " + ble.strengthB
-                                color: Theme.accent
-                                font.pixelSize: Typography.fontBody
-                                font.bold: true
-                            }
-
-                            AppButton {
-                                objectName: "bleStrengthBDecrease"
-                                text: "B－"
-                                enabled: ble.connected
-                            }
-
-                            AppButton {
-                                objectName: "bleStrengthBIncrease"
-                                text: "B＋"
-                                enabled: ble.connected
-                            }
-
-                            Item {
-                                Layout.fillWidth: true
                             }
                         }
                     }

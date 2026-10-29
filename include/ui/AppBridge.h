@@ -37,7 +37,8 @@ public:
         PluginCenterPage = 4,
         WavePage = 5,
         MiniGamePage = 6,
-        LogPage = 7
+        LogPage = 7,
+        DevicePage = 8
     };
     Q_ENUM(Page)
 
@@ -58,7 +59,7 @@ public:
     QString app_name() const { return app_name_; }
     QString app_version() const { return app_version_; }
     int current_page() const { return current_page_; }
-    int page_count() const { return static_cast<int>(Page::LogPage) + 1; }
+    int page_count() const { return static_cast<int>(Page::DevicePage) + 1; }
     QString status_text() const { return status_text_; }
     int status_level() const { return status_level_; }
     QString toast_text() const { return toast_text_; }

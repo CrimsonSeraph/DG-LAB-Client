@@ -643,6 +643,36 @@ void CoyoteBleController::disconnectDevice() {
     emit stateChanged();
 }
 
+void CoyoteBleController::disconnectDeviceByAddress(const QString& address) {
+    const QString target = address.trimmed();
+    if (target.isEmpty()) {
+        return;
+    }
+    // 只断开该 MAC 的链路：其它已连接设备的连接状态、电量与波形保持原状
+    bool closed = false;
+    if (manager_ != nullptr && manager_->link_for(target) != nullptr) {
+        manager_->close_link(target);
+        closed = true;
+    }
+    else if (pawprints_ != nullptr && pawprints_->connected()
+        && pawprints_->device_address().compare(target, Qt::CaseInsensitive) == 0) {
+        pawprints_->disconnect_device();
+        closed = true;
+    }
+    else if (civet_ != nullptr && civet_->connected()
+        && civet_->device_address().compare(target, Qt::CaseInsensitive) == 0) {
+        civet_->disconnect_device();
+        closed = true;
+    }
+    set_status(closed ? QStringLiteral("已断开 %1").arg(target) : QStringLiteral("该设备未连接"));
+    refresh_device_rows();
+    emit stateChanged();
+}
+
+bool CoyoteBleController::has_link(const QString& address) const {
+    return is_connected_address(address);
+}
+
 void CoyoteBleController::setStrength(int channel, int mode, int value) {
     if (IOutputDevice* device = snapshot_output(); device != nullptr) {
         device->set_strength(channel, mode, value);

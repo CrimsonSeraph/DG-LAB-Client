@@ -132,6 +132,13 @@ public:
     Q_INVOKABLE void connectDevice(const QString& address);
     /// @brief 断开当前链路（默认输出设备；没有输出设备时断开输入设备）
     Q_INVOKABLE void disconnectDevice();
+    /// @brief 按 MAC 断开链路（其它设备不受影响，未连接时只刷新状态文案）
+    /// @param address 设备蓝牙 MAC
+    Q_INVOKABLE void disconnectDeviceByAddress(const QString& address);
+
+    /// @brief 该 MAC 当前是否已有链路（输出链路或输入设备的固定实例）
+    /// @param address 设备蓝牙 MAC
+    bool has_link(const QString& address) const;
 
     /// @brief 强度指令（channel: 1=A / 2=B；mode: 0 减 / 1 增 / 2 设为）下发给默认设备
     Q_INVOKABLE void setStrength(int channel, int mode, int value);

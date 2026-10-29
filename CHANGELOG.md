@@ -24,9 +24,11 @@
 - **图标与双连接状态**: 入库 Font Awesome Free 7.3.1 并新增 `AppIcon`，左侧导航改用图标，连接状态统一为「已连接设备 ×N + 蓝牙 + App」口径。
 - **可配置文件日志**: 日志按天写入 `<exe>/log/dglab-YYYYMMDD.log` 并按大小滚动，新增 `app.log.file_enabled` / `file_level` / `file_max_mb` 三个配置键。
 - **网卡 IP 选择**: 中转连接下方新增「选择网卡 IP」，可手动指定有效 IPv4 并按黑白名单过滤，选择结果随配置持久化。
+- **设备管理页**: 新增左侧导航「设备管理」（`AppBridge::Page::DevicePage = 8`，追加在枚举末尾，`ModulePage = 2` 的占位槽与既有页索引不变），四张卡——蓝牙扫描结果（蓝牙名 / MAC / 型号 / 支持三态 + 原因，行尾「连接」/「断开」可多台同时连接）、已连接链路（`ble.connectedLinks` 的 MAC / 型号 / 电量 / 连接序号，逐台断开）、默认设备（只列在线输出设备，与首页下拉同一份评选与写入）、通道上限与安全上限（先选设备再分别编辑 A / B，写入 `app.devices.<MAC>.{limit_a,safety_a,limit_b,safety_b}` 并显示生效值 `min(上限, 安全上限)`，未设置的通道标「默认」）。
 
 ### Changed
 
+- **设置页瘦身、蓝牙操作集中到设备管理页**: 设置页删除整块「蓝牙直连（郊狼 V3 / 负鼠）」子区（扫描 / 断开 / 设备列表 / 强度增减 / 屏幕同步提示 / 电量）与对应 objectName，只保留中转连接与主题；`ConfigPage.qml` 不再引用任何 `ble.` 属性，`UiConnector` 对 `bleScanButton` / `bleDisconnectButton` / `bleStrength*` / `bleDeviceList` 的连接一并移除，没有悬空连接。`CoyoteBleController` 新增 `has_link(address)` 与 `disconnectDeviceByAddress(address)`（按 MAC 断开，其它设备不受影响），`DeviceController` 新增可写入口 `setDeviceLimit(mac, channel, kind, value)` 与回读 `limitsFor(mac, channel)`（含 `device_limit` / `device_safety` 来源标记），`limits_for()` 的回退链保持唯一实现。
 - **蓝牙多链路（第一阶段）**: 蓝牙输出设备不再互相排斥。扫描与链路管理拆开——`CoyoteBleController` 只负责发现与型号识别（结果按 MAC 去重），新增 `BleDeviceManager` 按识别出的型号为每台设备创建驱动实例（郊狼 `CoyoteBleDevice` / 负鼠 `OpossumBleController`）并以 MAC 为键登记；原先「连接负鼠前先断开郊狼」这类互斥代码全部移除，任意数量的郊狼与负鼠可以同时在线，断开一台只销毁该 MAC 的实例。每台设备独立维护连接状态、电量、强度回执与通道波形进度，界面上的连接状态 / 电量 / 强度改为读**默认设备**的只读快照，新增 `ble.connectedLinks` 给出全部已连接设备（MAC / 型号 / 电量 / 连接序号）。默认设备评选抽成 `pick_default_device()` 单一实现（用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者优先），`DeviceController` 与界面快照共用；新增单元测试 `device_link_test`（MAC 登记表增删、默认设备评选、断开一台不影响其它，用实现 `IOutputDevice` 的合成设备驱动）。输入设备（爪印 / 灵猫）本阶段仍是各一个固定实例，多实例与设备管理页留到第二阶段。
 - **构建默认不编译单元测试**: 新增 CMake 开关 `DGLAB_BUILD_TESTS`（默认 OFF），普通构建与发布构建不再编 14 个测试目标；测试产物改落构建目录的 `tests/` 下，不再与 `DG-LAB-Client` / 插件混在同一输出目录，手工压缩输出目录发布也不会带出测试程序；三个平台 CI 改为带开关构建并执行 `ctest`（此前测试只编译、从不运行）。
 - **看板与波形标签布局、插件卡头图圆角**: 首页看板改为三行——设备状态卡与「已启用插件 + 近期触发」同行（右侧内容超出时在区域内滚动）、通道 A 与通道 B 卡各与自己的波形卡同行，波形卡由一张 A/B 并排卡拆成 `dashboardWaveCardA` / `dashboardWaveCardB` 两张单通道卡（下发帧、强度与空态各自独立）；波形设置页的标签从波形名上方移到同一行靠右，标签总宽超限时裁剪并可用滚轮或按住拖动横向查看；插件卡头图常态即按卡片圆角裁切，与焦点态一致。

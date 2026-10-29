@@ -54,6 +54,32 @@ namespace {
         return -1;
     }
 
+    // 读取 app.devices.<MAC> 设备段（MAC 大小写不敏感；设备段不存在时返回空对象）
+    nlohmann::json device_section_of(const QString& mac) {
+        const nlohmann::json devices = AppConfig::instance().get_value<nlohmann::json>(
+            "app.devices", nlohmann::json::object());
+        if (!devices.is_object()) {
+            return nlohmann::json::object();
+        }
+        const QString device = mac.trimmed().toUpper();
+        for (auto it = devices.begin(); it != devices.end(); ++it) {
+            if (QString::fromStdString(it.key()).compare(device, Qt::CaseInsensitive) == 0 && it.value().is_object()) {
+                return it.value();
+            }
+        }
+        return nlohmann::json::object();
+    }
+
+    // 取设备段里的数值键（键缺失或不是数字时返回 false，value 保持原值）
+    bool device_section_value(const nlohmann::json& section, const char* key, int* value) {
+        const nlohmann::json::const_iterator it = section.find(key);
+        if (it == section.end() || !it->is_number()) {
+            return false;
+        }
+        *value = static_cast<int>(it->get<double>());
+        return true;
+    }
+
     // 强度命令的通道号（字符串 "A"/"B" 或数字 1/2，其它按 A 处理）
     int strength_channel(const QJsonValue& value) {
         if (value.isString()) {
@@ -262,29 +288,53 @@ EventChannelConfig DeviceController::limits_for(const QString& mac, const QStrin
         return config;
     }
     // 设备特有键直接读配置：配置文件改动由配置系统重读后进入内存，这里不再另存快照
-    const nlohmann::json devices = AppConfig::instance().get_value<nlohmann::json>(
-        "app.devices", nlohmann::json::object());
-    if (!devices.is_object()) {
-        return config;
-    }
-    nlohmann::json device_config = nlohmann::json::object();
-    for (auto it = devices.begin(); it != devices.end(); ++it) {
-        if (QString::fromStdString(it.key()).compare(device, Qt::CaseInsensitive) == 0 && it.value().is_object()) {
-            device_config = it.value();
-            break;
-        }
-    }
-    const char* limit_key = is_a ? "limit_a" : "limit_b";
-    const char* safety_key = is_a ? "safety_a" : "safety_b";
-    const nlohmann::json::const_iterator limit_it = device_config.find(limit_key);
-    if (limit_it != device_config.end() && limit_it->is_number()) {
-        config.limit = static_cast<int>(limit_it->get<double>());
-    }
-    const nlohmann::json::const_iterator safety_it = device_config.find(safety_key);
-    if (safety_it != device_config.end() && safety_it->is_number()) {
-        config.safety = static_cast<int>(safety_it->get<double>());
-    }
+    const nlohmann::json section = device_section_of(device);
+    device_section_value(section, is_a ? "limit_a" : "limit_b", &config.limit);
+    device_section_value(section, is_a ? "safety_a" : "safety_b", &config.safety);
     return config;
+}
+
+QVariantMap DeviceController::limitsFor(const QString& mac, const QString& channel) const {
+    const bool is_a = channel.compare(QStringLiteral("A"), Qt::CaseInsensitive) == 0;
+    const bool is_b = channel.compare(QStringLiteral("B"), Qt::CaseInsensitive) == 0;
+    const EventChannelConfig config = limits_for(mac, channel);
+    int resolved = 0;
+    // 来源标记只标该通道的两个键：任一键缺失即说明这部分仍取通道回退值
+    const nlohmann::json section = (is_a || is_b) ? device_section_of(mac) : nlohmann::json::object();
+    const bool has_limit = device_section_value(section, is_a ? "limit_a" : "limit_b", &resolved);
+    const bool has_safety = device_section_value(section, is_a ? "safety_a" : "safety_b", &resolved);
+    QVariantMap result;
+    result.insert(QStringLiteral("limit"), config.limit);
+    result.insert(QStringLiteral("safety"), config.safety);
+    result.insert(QStringLiteral("effective"),
+        std::min(std::clamp(config.limit, 0, MAX_STRENGTH), std::clamp(config.safety, 0, MAX_STRENGTH)));
+    result.insert(QStringLiteral("device_limit"), has_limit);
+    result.insert(QStringLiteral("device_safety"), has_safety);
+    return result;
+}
+
+bool DeviceController::setDeviceLimit(const QString& mac, const QString& channel, const QString& kind, int value) {
+    const bool is_a = channel.compare(QStringLiteral("A"), Qt::CaseInsensitive) == 0;
+    const bool is_b = channel.compare(QStringLiteral("B"), Qt::CaseInsensitive) == 0;
+    const bool is_limit = kind.compare(QStringLiteral("limit"), Qt::CaseInsensitive) == 0;
+    const bool is_safety = kind.compare(QStringLiteral("safety"), Qt::CaseInsensitive) == 0;
+    const QString device = mac.trimmed().toUpper();
+    if (device.isEmpty() || (!is_a && !is_b) || (!is_limit && !is_safety)) {
+        return false;
+    }
+    // 只写被编辑的那一个键：另一个键继续走通道回退，避免把回退值固化到设备上
+    const QString key = QStringLiteral("app.devices.%1.%2%3")
+        .arg(device, is_limit ? QStringLiteral("limit_") : QStringLiteral("safety_"),
+            is_a ? QStringLiteral("a") : QStringLiteral("b"));
+    const int clamped = std::clamp(value, 0, MAX_STRENGTH);
+    auto& config = AppConfig::instance();
+    config.set_value_with_name<int>(key.toStdString(), clamped, "user");
+    config.save_all();
+    LOG_MODULE("DeviceController", "setDeviceLimit", LOG_INFO,
+        "设备通道上限已写入 " << key.toStdString() << "=" << clamped);
+    // 默认设备的生效值可能随之变化：广播一次让看板与迷你窗跟上
+    refresh_limits();
+    return true;
 }
 
 QString DeviceController::default_device_address() const {

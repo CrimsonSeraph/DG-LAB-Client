@@ -25,6 +25,7 @@ ApplicationWindow {
     readonly property int pageWave: 5
     readonly property int pageMiniGame: 6
     readonly property int pageLog: 7
+    readonly property int pageDevice: 8
 
     // 连接状态统一口径：蓝牙连接（0/1）+ APP 在线客户端数（来源 device.appClientCount）
     readonly property int bleCount: ble.connected ? 1 : 0
@@ -210,6 +211,20 @@ ApplicationWindow {
                         highlighted: navLogButton.selected
                     }
                 }
+
+                NavButton {
+                    id: navDeviceButton
+
+                    objectName: "navDeviceButton"
+                    text: qsTr("设备管理")
+                    selected: app.currentPage === root.pageDevice
+                    width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f2db" // microchip
+                        label: navDeviceButton.text
+                        highlighted: navDeviceButton.selected
+                    }
+                }
             }
         }
 
@@ -370,6 +385,11 @@ ApplicationWindow {
 
         LogPage {
             id: logPage
+        }
+
+        // 设备管理页（AppBridge::Page::DevicePage = 8）：页栈条目顺序必须与枚举逐项对应
+        DevicePage {
+            id: devicePage
         }
     }
 

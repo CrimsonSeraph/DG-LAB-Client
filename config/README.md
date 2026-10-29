@@ -89,8 +89,8 @@
 | `app.network.selected_ip` | string | 手动选中的中转地址（空字符串表示按名单自动选择）；非空时优先于自动选择 |
 | `app.websocket.ip` / `app.websocket.port` | string / int | 中转服务地址与端口，点「连接」或「选择网卡 IP」确定时写入 |
 | `app.output.<A\|B>.target` | string | 通道输出目标，目前只有 `coyote`（郊狼 V3 蓝牙直连）；缺省值与非法值都按 `coyote` 处理，由 `DeviceController::outputTarget()` / `setOutputTarget()` 读写，切目标时停旧目标波形并按当前强度重发 |
-| `app.output.default_device` | string | 默认输出设备的蓝牙 MAC（如 `D3:3B:5A:FA:43:0C`，空字符串表示自动评选）。只在该设备在线时生效；离线或用户主动断开时回退到自动评选（郊狼 > 负鼠 > 其它，同类型先连接者优先）。由 `DeviceController::setDefaultDevice()` 写入，首页看板的下拉是它的界面入口 |
-| `app.devices.<MAC>.limit_a` / `safety_a` / `limit_b` / `safety_b` | int | 该设备的通道上下限，优先于通道级默认值。未设置（或该键被删除）时回退到 `app.channels.<A\|B>.{limit, safety}`，再回退到内置默认（`limit=200` / `safety=150`）；读取集中在 `DeviceController::limits_for(mac, channel)`，界面显示与下发都用它算出的 `min(limit, safety)` |
+| `app.output.default_device` | string | 默认输出设备的蓝牙 MAC（如 `D3:3B:5A:FA:43:0C`，空字符串表示自动评选）。只在该设备在线时生效；离线或用户主动断开时回退到自动评选（郊狼 > 负鼠 > 其它，同类型先连接者优先）。由 `DeviceController::setDefaultDevice()` 写入，界面入口有两处：首页看板的下拉与设备管理页「默认设备」卡（都只列在线输出设备） |
+| `app.devices.<MAC>.limit_a` / `safety_a` / `limit_b` / `safety_b` | int | 该设备的通道上下限，优先于通道级默认值。未设置（或该键被删除）时回退到 `app.channels.<A\|B>.{limit, safety}`，再回退到内置默认（`limit=200` / `safety=150`）；读取集中在 `DeviceController::limits_for(mac, channel)`，界面显示与下发都用它算出的 `min(limit, safety)`；界面入口是设备管理页「通道上限与安全上限」卡，写入走 `DeviceController::setDeviceLimit(mac, channel, kind, value)`，每次只写被编辑的那一个键 |
 | `app.ui.tray_hint_shown` | bool | Windows 11 托盘折叠区提示是否已经弹过：首次运行（托盘可用）弹一次 Toast 并写 `true`，之后不再提示。图标位置归系统所有，应用无法程序化移到常显区域 |
 | `app.devices.<MAC>.experimental_notice_shown` | bool | 实验性设备首次连接成功的「功能未经完整验证」提示是否已经弹过；首次连接时写入 `true`，之后不再提示 |
 | `app.devices.<MAC>.model` | string | 该 MAC 记忆的型号标识（`coyote` / `pawprint` / `civet` / `opossum`）：识别时优先于蓝牙名（操作系统可能只给占位名），命中即按该型号的状态处理（郊狼即「已支持」）。首次成功识别出型号时写入（名称命中或连接后首帧反推），之后扫描与连接都直接使用 |
@@ -127,6 +127,8 @@ app.channels.<A|B>.limit / safety
 ```
 
 界面展示与下发都取这条链的 `min(limit, safety)`（`DeviceController::channel_limit()`），因此切换默认设备后上下限立即跟随。
+
+设备管理页的编辑方式与这条链一致：先选设备（只列在线输出设备），四条输入分别对应 `limit_a` / `safety_a` / `limit_b` / `safety_b`，改动即写盘（只写该键）并触发一次刷新；回读走 `DeviceController::limitsFor(mac, channel)`，两个键都还没落盘时该通道显示通道回退值并标「默认」。
 
 ## 热重载
 
