@@ -334,6 +334,9 @@ bool DeviceController::setDeviceLimit(const QString& mac, const QString& channel
         "设备通道上限已写入 " << key.toStdString() << "=" << clamped);
     // 默认设备的生效值可能随之变化：广播一次让看板与迷你窗跟上
     refresh_limits();
+    // 写入的是设备键而不是通道键：refresh_limits() 只在通道值变化时广播，
+    // 这里补一次广播，让上下限输入框按新值立即回读（离线设备同样适用）
+    emit limitsChanged();
     return true;
 }
 

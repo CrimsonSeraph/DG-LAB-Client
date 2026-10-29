@@ -6,6 +6,7 @@
 #include "UiConnector.h"
 
 #include "AppBridge.h"
+#include "AppConfig.h"
 #include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DeviceController.h"
@@ -29,11 +30,13 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QScreen>
+#include <QSet>
 #include <QUrl>
 #include <QVariantList>
 #include <QVariantMap>
 
 #include <algorithm>
+#include <string>
 #include <utility>
 
 namespace {
@@ -1518,14 +1521,12 @@ void UiConnector::on_device_default_activated(int index) {
 }
 
 void UiConnector::on_device_limit_device_activated(int index) {
-    if (device_ == nullptr) {
+    const QVariantList targets = limit_targets();
+    if (index < 0 || index >= targets.size()) {
         return;
     }
-    const QVariantList devices = device_->output_devices();
-    if (index < 0 || index >= devices.size()) {
-        return;
-    }
-    limits_device_ = devices.at(index).toMap().value(QStringLiteral("address")).toString();
+    // 离线设备同样可以选中：上下限写入不要求设备在线
+    limits_device_ = targets.at(index).toMap().value(QStringLiteral("address")).toString();
     refresh_device_limits_fields();
 }
 
@@ -1549,11 +1550,72 @@ void UiConnector::on_device_limits_changed() {
 }
 
 
+QVariantList UiConnector::limit_targets() const {
+    QVariantList targets;
+    QSet<QString> seen;
+    // 在线输出设备：顺序与候选评选一致，前段下标即默认设备下标
+    const QVariantList online = (device_ == nullptr) ? QVariantList() : device_->output_devices();
+    for (const QVariant& item : online) {
+        const QVariantMap device_map = item.toMap();
+        const QString address = device_map.value(QStringLiteral("address")).toString().trimmed().toUpper();
+        if (address.isEmpty() || seen.contains(address)) {
+            continue;
+        }
+        seen.insert(address);
+        QVariantMap entry;
+        entry.insert(QStringLiteral("address"), address);
+        entry.insert(QStringLiteral("label"), device_map.value(QStringLiteral("label")));
+        entry.insert(QStringLiteral("name"), device_map.value(QStringLiteral("name")));
+        entry.insert(QStringLiteral("online"), true);
+        targets.append(entry);
+    }
+    // 已记忆设备：app.devices 里出现过的 MAC，设备下线后仍可查看与编辑其上下限
+    const nlohmann::json devices = AppConfig::instance().get_value<nlohmann::json>(
+        "app.devices", nlohmann::json::object());
+    if (!devices.is_object()) {
+        return targets;
+    }
+    for (auto it = devices.begin(); it != devices.end(); ++it) {
+        if (!it.value().is_object()) {
+            continue;
+        }
+        const QString address = QString::fromStdString(it.key()).trimmed().toUpper();
+        if (address.isEmpty() || seen.contains(address)) {
+            continue;
+        }
+        // 已记忆的型号：纯输入设备（爪印 / 灵猫）没有输出通道，不进上下限下拉
+        std::string model;
+        const nlohmann::json::const_iterator model_it = it.value().find("model");
+        if (model_it != it.value().end() && model_it->is_string()) {
+            model = model_it->get<std::string>();
+        }
+        if (model == "pawprint" || model == "civet") {
+            continue;
+        }
+        const QString label = model == "coyote" ? QStringLiteral("郊狼 V3")
+            : model == "opossum"                ? QStringLiteral("负鼠")
+                                                : QStringLiteral("已记忆设备");
+        seen.insert(address);
+        QVariantMap entry;
+        entry.insert(QStringLiteral("address"), address);
+        entry.insert(QStringLiteral("label"), label);
+        entry.insert(QStringLiteral("name"),
+            label + QStringLiteral(" · ") + address + QStringLiteral(" · 离线"));
+        entry.insert(QStringLiteral("online"), false);
+        targets.append(entry);
+    }
+    return targets;
+}
+
 void UiConnector::refresh_device_limits_fields() {
     auto* page = find("devicePage");
     auto* combo = find("deviceLimitDeviceCombo");
-    const QVariantList devices = (device_ == nullptr) ? QVariantList() : device_->output_devices();
-    // 正在编辑的设备仍在线时保持选中；离线或从未选中时退回默认设备
+    const QVariantList devices = limit_targets();
+    if (page != nullptr) {
+        // 下拉模型由这里给出：在线输出设备 + 已记忆设备（离线项标注「离线」）
+        page->setProperty("limitTargets", devices);
+    }
+    // 正在编辑的设备仍在列表里时保持选中（含离线记忆设备）；否则退回默认设备
     int index = -1;
     for (int candidate = 0; candidate < devices.size(); ++candidate) {
         const QString address = devices.at(candidate).toMap().value(QStringLiteral("address")).toString();
@@ -1564,6 +1626,11 @@ void UiConnector::refresh_device_limits_fields() {
     }
     if (index < 0) {
         index = (device_ == nullptr) ? -1 : device_->default_device_index();
+    }
+    if (index < 0 && !devices.isEmpty()) {
+        // 没有在线默认设备但列表里有已记忆（离线）设备：默认选第一项，
+        // 避免下拉空白，也让离线设备的上下限可直接查看与编辑
+        index = 0;
     }
     limits_device_ = (index >= 0 && index < devices.size())
         ? devices.at(index).toMap().value(QStringLiteral("address")).toString()

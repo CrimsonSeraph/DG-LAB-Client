@@ -14,6 +14,7 @@
 #include <vector>
 
 class CivetBleController;
+class EventRuntime;
 class PawPrintsBleController;
 
 // paw_values - 爪印在数值模块 `paw` 下的数值定义（驱动、桥接与单元测试共用）
@@ -160,9 +161,11 @@ namespace civet_values {
 
 } // namespace civet_values
 
-// DeviceValueBridge - 输入类设备驱动到数值模块的桥接（爪印 → `paw`，灵猫 → `civet`）
+// DeviceValueBridge - 单台输入设备驱动到数值模块的桥接（爪印 → paw_<后四位>，灵猫 → civet_<后四位>）
+// 一台设备一份桥接：模块名由链路管理器按 MAC 分配（paw_430C 之类），多台同型号不会互相覆盖。
 // 把驱动的通知信号写成数值（全部经 ModuleManager::set_value，自动钳制并触发 value_changed），
-// 并持有各模块的内置事件声明（由 EventRuntime::register_builtin_events 接进事件引擎）。
+// 并持有本实例模块的内置事件声明（由 EventRuntime::register_builtin_events 接进事件引擎）；
+// 断开时 shutdown() 注销数值模块、清除内置声明并清掉引擎运行期状态。
 // 爪印 D0 的 10Hz 全量物理数据默认不写入数值（避免 10Hz 触发规则求值），
 // 只有配置 app.devices.paw.d0_values 为 true 时才落值；
 // 灵猫气压每 100ms 上报一次，只在变化达到 app.devices.civet.pressure_epsilon（单位 0.01 kPa）
@@ -171,17 +174,41 @@ class DeviceValueBridge : public QObject {
     Q_OBJECT
 
 public:
-    /// @brief 构造桥接（不访问 ModuleManager 与配置）
-    /// @param paw 爪印驱动实例，可为空（为空时只注册 paw 数值）
-    /// @param civet 灵猫驱动实例，可为空（为空时只注册 civet 数值）
+    /// @brief 设备种类（决定注册哪一份数值表与内置事件声明）
+    enum class DeviceKind {
+        PawPrints, ///< 爪印无线按钮传感器
+        Civet,     ///< 灵猫边缘控制传感器
+    };
+
+    /// @brief 构造单台设备的数值桥接（不访问 ModuleManager 与配置）
+    /// @param kind 设备种类
+    /// @param module_name 实例数值模块名（如 paw_430C，同时是内置事件声明的模块标识）
+    /// @param display_name 实例显示名（如 爪印 430C，用于日志与文档）
+    /// @param driver 驱动实例（爪印或灵猫，可为空：为空时只注册数值与事件声明）
     /// @param parent 父对象
-    explicit DeviceValueBridge(PawPrintsBleController* paw, CivetBleController* civet = nullptr,
-        QObject* parent = nullptr);
+    DeviceValueBridge(DeviceKind kind, std::string module_name, std::string display_name,
+        QObject* driver = nullptr, QObject* parent = nullptr);
 
     ~DeviceValueBridge() override;
 
-    /// @brief 注册 `paw` / `civet` 数值、写入初始基线并连接驱动信号
+    /// @brief 注入事件运行时：内置声明在 initialize() 注册、shutdown() 注销（不接管生命周期）
+    /// @param runtime 事件运行时，可为空
+    void attach_event_runtime(EventRuntime* runtime) { event_runtime_ = runtime; }
+
+    /// @brief 迁移旧配置映射、注册实例数值、写入初始基线、注册内置声明并连接驱动信号
     void initialize();
+
+    /// @brief 注销实例数值模块与内置事件声明（引擎运行期状态一并清掉），重复调用无副作用
+    void shutdown();
+
+    /// @brief 实例数值模块名（同时是内置事件声明的模块标识）
+    const std::string& module_name() const { return module_name_; }
+
+    /// @brief 实例显示名（如 爪印 430C）
+    const std::string& display_name() const { return display_name_; }
+
+    /// @brief 是否已注销
+    bool shut_down() const { return shut_down_; }
 
     /// @brief `paw` 模块的内置事件声明（按键按下 / 抬起）
     /// @return 事件声明列表；头文件内联，便于单元测试在不链接驱动的情况下核对声明内容
@@ -223,8 +250,8 @@ public:
         return {rise, drop};
     }
 
-    static constexpr const char* kModuleName = "paw";      ///< 爪印数值模块标识（同时是内置事件声明的模块标识）
-    static constexpr const char* kCivetModuleName = "civet"; ///< 灵猫数值模块标识（同时是内置事件声明的模块标识）
+    static constexpr const char* kModuleName = "paw";      ///< 爪印的旧模块标识（单实例时代的模块名，仅用于旧配置迁移与声明核对）
+    static constexpr const char* kCivetModuleName = "civet"; ///< 灵猫的旧模块标识（同上）
     static constexpr int kCivetDefaultEpsilon = 10;        ///< 气压落值阈值缺省值（10 个 0.01 kPa，即 0.1 kPa）
 
     /// @brief D0 物理数据是否写入数值（配置 app.devices.paw.d0_values，缺省 false）
@@ -239,6 +266,10 @@ public:
 private:
     void initialize_paw();
     void initialize_civet();
+    void register_builtin_events();
+    void migrate_legacy_mapping();
+    PawPrintsBleController* paw_driver() const;
+    CivetBleController* civet_driver() const;
     void on_device_info(int indicator_color, int device_type, int battery);
     void on_trigger_started(int event_id, int param);
     void on_trigger_cancelled(int event_id);
@@ -249,10 +280,14 @@ private:
     void on_civet_battery(int percent);
     void set_civet_value(const char* value_id, int value);
 
-    PawPrintsBleController* paw_ = nullptr; ///< 爪印驱动（可为空）
-    CivetBleController* civet_ = nullptr;   ///< 灵猫驱动（可为空）
-    bool d0_values_ = false;                ///< D0 物理数据是否落值
-    bool d0_skipped_logged_ = false;        ///< D0 未落值是否已记录一次
+    DeviceKind kind_ = DeviceKind::PawPrints; ///< 设备种类
+    std::string module_name_;                ///< 实例数值模块名（paw_430C 之类）
+    std::string display_name_;               ///< 实例显示名（爪印 430C 之类）
+    QObject* driver_ = nullptr;              ///< 驱动实例（可为空）
+    EventRuntime* event_runtime_ = nullptr;  ///< 事件运行时（可为空：为空时不动内置声明）
+    bool shut_down_ = false;                 ///< 是否已注销
+    bool d0_values_ = false;                 ///< D0 物理数据是否落值
+    bool d0_skipped_logged_ = false;         ///< D0 未落值是否已记录一次
     int civet_epsilon_ = kCivetDefaultEpsilon; ///< 气压落值阈值（0.01 kPa）
     int civet_last_pressure_ = 0;           ///< 上一次落值的气压原始值
     int civet_suppressed_ = 0;              ///< 未达阈值被丢弃的气压上报数

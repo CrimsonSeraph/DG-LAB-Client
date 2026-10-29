@@ -13,6 +13,8 @@ Item {
     property string limitsAddress: ""
     property bool limitsFallbackA: true
     property bool limitsFallbackB: true
+    // C++ 写入：上下限编辑目标（在线输出设备 + 已记忆设备，离线项名称带「离线」）
+    property var limitTargets: []
 
     ScrollView {
         id: scrollView
@@ -212,10 +214,14 @@ Item {
                                     Text {
                                         objectName: "deviceLinkRowDetail"
                                         Layout.fillWidth: true
+                                        // 输入设备（爪印 / 灵猫）额外显示实例数值模块名，输出链路没有该字段
                                         text: qsTr("型号 %1 · 电量 %2 · 连接序号 %3")
                                             .arg(modelData.model.length > 0 ? modelData.model : "—")
                                             .arg(modelData.battery >= 0 ? modelData.battery + "%" : "—")
                                             .arg(modelData.order)
+                                            + (modelData.moduleName !== undefined && modelData.moduleName.length > 0
+                                                ? qsTr(" · 模块 %1").arg(modelData.moduleName)
+                                                : "")
                                         color: Theme.textMuted
                                         font.pixelSize: Typography.fontBody
                                         elide: Text.ElideRight
@@ -374,19 +380,20 @@ Item {
                             font.pixelSize: Typography.fontBody
                         }
 
+                        // 目标列表含已记忆设备：设备断开后其上下限仍可查看与编辑（写入不要求在线）
                         AppComboBox {
                             objectName: "deviceLimitDeviceCombo"
                             Layout.fillWidth: true
-                            visible: device.outputDevices.length > 0
-                            model: device.outputDevices
+                            visible: page.limitTargets.length > 0
+                            model: page.limitTargets
                             textRole: "name"
                         }
 
                         Text {
                             objectName: "deviceLimitDeviceEmpty"
                             Layout.fillWidth: true
-                            visible: device.outputDevices.length === 0
-                            text: qsTr("无在线输出设备")
+                            visible: page.limitTargets.length === 0
+                            text: qsTr("无可选设备（无在线输出设备，也没有已记忆的设备）")
                             color: Theme.textMuted
                             font.pixelSize: Typography.fontBody
                             elide: Text.ElideRight

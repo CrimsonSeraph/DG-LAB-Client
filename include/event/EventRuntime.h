@@ -42,6 +42,11 @@ public:
     void register_builtin_events(const std::string& module_name,
         const std::vector<EventDefinition>& events);
 
+    /// @brief 注销某模块标识的内置声明并丢弃其引擎运行期状态（设备断开时调用）
+    /// @param module_name 模块标识（实例模块名，如 "paw_430C"）
+    /// @note 只影响该模块标识：其它内置声明与插件声明保持原样；未登记该标识时只清运行期状态
+    void unregister_builtin_events(const std::string& module_name);
+
     /// @brief 只读访问引擎（供桥接读取流水）
     /// @return 事件引擎
     const EventEngine& engine() const;

@@ -8,8 +8,8 @@ GlassCard {
     objectName: "dashboardDeviceCard"
     title: qsTr("设备状态")
 
-    // 连接状态统一口径：蓝牙连接（0/1）+ APP 在线客户端数（来源 device.appClientCount）
-    readonly property int bleCount: ble.connected ? 1 : 0
+    // 连接状态统一口径：蓝牙已连接链路数（多台累加）+ APP 在线客户端数（来源 device.appClientCount）
+    readonly property int bleCount: ble.connectedLinkCount
     readonly property int appCount: device.appClientCount
     readonly property int connectionCount: bleCount + appCount
 
@@ -46,8 +46,9 @@ GlassCard {
             Text {
                 objectName: "dashboardDeviceState"
                 Layout.fillWidth: true
-                text: ble.connected ? qsTr("蓝牙已连接") : qsTr("蓝牙未连接")
-                color: ble.connected ? Theme.success : Theme.textMuted
+                // 与状态栏、左下角面板同一句文案：蓝牙链路条数为累加值，多台在线时逐台计入
+                text: root.bleCount > 0 ? qsTr("蓝牙链路 %1 条").arg(root.bleCount) : qsTr("蓝牙未连接")
+                color: root.bleCount > 0 ? Theme.success : Theme.textMuted
                 font.pixelSize: Typography.fontBody
                 elide: Text.ElideRight
             }

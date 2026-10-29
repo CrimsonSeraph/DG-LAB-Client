@@ -114,7 +114,7 @@ src/ui/
 
 导航与左下角面板：
 
-左侧导航按「主页 / 插件中心 / 波形设置 / 小游戏 / 日志 / 设备管理」排列（新页追加在末尾，既有导航项顺序与文案不变）；模块页已从代码移除（首页入口现为「插件管理」→ 插件中心），`AboutPage` 仅经左下角面板入口可达。导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙 `ble.connected` 计 0/1，加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
+左侧导航按「主页 / 插件中心 / 波形设置 / 小游戏 / 日志 / 设备管理」排列（新页追加在末尾，既有导航项顺序与文案不变）；模块页已从代码移除（首页入口现为「插件管理」→ 插件中心），`AboutPage` 仅经左下角面板入口可达。导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
 
 | objectName | 行为 |
 | --- | --- |
@@ -129,7 +129,7 @@ src/ui/
 | `mainWindow` / `pageStack` / `statusBar` / `panelFooter` | 窗口根项、内容区页栈、底部状态栏、左下常驻面板容器 |
 | `retiredModulePageSlot` | `pageStack` 中模块页移除后保留的空占位（保持页面索引与 `AppBridge::Page` 枚举一一对应），无交互 |
 | `deviceStatusRow` / `deviceStatusDot` | 面板连接状态行与状态点（`connectionCount > 0` 时取 `success`） |
-| `deviceStatusName` | 连接总数：`已连接设备 ×N`，N = 蓝牙 0/1 + App 在线客户端数（无连接时「未连接设备」） |
+| `deviceStatusName` | 连接总数：`已连接设备 ×N`，N = `ble.connectedLinkCount`（蓝牙已连接链路数）+ App 在线客户端数（无连接时「未连接设备」）；与看板设备卡、状态栏同一句文案 |
 | `deviceStatusBle` / `deviceStatusApp` | 蓝牙 0/1（`蓝牙已连接` / `蓝牙未连接`）与 App 在线客户端数（`App 已连接 ×N` / `App 未连接`） |
 | `deviceStatusDevice` | 蓝牙设备名：`ble.connected` 且 `ble.deviceName` 非空时可见 |
 | `homePluginEntryButton` | 首页页头「插件管理」→ 插件中心（`UiConnector::on_home_plugin_entry_clicked()`） |
@@ -146,7 +146,7 @@ src/ui/
 | objectName | 行为 |
 | --- | --- |
 | `dashboardDeviceCard` / `dashboardDeviceName` | 设备状态卡与卡头连接总数（`已连接设备 ×N` / `未连接设备`）：只读绑定 |
-| `dashboardDeviceDot` / `dashboardDeviceState` / `dashboardDeviceAppState` | 状态点、蓝牙状态行（`蓝牙已连接` / `蓝牙未连接`）、App 状态行（`App 已连接 ×N` / `App 未连接`）：只读 |
+| `dashboardDeviceDot` / `dashboardDeviceState` / `dashboardDeviceAppState` | 状态点、蓝牙状态行（`蓝牙链路 N 条` / `蓝牙未连接`，N 取 `ble.connectedLinkCount`，与左下角面板、状态栏同一句文案）、App 状态行（`App 已连接 ×N` / `App 未连接`）：只读 |
 | `dashboardDeviceBleName` / `dashboardOutputBadge` / `dashboardRelayState` | 蓝牙设备名、输出可用性徽标（`device.outputReady`）、中转摘要（`中转 已连接 · ip:port`）：只读 |
 | `homeDefaultDeviceCombo` / `homeDefaultDeviceEmpty` | 默认设备下拉（`AppComboBox`，`model: home.outputDevices`、`textRole: "name"`、`currentIndex: home.defaultDeviceIndex`）：只列**在线输出设备**（爪印、灵猫是纯输入设备，不进列表），切换由 `UiConnector::on_home_default_device_activated(int)` → `HomeBridge::setDefaultDeviceIndex()` → `DeviceController::setDefaultDeviceByIndex()` 落到 `app.output.default_device`，随后强度、波形与事件波形的下发目标与上下限一起改用该设备；列表为空时下拉隐藏、显示 `homeDefaultDeviceEmpty` 的「无在线输出设备」 |
 | `dashboardChannel{A,B}Card` | 通道卡根节点（`GlassCard`）：只读展示该通道已挂载模块与直连规则 |
@@ -213,7 +213,7 @@ src/ui/
 
 | objectName | 行为 |
 | --- | --- |
-| `devicePage` | 页面根项：承载三个由 C++ 写入的编辑态属性 `limitsAddress`（正在编辑上下限的设备 MAC）/ `limitsFallbackA` / `limitsFallbackB`（该通道两个键都未落盘时标「默认」） |
+| `devicePage` | 页面根项：承载四个由 C++ 写入的编辑态属性 `limitsAddress`（正在编辑上下限的设备 MAC）/ `limitsFallbackA` / `limitsFallbackB`（该通道两个键都未落盘时标「默认」）/ `limitTargets`（上下限下拉的模型：在线输出设备 + 已记忆设备） |
 | `deviceScrollView` | 页面滚动容器 |
 | `deviceScanButton` | 扫描（`UiConnector::on_ble_scan_clicked()` → `CoyoteBleController::startScan()`）；扫描中置灰，文案「扫描中…」 |
 | `deviceScanCard` / `deviceLinksCard` / `deviceDefaultCard` / `deviceLimitCard` | 四张卡的根节点（`GlassCard`）：扫描结果 / 已连接链路 / 默认设备 / 通道上下限，只承载排版，无交互 |
@@ -223,15 +223,15 @@ src/ui/
 | `deviceScanRowSupport` | 行内支持状态徽标（`StatusBadge`）：`modelData.support` 为 2 已支持（绿）/ 1 实验性（黄）/ 0 暂不支持（红），文案取 C++ 的 `modelData.supportText`，原因取 `modelData.hint`，QML 不判断型号 |
 | `deviceScanActionButton` | 行尾「连接」/「断开」（`AppButton`，`address` 属性）：`watch_items` 扫描委托后连接到 `on_device_scan_action_clicked()`，按 `CoyoteBleController::has_link(address)` 决定连接还是按 MAC 断开；已连接行取 `danger`，暂不支持的行 `enabled: modelData.connectable` |
 | `deviceScanEmpty` | 未扫描到设备时的空态文案 |
-| `deviceLinkCount` / `deviceLinkList` | 已连接链路的条数与列表（`model: ble.connectedLinks`） |
-| `deviceLinkRowTitle` / `deviceLinkRowDetail` | 行内「型号名 · MAC」与「型号 · 电量 · 连接序号」（电量未上报显示 —） |
+| `deviceLinkCount` / `deviceLinkList` | 已连接链路的条数与列表（`model: ble.connectedLinks`：输出链路在前，已连上的爪印 / 灵猫追加在后），条数与 `ble.connectedLinkCount` 同源 |
+| `deviceLinkRowTitle` / `deviceLinkRowDetail` | 行内「型号名 · MAC」与「型号 · 电量 · 连接序号」（电量未上报显示 —）；输入设备行额外带「模块 paw_<后四位>」（`modelData.moduleName` 有值时才拼），QML 不判断型号 |
 | `deviceLinkDisconnectButton` | 行尾「断开」（`address` 属性，`danger`）：`watch_items` → `on_device_link_disconnect_clicked()` → `disconnectDeviceByAddress(address)`，只断该 MAC |
 | `deviceLinkEmpty` | 无已连接链路时的空态文案 |
 | `deviceDefaultCombo` / `deviceDefaultEmpty` | 默认设备下拉（`model: device.outputDevices`、`textRole: "name"`、`currentIndex: device.defaultDeviceIndex`）：只列在线输出设备，切换经 `on_device_default_activated(int)` → `DeviceController::setDefaultDeviceByIndex()` 写 `app.output.default_device`；无在线输出设备时隐藏下拉并显示「无在线输出设备」 |
 | `deviceDefaultRuleText` | 评选规则旁注「用户指定优先，否则郊狼 > 负鼠 > 同类型先连接者」：只读 |
 | `deviceDefaultStrength{A,B}` / `deviceStrength{A,B}{Increase,Decrease}` | 默认设备的当前 A/B 强度与增减按钮：直接复用 `UiConnector::on_ble_strength_clicked()`（该槽按 objectName 里的 `StrengthA`/`StrengthB` 与 `Increase`/`Decrease` 判定通道与方向），与迷你窗同一入口 |
 | `deviceDefaultStrengthHint` | 强度增减的作用范围说明：只读 |
-| `deviceLimitDeviceCombo` / `deviceLimitDeviceEmpty` | 上下限编辑目标下拉（与默认设备同一份 `device.outputDevices`）：`activated` 由 C++ 连接后写 `limits_device_` 并回填四条输入；无在线输出设备时隐藏并显示「无在线输出设备」 |
+| `deviceLimitDeviceCombo` / `deviceLimitDeviceEmpty` | 上下限编辑目标下拉（`model: page.limitTargets`，由 `UiConnector::refresh_device_limits_fields()` 写入）：在线输出设备 + 已记忆设备（`app.devices` 里出现过的非输入设备 MAC，行名带「离线」），离线项同样可选中读改；`activated` 由 C++ 连接后写 `limits_device_` 并回填四条输入；列表为空时隐藏下拉并显示空态文案。默认设备下拉（`deviceDefaultCombo`）仍只列在线输出设备 |
 | `deviceLimitAddressText` | 当前编辑目标行：有设备时「正在编辑 <MAC> 的通道上下限」，无设备时「未选择设备，显示通道回退值」 |
 | `deviceLimitA` / `deviceSafetyA` / `deviceLimitB` / `deviceSafetyB` | 四台 `AppSpinBox`（0~200，步进 1，可键入）：`valueModified()` 由 C++ 连接后按 objectName（`Limit`/`Safety` + `A`/`B`）走 `DeviceController::setDeviceLimit()` 只写被编辑的那个键；无选中设备时置灰。程序回填走 `value` 属性，SpinBox 不为程序赋值发 `valueModified`，不会反向写盘 |
 | `deviceLimitFallbackBadge{A,B}` | 「默认」徽标（`StatusBadge` level 0）：该通道两个键都未落盘时可见 |
@@ -253,7 +253,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | 非 `47L1` 前缀（手机、耳机、手环等） | 暂不支持 | `非 DG-LAB 设备` | 否 |
 | 任一 MAC 记忆命中型号表 | 按记忆型号 | 按记忆型号 | 按记忆型号 |
 
-爪印连接成功后状态行显示「爪印已连接（实验性输入设备）」；50 指令未被 `51` 确认时显示「爪印未确认 50 指令」并弹一次 danger Toast。爪印不参与 `ble.connected` 的输出链路口径（该属性决定通道强度与默认设备），只体现在 `ble.status` 与型号行上。灵猫同为一类：连接中显示「正在连接灵猫…（需连按 5 次开机键才可被搜到）」，成功后显示「灵猫已连接（实验性输入设备）」，气压上报（首帧 D0）未确认时显示「灵猫未确认 50 指令」并弹一次 danger Toast；灵猫同样不进 `ble.connected` 与默认设备评选，本批没有新增 QML 信号处理器与提示控件。
+爪印连接成功后状态行显示「爪印已连接（实验性输入设备）」；50 指令未被 `51` 确认时显示「爪印未确认 50 指令」并弹一次 danger Toast。爪印不参与 `ble.connected`（默认设备的输出链路快照，决定通道强度与默认设备评选），但会计入 `ble.connectedLinkCount` 的蓝牙链路数，并出现在设备管理页「已连接设备」列表里（行内多一段「模块 paw_<后四位>」）。灵猫同为一类：连接中显示「正在连接灵猫…（需连按 5 次开机键才可被搜到）」，成功后显示「灵猫已连接（实验性输入设备）」，气压上报（首帧 D0）未确认时显示「灵猫未确认 50 指令」并弹一次 danger Toast；灵猫同样不进 `ble.connected` 与默认设备评选。多台同型号按 MAC 各建一个实例（数值模块 `paw_<后四位>` / `civet_<后四位>`），本批没有新增 QML 信号处理器与提示控件。
 
 波形设置页（`pages/WavePage.qml`）：外层 `ScrollView` 撑满窗口，页面只在窗口高度不足时滚动；波形内容全部来自配置页迁移，行为不变。
 

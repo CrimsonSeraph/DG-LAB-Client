@@ -119,6 +119,30 @@ void EventRuntime::register_builtin_events(const std::string& module_name,
     }
 }
 
+void EventRuntime::unregister_builtin_events(const std::string& module_name) {
+    if (module_name.empty()) {
+        return;
+    }
+    const bool erased = builtin_events_.erase(module_name) > 0;
+    // 插件仍在声明同名模块时不丢它的运行期状态（与注册路径的「插件优先」保持一致）
+    bool plugin_declared = false;
+    for (const ModuleManager::PluginInfo& plugin : ModuleManager::instance().get_plugins()) {
+        if (plugin.module_name == module_name && !plugin.events.empty()) {
+            plugin_declared = true;
+            break;
+        }
+    }
+    if (!plugin_declared) {
+        engine_.remove_module(module_name);
+    }
+    LOG_MODULE("EventRuntime", "unregister_builtin_events", LOG_INFO,
+        "内置事件声明已注销: " << module_name << "（声明来源" << (erased ? "已移除" : "本就不存在") << "）");
+    // 声明仍留在引擎里的模块（插件声明）需要重载一次才能与注册表对齐
+    if (frame_timer_ != nullptr && !plugin_declared) {
+        reload();
+    }
+}
+
 const EventEngine& EventRuntime::engine() const {
     return engine_;
 }

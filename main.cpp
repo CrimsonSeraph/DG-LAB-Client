@@ -6,7 +6,6 @@
 #include "AppBridge.h"
 #include "AppConfig.h"
 #include "BleDeviceManager.h"
-#include "CivetBleController.h"
 #include "Console.h"
 #include "CoyoteBleController.h"
 #include "DebugLog.h"
@@ -19,7 +18,6 @@
 #include "ModuleBannerImageProvider.h"
 #include "ModuleBridge.h"
 #include "ModuleManager.h"
-#include "PawPrintsBleController.h"
 #include "RuleGraphBridge.h"
 #include "RuleManager.h"
 #include "ThemeManager.h"
@@ -34,6 +32,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QHash>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QIcon>
@@ -203,30 +202,40 @@ int main(int argc, char* argv[]) {
     CoyoteBleController ble;
     ble.attach_link_manager(&ble_links);
     ble.initialize();
-    // 爪印无线按钮传感器 V1.1（实验性输入设备）：扫描与连接入口复用蓝牙入口对象，写入由爪印驱动接管
-    PawPrintsBleController pawprints;
-    pawprints.initialize();
-    ble.attach_pawprints(&pawprints);
-    // 灵猫边缘控制传感器 V1（实验性输入设备）：同样复用扫描与连接入口，写入由灵猫驱动接管
-    CivetBleController civet;
-    civet.initialize();
-    ble.attach_civet(&civet);
-    // 爪印通知 → paw 数值模块、灵猫气压 → civet 数值模块，两个模块的内置事件声明接进事件运行时
-    // （插件声明之外的第二个来源）
-    DeviceValueBridge device_bridge(&pawprints, &civet);
-    device_bridge.initialize();
-    event_runtime.register_builtin_events(DeviceValueBridge::kModuleName, DeviceValueBridge::builtin_events());
-    event_runtime.register_builtin_events(DeviceValueBridge::kCivetModuleName,
-        DeviceValueBridge::civet_builtin_events());
+    // 输入设备（爪印 / 灵猫）：实例由链路管理器按 MAC 与型号创建、断开时销毁，
+    // 每台设备一份数值桥接 —— 模块名 paw_<MAC后四位> / civet_<MAC后四位>，多台同型号互不覆盖
+    QHash<QString, DeviceValueBridge*> input_bridges;
+    QObject::connect(&ble_links, &BleDeviceManager::inputLinkCreated, &ble_links,
+        [&input_bridges, &event_runtime](InputLink* link) {
+            if (link == nullptr) {
+                return;
+            }
+            const DeviceValueBridge::DeviceKind kind = link->type == QStringLiteral("pawprint")
+                ? DeviceValueBridge::DeviceKind::PawPrints
+                : DeviceValueBridge::DeviceKind::Civet;
+            auto* bridge = new DeviceValueBridge(kind, link->module_name.toStdString(),
+                link->display_name.toStdString(), link->driver);
+            bridge->attach_event_runtime(&event_runtime);
+            bridge->initialize();
+            input_bridges.insert(link->address, bridge);
+        });
+    // 断开：注销该实例的数值模块、内置事件声明与引擎运行期状态，再销毁桥接
+    QObject::connect(&ble_links, &BleDeviceManager::inputLinkDestroyed, &ble_links,
+        [&input_bridges](InputLink* link) {
+            if (link == nullptr) {
+                return;
+            }
+            DeviceValueBridge* bridge = input_bridges.take(link->address);
+            if (bridge == nullptr) {
+                return;
+            }
+            bridge->shutdown();
+            delete bridge;
+        });
     // 实验性设备首次连接成功的一次性提示：输入类设备不实现 IOutputDevice，按 MAC 复用同一机制
-    QObject::connect(&pawprints, &PawPrintsBleController::stateChanged, &device, [&device, &pawprints]() {
-        if (pawprints.connected()) {
-            device.notify_experimental_device(pawprints.device_address());
-        }
-    });
-    QObject::connect(&civet, &CivetBleController::stateChanged, &device, [&device, &civet]() {
-        if (civet.connected()) {
-            device.notify_experimental_device(civet.device_address());
+    QObject::connect(&ble_links, &BleDeviceManager::inputLinkConnected, &device, [&device](InputLink* link) {
+        if (link != nullptr) {
+            device.notify_experimental_device(link->address);
         }
     });
 

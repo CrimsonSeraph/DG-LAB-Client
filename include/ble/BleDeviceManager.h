@@ -190,9 +190,86 @@ private:
 
 /// @brief 链路请求（扫描入口按型号识别结果向管理器申请驱动实例）
 struct BleLinkRequest {
-    QString type;  ///< 型号标识（coyote / opossum）
+    QString type;  ///< 型号标识（coyote / opossum / pawprint / civet）
     QString model; ///< 型号段（如 47L121）
     QString label; ///< 型号显示名（如 郊狼 V3）
+};
+
+/// @brief 输入设备实例（爪印 / 灵猫）：驱动 + 实例数值模块名，以 MAC 为键登记
+/// @note 指针由 BleDeviceManager 持有，inputLinkDestroyed 之后即失效，订阅方不得留存
+struct InputLink {
+    QString address;      ///< 设备 MAC（归一为大写）
+    QString type;         ///< 型号标识（pawprint / civet）
+    QString model;        ///< 型号段（如 47L120）
+    QString label;        ///< 型号显示名（如 爪印）
+    QString module_name;  ///< 实例数值模块名（如 paw_430C，同时是内置事件声明的模块标识）
+    QString display_name; ///< 实例显示名（如 爪印 430C）
+    QString status_text;  ///< 最近一次状态文案（驱动各自维护）
+    int battery = -1;     ///< 电量百分比（-1 未知）
+    bool connected = false; ///< 驱动是否已连上设备
+    QObject* driver = nullptr; ///< 驱动实例（PawPrintsBleController / CivetBleController）
+};
+
+// InputModuleNames - 输入设备实例模块名分配表（同型号按 MAC 后四位取名，后四位重复时追加序号）
+class InputModuleNames {
+public:
+    /// @brief MAC 后四位（去掉分隔符，取末尾 4 个十六进制字符并转大写；不足 4 位按实际长度）
+    static QString mac_suffix(const QString& mac) {
+        QString compact;
+        for (const QChar ch : mac) {
+            if (ch.isLetterOrNumber()) {
+                compact.append(ch.toUpper());
+            }
+        }
+        return compact.right(4);
+    }
+
+    /// @brief 不带冲突处理的基础模块名：<prefix>_<后四位>（MAC 无可用字符时退回 prefix）
+    static QString base_name(const QString& prefix, const QString& mac) {
+        const QString suffix = mac_suffix(mac);
+        return suffix.isEmpty() ? prefix : prefix + QLatin1Char('_') + suffix;
+    }
+
+    /// @brief 实例显示名：<型号显示名> <后四位>（如「爪印 430C」）
+    static QString display_name(const QString& label, const QString& mac) {
+        const QString suffix = mac_suffix(mac);
+        if (suffix.isEmpty()) {
+            return label;
+        }
+        return label.isEmpty() ? suffix : label + QLatin1Char(' ') + suffix;
+    }
+
+    /// @brief 分配唯一模块名（同后四位冲突时依次追加 _2、_3…）
+    /// @param prefix 型号前缀（paw / civet）
+    /// @param mac 设备 MAC
+    /// @param ordinal 输出：本次分配用的序号（1 表示未冲突；调用方据此记录消歧日志）
+    /// @return 已占用的模块名
+    QString acquire(const QString& prefix, const QString& mac, int* ordinal = nullptr) {
+        const QString base = base_name(prefix, mac);
+        QString name = base;
+        int sequence = 1;
+        while (names_.contains(name)) {
+            ++sequence;
+            name = base + QLatin1Char('_') + QString::number(sequence);
+        }
+        names_.append(name);
+        if (ordinal != nullptr) {
+            *ordinal = sequence;
+        }
+        return name;
+    }
+
+    /// @brief 释放该模块名（断开时调用，名字可被后续实例复用）
+    /// @param module_name 已分配的模块名
+    void release(const QString& module_name) {
+        names_.removeAll(module_name);
+    }
+
+    /// @brief 当前已分配的模块名数量
+    int count() const { return names_.size(); }
+
+private:
+    QStringList names_; ///< 已分配的模块名（防同名后四位互相覆盖）
 };
 
 // BleDeviceManager - 输出设备链路管理器（扫描之外的链路生命周期唯一归属）
@@ -246,6 +323,30 @@ public:
         return screen_sync_.value(LinkRegistry::normalize(mac), true);
     }
 
+    /// @brief 按型号为输入设备（爪印 / 灵猫）建立实例并按 MAC 登记（同型号可多台并存）
+    /// @param info 扫描结果（含地址与名称）
+    /// @param request 型号识别结果（type 为 pawprint / civet）
+    /// @param error 输出：拒绝原因（成功时清空；可为空）
+    /// @return 新建并登记的输入设备实例；该 MAC 已连接或型号无驱动时返回 nullptr
+    InputLink* open_input_link(const QBluetoothDeviceInfo& info, const BleLinkRequest& request,
+        QString* error = nullptr);
+
+    /// @brief 断开并销毁指定 MAC 的输入设备实例（注销数值模块与内置声明由订阅方在 inputLinkDestroyed 里完成）
+    /// @param mac 设备 MAC
+    void close_input_link(const QString& mac);
+
+    /// @brief 断开并销毁全部输入设备实例（应用退出）
+    void close_all_input_links();
+
+    /// @brief 按 MAC 取已登记的输入设备实例（未登记时为空）
+    /// @param mac 设备 MAC
+    InputLink* input_link_for(const QString& mac) const {
+        return input_links_.value(LinkRegistry::normalize(mac), nullptr);
+    }
+
+    /// @brief 已登记输入设备的 MAC 列表（顺序不保证）
+    QStringList input_link_addresses() const { return input_links_.keys(); }
+
 signals:
     /// @brief 新建并登记了一台设备的链路实例（订阅方在此接入设备信号）
     /// @param device 新实例
@@ -258,6 +359,22 @@ signals:
     /// @brief 一台设备的状态文案发生变化（快照读取方据此刷新状态）
     /// @param device 状态变化的实例
     void linkStatusChanged(IOutputDevice* device);
+
+    /// @brief 新建并登记了一台输入设备实例（订阅方在此解析模块名并注册数值桥接）
+    /// @param link 新实例
+    void inputLinkCreated(InputLink* link);
+
+    /// @brief 一台输入设备实例已注销（订阅方在此注销数值模块与内置事件声明，随后实例销毁）
+    /// @param link 即将销毁的实例
+    void inputLinkDestroyed(InputLink* link);
+
+    /// @brief 输入设备首次连上（实验性提示等一次性动作在此触发）
+    /// @param link 状态变化的实例
+    void inputLinkConnected(InputLink* link);
+
+    /// @brief 输入设备状态文案或电量变化（快照读取方据此刷新状态）
+    /// @param link 状态变化的实例
+    void inputLinkStatusChanged(InputLink* link);
 
 private:
     /// @brief 订阅链路的掉线清理（设备自行断开时注销并销毁该 MAC 的实例）
@@ -275,7 +392,17 @@ private:
     /// @param mac 设备 MAC
     void watch_opossum(OpossumBleController* device, const QString& mac);
 
-    LinkRegistry registry_;              ///< MAC 登记表
+    /// @brief 订阅输入设备实例的状态变化（掉线时注销并销毁该 MAC 的实例）
+    /// @param mac 设备 MAC
+    void sync_input_link_state(const QString& mac);
+
+    /// @brief 刷新输入设备实例的状态文案与电量并广播
+    /// @param mac 设备 MAC
+    void sync_input_link_status(const QString& mac);
+
+    LinkRegistry registry_;              ///< MAC 登记表（输出设备）
     QHash<QString, QString> status_text_; ///< MAC → 最近一次状态文案
     QHash<QString, bool> screen_sync_;    ///< MAC → 屏幕强度同步是否可用
+    QHash<QString, InputLink*> input_links_; ///< MAC → 输入设备实例（爪印 / 灵猫）
+    InputModuleNames input_names_;        ///< 输入设备实例模块名分配表
 };

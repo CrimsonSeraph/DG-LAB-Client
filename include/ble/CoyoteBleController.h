@@ -22,15 +22,13 @@
 
 class QLowEnergyController;
 class QBluetoothDeviceDiscoveryAgent;
-class CivetBleController;
-class PawPrintsBleController;
 class QTimer;
 
 // CoyoteBleController - 蓝牙扫描入口与默认设备的只读快照（QML 上下文属性 ble）
 // 扫描是唯一入口：按 MAC 去重、按「MAC 记忆 → 蓝牙名」识别型号，再交给 BleDeviceManager 建实例。
 // 本类不再持有任何设备状态：连接状态、电量、强度与波形都按设备从链路取，界面读到的是
 // 默认设备（用户覆盖 → 郊狼 > 负鼠 → 先连接者）的一份只读快照，多台设备不会互相覆盖。
-// 输入设备（爪印 / 灵猫）本阶段仍各有一个固定实例，只保证不与多链路冲突。
+// 输入设备（爪印 / 灵猫）同样按 MAC 由 BleDeviceManager 按需实例化，本类只做入口与只读快照。
 class CoyoteBleController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool scanning READ scanning NOTIFY stateChanged)
@@ -43,6 +41,7 @@ class CoyoteBleController : public QObject {
     Q_PROPERTY(bool pawConnected READ paw_connected NOTIFY stateChanged)
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
     Q_PROPERTY(QVariantList connectedLinks READ connected_links NOTIFY connectedLinksChanged)
+    Q_PROPERTY(int connectedLinkCount READ connected_link_count NOTIFY connectedLinksChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QString deviceAddress READ device_address NOTIFY stateChanged)
     Q_PROPERTY(QString deviceModel READ device_model NOTIFY stateChanged)
@@ -69,14 +68,6 @@ public:
     /// @brief 注入链路管理器：扫描入口向它申请驱动实例（不接管其生命周期）
     /// @param manager 链路管理器，可为空
     void attach_link_manager(BleDeviceManager* manager);
-
-    /// @brief 注入爪印驱动：纯输入设备本阶段仍只有一个固定实例
-    /// @param pawprints 爪印驱动实例，可为空
-    void attach_pawprints(PawPrintsBleController* pawprints);
-
-    /// @brief 注入灵猫驱动：纯输入设备本阶段仍只有一个固定实例
-    /// @param civet 灵猫驱动实例，可为空
-    void attach_civet(CivetBleController* civet);
 
     /// @brief 按蓝牙名前缀识别设备型号
     /// @param name 蓝牙名
@@ -118,13 +109,16 @@ public:
     QString status() const;
     /// @brief 屏幕强度同步（B2）是否可用（默认设备为负鼠时按驱动回执，其它情况视为可用）
     bool screen_sync_available() const;
-    /// @brief 爪印（纯输入设备）是否已连接
+    /// @brief 是否有任意一台爪印（纯输入设备）在线
     bool paw_connected() const;
-    /// @brief 灵猫（纯输入设备）是否已连接
+    /// @brief 是否有任意一台灵猫（纯输入设备）在线
     bool civet_connected() const;
     QVariantList devices() const { return devices_; }
-    /// @brief 当前已连接设备快照（MAC / 型号 / 电量 / 连接序号），供设备管理页与下层只读使用
+    /// @brief 当前已连接设备快照（MAC / 型号 / 电量 / 连接序号 / 实例模块名），供设备管理页与下层只读使用
+    /// @note 输出链路在前（顺序即默认设备评选顺序），已连上的输入设备追加在后
     QVariantList connected_links() const;
+    /// @brief 当前已连接的蓝牙链路数（输出链路与输入设备各自累加，多台同时在线时逐台计入）
+    int connected_link_count() const;
 
     Q_INVOKABLE void startScan();
     /// @brief 连接指定 MAC 的设备（按型号向链路管理器申请实例；型号无驱动时拒绝并给原因）
@@ -136,7 +130,7 @@ public:
     /// @param address 设备蓝牙 MAC
     Q_INVOKABLE void disconnectDeviceByAddress(const QString& address);
 
-    /// @brief 该 MAC 当前是否已有链路（输出链路或输入设备的固定实例）
+    /// @brief 该 MAC 当前是否已有链路（输出链路实例或已连上的输入设备实例）
     /// @param address 设备蓝牙 MAC
     bool has_link(const QString& address) const;
 
@@ -164,9 +158,12 @@ signals:
 private:
     /// @brief 默认输出设备的只读快照（用户覆盖 → 郊狼 > 负鼠 → 先连接者），无在线输出设备时为空
     IOutputDevice* snapshot_output() const;
-    /// @brief 该 MAC 是否已有实例在连接（输出链路或输入设备的固定实例）
+    /// @brief 该 MAC 是否已有实例在连接（输出链路实例或已连上的输入设备实例）
     /// @param address 设备 MAC
     bool is_connected_address(const QString& address) const;
+    /// @brief 已连上的指定型号输入设备台数
+    /// @param type 型号标识（pawprint / civet）
+    int input_connected_count_of(const QString& type) const;
     /// @brief 刷新扫描列表里的「已连接」标记与快照派生属性
     void refresh_device_rows();
     /// @brief 接入一台新链路的信号，按设备广播快照变化
@@ -176,9 +173,7 @@ private:
     void set_status(const QString& text);
     void do_start_scan();
 
-    BleDeviceManager* manager_ = nullptr; ///< 链路管理器（生命周期归 main）
-    PawPrintsBleController* pawprints_ = nullptr; ///< 爪印驱动（纯输入设备，单一固定实例）
-    CivetBleController* civet_ = nullptr; ///< 灵猫驱动（纯输入设备，单一固定实例）
+    BleDeviceManager* manager_ = nullptr; ///< 链路管理器（生命周期归 main；输入设备的实例也由它按 MAC 创建与销毁）
     QBluetoothDeviceDiscoveryAgent* discovery_ = nullptr;
     QVariantList devices_;
     QHash<QString, QBluetoothDeviceInfo> device_cache_;

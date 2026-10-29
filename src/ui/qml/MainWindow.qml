@@ -27,8 +27,8 @@ ApplicationWindow {
     readonly property int pageLog: 7
     readonly property int pageDevice: 8
 
-    // 连接状态统一口径：蓝牙连接（0/1）+ APP 在线客户端数（来源 device.appClientCount）
-    readonly property int bleCount: ble.connected ? 1 : 0
+    // 连接状态统一口径：蓝牙已连接链路数（多台累加）+ APP 在线客户端数（来源 device.appClientCount）
+    readonly property int bleCount: ble.connectedLinkCount
     readonly property int appCount: device.appClientCount
     readonly property int connectionCount: bleCount + appCount
 
@@ -291,8 +291,9 @@ ApplicationWindow {
                             objectName: "deviceStatusBle"
 
                             Layout.fillWidth: true
-                            text: ble.connected ? qsTr("蓝牙已连接") : qsTr("蓝牙未连接")
-                            color: ble.connected ? Theme.success : Theme.textMuted
+                            // 与看板设备卡、状态栏同一句文案：蓝牙链路条数为累加值
+                            text: root.bleCount > 0 ? qsTr("蓝牙链路 %1 条").arg(root.bleCount) : qsTr("蓝牙未连接")
+                            color: root.bleCount > 0 ? Theme.success : Theme.textMuted
                             font.pixelSize: Typography.fontBody
                             elide: Text.ElideRight
                         }
@@ -491,9 +492,10 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.leftMargin: Metrics.spacingLg
             anchors.verticalCenter: parent.verticalCenter
-            text: qsTr("蓝牙：%1 · App：%2 · 通道：%3")
-                .arg(ble.connected ? qsTr("已连接") : qsTr("未连接"))
-                .arg(root.appCount > 0 ? qsTr("已连接 ×%1").arg(root.appCount) : qsTr("未连接"))
+            text: (root.connectionCount > 0
+                    ? qsTr("已连接设备 ×%1").arg(root.connectionCount)
+                    : qsTr("未连接设备")) + qsTr(" · 蓝牙链路 %1 条 · 通道：%2")
+                .arg(root.bleCount)
                 .arg(home.channelAState === "idle" && home.channelBState === "idle" ? qsTr("空闲") : qsTr("运行中"))
             color: Theme.textSecondary
             font.pixelSize: Typography.fontBody

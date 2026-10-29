@@ -97,7 +97,7 @@ cmake --build build --config Release
 ctest -C Release --output-on-failure --test-dir build
 ```
 
-当前 15 个目标：`event_engine` / `rule_graph_eval` / `event_engine_module` / `event_merge` / `event_wave` / `opossum_frames` / `device_link` / `paw_device` / `civet_device` / `model_recognition` / `wave_library` / `wave_import_export` / `wave_zip` / `wave_tag` / `config_reload`。测试程序不与 windeployqt 部署过的输出目录同处一地，Windows 上加载 Qt DLL 所需的环境变量由 CMake 从 `Qt6::Core` 的导入位置推导后写进 `ctest` 环境，不需要手工配 PATH；三个平台的 CI 工作流都带 `-DDGLAB_BUILD_TESTS=ON` 构建并执行 `ctest`，测试失败即工作流失败。
+当前 16 个目标：`event_engine` / `rule_graph_eval` / `event_engine_module` / `event_merge` / `event_wave` / `opossum_frames` / `device_link` / `paw_device` / `civet_device` / `input_link` / `model_recognition` / `wave_library` / `wave_import_export` / `wave_zip` / `wave_tag` / `config_reload`。`input_link` 覆盖输入设备多实例的实例模块名生成与同后四位消歧、连接注册 / 断开注销（数值模块、内置事件声明与引擎运行期状态三者同步）与旧配置迁移。测试程序不与 windeployqt 部署过的输出目录同处一地，Windows 上加载 Qt DLL 所需的环境变量由 CMake 从 `Qt6::Core` 的导入位置推导后写进 `ctest` 环境，不需要手工配 PATH；三个平台的 CI 工作流都带 `-DDGLAB_BUILD_TESTS=ON` 构建并执行 `ctest`，测试失败即工作流失败。
 
 ## 开发环境事实
 
@@ -138,7 +138,7 @@ cd build-agent/Release && (QT_FORCE_STDERR_LOGGING=1 QT_ASSUME_STDERR_HAS_CONSOL
 
 每次交付按此核对:
 
-1. 构建 `cmake --build build-agent --config Release` 0 error；带 `-DDGLAB_BUILD_TESTS=ON` 配置时 `ctest -C Release --test-dir build-agent` 15/15 全绿。
+1. 构建 `cmake --build build-agent --config Release` 0 error；带 `-DDGLAB_BUILD_TESTS=ON` 配置时 `ctest -C Release --test-dir build-agent` 16/16 全绿。
 2. 启动 `QT_FORCE_STDERR_LOGGING=1 QT_ASSUME_STDERR_HAS_CONSOLE=1`，`err.txt` 与 `out.txt` 均 0 字节。
 3. DPI 感知截图与需求 / 参考截图对照；界面无颜色字面量（只用 `Theme` 令牌）。
 4. 文档同步项已更新（接口、字段、objectName、节点表）。

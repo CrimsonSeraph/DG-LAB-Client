@@ -1036,6 +1036,56 @@ if(DGLAB_BUILD_TESTS)
 	)
 	add_test(NAME civet_device_test COMMAND civet_device_test)
 
+	# 输入设备多实例（爪印 / 灵猫按 MAC 实例化）：实例模块名生成与同后四位消歧、
+	# 连接注册 / 断开注销（数值模块、内置事件声明与引擎运行期状态三者同步）、旧配置迁移
+	# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+	add_executable(input_link_test
+		tests/input_link_test.cpp
+		src/ble/BleDeviceManager.cpp
+		src/ble/CivetBleController.cpp
+		src/ble/CoyoteBleController.cpp
+		src/ble/OpossumBleController.cpp
+		src/ble/PawPrintsBleController.cpp
+		src/device/DeviceValueBridge.cpp
+		include/ble/BleDeviceManager.h
+		include/ble/CivetBleController.h
+		include/ble/CoyoteBleController.h
+		include/ble/IOutputDevice.h
+		include/ble/OpossumBleController.h
+		include/ble/PawPrintsBleController.h
+		include/device/DeviceValueBridge.h
+		${RULE}
+		${MODULE}
+		${EVENT}
+		${WAVE}
+		${CORE_CONFIG}
+		${CORE_LOG}
+	)
+	target_link_libraries(input_link_test
+		PRIVATE
+			Qt::Core
+			Qt::Gui
+			Qt::Network
+			Qt::Qml
+			Qt::Bluetooth
+			nlohmann_json
+			miniz
+	)
+	target_include_directories(input_link_test
+		PRIVATE
+			${DGLAB_GENERATED_DIR}
+			${CMAKE_CURRENT_SOURCE_DIR}/include
+			${CMAKE_CURRENT_SOURCE_DIR}/include/core
+			${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+			${CMAKE_CURRENT_SOURCE_DIR}/include/module
+			${CMAKE_CURRENT_SOURCE_DIR}/include/event
+			${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+			${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+			${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+			${CMAKE_CURRENT_SOURCE_DIR}/include/device
+	)
+	add_test(NAME input_link_test COMMAND input_link_test)
+
 	# 型号识别（名称命中型号表、名称未命中时按 MAC 记忆补齐型号、首帧反推含 0xD0 歧义）
 	# 只调纯函数，不连接设备；不进 PROJECT_SOURCES / 安装规则，不触碰仓库 config/
 	add_executable(model_recognition_test

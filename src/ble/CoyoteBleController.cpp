@@ -6,9 +6,7 @@
 #include "CoyoteBleController.h"
 
 #include "AppConfig.h"
-#include "CivetBleController.h"
 #include "DebugLog.h"
-#include "PawPrintsBleController.h"
 
 #include <QBluetoothDeviceDiscoveryAgent>
 #include <QCoreApplication>
@@ -219,38 +217,24 @@ void CoyoteBleController::attach_link_manager(BleDeviceManager* manager) {
         emit statusChanged();
         emit connectedLinksChanged();
     });
-}
-
-void CoyoteBleController::attach_pawprints(PawPrintsBleController* pawprints) {
-    pawprints_ = pawprints;
-    if (pawprints_ == nullptr) {
-        return;
-    }
-    // 驱动先于本类销毁时清空指针
-    connect(pawprints_, &QObject::destroyed, this, [this]() { pawprints_ = nullptr; });
-    // 爪印是纯输入设备（不继承 IOutputDevice）：只刷新状态文案与列表，不进入输出链路与默认设备评选
-    connect(pawprints_, &PawPrintsBleController::stateChanged, this, [this]() {
+    // 输入设备（爪印 / 灵猫）同样由链路管理器按 MAC 创建与销毁：连接计数、扫描行标记与状态文案都跟着刷新
+    connect(manager_, &BleDeviceManager::inputLinkCreated, this, [this](const InputLink*) {
         refresh_device_rows();
         emit stateChanged();
         emit statusChanged();
+        emit connectedLinksChanged();
     });
-    connect(pawprints_, &PawPrintsBleController::statusChanged, this, [this]() { emit statusChanged(); });
-}
-
-void CoyoteBleController::attach_civet(CivetBleController* civet) {
-    civet_ = civet;
-    if (civet_ == nullptr) {
-        return;
-    }
-    // 驱动先于本类销毁时清空指针
-    connect(civet_, &QObject::destroyed, this, [this]() { civet_ = nullptr; });
-    // 灵猫同为纯输入设备（不继承 IOutputDevice）：只刷新状态文案与列表，不进入输出链路与默认设备评选
-    connect(civet_, &CivetBleController::stateChanged, this, [this]() {
+    connect(manager_, &BleDeviceManager::inputLinkDestroyed, this, [this](const InputLink*) {
         refresh_device_rows();
         emit stateChanged();
         emit statusChanged();
+        emit connectedLinksChanged();
     });
-    connect(civet_, &CivetBleController::statusChanged, this, [this]() { emit statusChanged(); });
+    connect(manager_, &BleDeviceManager::inputLinkStatusChanged, this, [this](const InputLink*) {
+        refresh_device_rows();
+        emit statusChanged();
+        emit connectedLinksChanged();
+    });
 }
 
 void CoyoteBleController::watch_link(IOutputDevice* device) {
@@ -341,11 +325,15 @@ QString CoyoteBleController::status() const {
             return text;
         }
     }
-    if (pawprints_ != nullptr && pawprints_->connected()) {
-        return pawprints_->status();
-    }
-    if (civet_ != nullptr && civet_->connected()) {
-        return civet_->status();
+    // 没有在线输出设备时退回任一台在线输入设备的状态文案（多台之间只取第一台连上的）
+    if (manager_ != nullptr) {
+        const QStringList addresses = manager_->input_link_addresses();
+        for (const QString& address : addresses) {
+            const InputLink* link = manager_->input_link_for(address);
+            if (link != nullptr && link->connected && !link->status_text.isEmpty()) {
+                return link->status_text;
+            }
+        }
     }
     return status_;
 }
@@ -359,15 +347,59 @@ bool CoyoteBleController::screen_sync_available() const {
 }
 
 bool CoyoteBleController::paw_connected() const {
-    return pawprints_ != nullptr && pawprints_->connected();
+    return manager_ != nullptr && input_connected_count_of(QStringLiteral("pawprint")) > 0;
 }
 
 bool CoyoteBleController::civet_connected() const {
-    return civet_ != nullptr && civet_->connected();
+    return manager_ != nullptr && input_connected_count_of(QStringLiteral("civet")) > 0;
 }
 
 QVariantList CoyoteBleController::connected_links() const {
-    return manager_ == nullptr ? QVariantList() : manager_->connected_links();
+    if (manager_ == nullptr) {
+        return QVariantList();
+    }
+    // 输出链路在前（顺序即默认设备评选顺序），已连上的输入设备按 MAC 追加在后：
+    // 「已连接设备」卡片与连接计数读同一份快照，两处 N 不会各说各话
+    QVariantList links = manager_->connected_links();
+    for (const QString& address : manager_->input_link_addresses()) {
+        const InputLink* link = manager_->input_link_for(address);
+        if (link == nullptr || !link->connected) {
+            continue;
+        }
+        QVariantMap item;
+        item.insert(QStringLiteral("address"), link->address);
+        item.insert(QStringLiteral("label"), link->display_name);
+        item.insert(QStringLiteral("model"), link->model);
+        item.insert(QStringLiteral("type"), link->type);
+        item.insert(QStringLiteral("battery"), link->battery);
+        item.insert(QStringLiteral("order"), links.size() + 1);
+        item.insert(QStringLiteral("moduleName"), link->module_name);
+        links.append(item);
+    }
+    return links;
+}
+
+int CoyoteBleController::input_connected_count_of(const QString& type) const {
+    if (manager_ == nullptr) {
+        return 0;
+    }
+    int count = 0;
+    for (const QString& address : manager_->input_link_addresses()) {
+        const InputLink* link = manager_->input_link_for(address);
+        if (link != nullptr && link->connected && link->type == type) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+int CoyoteBleController::connected_link_count() const {
+    if (manager_ == nullptr) {
+        return 0;
+    }
+    // 口径：输出链路（郊狼 / 负鼠，逐台累加）+ 已连上的输入设备（爪印 / 灵猫），
+    // 直接取 connected_links() 的长度，「已连接设备 ×N」与设备管理页的链路列表始终同源
+    return static_cast<int>(connected_links().size());
 }
 
 void CoyoteBleController::set_status(const QString& text) {
@@ -379,16 +411,15 @@ void CoyoteBleController::set_status(const QString& text) {
 }
 
 bool CoyoteBleController::is_connected_address(const QString& address) const {
-    if (manager_ != nullptr && manager_->link_for(address) != nullptr) {
+    if (manager_ == nullptr) {
+        return false;
+    }
+    if (manager_->link_for(address) != nullptr) {
         return true;
     }
-    // 输入设备本阶段只有一个固定实例：该 MAC 连着也在行上标出来
-    if (pawprints_ != nullptr && pawprints_->connected()
-        && pawprints_->device_address().compare(address, Qt::CaseInsensitive) == 0) {
-        return true;
-    }
-    return civet_ != nullptr && civet_->connected()
-        && civet_->device_address().compare(address, Qt::CaseInsensitive) == 0;
+    // 输入设备按 MAC 登记：只有真正连上的那一行才标「已连接」，连接失败留下的空实例不标
+    const InputLink* link = manager_->input_link_for(address);
+    return link != nullptr && link->connected;
 }
 
 void CoyoteBleController::refresh_device_rows() {
@@ -551,55 +582,31 @@ void CoyoteBleController::connectDevice(const QString& address) {
             .arg(profile.label, profile.model));
         return;
     }
-    if (profile.type == QStringLiteral("pawprint")) {
-        // 爪印是纯输入设备：本阶段仍只有一个固定实例，多实例留到第二阶段
-        if (pawprints_ == nullptr) {
-            LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN, "爪印驱动未接入，拒绝连接");
-            set_status(QStringLiteral("爪印驱动未接入"));
-            emit errorOccurred(QStringLiteral("爪印驱动未接入，本版无法连接该设备"));
-            return;
-        }
-        if (pawprints_->connected()) {
-            const bool same = pawprints_->device_address().compare(address, Qt::CaseInsensitive) == 0;
-            set_status(same ? QStringLiteral("爪印已连接")
-                            : QStringLiteral("爪印链路已被占用，输入设备多链路留到下一阶段"));
-            if (!same) {
-                emit errorOccurred(QStringLiteral("爪印只支持一条链路，输入设备多链路留到下一阶段"));
-            }
-            return;
-        }
-        pawprints_->connect_device(target);
-        set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
-        return;
-    }
-    if (profile.type == QStringLiteral("civet")) {
-        // 灵猫同为纯输入设备：本阶段仍只有一个固定实例
-        if (civet_ == nullptr) {
-            LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN, "灵猫驱动未接入，拒绝连接");
-            set_status(QStringLiteral("灵猫驱动未接入"));
-            emit errorOccurred(QStringLiteral("灵猫驱动未接入，本版无法连接该设备"));
-            return;
-        }
-        if (civet_->connected()) {
-            const bool same = civet_->device_address().compare(address, Qt::CaseInsensitive) == 0;
-            set_status(same ? QStringLiteral("灵猫已连接")
-                            : QStringLiteral("灵猫链路已被占用，输入设备多链路留到下一阶段"));
-            if (!same) {
-                emit errorOccurred(QStringLiteral("灵猫只支持一条链路，输入设备多链路留到下一阶段"));
-            }
-            return;
-        }
-        civet_->connect_device(target);
-        set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
-        return;
-    }
-    // 输出设备（郊狼 / 负鼠）：按 MAC 建实例，任意数量并存，不打断任何在用的链路
+    // 输入设备（爪印 / 灵猫）：与输出设备同一套登记思路，按 MAC 建实例，任意数量并存
     if (manager_ == nullptr) {
         LOG_MODULE("CoyoteBleController", "connectDevice", LOG_ERROR, "链路管理器未接入，拒绝连接");
         set_status(QStringLiteral("蓝牙链路管理器未接入"));
         emit errorOccurred(QStringLiteral("蓝牙链路管理器未接入，无法连接该设备"));
         return;
     }
+    if (profile.type == QStringLiteral("pawprint") || profile.type == QStringLiteral("civet")) {
+        BleLinkRequest input_request;
+        input_request.type = profile.type;
+        input_request.model = profile.model;
+        input_request.label = profile.label;
+        QString input_error;
+        const InputLink* link = manager_->open_input_link(target, input_request, &input_error);
+        if (link == nullptr) {
+            set_status(input_error);
+            emit errorOccurred(input_error);
+            return;
+        }
+        // 输入设备同样写回型号记忆：扫描行下一次只靠 MAC 也能还原型号
+        remember_model(address, profile.type);
+        set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
+        return;
+    }
+    // 输出设备（郊狼 / 负鼠）：按 MAC 建实例，任意数量并存，不打断任何在用的链路
     if (const IOutputDevice* existing = manager_->link_for(address); existing != nullptr) {
         set_status(QStringLiteral("%1 已在连接中").arg(profile.label));
         return;
@@ -632,11 +639,20 @@ void CoyoteBleController::disconnectDevice() {
         const QString address = device->device_address();
         manager_->close_link(address);
     }
-    else if (pawprints_ != nullptr && pawprints_->connected()) {
-        pawprints_->disconnect_device();
-    }
-    else if (civet_ != nullptr && civet_->connected()) {
-        civet_->disconnect_device();
+    else if (manager_ != nullptr) {
+        // 没有输出设备时断开第一台在线输入设备（多台输入设备只断这一台）
+        bool closed = false;
+        for (const QString& address : manager_->input_link_addresses()) {
+            const InputLink* link = manager_->input_link_for(address);
+            if (link != nullptr && link->connected) {
+                manager_->close_input_link(address);
+                closed = true;
+                break;
+            }
+        }
+        if (!closed) {
+            LOG_MODULE("CoyoteBleController", "disconnectDevice", LOG_DEBUG, "没有在线链路可断开");
+        }
     }
     set_status(QStringLiteral("蓝牙已断开"));
     refresh_device_rows();
@@ -654,14 +670,9 @@ void CoyoteBleController::disconnectDeviceByAddress(const QString& address) {
         manager_->close_link(target);
         closed = true;
     }
-    else if (pawprints_ != nullptr && pawprints_->connected()
-        && pawprints_->device_address().compare(target, Qt::CaseInsensitive) == 0) {
-        pawprints_->disconnect_device();
-        closed = true;
-    }
-    else if (civet_ != nullptr && civet_->connected()
-        && civet_->device_address().compare(target, Qt::CaseInsensitive) == 0) {
-        civet_->disconnect_device();
+    else if (manager_ != nullptr && manager_->input_link_for(target) != nullptr) {
+        // 输入设备按 MAC 注销：数值模块、内置事件声明与运行期状态随之一起清掉
+        manager_->close_input_link(target);
         closed = true;
     }
     set_status(closed ? QStringLiteral("已断开 %1").arg(target) : QStringLiteral("该设备未连接"));

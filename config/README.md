@@ -94,8 +94,9 @@
 | `app.ui.tray_hint_shown` | bool | Windows 11 托盘折叠区提示是否已经弹过：首次运行（托盘可用）弹一次 Toast 并写 `true`，之后不再提示。图标位置归系统所有，应用无法程序化移到常显区域 |
 | `app.devices.<MAC>.experimental_notice_shown` | bool | 实验性设备首次连接成功的「功能未经完整验证」提示是否已经弹过；首次连接时写入 `true`，之后不再提示 |
 | `app.devices.<MAC>.model` | string | 该 MAC 记忆的型号标识（`coyote` / `pawprint` / `civet` / `opossum`）：识别时优先于蓝牙名（操作系统可能只给占位名），命中即按该型号的状态处理（郊狼即「已支持」）。首次成功识别出型号时写入（名称命中或连接后首帧反推），之后扫描与连接都直接使用 |
-| `app.devices.paw.d0_values` | bool | 爪印 D0 模式（10Hz 全量物理数据）是否写入数值模块 `paw` 的 `accel` / `angle_x` / `angle_y` / `angle_z` / `voltage` / `button`；缺省 `false`（10Hz 数据不落值，避免 10Hz 触发规则求值）。键里的 `paw` 是驱动标识，不是设备 MAC |
-| `app.devices.civet.pressure_epsilon` | int | 灵猫气压的落值阈值，单位与数值一致（0.01 kPa）；缺省 `10`（即 0.1 kPa）。气压每 100ms 上报一次，只有与上一次落值的差达到阈值才写 `civet` 模块的 `pressure` / `raw`，其余上报丢弃并计数（其余抖动因此不触发规则求值）；设为 `0` 或负值等于「与原值不同即落值」，即回到 10Hz。键里的 `civet` 是驱动标识，不是设备 MAC |
+| `app.devices.paw.d0_values` | bool | 爪印 D0 模式（10Hz 全量物理数据）是否写入该实例数值模块（`paw_<MAC 后四位>`，如 `paw_430C`）的 `accel` / `angle_x` / `angle_y` / `angle_z` / `voltage` / `button`；缺省 `false`（10Hz 数据不落值，避免 10Hz 触发规则求值）。键里的 `paw` 是驱动标识，不是设备 MAC，也不随实例改名 |
+| `app.devices.civet.pressure_epsilon` | int | 灵猫气压的落值阈值，单位与数值一致（0.01 kPa）；缺省 `10`（即 0.1 kPa）。气压每 100ms 上报一次，只有与上一次落值的差达到阈值才写该实例模块（`civet_<MAC 后四位>`）的 `pressure` / `raw`，其余上报丢弃并计数（其余抖动因此不触发规则求值）；设为 `0` 或负值等于「与原值不同即落值」，即回到 10Hz。键里的 `civet` 是驱动标识，不是设备 MAC；多台灵猫共用这一个阈值 |
+| `app.plugins.<模块>.module_migrated_to` | string | 旧模块名（`paw` / `civet`）的事件映射已迁移到哪个实例模块名（如 `paw_430C`）。由 `DeviceValueBridge::migrate_legacy_mapping()` 在第一台实例连上时写一次并保存，旧键与旧值保留；该标记存在时后续设备不再搬同一份映射（见 [docs/devices.md](../docs/devices.md) 的「输入设备实例名与旧配置迁移」） |
 | `app.channels.<A\|B>.{limit, safety}` | int | 通道级上下限（所有插件共用），是所有设备的回退层；界面入口在插件详情的「通道上限」面板，写入与旧键迁移见 [docs/event-mapping.md](../docs/event-mapping.md) 的「通道上限」 |
 | `app.gsi.cs_dir` | string | CS2 GSI 插件记录的 CS 游戏目录（`CS2GsiPlugin` 通过 `PathFinder.py` 查找） |
 | `app.gsi.config_path` | string | CS2 GSI 插件生成的 `gamestate_integration_dglab.cfg` 完整路径 |

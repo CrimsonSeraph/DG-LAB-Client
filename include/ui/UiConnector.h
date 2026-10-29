@@ -204,6 +204,9 @@ private:
     void apply_mini_window_wave();
     /// @brief 按当前选中的设备回填四条上下限（无在线设备时回填通道回退值并标注「默认」）
     void refresh_device_limits_fields();
+    /// @brief 上下限编辑目标列表：在线输出设备 + 已记忆设备（app.devices 里出现过、且不是纯输入设备的 MAC）
+    /// @return 列表项含 address / name / label / online，离线项名称带「离线」
+    QVariantList limit_targets() const;
     /// @brief 打开系统文件对话框（保存对话框先写入建议文件名）
     /// @param object_name 文件对话框 objectName
     /// @param suggested_path 建议文件路径（为空时不写入）
