@@ -50,14 +50,16 @@
 | 来源 | 位置 | 载入方式 |
 | --- | --- | --- |
 | 插件声明 | 侧车 `plugin.json` 的 `events` 数组 | `ModuleManager::get_plugins()` 的 `PluginInfo::events`（解析路径未改动） |
-| 内置声明 | 代码常量（`DeviceValueBridge::builtin_events()`） | `EventRuntime::register_builtin_events(module_name, events)` |
+| 内置声明 | 代码常量（`DeviceValueBridge::builtin_events()` / `DeviceValueBridge::civet_builtin_events()`） | `EventRuntime::register_builtin_events(module_name, events)` |
 
 - 扩展点在 `EventRuntime`：注册表以模块标识为键（`builtin_events_`），`reload()` 先载入插件声明、再补内置声明；同一模块标识已由插件声明事件时以插件为准，内置声明被忽略。
 - 重复注册同一模块标识是整体替换（不是追加），`reload()` 先 `engine_.clear()` 再重建，因此不会出现重复声明或重复触发。
 - 注册后若运行时已 `initialize()`，立即 `reload()` 生效；否则在首次载入时生效。传入空列表等于清除该模块的内置声明。
 - 映射与启用规则完全不变：内置声明同样按 `app.plugins.<模块>.events.<事件>` 读映射、同样由级联集合决定是否启用（未映射的事件不参与输出）。
 
-本版内置声明只有爪印的 `paw` 模块，数值模块与事件模块同名：
+本版内置声明有两个来源模块：爪印的 `paw` 与灵猫的 `civet`，数值模块与事件模块同名。
+
+`paw`（爪印无线按钮传感器 V1.1）：
 
 | 事件 id | 展示名 | 触发条件 | 说明 |
 | --- | --- | --- | --- |
@@ -65,6 +67,15 @@
 | `button_released` | 按键抬起 | `button`，`compare=decrease`，`amount=1` | 设备上报 5B（取消触发）时 `button` 由 1 变 0 |
 
 两个事件都没有子选项，映射里按隐式子选项 id `default` 配置；首次写入 `button=0`（驱动启动时）只登记前值，不触发。
+
+`civet`（灵猫边缘控制传感器 V1）：
+
+| 事件 id | 展示名 | 触发条件 | 说明 |
+| --- | --- | --- | --- |
+| `pressure_rise` | 气压上升 | `pressure`，`compare=increase`，`amount=1` | 气压相对上一次落值上升达到 1 个 0.01 kPa 单位 |
+| `pressure_drop` | 气压下降 | `pressure`，`compare=decrease`，`amount=1` | 气压相对上一次落值下降达到 1 个 0.01 kPa 单位 |
+
+灵猫只声明上升 / 下降两个事件，**不为具体阈值造事件**：阈值由规则（`cross_above` / `cross_below` 或规则图条件）自行配置，事件只区分方向。`pressure` 的单位是 0.01 kPa（设备原始 int16，÷100 即 kPa），映射与规则里的数值口径一致；`battery` / `raw` 不是事件来源。气压每 100ms 上报一次，但只有变化达到 `app.devices.civet.pressure_epsilon`（缺省 10，即 0.1 kPa）时才写数值，因此落在阈值以内的抖动不会产生事件，也不以 10Hz 触发规则求值；驱动启动时写入 `pressure=0` 基线，首帧按同一阈值与基线比较。
 
 ## 三、trigger.compare 的取值
 

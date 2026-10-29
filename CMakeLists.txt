@@ -247,13 +247,16 @@ set(EVENT
 	include/event/EventRuntime.h
 )
 
-# 蓝牙（ble）：郊狼 V3 直连（兼扫描入口）、负鼠 V1 直连与爪印 V1.1 输入侧直连
+# 蓝牙（ble）：郊狼 V3 直连（兼扫描入口）、负鼠 V1 直连、爪印 V1.1 与灵猫 V1 输入侧直连
 set(BLE
 	# 源文件
+	src/ble/CivetBleController.cpp
 	src/ble/CoyoteBleController.cpp
 	src/ble/OpossumBleController.cpp
 	src/ble/PawPrintsBleController.cpp
 	# 头文件
+	include/ble/CivetBleController.h
+	include/ble/CivetFrames.h
 	include/ble/CoyoteBleController.h
 	include/ble/IOutputDevice.h
 	include/ble/OpossumBleController.h
@@ -262,7 +265,7 @@ set(BLE
 	include/ble/PawPrintsBleController.h
 )
 
-# 设备数值桥（device）：输入类设备（爪印）的通知 → 数值模块 paw
+# 设备数值桥（device）：输入类设备的通知 → 数值模块（爪印 → paw，灵猫 → civet）
 set(DEVICE
 	# 源文件
 	src/device/DeviceValueBridge.cpp
@@ -920,9 +923,11 @@ add_test(NAME opossum_frames_test COMMAND opossum_frames_test)
 # 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
 add_executable(paw_device_test
 	tests/paw_device_test.cpp
+	src/ble/CivetBleController.cpp
 	src/ble/CoyoteBleController.cpp
 	src/ble/OpossumBleController.cpp
 	src/ble/PawPrintsBleController.cpp
+	include/ble/CivetBleController.h
 	include/ble/CoyoteBleController.h
 	include/ble/IOutputDevice.h
 	include/ble/OpossumBleController.h
@@ -958,6 +963,54 @@ target_include_directories(paw_device_test
 		${CMAKE_CURRENT_SOURCE_DIR}/include/device
 )
 add_test(NAME paw_device_test COMMAND paw_device_test)
+
+# 灵猫边缘控制传感器 V1 输入侧（50 指令构造、D0 气压宽容解析、66 指令 13 / 14 两形态、
+# 气压换算与阈值抑制、数值钳制、内置事件声明进入 EventRuntime）：解析为纯函数，
+# 事件声明用例需要模块、事件、波形与配置层
+# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+add_executable(civet_device_test
+	tests/civet_device_test.cpp
+	src/ble/CivetBleController.cpp
+	src/ble/CoyoteBleController.cpp
+	src/ble/OpossumBleController.cpp
+	src/ble/PawPrintsBleController.cpp
+	include/ble/CivetBleController.h
+	include/ble/CivetFrames.h
+	include/ble/CoyoteBleController.h
+	include/ble/IOutputDevice.h
+	include/ble/OpossumBleController.h
+	include/ble/PawPrintsBleController.h
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${WAVE}
+	${CORE_CONFIG}
+	${CORE_LOG}
+)
+target_link_libraries(civet_device_test
+	PRIVATE
+		Qt::Core
+		Qt::Gui
+		Qt::Network
+		Qt::Qml
+		Qt::Bluetooth
+		nlohmann_json
+		miniz
+)
+target_include_directories(civet_device_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+		${CMAKE_CURRENT_SOURCE_DIR}/include/device
+)
+add_test(NAME civet_device_test COMMAND civet_device_test)
 
 # 波形库数据层（官方内置波形资源、V2/V3 双版本帧、存储 round-trip、旧格式兼容与非法帧拒绝）
 # 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；

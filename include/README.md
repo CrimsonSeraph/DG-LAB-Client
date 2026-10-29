@@ -76,7 +76,9 @@ include/
 | `ble/OpossumFrames.h` | 负鼠指令构造纯函数（B0 / B3 / B2 两形态）与郊狼 V3 帧 → 负鼠强度字节转换 |
 | `ble/PawPrintsBleController.h` | 爪印无线按钮传感器 V1.1 输入侧蓝牙直连（50 指令 + 51/5A/5B/5C/D0/F1 通知），**不实现 `IOutputDevice`**，驱动支持程度固定为实验性 |
 | `ble/PawFrames.h` | 爪印 50 指令构造与 51/5A/5B/5C/D0/F1 解析纯函数，含 F1 阈值的 `/2` 展示换算 |
-| `device/DeviceValueBridge.h` | 设备数值桥：爪印通知 → `paw` 模块数值（`paw_values` 定义表与钳制），并持有该模块的内置事件声明 |
+| `ble/CivetBleController.h` | 灵猫边缘控制传感器 V1 输入侧蓝牙直连（50 指令 + D0 气压 + 0x1500 电量），**不实现 `IOutputDevice`**，驱动支持程度固定为实验性 |
+| `ble/CivetFrames.h` | 灵猫 50 / 66 指令构造与 D0 气压宽容解析（第 8、9 字节小端 ÷ 100 = kPa）纯函数，含电量 1 字节百分比 |
+| `device/DeviceValueBridge.h` | 设备数值桥：爪印通知 → `paw` 模块、灵猫气压 → `civet` 模块（`paw_values` / `civet_values` 定义表与钳制），并持有两个模块的内置事件声明 |
 | `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务（含二维码载荷与展示文本接口） |
 | `net/IpSelector.h`          | 局域网地址选择器（候选网卡枚举、黑/白名单、手动选中地址，QML 侧经 `device.ipSelector` 读取） |
 
@@ -127,8 +129,8 @@ include/
 - `B0`：每 100ms 写入 —— 序列号 + 强度解读方式 + 双通道强度 + 双通道各 4 组频率/强度。
 - `BF`：软上限与频率/强度平衡参数，**重连后必须重写**。
 - `B1`：主机回传序列号 + 双通道实际强度。
-- 型号识别：按蓝牙名前缀 `47L1xxxx` 分类，映射表是 `CoyoteBleController.cpp` 匿名命名空间的 `kModelTable`（型号段 / 显示名 / 驱动是否已实现 / 是否经实机验证 / 输出能力 / 类型标识 / 行内提示覆盖）——`47L120` 爪印 V1.1（已实现、未验证、纯输入设备）、`47L120100` 爪印 V1.0（固件过旧，不可连接，行内提示「需先升级固件」）、`47L121` 郊狼 V3（已实现且验证）、`47L124` 灵猫（未实现）、`47L127` 负鼠（已实现、未验证）；前缀按「先长后短」匹配，V1.0 必须先命中。GATT 与郊狼 V3 相同的设备靠名字区分，未登记前缀一律标记「暂不支持（型号 xxx）」并在 `connectDevice()` 前拒绝连接，避免写入语义不匹配的指令；非 `47L1` 前缀沿用不限定型号的既有行为。驱动已实现但未验证的型号按「实验性」展示且可连接，行内提示区分「实验性驱动已实现，未经实机验证」与「暂不可连接（驱动尚未实现）」。
-- 扫描与连接入口：扫描仍由本类统一做，界面上的连接状态、电量、强度与状态文案读的是当前生效链路（郊狼优先，其次负鼠）；负鼠型号的连接请求转交 `OpossumBleController`，爪印型号的连接请求转交 `PawPrintsBleController`；连接任一设备前都会先断开其它蓝牙链路。同一时间只维持一条蓝牙链路。
+- 型号识别：按蓝牙名前缀 `47L1xxxx` 分类，映射表是 `CoyoteBleController.cpp` 匿名命名空间的 `kModelTable`（型号段 / 显示名 / 驱动是否已实现 / 是否经实机验证 / 输出能力 / 类型标识 / 行内提示覆盖）——`47L120` 爪印 V1.1（已实现、未验证、纯输入设备）、`47L120100` 爪印 V1.0（固件过旧，不可连接，行内提示「需先升级固件」）、`47L121` 郊狼 V3（已实现且验证）、`47L124` 灵猫（已实现、未验证、纯输入设备，行内提示「实验性驱动已实现，未经实机验证」）、`47L127` 负鼠（已实现、未验证）；前缀按「先长后短」匹配，V1.0 必须先命中。GATT 与郊狼 V3 相同的设备靠名字区分，未登记前缀一律标记「暂不支持（型号 xxx）」并在 `connectDevice()` 前拒绝连接，避免写入语义不匹配的指令；非 `47L1` 前缀沿用不限定型号的既有行为。驱动已实现但未验证的型号按「实验性」展示且可连接，行内提示区分「实验性驱动已实现，未经实机验证」与「暂不可连接（驱动尚未实现）」。
+- 扫描与连接入口：扫描仍由本类统一做，界面上的连接状态、电量、强度与状态文案读的是当前生效链路（郊狼优先，其次负鼠）；负鼠型号的连接请求转交 `OpossumBleController`，爪印型号转交 `PawPrintsBleController`，灵猫型号转交 `CivetBleController`；连接任一设备前都会先断开其它蓝牙链路。同一时间只维持一条蓝牙链路。
 - 输出设备接口：`IOutputDevice` 是上层唯一的设备依赖（连接状态、电量、`strength_a/b`、`wave_sending/frame/frames`、`set_strength` / `play_wave` / `stop_wave` / `apply_limits`，以及 `outputStateChanged` / `outputStrengthChanged` / `outputWaveChanged` 三个信号）。`CoyoteBleController` 以上述既有信号转发接口信号，发射时机与次数不变。
 
 外部协议参考 `DG-LAB-OPENSOURCE/coyote/v3/README_V3.md`。
@@ -155,6 +157,18 @@ include/
 - 文档矛盾的处理：外部电压触发（`0x0F`）的参数映射公式与示例 HEX 互相矛盾，本版**不实现该模式的参数换算**，只把原始参数原样上报（映射公式待上游确认）；`F1` 阈值 `/2` 后的取整规则未定，只做展示与数值上报，不做阈值判定逻辑；`5A/5B/5C` 无时序约束，按到达即处理。
 - 实验性：驱动已实现但**没有实机验证**，型号行按「实验性」展示且可连接，首次连接成功按 `app.devices.<MAC>.experimental_notice_shown` 弹一次性提示。
 - 外部协议参考 `DG-LAB-OPENSOURCE/paw-prints/README_CN.md`。
+
+### 灵猫边缘控制传感器 V1（`ble/CivetBleController.h`）
+
+- GATT：服务 `0x180C`（写 `0x150A`，文档标称最长 24 字节；通知 `0x150B`）；电量服务 `0x180A`（读/通知 `0x1500`，1 字节百分比）。广播名 `47L124000`，开机后需连按 5 次开机按钮才可被搜到。
+- 纯输入设备：不继承 `IOutputDevice`，不参与通道下发与默认设备评选；扫描与连接入口仍由 `CoyoteBleController` 统一负责，`47L124` 型号的写入交给本驱动。
+- `50`：17 字节 = 头 `0x50` + 指示灯颜色 `0x01` + 启动/停止（`0xD0` 开启气压上报 / `0x00` 停止）+ 14 字节 `0x00` 填充。服务发现完成后立刻写启动形态；协议没有定义 50 的回执，以**首帧 `D0` 视为生效**，无上报则重试一次（共 2 次），仍失败记 `LOG_ERROR` 并经 `errorOccurred` 提示。断连重连走同一条 `write_report_command()`。
+- `D0`：气压上报，文档标称 17 字节 / 100ms。**气压 = 第 8、9 字节 int16 小端 ÷ 100（kPa）**，数值桥里以 `0.01 kPa` 整数（即原始值）上报。文档示例串实际只有 15 字节，因此解析按实际长度宽容：长度 ≥ 10 字节才取第 8、9 字节，不足 10 字节整帧丢弃并记一次 WARN（同时计数 `dropped_reports`）。
+- `66`：气压读值重置 / 屏幕显示方向翻转。正文标称 13 字节，示例的字面值把重置值写成 `00 02`（与正文的 int16 写法顺序不一致），因此按「13 字节 → 失败回退 14 字节」两形态给出，两次都失败只记 WARN，不影响气压主路径。本版只提供重置接口 `resetPressureZero()`，**没有屏幕方向翻转的界面**。
+- 数值桥（`device/DeviceValueBridge.h`）：`pressure`（单位 0.01 kPa）、`battery`（0~100）、`raw`（原始 int16，便于排查），全部经 `ModuleManager::set_value`。气压 10Hz 上报只在变化达到 `app.devices.civet.pressure_epsilon`（缺省 10，即 0.1 kPa）时才写 `pressure` / `raw`，其余丢弃并计数，避免以 10Hz 触发规则求值。内置事件只有 `pressure_rise` / `pressure_drop`（`compare` 为 increase / decrease，阈值 1），阈值判定交给规则配置。
+- 未验证项：采样率、量程与温补文档未给，**不做量程假设与温补**，只做线性换算并原样上报（量程与温补待上游确认）。
+- 实验性：驱动已实现但**没有实机验证**，型号行按「实验性」展示且可连接，首次连接成功按 `app.devices.<MAC>.experimental_notice_shown` 弹一次性提示。
+- 外部协议参考 `DG-LAB-OPENSOURCE/civet-edging-sensor/README_CN.md`。
 
 ### V3 波形帧（`wave/Wave.h`）
 

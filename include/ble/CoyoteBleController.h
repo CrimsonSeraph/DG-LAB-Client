@@ -21,6 +21,7 @@
 
 class QLowEnergyController;
 class QBluetoothDeviceDiscoveryAgent;
+class CivetBleController;
 class OpossumBleController;
 class PawPrintsBleController;
 class QTimer;
@@ -70,6 +71,10 @@ public:
     /// @param pawprints 爪印驱动实例，可为空
     void attach_pawprints(PawPrintsBleController* pawprints);
 
+    /// @brief 注入灵猫驱动：扫描列表里的灵猫型号连接与界面状态转交本对象
+    /// @param civet 灵猫驱动实例，可为空
+    void attach_civet(CivetBleController* civet);
+
     /// @brief 按蓝牙名前缀识别设备型号
     /// @param name 蓝牙名
     /// @return 识别结果；非 47L1 前缀返回未限定型号的可连接结果
@@ -94,6 +99,8 @@ public:
     bool screen_sync_available() const;
     // 爪印（纯输入设备）是否已连接
     bool paw_connected() const;
+    // 灵猫（纯输入设备）是否已连接
+    bool civet_connected() const;
     /// @brief 已连接设备的蓝牙 MAC（未连接时为空串）
     QString device_address() const override { return device_address_; }
     /// @brief 设备显示名（型号名，如「郊狼 V3」）
@@ -150,6 +157,8 @@ private:
     bool opossum_active() const;
     // 爪印是否为界面上的当前链路（郊狼与负鼠都未连接且爪印已连接）
     bool pawprints_active() const;
+    // 灵猫是否为界面上的当前链路（郊狼、负鼠与爪印都未连接且灵猫已连接）
+    bool civet_active() const;
     void on_device_discovered(const QBluetoothDeviceInfo& info);
     void on_scan_finished();
     void on_controller_connected();
@@ -181,6 +190,7 @@ private:
 
     OpossumBleController* opossum_ = nullptr; ///< 负鼠驱动（扫描与连接入口共用本类）
     PawPrintsBleController* pawprints_ = nullptr; ///< 爪印驱动（纯输入设备，扫描与连接入口共用本类）
+    CivetBleController* civet_ = nullptr; ///< 灵猫驱动（纯输入设备，扫描与连接入口共用本类）
     QBluetoothDeviceDiscoveryAgent* discovery_ = nullptr;
     QLowEnergyController* controller_ = nullptr;
     QLowEnergyService* coyote_service_ = nullptr;

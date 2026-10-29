@@ -5,6 +5,7 @@
 
 #include "CoyoteBleController.h"
 
+#include "CivetBleController.h"
 #include "DebugLog.h"
 #include "OpossumBleController.h"
 #include "PawPrintsBleController.h"
@@ -49,7 +50,8 @@ namespace {
             "需先升级固件（V1.0 不可连接，请在 DG-LAB 3.0 APP 更新配件固件）"},
         {"47L120", "爪印", true, false, false, false, "pawprint", ""},
         {"47L121", "郊狼 V3", true, true, false, true, "coyote", ""},
-        {"47L124", "灵猫", false, false, false, false, "lynx", ""},
+        {"47L124", "灵猫", true, false, false, false, "civet",
+            "实验性驱动已实现，未经实机验证"},
         {"47L127", "负鼠", true, false, false, true, "opossum", ""},
     };
 
@@ -178,6 +180,25 @@ void CoyoteBleController::attach_pawprints(PawPrintsBleController* pawprints) {
     });
 }
 
+void CoyoteBleController::attach_civet(CivetBleController* civet) {
+    civet_ = civet;
+    if (civet_ == nullptr) {
+        return;
+    }
+    // 驱动先于本类销毁时清空指针：本类析构仍会走 disconnectDevice()
+    connect(civet_, &QObject::destroyed, this, [this]() { civet_ = nullptr; });
+    // 灵猫同为纯输入设备（不继承 IOutputDevice）：只刷新状态文案与列表，不进入输出链路与默认设备评选
+    connect(civet_, &CivetBleController::stateChanged, this, [this]() {
+        emit stateChanged();
+        emit statusChanged();
+    });
+    connect(civet_, &CivetBleController::statusChanged, this, [this]() {
+        if (civet_active()) {
+            emit statusChanged();
+        }
+    });
+}
+
 // 负鼠是否为界面上的当前链路（郊狼未连接且负鼠已连接）
 bool CoyoteBleController::opossum_active() const {
     return !connected_ && opossum_ != nullptr && opossum_->connected();
@@ -186,6 +207,12 @@ bool CoyoteBleController::opossum_active() const {
 // 爪印是否为界面上的当前链路（郊狼与负鼠都未连接且爪印已连接）
 bool CoyoteBleController::pawprints_active() const {
     return !connected_ && !opossum_active() && pawprints_ != nullptr && pawprints_->connected();
+}
+
+// 灵猫是否为界面上的当前链路（郊狼、负鼠与爪印都未连接且灵猫已连接）
+bool CoyoteBleController::civet_active() const {
+    return !connected_ && !opossum_active() && !pawprints_active() && civet_ != nullptr
+        && civet_->connected();
 }
 
 bool CoyoteBleController::link_connected() const {
@@ -219,11 +246,18 @@ QString CoyoteBleController::link_status() const {
     if (pawprints_active()) {
         return pawprints_->status();
     }
+    if (civet_active()) {
+        return civet_->status();
+    }
     return status_;
 }
 
 bool CoyoteBleController::paw_connected() const {
     return pawprints_ != nullptr && pawprints_->connected();
+}
+
+bool CoyoteBleController::civet_connected() const {
+    return civet_ != nullptr && civet_->connected();
 }
 
 bool CoyoteBleController::screen_sync_available() const {
@@ -410,6 +444,9 @@ void CoyoteBleController::connectDevice(const QString& address) {
         if (pawprints_ != nullptr && pawprints_->connected()) {
             pawprints_->disconnect_device();
         }
+        if (civet_ != nullptr && civet_->connected()) {
+            civet_->disconnect_device();
+        }
         opossum_->connect_device(target);
         set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
         return;
@@ -433,7 +470,36 @@ void CoyoteBleController::connectDevice(const QString& address) {
         if (opossum_ != nullptr && opossum_->connected()) {
             opossum_->disconnect_device();
         }
+        if (civet_ != nullptr && civet_->connected()) {
+            civet_->disconnect_device();
+        }
         pawprints_->connect_device(target);
+        set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
+        return;
+    }
+    if (profile.type == QStringLiteral("civet")) {
+        // 灵猫：GATT 与郊狼相同但指令集不同且是纯输入设备，写入交给灵猫驱动；扫描与连接入口仍走本类
+        if (civet_ == nullptr) {
+            LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN, "灵猫驱动未接入，拒绝连接");
+            set_status(QStringLiteral("灵猫驱动未接入"));
+            emit errorOccurred(QStringLiteral("灵猫驱动未接入，本版无法连接该设备"));
+            return;
+        }
+        if (civet_->connected()) {
+            set_status(QStringLiteral("灵猫已连接"));
+            return;
+        }
+        // 同一时间只维持一条蓝牙链路：连接灵猫前先断开输出链路与爪印
+        if (connected_) {
+            disconnectDevice();
+        }
+        if (opossum_ != nullptr && opossum_->connected()) {
+            opossum_->disconnect_device();
+        }
+        if (pawprints_ != nullptr && pawprints_->connected()) {
+            pawprints_->disconnect_device();
+        }
+        civet_->connect_device(target);
         set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
         return;
     }
@@ -446,12 +512,15 @@ void CoyoteBleController::connectDevice(const QString& address) {
             .arg(profile.label, profile.model));
         return;
     }
-    // 同一时间只维持一条蓝牙链路：连接郊狼前先断开负鼠与爪印
+    // 同一时间只维持一条蓝牙链路：连接郊狼前先断开负鼠、爪印与灵猫
     if (opossum_ != nullptr && opossum_->connected()) {
         opossum_->disconnect_device();
     }
     if (pawprints_ != nullptr && pawprints_->connected()) {
         pawprints_->disconnect_device();
+    }
+    if (civet_ != nullptr && civet_->connected()) {
+        civet_->disconnect_device();
     }
 
     pending_address_ = address;
@@ -849,6 +918,9 @@ void CoyoteBleController::disconnectDevice() {
     }
     if (pawprints_ != nullptr && pawprints_->connected()) {
         pawprints_->disconnect_device();
+    }
+    if (civet_ != nullptr && civet_->connected()) {
+        civet_->disconnect_device();
     }
     if (controller_ != nullptr) {
         controller_->disconnectFromDevice();
