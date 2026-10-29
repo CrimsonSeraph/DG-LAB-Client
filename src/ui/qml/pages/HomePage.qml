@@ -2,9 +2,10 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 主页看板：设备状态与通道启停、通道模块/规则绑定、已启用插件、近期触发流水、A/B 波形预览。
+// 主页看板：设备状态、通道与波形逐行配对，已启用插件与近期触发在同行右侧滚动。
+// 三行结构：设备状态 | 已启用插件 + 近期触发（同高，超出时右列内部滚动）；
+//          通道 A | 通道 A 波形；通道 B | 通道 B 波形。窄窗口整体退化为单列。
 // 强度增减与波形选择已移出本页（迷你窗 / 波形设置页负责），卡内只留只读数值与说明。
-// 与左侧导航重复的「插件中心」「波形设置」页内入口已移除，只留打开迷你窗的入口。
 // 交互约定：页内导航按钮用 app.navigate，其余交互控件仍由 C++（UiConnector）按 objectName 连接。
 Item {
     id: page
@@ -66,7 +67,8 @@ Item {
                 }
             }
 
-            // 两列看板：左列设备与通道，右列插件与流水；窄窗口降为单列
+            // 看板栅格：两列时按「设备 | 插件+触发」「通道 A | A 波形」「通道 B | B 波形」逐行排列，
+            // 窄窗口 columns 退为 1，同一批子项按顺序变成单列，页内顺序与两列时一致
             GridLayout {
                 objectName: "homeDashboardGrid"
                 Layout.fillWidth: true
@@ -74,51 +76,94 @@ Item {
                 columnSpacing: Metrics.cardSpacing
                 rowSpacing: Metrics.cardSpacing
 
-                ColumnLayout {
-                    objectName: "homeDashboardLeftColumn"
+                // 第一行左：设备状态卡，行高由它决定
+                DashboardDeviceCard {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.alignment: Qt.AlignTop
-                    spacing: Metrics.cardSpacing
+                }
 
-                    DashboardDeviceCard {
-                        Layout.fillWidth: true
+                // 第一行右：已启用插件 + 近期触发纵向排列，高度跟随同行的设备状态卡；
+                // 两卡内容超出该高度时在这里内部滚动（contentHeight 取自下方 ColumnLayout 位置器）
+                Flickable {
+                    id: rightStack
+
+                    objectName: "homeDashboardRightStack"
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.fillHeight: !page.singleColumn
+                    // 两列时不给期望高度，行高完全由设备状态卡决定；单列时没有同行伙伴，按内容自然高度
+                    Layout.preferredHeight: page.singleColumn ? rightStackContent.implicitHeight : 0
+                    contentWidth: width
+                    contentHeight: rightStackContent.implicitHeight
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    ScrollBar.vertical: ScrollBar {
+                        id: rightStackBar
+
+                        // 只在内容确实高出可视区时出现：单列时高度按内容给足，不该留下一条空滚动条
+                        policy: rightStack.contentHeight > rightStack.height ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                        width: Metrics.spacingSm
+                        padding: 0
+
+                        contentItem: Rectangle {
+                            implicitWidth: Metrics.spacingXs
+                            implicitHeight: Metrics.spacingXs
+                            radius: Metrics.radiusXs
+                            color: rightStackBar.pressed ? Theme.accent : Theme.textSecondary
+                        }
                     }
 
-                    DashboardChannelCard {
-                        Layout.fillWidth: true
-                        channel: "A"
-                        modules: home.modulesA
-                        rules: home.rulesA
-                    }
+                    ColumnLayout {
+                        id: rightStackContent
 
-                    DashboardChannelCard {
-                        Layout.fillWidth: true
-                        channel: "B"
-                        modules: home.modulesB
-                        rules: home.rulesB
+                        width: rightStack.width
+                        spacing: Metrics.cardSpacing
+
+                        DashboardPluginCard {
+                            Layout.fillWidth: true
+                            pluginCenterPage: page.pagePluginCenter
+                        }
+
+                        DashboardTriggerFeed {
+                            Layout.fillWidth: true
+                        }
                     }
                 }
 
-                ColumnLayout {
-                    objectName: "homeDashboardRightColumn"
+                // 第二行：通道 A 卡与其波形卡同行
+                DashboardChannelCard {
                     Layout.fillWidth: true
                     Layout.preferredWidth: 0
                     Layout.alignment: Qt.AlignTop
-                    spacing: Metrics.cardSpacing
+                    channel: "A"
+                    modules: home.modulesA
+                    rules: home.rulesA
+                }
 
-                    DashboardPluginCard {
-                        Layout.fillWidth: true
-                        pluginCenterPage: page.pagePluginCenter
-                    }
+                DashboardWaveCard {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.alignment: Qt.AlignTop
+                    channel: "A"
+                }
 
-                    DashboardTriggerFeed {
-                        Layout.fillWidth: true
-                    }
+                // 第三行：通道 B 卡与其波形卡同行
+                DashboardChannelCard {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.alignment: Qt.AlignTop
+                    channel: "B"
+                    modules: home.modulesB
+                    rules: home.rulesB
+                }
 
-                    DashboardWaveCard {
-                        Layout.fillWidth: true
-                    }
+                DashboardWaveCard {
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 0
+                    Layout.alignment: Qt.AlignTop
+                    channel: "B"
                 }
             }
         }

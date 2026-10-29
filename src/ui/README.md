@@ -60,6 +60,8 @@ src/ui/
 │   │   ├── AppTabs.qml         # 标签页切换条
 │   │   ├── AppChip.qml         # 可选中标签片
 │   │   ├── AppCard.qml         # 横幅 / 标签 / 状态卡片
+│   │   ├── AppTagStrip.qml     # 可横向滚动的标签条（与波形名同行，滚轮 / 拖动查看）
+│   │   ├── TagStripMath.js     # 标签条滚动的纯计算（夹取两端 / 滚轮步进 / 拖动换算）
 │   │   ├── AppField.qml        # 表单行（标签 + 提示 + 内容槽）
 │   │   ├── AppSparkline.qml    # 迷你曲线
 │   │   ├── AppStatusButton.qml # 带状态点的按钮
@@ -135,9 +137,9 @@ src/ui/
 
 主页看板（`pages/HomePage.qml` 与 `pages/home/`）：
 
-主页已改为看板：左列设备状态（内含 A/B 通道行）与 A/B 通道卡，右列已启用插件、近期触发流水与通道波形卡；页头只保留「插件管理」与「规则编辑器」两个快捷入口（模块页入口已随该页移除，波形设置入口已移除）。强度调节不在本页（后续由迷你窗提供），波形选择在波形设置页。
+主页已改为看板：按三行排列——设备状态卡与「已启用插件 + 近期触发」同行、通道 A 卡与通道 A 波形卡同行、通道 B 卡与通道 B 波形卡同行；页头只保留「插件管理」与「规则编辑器」两个快捷入口（模块页入口已随该页移除，波形设置入口已移除）。强度调节不在本页（后续由迷你窗提供），波形选择在波形设置页。
 
-`homePage` / `homeScrollView` / `homeDashboardGrid` 为页面根项、滚动视图与两列看板栅格；`homeDashboardLeftColumn` / `homeDashboardRightColumn` 为左列（设备状态 + A/B 通道卡）与右列（插件 / 触发流水 / 通道波形）。
+`homePage` / `homeScrollView` / `homeDashboardGrid` 为页面根项、滚动视图与两列看板栅格（`columns` 随 `page.singleColumn` 在 2 / 1 之间切换，单列时六张卡按「设备状态 → 插件+触发 → 通道 A → A 波形 → 通道 B → B 波形」顺序排列）；`homeDashboardRightStack` 是「已启用插件 + 近期触发」的纵向滚动容器（`Flickable`，两列时高度由同行的设备状态卡决定，`contentHeight` 取自内部 `ColumnLayout` 位置器，内容超出时在该区域内部滚动；单列时没有同行伙伴，按内容自然高度交给页面滚动）。原 `homeDashboardLeftColumn` / `homeDashboardRightColumn` 两个列容器已随三行重排移除。
 
 | objectName | 行为 |
 | --- | --- |
@@ -151,11 +153,12 @@ src/ui/
 | `channel{A,B}StartButton` | 切换通道启用状态（同步规则引擎通道变量）；位置已移到设备状态卡的通道行，沿用旧 `objectName`，运行态为 `danger` + `outline` |
 | `dashboardPluginCard` / `dashboardPluginCount` | 已启用插件卡与其中的计数（`moduleBridge.modules` 中 `kind` 为 plugin 且已启用的项）；行热区点击经 `app.openPluginDetail(fileName)` 直达该插件详情（插件文件名缺失时退化为 `app.navigate(pluginCenterPage)` 只切页），该处理器尚未迁到 C++ |
 | `dashboardTriggerCard` / `dashboardTriggerEmpty` | 近期触发流水卡（最近 8 条）与无记录时的空态文案：只读 |
-| `dashboardWaveCard` / `dashboardWaveName{A,B}` | 通道波形卡与 A/B 当前波形名（`waveBridge.currentA/currentB`）；未绑定波形时名称行隐藏 |
-| `dashboardWaveSparkline{A,B}` | A/B 强度曲线：取 `waveBridge.amplitudeA/amplitudeB`（每帧 4 个强度字节取均值，0~100），静态绘制 |
-| `dashboardWaveStrength{A,B}` | A/B「强度 / 上限」数字行（`home.strength{A,B}` / `home.limit{A,B}`）：只读 |
-| `dashboardWaveSending{A,B}` | A/B 下发指示行「正在下发 · 第 n/N 帧」（`home.waveSending{A,B}` / `home.waveFrame{A,B}` / `home.waveFrames{A,B}`）：正在下发时可见，停止或清除后自动隐藏 |
-| `dashboardWaveEmpty{A,B}` / `dashboardWaveHint` | 未绑定波形时的空态文案与卡底说明「静态预览 · 强度与下发帧随通道实时刷新，滚动播放在迷你窗提供」：只读 |
+| `dashboardWaveCardA` / `dashboardWaveCardB` | 单通道波形卡（`pages/home/DashboardWaveCard.qml`，由 `channel` 属性决定渲染哪一路，`objectName` 按 `"dashboardWaveCard" + channel` 派生）。原 `dashboardWaveCard`（A/B 并排一张卡）已拆分，旧名不再存在；`UiConnector` 未引用这批名字，拆分不需要 C++ 改动 |
+| `dashboardWaveName{A,B}` | 该通道当前波形名（`waveBridge.currentA/currentB`）：未绑定波形时隐藏 |
+| `dashboardWaveSparkline{A,B}` | 该通道强度曲线：取 `waveBridge.amplitudeA/amplitudeB`（每帧 4 个强度字节取均值，0~100），静态绘制 |
+| `dashboardWaveStrength{A,B}` | 该通道「强度 / 上限」数字行（`home.strength{A,B}` / `home.limit{A,B}`）：只读 |
+| `dashboardWaveSending{A,B}` | 该通道下发指示行「正在下发 · 第 n/N 帧」（`home.waveSending{A,B}` / `home.waveFrame{A,B}` / `home.waveFrames{A,B}`）：正在下发时可见，停止或清除后自动隐藏；A/B 各自由自己的卡渲染，互不影响 |
+| `dashboardWaveEmpty{A,B}` / `dashboardWaveHint` | 未绑定波形时的空态文案与卡底说明「静态预览 · 强度与下发帧随通道实时刷新，滚动播放在迷你窗提供」：只读；两张卡各有一个同名 `dashboardWaveHint` 实例（无人按名查找，仅作文本标记） |
 | `homeMiniWindowEntryButton` | 首页页头「迷你窗」入口 → `UiConnector::on_home_mini_window_clicked()`：显示迷你窗并置于前台 |
 
 迷你窗（`MiniWindow.qml`：`Qt.Tool` + 无边框 + 置顶，不进任务栏；声明在 `MainWindow.qml` 内跟随应用生命周期）：
@@ -235,7 +238,7 @@ src/ui/
 | `waveImportButton` | 导入波形 → `on_wave_import_clicked()`：打开 `waveImportFileDialog`（`.json` / `.pulse` / `.zip` 按扩展名自动判格式，zip 解压后逐个 `.pulse` 复用同一套冲突三选与汇总） |
 | `waveExportButton` | 导出波形 → `on_wave_export_clicked()`：打开 `waveExportDialog` 先选格式与范围 |
 | `waveTagCard` | 波形标签卡根节点（`GlassCard`）：标签库（内置标签带锁标识、自定义标签用语义色，均为只读展示）与波形列表 |
-| `waveTagWaveList` | 波形列表容器（`Repeater` 按 `waveBridge.waves` 生成）：每个条目的标签显示在波形名上方，无标签时该行不占位；本页不提供删除入口，删除在标签选择器里做 |
+| `waveTagWaveList` | 波形列表容器（`Repeater` 按 `waveBridge.waves` 生成）：每个条目的标签与波形名同一行、靠右排列（`components/AppTagStrip.qml`），名称 `Layout.fillWidth` + 省略号截断、标签条最多占行宽的 40%，超出部分裁剪后可用滚轮或按住拖动横向查看；无标签时标签条 `visible: false` 整块不占位；本页不提供删除入口，删除在标签选择器里做 |
 | `waveTagEditClick` | 条目内「编辑标签」（`AppButton`，`waveName` 属性）→ `on_wave_tag_edit_clicked()`：写 `WaveBridge::beginTagEdit` 并打开 `waveTagDialog`；官方波形条目同样可用，只读的是其帧与名称 |
 
 日志页（`pages/LogPage.qml`）：页面用 `ColumnLayout` 撑满窗口高度，日志列表吃满面板剩余高度并自行滚动；手动导出设置写入 `user.json` 的 `app.log.manual.*`，导出时按该设置逐行过滤。
@@ -453,18 +456,21 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | 同文件检查器 5 个：`onEditingFinished`（规则名 `nameField` / 表达式 `expressionArea`）、`onActivated`（值模式 `modeCombo`）、`onClicked`（启用勾选、「应用表达式」按钮） | 遗留：输入回灌与表达式应用沿用 QML 处理器；`ruleSaveButton` 已迁到 C++ | 只调用 `ruleGraph`；不得扩大 |
 | `MiniWindow.qml` 标题条 `MouseArea` 的 `onPressed` / `onPositionChanged` | 无边框窗口的拖动只能由指针按下与位移驱动，指针轨迹无法用 `objectName` + C++ 连接表达 | 处理器只改 `Window.x/y`；锁定态由 `dragArea.enabled` 断掉拖动，位置写回配置全部在 C++（`UiConnector` 的 400 ms 合并计时器） |
 | `MainWindow.qml` 的 `onClosing` | 窗口关闭是窗口事件，`close.accepted` 与「隐藏而不是销毁」必须在事件回调内决定 | 只调 `tray.handleMainWindowClose()`；隐藏 / 退出 / 降级判定全在 `TrayController` |
+| `components/AppTagStrip.qml` 标签条 `MouseArea` 的 `onWheel` | 标签总宽超过可用宽度时用滚轮左右查看剩余标签，滚轮是纯指针事件，无法用 `objectName` + C++ 连接表达；标签全部可见时处理器直接返回、不接管滚轮，页面照常滚动 | 处理器只改 `root.requestedOffset`（经 `clampOffset` 夹在两端之间），不读写任何模型、不导航 |
+| 同文件 `onPressed` | 拖动必须先记住指针起点与被按下时的偏移，按下事件同样只能由指针驱动 | 只记录 `pressX` / `pressOffset` 两个本地量，不改其它状态 |
+| 同文件 `onPositionChanged` | 按住左右拖动查看标签，位移必须逐帧跟随指针；与 `onPressed` 一起构成一处拖动交互（两处处理器一条手势） | 只在 `mouse.pressed` 为真时按水平位移改 `root.requestedOffset` 并夹紧两端，不写模型、不导航 |
 
 已迁出：规则编辑器关闭按钮（`ruleEditorCloseButton`）原先写 `onClicked: dialog.close()`，现由 `UiConnector::on_rule_editor_close_clicked()` 连接，存在未保存改动时先经 `confirmDialog` 确认。
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
-复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 63 处，按文件分组：
+复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 66 处（本次新增 3 处，即下表 `AppTagStrip.qml` 三行，登记条数与新增数一致），按文件分组：
 
 - `dialogs/RuleEditorDialog.qml` 30 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 5，即上表四行，逐处已登记。
 - `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 8 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
 - `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击（行委托由 `Repeater` 动态生成，本次仍保留处理器）只调 `app.openPluginDetail(fileName)`，导航与定位全在 C++（`AppBridge` + `UiConnector::on_plugin_detail_requested()`），QML 不再自己决定导航目标；处理器本身仍属待迁移项。
 - `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表新增两行，逐处已登记。
-- `components/` 4 处（`AppTabs` / `AppSlider` / `AppSegment` / `AppChip` 各 1）：组件把自身鼠标事件转发成自己的信号（`tabClicked` / `moved` / `selected` / `clicked`），属组件内部实现，不是页面交互。
+- `components/` 7 处：`AppTabs` / `AppSlider` / `AppSegment` / `AppChip` 各 1，把自身鼠标事件转发成自己的信号（`tabClicked` / `moved` / `selected` / `clicked`），属组件内部实现，不是页面交互；`AppTagStrip` 3 处（`onWheel` / `onPressed` / `onPositionChanged`），即上表新增三行，逐处已登记。
 
 `Connections {` 与 `Behavior {` 全量为 0。
 

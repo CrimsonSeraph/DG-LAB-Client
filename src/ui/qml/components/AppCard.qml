@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Effects
 
 // 卡片容器：深色表面 + 细描边；头图解码完成时图片铺满卡片、标题叠在图片底部，并在图片上
 // 叠加自卡片高度约 55% 起由透明过渡到 90% 深底的渐变遮罩；banner 为空或图片加载失败时
@@ -44,6 +45,10 @@ Rectangle {
         id: hoverHandler
     }
 
+    // 头图常态即按卡片圆角裁切：MultiEffect 用一张同尺寸同圆角的实心矩形做遮罩，
+    // 因此四角在无焦点时也是圆的，与聚焦态焦点环的轮廓一致（此前只有描边按圆角绘制，
+    // 图片本身按矩形铺满，四角在常态下被图片盖住）。代价是头图多渲染一层图层，
+    // 图片解码完成后才开启，静态图片只付一次离屏渲染成本。
     Image {
         id: bannerImage
 
@@ -53,6 +58,22 @@ Rectangle {
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         cache: true
+        layer.enabled: root.bannerReady
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: bannerMask
+        }
+    }
+
+    // 遮罩源：只取 alpha 形状（圆角矩形），本身不参与显示
+    Rectangle {
+        id: bannerMask
+
+        anchors.fill: parent
+        radius: root.radius
+        color: Theme.surface
+        visible: false
+        layer.enabled: true
     }
 
     Rectangle {

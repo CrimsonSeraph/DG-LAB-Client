@@ -265,32 +265,27 @@ Item {
                                     anchors.margins: Metrics.spacingMd
                                     spacing: Metrics.spacingXs
 
-                                    // 标签行位于波形名上方：无标签时整行不占位
-                                    Row {
-                                        width: parent.width
-                                        spacing: Metrics.spacingXs
-                                        visible: modelData.tags.length > 0
-
-                                        Repeater {
-                                            model: modelData.tags
-
-                                            delegate: StatusBadge {
-                                                text: modelData
-                                                level: 1
-                                            }
-                                        }
-                                    }
-
+                                    // 名称与标签同一行：名称占满剩余宽度并省略号截断，
+                                    // 标签条最多占行宽的 40%，超出部分裁剪后可用滚轮 / 拖动横向查看
                                     RowLayout {
+                                        id: waveEntryRow
+
                                         width: parent.width
                                         spacing: Metrics.spacingMd
 
                                         Text {
                                             Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
                                             text: modelData.name
                                             color: Theme.textPrimary
                                             font.pixelSize: Typography.fontBody
                                             elide: Text.ElideRight
+                                        }
+
+                                        AppTagStrip {
+                                            tags: modelData.tags
+                                            Layout.alignment: Qt.AlignVCenter
+                                            Layout.maximumWidth: Math.round(waveEntryRow.width * 0.4)
                                         }
 
                                         Text {

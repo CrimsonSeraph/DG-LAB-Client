@@ -478,6 +478,8 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/components/AppSlider.qml
 		src/ui/qml/components/AppTabs.qml
 		src/ui/qml/components/AppChip.qml
+		src/ui/qml/components/AppTagStrip.qml
+		src/ui/qml/components/TagStripMath.js
 		src/ui/qml/components/AppCard.qml
 		src/ui/qml/components/AppField.qml
 		src/ui/qml/components/AppSparkline.qml
