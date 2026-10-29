@@ -84,7 +84,7 @@ cpack
 cd build && ctest -C Release --output-on-failure
 ```
 
-当前 9 个目标全绿：`event_engine` / `rule_graph_eval` / `event_engine_module` / `event_merge` / `wave_library` / `wave_import_export` / `wave_zip` / `wave_tag` / `event_wave`。
+当前 14 个目标全绿：`event_engine` / `rule_graph_eval` / `event_engine_module` / `event_merge` / `wave_library` / `wave_import_export` / `wave_zip` / `wave_tag` / `event_wave` / `opossum_frames` / `paw_device` / `civet_device` / `model_recognition` / `config_reload`。
 
 ## 开发环境事实
 
@@ -112,6 +112,8 @@ cd build-agent/Release && (QT_FORCE_STDERR_LOGGING=1 QT_ASSUME_STDERR_HAS_CONSOL
 ```
 
   验收要求 `err.txt` 0 字节。日志文件开关：config 里 `app.log.file_enabled=true` 会写 `<exe>/log/dglab-YYYYMMDD.log`。
+- **Windows 11 托盘图标默认进折叠区**：`QSystemTrayIcon` 无法程序化把图标移出折叠区（该位置归系统与用户所有），应用只能用一次 Toast 引导用户自己拖出来，状态记在 `user.json` 的 `app.ui.tray_hint_shown`。不要试图用 `Shell_NotifyIcon` 的附加标志绕过，Win11 不提供该能力。
+- **退出耗时基线（本机实测，3 次中位数）**：`app.exec()` 返回后到进程结束约 330 ms（空闲）、约 350 ms（郊狼蓝牙在线）。分段：窗口销毁约 47 ms、QML 引擎约 13 ms、其余桥接对象合计 <10 ms、`QApplication` 析构约 38 ms、静态析构（配置单例保存 + CRT 退出）约 205 ms。重新测量需要临时代码打点，标记 `// TEMP-EXIT-PROBE`，交付前必须删除。
 - **界面取证禁用 PostMessage 注入**：本机 PostMessage 注入的鼠标与键盘消息对该 Qt 进程无效（返回成功但界面无反应），历史上曾据此得出「已点击验证」的假结论。界面取证一律改用 **UI Automation**（InvokePattern / ValuePattern），或直接函数级单测 + PrintWindow 静态截图，并在报告里区分「界面验证」与「函数级验证」。
 - **波形写入没有回执**：郊狼的 B0 采用 WriteWithoutResponse，不回报 `characteristicWritten`，不能用写入回调取证下发成功；波形进度只能按设备实际写入的帧数推进（`advance_event_wave()` 即按此实现）。
 - 两个构建者不要共用一个构建目录：同一 `build-agent` 被两个进程构建会互相抢 exe（LNK1104）。

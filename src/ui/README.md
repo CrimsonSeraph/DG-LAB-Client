@@ -12,7 +12,7 @@
 | --- | --- |
 | `Qt6::Quick` / `Qt6::Qml` | QML 运行时 |
 | `Qt6::QuickControls2` | 控件（应用统一样式设为 `Basic`，外观完全由样式令牌控制） |
-| `Qt6::QuickDialogs2` | `ColorDialog`（自定义主题取色）、`FileDialog`（波形导入导出的文件选择，`import QtQuick.Dialogs`；模块已在 `DGLAB_QT_MODULES` 中，无新增依赖） |
+| `Qt6::QuickDialogs2` | `FileDialog`（波形导入导出的文件选择，`import QtQuick.Dialogs`；模块已在 `DGLAB_QT_MODULES` 中，无新增依赖）。自定义主题的取色已改为自绘 `AppColorDialog`，不再使用系统 `ColorDialog` |
 | `Qt6::Widgets` | `QSystemTrayIcon` / `QMenu`：系统托盘图标与三项菜单（`TrayController`） |
 | `AppConfig` / `DebugLog` | 核心基础设施 |
 | `ModuleManager` / `RuleManager` | 数据与规则来源 |
@@ -65,6 +65,7 @@ src/ui/
 │   │   ├── AppStatusButton.qml # 带状态点的按钮
 │   │   ├── AppSegment.qml      # 分段选择器
 │   │   ├── AppDialog.qml       # 对话框基类（主题化底色 / 遮罩 / 标题行 / 视口内尺寸钳制）
+│   │   ├── AppColorDialog.qml  # 自绘取色对话框（颜色预览 + HEX 输入 + 色相/饱和度/明度滑杆）
 │   │   ├── AppMenu.qml         # 主题化菜单（底色 / 描边 / 圆角 / 内边距 + 项配色经 palette 下传）
 │   │   ├── ConfirmDialog.qml   # 通用确认弹层（ask_confirm 复用）
 │   │   ├── PageHeader.qml      # 页面标题行（标题 + 副标题 + 右侧操作区）
@@ -196,7 +197,10 @@ src/ui/
 | `customThemePrimaryButton` / `customThemeSecondaryButton` | 打开主/副色取色对话框 |
 | `customThemeSaveButton` | 保存并应用自定义主题 |
 | `themePresetDialog` / `customThemeDialog` | 预设主题对话框与自定义主题对话框（后者的主/副色与应用按钮即上两行的 `customTheme*` 控件） |
-| `primaryColorDialog` / `secondaryColorDialog` | 主/副色取色对话框（`ColorDialog`），由 `customThemePrimaryButton` / `customThemeSecondaryButton` 打开 |
+| `primaryColorDialog` / `secondaryColorDialog` | 主/副色取色对话框（`components/AppColorDialog.qml`，继承 `AppDialog`），由 `customThemePrimaryButton` / `customThemeSecondaryButton` 打开；颜色换算全部在 `UiConnector` 侧完成，确定后仍经 `on_primary_color_accepted` / `on_secondary_color_accepted` 写回主题 |
+| `colorDialogPreview` / `colorDialogHexField` / `colorDialogHexError` | 取色对话框内的颜色预览块、HEX 输入框与格式错误行；两个实例同名，`UiConnector` 从各自的对话框对象里查找。HEX 接受 `#RRGGBB` / `#RGB`（可省 `#`），非法时显示错误行并禁用「确定」 |
+| `colorDialogHueSlider` / `colorDialogSaturationSlider` / `colorDialogValueSlider` | 色相（0-359 度）/ 饱和度（0-100%）/ 明度（0-100%）三条滑杆，`moved()` 由 C++ 连接后按 HSV 重算颜色与 HEX 回显 |
+| `colorDialogConfirmButton` / `colorDialogCancelButton` | 确定（走 `Dialog::accept()`，由既有 accepted 槽写回主题）与取消（只关闭） |
 | `configBleColumn` | 连接卡内的蓝牙直连子区（位于扫码配对列下方，含状态 / 扫描 / 设备列表 / 强度增减） |
 | `configBleStatusText` | 蓝牙直连状态行：已连接显示「已连接 <设备名>」，未连接只显示「未连接」（单一状态行，不重复） |
 | `configBleStatusDetail` | 蓝牙状态明细（绑 `ble.status`）：与状态行文案相同时隐藏，扫描中 / 连接中 / 错误 / 断开等有价值的状态保留；只读 |
@@ -294,7 +298,7 @@ src/ui/
 
 对话框：
 
-下列对话框（`dialogs/` 下 7 个、`ConfirmDialog`、`ConfigPage` 内的预设主题与自定义主题）全部继承 `components/AppDialog.qml`，底色 / 描边 / 遮罩 / 标题行 / 尺寸钳制由基类统一提供；`title` 即标题行文本。
+下列对话框（`dialogs/` 下 7 个、`ConfirmDialog`、`ConfigPage` 内的预设主题与自定义主题、两个自绘取色对话框）全部继承 `components/AppDialog.qml`，底色 / 描边 / 遮罩 / 标题行 / 尺寸钳制由基类统一提供；`title` 即标题行文本。
 
 | objectName | 行为 |
 | --- | --- |

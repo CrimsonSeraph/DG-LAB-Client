@@ -271,5 +271,27 @@ int main(int argc, char* argv[]) {
     tray.attach(qobject_cast<QQuickWindow*>(engine.rootObjects().first()), connector.mini_window());
     LOG_MODULE("main", "main", LOG_DEBUG, "QML 主界面已加载");
 
-    return app.exec();
+    // 首次运行的一次性提示：Windows 11 默认把新建的托盘图标收进折叠区，应用无法程序化强制显示，
+    // 只能引导用户自己把它拖到常显区域；提示过一次后写 app.ui.tray_hint_shown 不再重复。
+    if (tray.available() && !config.get_value<bool>("app.ui.tray_hint_shown", false)) {
+        config.set_value_with_name<bool>("app.ui.tray_hint_shown", true, "user");
+        config.save_all();
+        QTimer::singleShot(1500, &bridge, [&bridge]() {
+            bridge.showToast(
+                QStringLiteral("托盘图标可能收在折叠区：点任务栏「^」展开后把它拖到常显区域"),
+                AppBridge::StatusWarning);
+        });
+    }
+
+    const int exit_code = app.exec();
+
+    // 退出收尾一：蓝牙输出设备先于桥接层析构，而 DeviceController 的输出列表只存裸指针，
+    // 设备析构期间仍会发状态信号，回调走到 online_outputs() 会摸到已销毁的设备（实测段错误）。
+    // 这里在返回前断开这两台输出设备到设备控制器的连接，退出路径不再跨到已销毁对象。
+    QObject::disconnect(&ble, nullptr, &device, nullptr);
+    QObject::disconnect(&opossum, nullptr, &device, nullptr);
+    // 退出收尾二：配置单例在 main 返回后才析构，其保存动作会写日志；LogBridge 已经不在了，
+    // 那条 sink 回调会指到已销毁对象（实测段错误），这里先把它摘掉。
+    DebugLog::instance().unregister_log_sink("qt_ui");
+    return exit_code;
 }

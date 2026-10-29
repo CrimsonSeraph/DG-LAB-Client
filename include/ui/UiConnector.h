@@ -16,6 +16,7 @@
 #include <functional>
 
 class AppBridge;
+class QColor;
 class CoyoteBleController;
 class DeviceController;
 class HomeBridge;
@@ -95,6 +96,12 @@ private slots:
     void on_custom_secondary_clicked();
     void on_primary_color_accepted();
     void on_secondary_color_accepted();
+    // 自绘取色对话框：滑杆、HEX 输入与两个按钮（均经 colorDialogOwner 找回所属对话框）
+    void on_color_dialog_slider_moved();
+    void on_color_dialog_hex_edited();
+    void on_color_dialog_hex_finished();
+    void on_color_dialog_confirm_clicked();
+    void on_color_dialog_cancel_clicked();
     // 插件中心：统一查询周期
     void on_module_period_applied();
     // 插件中心：详情页选中插件变化时同步数值页签的模块标识
@@ -194,6 +201,24 @@ private:
     /// @param object_name 文件对话框 objectName
     /// @param suggested_path 建议文件路径（为空时不写入）
     void open_file_dialog(const char* object_name, const QString& suggested_path);
+
+    /// @brief 绑定自绘取色对话框：三条滑杆、HEX 输入与确定 / 取消的交互都在这里连接
+    void bind_color_dialog(QObject* dialog);
+    /// @brief 取回控件所属的取色对话框（绑定控件时记在 colorDialogOwner 上）
+    QObject* color_dialog_of(QObject* control) const;
+    /// @brief 打开自绘取色对话框，初始值取目标属性上的当前颜色
+    /// @param dialog_object_name 取色对话框 objectName
+    /// @param target_property 自定义主题对话框上的颜色属性（customPrimary / customSecondary）
+    void open_color_dialog(const char* dialog_object_name, const char* target_property);
+    /// @brief 把颜色写入取色对话框：预览、HEX 回显与三条滑杆同步
+    /// @param update_hex_field 为 false 时保留输入框文本（用户正在输入 HEX）
+    void set_color_dialog_color(QObject* dialog, const QColor& color, bool update_hex_field);
+    /// @brief 由三条滑杆的当前值重算颜色并刷新预览与 HEX 回显
+    void sync_color_dialog_from_hsv(QObject* dialog);
+    /// @brief 由 HEX 文本更新颜色，格式非法时只写错误提示
+    void sync_color_dialog_from_hex(QObject* dialog, const QString& text);
+    /// @brief 编辑结束把合法的 HEX 文本规范化成 #RRGGBB
+    void normalize_color_dialog_hex(QObject* dialog);
 
     struct ItemWatch {
         QQuickItem* owner = nullptr;

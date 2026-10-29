@@ -183,7 +183,7 @@
 
 ## 七、自定义主题入口
 
-- 配置页「自定义主题」按钮打开 `customThemeDialog`（`objectName`），通过 `ColorDialog` 选择主/副色。
+- 配置页「自定义主题」按钮打开 `customThemeDialog`（`objectName`），主/副色由自绘取色对话框 `AppColorDialog` 选择：颜色预览 + HEX 输入（`#RRGGBB` / `#RGB`，非法时显示错误行并禁用「确定」）+ 色相 / 饱和度 / 明度三条滑杆，HSV 与 HEX 的换算集中在 `UiConnector`。不再使用系统 `ColorDialog`：系统取色框不受主题令牌影响，深色界面下会弹出一块白色系统框。
 - 保存时 `UiConnector` 调用 `Theme.applyCustom(primary, secondary)`，主题名记为 `custom`。
 - 选择结果持久化到 `user.json` 的 `app.ui.custom.primary` / `app.ui.custom.secondary`；`app.ui.theme` 记录当前模式名。
 - 自定义主题与预设走同一套派生与对比度校正逻辑。
@@ -200,6 +200,7 @@
 | `AppComboBox`  | `ComboBox`  | 内容区、指示器、弹层、委托全部主题化          |
 | `AppCheckBox`  | `CheckBox`  | 指示器与文字主题化，选中态用强调色            |
 | `AppButton` / `NavButton` | `Button` | 强调/危险/中性三态，按下用 `pressed` / `dangerPressed` / `surfacePressed`；导航选中态为 `selectionBg` + `selectionText` |
+| `AppColorDialog` | `AppDialog` | 取色对话框：颜色预览块、HEX 输入与三条 HSV 滑杆；底色、描边、文字与滑杆全部取 `Theme` 令牌，随主题切换 |
 
 组件状态约定（尺寸与透明度取 `Metrics.focusRingWidth` / `focusRingOffset` / `disabledOpacity`）：
 

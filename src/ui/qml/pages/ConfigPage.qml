@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Dialogs
 
 // 配置页：连接（中转表单 + 扫码配对 + 蓝牙直连）与主题，以及规则编辑器入口。
 // 波形内容在波形设置页，日志内容在日志页，本页不再承载。
@@ -685,17 +684,18 @@ Item {
         }
     }
 
-    ColorDialog {
+    // 主/副色取色：自绘对话框继承 AppDialog，颜色与令牌随主题变化；颜色换算在 UiConnector
+    AppColorDialog {
         id: primaryColorDialog
+
         objectName: "primaryColorDialog"
         title: qsTr("选择主色")
-        selectedColor: customThemeDialog.customPrimary
     }
 
-    ColorDialog {
+    AppColorDialog {
         id: secondaryColorDialog
+
         objectName: "secondaryColorDialog"
         title: qsTr("选择副色")
-        selectedColor: customThemeDialog.customSecondary
     }
 }

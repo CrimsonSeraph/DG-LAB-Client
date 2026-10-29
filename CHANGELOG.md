@@ -12,6 +12,8 @@
 
 ### Added
 
+- **自绘取色对话框**: 新增 `components/AppColorDialog.qml`（继承 `AppDialog`），提供颜色预览块、HEX 输入（`#RRGGBB` / `#RGB`，非法时显示错误行并禁用「确定」）与色相 / 饱和度 / 明度三条滑杆，替换设置页自定义主题里的系统 `ColorDialog`；HSV 与 HEX 的换算集中在 `UiConnector`，确定后仍经 `on_primary_color_accepted` / `on_secondary_color_accepted` 写回主题，没有新增 QML 信号处理器。
+- **托盘折叠区一次性提示**: 首次运行（托盘可用且 `app.ui.tray_hint_shown` 为假）弹一次 Toast，说明 Windows 11 会把新建的托盘图标收进折叠区、如何把它拖到常显区域；提示写回该键后不再重复。新增配置键默认值 `app.ui.tray_hint_shown`。
 - **迷你窗**: 无边框置顶窗口，标题条可拖动与锁定，显示 A/B 强度大数字与占比并接管强度增减与通道启停；带透明度滑杆、大小三档、近 5 条触发流水与 A/B 滚动波形，位置、尺寸与锁定状态持久化。
 - **系统托盘常驻**: 托盘菜单提供显示主窗口、显示迷你窗与退出；主窗口关闭改为隐藏到托盘，退出唯一路径是托盘菜单，托盘不可用时降级为关闭即退出。
 - **左侧导航与基础组件库**: 新增 `AppSwitch` / `AppSlider` / `AppTabs` / `AppChip` / `AppCard` / `AppField` / `AppSparkline` / `AppStatusButton` / `AppSegment` 九个基础组件，主窗口改为窄列表导航加左下角常驻面板，并落插件中心、波形设置、小游戏、日志四个页面骨架。
@@ -48,9 +50,10 @@
 - **默认主题改为 classic**: `DefaultConfigs`、出厂 `config/user.json` 与 `ThemeManager` 回退值统一为 `classic`，未知主题也落到该预设。
 - **插件骨架调整**: 示例插件迁出为 `docs/community_plugin_template/`，新增战争雷霆遥测与恶魔轮盘桥接两个插件，`module/README.md` 重写。
 - **文档体系拆分**: 根 README 收敛为定位、核心特性、快速开始、文档索引与许可，架构、功能、设备、构建、FAQ、截图、插件开发与规则文件各自独立成篇；交接文档里的不可变要求并入 `CONTRIBUTING.md`，环境事实与验收清单进入 `docs/build.md`。同批的 README 口径同步、插件清单更新、模块页失效引用清理与截图画廊张数修正合并在此。
-
+- **退出路径**: `main.cpp` 在 `app.exec()` 返回后先做两步收尾（断开蓝牙输出设备到 `DeviceController` 的连接、摘掉 QML 日志 sink），再让各对象按既有顺序析构；退出耗时实测 330 ms（空闲）/ 350 ms（郊狼蓝牙在线）中位数，分段数据记在 `docs/build.md`。
 ### Fixed
 
+- **退出段错误**: ① `CoyoteBleController` 析构时仍发状态信号，而 `DeviceController::online_outputs()` 里存着已销毁负鼠的裸指针，回调直接跳到垃圾地址；② `LogBridge` 从不注销自己的日志 sink，`main` 返回后配置单例析构保存时会写日志并回调到已销毁的 `LogBridge`。两处都在 `main.cpp` 的退出收尾里消除后，退出码回到 0、err/out 均 0 字节。
 - **插件卸载残留事件状态**: `EventEngine` 新增 `remove_module` 与 `has_module`，抹除模块声明、激活窗口、通道累计、斜坡与上下限快照，卸载后再来的数值变化不再重建状态；`ModuleManager` 注销时广播 `module_unregistered`，由 `EventRuntime` 接线。
 - **迷你窗确认弹层不可见**: 主窗口隐藏或最小化时先拉起再弹确认层，迷你窗关闭运行中通道不再出现看不见的确认框。
 - **配置页波形卡浅色底**: 波形选择对话框在经典主题下改由 `AppDialog` 令牌着色，不再沿用 Qt 默认浅色背景。

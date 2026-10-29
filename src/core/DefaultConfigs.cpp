@@ -69,7 +69,9 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
             {"app", {
                 {"ui", {
                     {"theme", "classic"},
-                    {"font_size", 16}
+                    {"font_size", 16},
+                    // 托盘图标折叠区提示只弹一次（Windows 11 无法程序化强制显示托盘图标）
+                    {"tray_hint_shown", false}
                 }},
                 {"log", {
                     {"auto", {

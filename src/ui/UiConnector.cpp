@@ -128,6 +128,33 @@ namespace {
         return window;
     }
 
+    /// @brief HEX 文本解析：#RGB / #RRGGBB（可省 #），非法返回无效颜色
+    QColor parse_hex_color(const QString& text) {
+        QString value = text.trimmed();
+        if (value.startsWith(QLatin1Char('#'))) {
+            value.remove(0, 1);
+        }
+        if (value.size() != 3 && value.size() != 6) {
+            return QColor();
+        }
+        for (const QChar ch : value) {
+            const QChar upper = ch.toUpper();
+            const bool is_digit = upper >= QLatin1Char('0') && upper <= QLatin1Char('9');
+            const bool is_hex_letter = upper >= QLatin1Char('A') && upper <= QLatin1Char('F');
+            if (!is_digit && !is_hex_letter) {
+                return QColor();
+            }
+        }
+        // 3 位简写交给 QColor 展开，回显统一走 6 位大写
+        const QColor color = QColor::fromString(QStringLiteral("#") + value);
+        return color.isValid() ? color : QColor();
+    }
+
+    /// @brief 颜色转 #RRGGBB 回显文本（HEX 输入框与规范化共用同一格式）
+    QString color_hex_text(const QColor& color) {
+        return color.name(QColor::HexRgb).toUpper();
+    }
+
 } // namespace
 
 UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
@@ -349,11 +376,14 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "customThemeSaveButton", SLOT(on_custom_theme_save_clicked()));
     connect_clicked(root_object, "customThemePrimaryButton", SLOT(on_custom_primary_clicked()));
     connect_clicked(root_object, "customThemeSecondaryButton", SLOT(on_custom_secondary_clicked()));
+    // 自绘取色对话框：滑杆与 HEX 输入的换算在 C++ 侧完成；accepted() 仍由既有槽写回主题
     if (auto* primary = root_object->findChild<QObject*>(QStringLiteral("primaryColorDialog"))) {
         QObject::connect(primary, SIGNAL(accepted()), this, SLOT(on_primary_color_accepted()));
+        bind_color_dialog(primary);
     }
     if (auto* secondary = root_object->findChild<QObject*>(QStringLiteral("secondaryColorDialog"))) {
         QObject::connect(secondary, SIGNAL(accepted()), this, SLOT(on_secondary_color_accepted()));
+        bind_color_dialog(secondary);
     }
     watch_items(root_object, "themePresetList", QStringLiteral("themePresetClick"),
         SLOT(on_theme_preset_clicked()));
@@ -1673,22 +1703,14 @@ void UiConnector::on_custom_theme_save_clicked() {
     }
 }
 
+// 主色取色入口：初始值取自定义主题对话框上的当前主色
 void UiConnector::on_custom_primary_clicked() {
-    auto* dialog = find("customThemeDialog");
-    auto* picker = find("primaryColorDialog");
-    if (dialog != nullptr && picker != nullptr) {
-        picker->setProperty("color", dialog->property("customPrimary"));
-        QMetaObject::invokeMethod(picker, "open");
-    }
+    open_color_dialog("primaryColorDialog", "customPrimary");
 }
 
+// 副色取色入口：初始值取自定义主题对话框上的当前副色
 void UiConnector::on_custom_secondary_clicked() {
-    auto* dialog = find("customThemeDialog");
-    auto* picker = find("secondaryColorDialog");
-    if (dialog != nullptr && picker != nullptr) {
-        picker->setProperty("color", dialog->property("customSecondary"));
-        QMetaObject::invokeMethod(picker, "open");
-    }
+    open_color_dialog("secondaryColorDialog", "customSecondary");
 }
 
 void UiConnector::on_primary_color_accepted() {
@@ -1705,6 +1727,168 @@ void UiConnector::on_secondary_color_accepted() {
     if (picker != nullptr && dialog != nullptr) {
         dialog->setProperty("customSecondary", picker->property("selectedColor"));
     }
+}
+
+// 绑定自绘取色对话框：滑杆、HEX 输入与确定 / 取消全部在这里连接，QML 不写信号处理器
+void UiConnector::bind_color_dialog(QObject* dialog) {
+    if (dialog == nullptr) {
+        return;
+    }
+    auto* hex_field = dialog->findChild<QObject*>(QStringLiteral("colorDialogHexField"));
+    auto* hue_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogHueSlider"));
+    auto* saturation_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogSaturationSlider"));
+    auto* value_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogValueSlider"));
+    auto* confirm_button = dialog->findChild<QObject*>(QStringLiteral("colorDialogConfirmButton"));
+    auto* cancel_button = dialog->findChild<QObject*>(QStringLiteral("colorDialogCancelButton"));
+    if (hex_field == nullptr || hue_slider == nullptr || saturation_slider == nullptr
+        || value_slider == nullptr || confirm_button == nullptr || cancel_button == nullptr) {
+        LOG_MODULE("UiConnector", "bind_color_dialog", LOG_WARN, "取色对话框缺少控件，取色交互不可用");
+        return;
+    }
+    // 每个控件记下所属对话框，槽里靠 sender() 找回，省掉一个按控件索引的映射表
+    const auto bind_control = [this, dialog](QObject* control, const char* signal, const char* slot) {
+        control->setProperty("colorDialogOwner", QVariant::fromValue(dialog));
+        QObject::connect(control, signal, this, slot);
+    };
+    // 滑杆只有 moved() 表示用户拖动（程序写 value 不触发），三行共用同一个槽
+    for (QObject* slider : {hue_slider, saturation_slider, value_slider}) {
+        bind_control(slider, SIGNAL(moved()), SLOT(on_color_dialog_slider_moved()));
+    }
+    // HEX 输入：编辑过程中只做校验（不改写文本，避免打断光标），编辑结束再规范化
+    bind_control(hex_field, SIGNAL(textEdited()), SLOT(on_color_dialog_hex_edited()));
+    bind_control(hex_field, SIGNAL(editingFinished()), SLOT(on_color_dialog_hex_finished()));
+    // 确定走 Dialog::accept()，accepted() 仍由既有槽写回主题；取消只关闭
+    bind_control(confirm_button, SIGNAL(clicked()), SLOT(on_color_dialog_confirm_clicked()));
+    bind_control(cancel_button, SIGNAL(clicked()), SLOT(on_color_dialog_cancel_clicked()));
+}
+
+// 取回控件所属的取色对话框（bind_color_dialog 在控件上记了 colorDialogOwner）
+QObject* UiConnector::color_dialog_of(QObject* control) const {
+    if (control == nullptr) {
+        return nullptr;
+    }
+    return control->property("colorDialogOwner").value<QObject*>();
+}
+
+// 取色滑杆移动：按三条滑杆的当前值重算颜色
+void UiConnector::on_color_dialog_slider_moved() {
+    sync_color_dialog_from_hsv(color_dialog_of(sender()));
+}
+
+// 取色 HEX 输入变化：合法则立即生效，非法只给提示
+void UiConnector::on_color_dialog_hex_edited() {
+    auto* field = sender();
+    if (field == nullptr) {
+        return;
+    }
+    sync_color_dialog_from_hex(color_dialog_of(field), field->property("text").toString());
+}
+
+// 取色 HEX 编辑结束：把合法文本规范化成 #RRGGBB
+void UiConnector::on_color_dialog_hex_finished() {
+    normalize_color_dialog_hex(color_dialog_of(sender()));
+}
+
+// 取色确定：颜色已随交互写入 selectedColor，这里只收对话框
+void UiConnector::on_color_dialog_confirm_clicked() {
+    QObject* dialog = color_dialog_of(sender());
+    if (dialog != nullptr) {
+        QMetaObject::invokeMethod(dialog, "accept");
+    }
+}
+
+// 取色取消：只关闭对话框，不动自定义主题的当前颜色
+void UiConnector::on_color_dialog_cancel_clicked() {
+    QObject* dialog = color_dialog_of(sender());
+    if (dialog != nullptr) {
+        QMetaObject::invokeMethod(dialog, "close");
+    }
+}
+
+// 打开取色对话框：初始值取目标属性上的当前颜色，HEX 回显与三条滑杆随之就位
+void UiConnector::open_color_dialog(const char* dialog_object_name, const char* target_property) {
+    auto* dialog = find("customThemeDialog");
+    auto* picker = find(dialog_object_name);
+    if (dialog == nullptr || picker == nullptr) {
+        return;
+    }
+    QColor initial = dialog->property(target_property).value<QColor>();
+    if (!initial.isValid() && theme_ != nullptr) {
+        initial = theme_->primary();
+    }
+    set_color_dialog_color(picker, initial, true);
+    QMetaObject::invokeMethod(picker, "open");
+}
+
+// 把颜色写入取色对话框：预览、HEX 回显与三条滑杆同步（灰阶无色相时保留当前色相）
+void UiConnector::set_color_dialog_color(QObject* dialog, const QColor& color, bool update_hex_field) {
+    if (dialog == nullptr || !color.isValid()) {
+        return;
+    }
+    dialog->setProperty("selectedColor", color);
+    dialog->setProperty("hexError", QString());
+    if (update_hex_field) {
+        if (auto* hex_field = dialog->findChild<QObject*>(QStringLiteral("colorDialogHexField"))) {
+            hex_field->setProperty("text", color_hex_text(color));
+        }
+    }
+    if (auto* hue_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogHueSlider"))) {
+        const int current_hue = hue_slider->property("value").toInt();
+        const int hue = color.hsvHue();
+        hue_slider->setProperty("value", hue < 0 ? current_hue : hue);
+    }
+    if (auto* saturation_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogSaturationSlider"))) {
+        saturation_slider->setProperty("value", qRound(color.hsvSaturationF() * 100.0));
+    }
+    if (auto* value_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogValueSlider"))) {
+        value_slider->setProperty("value", qRound(color.valueF() * 100.0));
+    }
+}
+
+// 由三条滑杆的当前值重算颜色：预览与 HEX 回显随拖动实时刷新
+void UiConnector::sync_color_dialog_from_hsv(QObject* dialog) {
+    if (dialog == nullptr) {
+        return;
+    }
+    auto* hue_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogHueSlider"));
+    auto* saturation_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogSaturationSlider"));
+    auto* value_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogValueSlider"));
+    if (hue_slider == nullptr || saturation_slider == nullptr || value_slider == nullptr) {
+        return;
+    }
+    const int hue = hue_slider->property("value").toInt() % 360;
+    const int saturation = qRound(saturation_slider->property("value").toDouble() * 255.0 / 100.0);
+    const int value = qRound(value_slider->property("value").toDouble() * 255.0 / 100.0);
+    set_color_dialog_color(dialog, QColor::fromHsv(hue, saturation, value), true);
+}
+
+// 由 HEX 文本更新颜色：合法则立即生效并让滑杆跟随，非法只写错误提示、不动当前颜色
+void UiConnector::sync_color_dialog_from_hex(QObject* dialog, const QString& text) {
+    if (dialog == nullptr) {
+        return;
+    }
+    const QColor color = parse_hex_color(text);
+    if (!color.isValid()) {
+        dialog->setProperty("hexError", QStringLiteral("HEX 格式应为 #RRGGBB 或 #RGB（3 位或 6 位十六进制）"));
+        return;
+    }
+    set_color_dialog_color(dialog, color, false);
+}
+
+// 编辑结束把合法的 HEX 文本规范化成 #RRGGBB（非法输入保持原样，错误提示已由编辑过程给出）
+void UiConnector::normalize_color_dialog_hex(QObject* dialog) {
+    if (dialog == nullptr) {
+        return;
+    }
+    auto* hex_field = dialog->findChild<QObject*>(QStringLiteral("colorDialogHexField"));
+    if (hex_field == nullptr) {
+        return;
+    }
+    const QColor color = parse_hex_color(hex_field->property("text").toString());
+    if (!color.isValid()) {
+        return;
+    }
+    hex_field->setProperty("text", color_hex_text(color));
 }
 
 void UiConnector::on_module_period_applied() {
