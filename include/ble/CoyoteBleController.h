@@ -80,6 +80,27 @@ public:
     /// @return 识别结果；非 47L1 前缀返回未限定型号的可连接结果
     static DeviceProfile identify(const QString& name);
 
+    /// @brief 按蓝牙名识别型号，名称未命中型号表时回退到按 MAC 记忆的型号
+    /// @param name 蓝牙名
+    /// @param remembered_model 该 MAC 记忆的型号标识（coyote / pawprint / civet / opossum，空串表示无记忆）
+    /// @return 识别结果；名称命中优先于记忆，两者都未命中时返回可连接的未知型号
+    static DeviceProfile identify(const QString& name, const QString& remembered_model);
+
+    /// @brief 按连接后通知帧的首字节反推型号
+    /// @param head 通知帧首字节
+    /// @return 型号标识；0xD0（爪印与灵猫歧义）与无映射的首字节返回空串
+    static QString model_from_frame_head(quint8 head);
+
+    /// @brief 读取该 MAC 记忆的型号标识（app.devices.<MAC>.model）
+    /// @param mac 设备 MAC
+    /// @return 型号标识；无记忆返回空串
+    static QString remembered_model(const QString& mac);
+
+    /// @brief 记忆该 MAC 的型号标识，与已存值不同才写盘
+    /// @param mac 设备 MAC
+    /// @param model 型号标识
+    static void remember_model(const QString& mac, const QString& model);
+
     bool scanning() const { return scanning_; }
     bool connected() const override { return connected_; }
     QString device_name() const { return device_name_; }
@@ -159,6 +180,8 @@ private:
     bool pawprints_active() const;
     // 灵猫是否为界面上的当前链路（郊狼、负鼠与爪印都未连接且灵猫已连接）
     bool civet_active() const;
+    // 采用识别结果作为当前设备身份（仅在尚未识别出型号时生效）
+    void adopt_profile(const DeviceProfile& profile);
     void on_device_discovered(const QBluetoothDeviceInfo& info);
     void on_scan_finished();
     void on_controller_connected();
@@ -220,6 +243,8 @@ private:
     int last_set_a_ = -1; ///< 最近一条绝对强度（A），-1 表示未下发过
     int last_set_b_ = -1; ///< 最近一条绝对强度（B），-1 表示未下发过
     bool identity_frame_logged_ = false; ///< 设备身份帧是否已记录
+    bool model_ambiguity_logged_ = false; ///< 首帧型号歧义是否已记录
+    bool model_conflict_logged_ = false; ///< 首帧反推与记忆冲突是否已记录
     bool opossum_link_shown_ = false; ///< 负鼠是否已成为界面当前链路（连接信号只在翻转时发）
     QString status_;
     ChannelState channel_a_;

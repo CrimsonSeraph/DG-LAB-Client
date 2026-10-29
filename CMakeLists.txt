@@ -1012,6 +1012,51 @@ target_include_directories(civet_device_test
 )
 add_test(NAME civet_device_test COMMAND civet_device_test)
 
+# 型号识别（名称命中型号表、名称未命中时按 MAC 记忆补齐型号、首帧反推含 0xD0 歧义）
+# 只调纯函数，不连接设备；不进 PROJECT_SOURCES / 安装规则，不触碰仓库 config/
+add_executable(model_recognition_test
+	tests/model_recognition_test.cpp
+	src/ble/CivetBleController.cpp
+	src/ble/CoyoteBleController.cpp
+	src/ble/OpossumBleController.cpp
+	src/ble/PawPrintsBleController.cpp
+	include/ble/CivetBleController.h
+	include/ble/CoyoteBleController.h
+	include/ble/IOutputDevice.h
+	include/ble/OpossumBleController.h
+	include/ble/PawPrintsBleController.h
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${WAVE}
+	${CORE_CONFIG}
+	${CORE_LOG}
+)
+target_link_libraries(model_recognition_test
+	PRIVATE
+		Qt::Core
+		Qt::Gui
+		Qt::Network
+		Qt::Qml
+		Qt::Bluetooth
+		nlohmann_json
+		miniz
+)
+target_include_directories(model_recognition_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+		${CMAKE_CURRENT_SOURCE_DIR}/include/device
+)
+add_test(NAME model_recognition_test COMMAND model_recognition_test)
+
 # 波形库数据层（官方内置波形资源、V2/V3 双版本帧、存储 round-trip、旧格式兼容与非法帧拒绝）
 # 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；
 # 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/

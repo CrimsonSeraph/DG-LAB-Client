@@ -5,6 +5,7 @@
 
 #include "CoyoteBleController.h"
 
+#include "AppConfig.h"
 #include "CivetBleController.h"
 #include "DebugLog.h"
 #include "OpossumBleController.h"
@@ -61,6 +62,36 @@ namespace {
                                         : IOutputDevice::SupportState::Experimental;
     }
 
+    // 型号表条目 → 识别结果
+    CoyoteBleController::DeviceProfile profile_of_entry(const ModelEntry& entry) {
+        CoyoteBleController::DeviceProfile profile;
+        profile.model = QString::fromLatin1(entry.prefix);
+        profile.label = QString::fromUtf8(entry.label);
+        profile.supported = entry.has_driver;
+        profile.output = entry.output;
+        profile.type = QString::fromLatin1(entry.type);
+        profile.state = entry.blocked ? IOutputDevice::SupportState::Unsupported
+                                      : support_state_of(entry.has_driver, entry.verified);
+        profile.hint = QString::fromUtf8(entry.hint);
+        return profile;
+    }
+
+    // 型号标识 → 型号表条目（MAC 记忆与首帧反推共用；跳过登记为不可连接的型号）
+    const ModelEntry* entry_of_type(const QString& type) {
+        if (type.isEmpty()) {
+            return nullptr;
+        }
+        for (const ModelEntry& entry : kModelTable) {
+            if (entry.blocked) {
+                continue;
+            }
+            if (type.compare(QString::fromLatin1(entry.type), Qt::CaseInsensitive) == 0) {
+                return &entry;
+            }
+        }
+        return nullptr;
+    }
+
     // 驱动支持程度的界面文案
     QString support_text_of(IOutputDevice::SupportState state) {
         if (state == IOutputDevice::SupportState::Supported) {
@@ -105,21 +136,22 @@ void CoyoteBleController::initialize() {
 }
 
 CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& name) {
-    DeviceProfile profile;
+    return identify(name, QString());
+}
+
+CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& name,
+    const QString& remembered_model) {
     for (const ModelEntry& entry : kModelTable) {
-        const QString prefix = QString::fromLatin1(entry.prefix);
-        if (name.startsWith(prefix)) {
-            profile.model = prefix;
-            profile.label = QString::fromUtf8(entry.label);
-            profile.supported = entry.has_driver;
-            profile.output = entry.output;
-            profile.type = QString::fromLatin1(entry.type);
-            profile.state = entry.blocked ? SupportState::Unsupported
-                                          : support_state_of(entry.has_driver, entry.verified);
-            profile.hint = QString::fromUtf8(entry.hint);
-            return profile;
+        if (name.startsWith(QString::fromLatin1(entry.prefix))) {
+            return profile_of_entry(entry);
         }
     }
+    // 名称未命中型号表：按 MAC 记忆的型号补齐（操作系统只给占位名的设备靠它恢复型号语义）
+    const QString remembered = remembered_model.trimmed().toLower();
+    if (const ModelEntry* entry = entry_of_type(remembered)) {
+        return profile_of_entry(*entry);
+    }
+    DeviceProfile profile;
     if (name.startsWith(QStringLiteral("47L1"))) {
         // 未登记的 47L1 前缀：型号段取前 6 位，标注暂不支持
         profile.model = name.left(6);
@@ -132,6 +164,60 @@ CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& 
     profile.label = QStringLiteral("未知型号");
     profile.state = SupportState::Experimental;
     return profile;
+}
+
+QString CoyoteBleController::model_from_frame_head(quint8 head) {
+    switch (head) {
+    case 0xB1:
+        return QStringLiteral("coyote");
+    case 0xB3:
+        return QStringLiteral("opossum");
+    case 0x51:
+    case 0x5A:
+    case 0x5B:
+    case 0x5C:
+        return QStringLiteral("pawprint");
+    default:
+        break;
+    }
+    // 0xD0 在爪印与灵猫之间歧义，其余首字节无映射：都不猜
+    return QString();
+}
+
+QString CoyoteBleController::remembered_model(const QString& mac) {
+    const QString normalized = mac.trimmed().toUpper();
+    if (normalized.isEmpty()) {
+        return QString();
+    }
+    const std::string key = "app.devices." + normalized.toStdString() + ".model";
+    const std::string stored = AppConfig::instance().get_value<std::string>(key, std::string());
+    return QString::fromStdString(stored).trimmed().toLower();
+}
+
+void CoyoteBleController::remember_model(const QString& mac, const QString& model) {
+    const QString normalized = mac.trimmed().toUpper();
+    const QString value = model.trimmed().toLower();
+    if (normalized.isEmpty() || value.isEmpty() || remembered_model(normalized) == value) {
+        return;
+    }
+    auto& config = AppConfig::instance();
+    const std::string key = "app.devices." + normalized.toStdString() + ".model";
+    config.set_value_with_name<std::string>(key, value.toStdString(), "user");
+    config.save_all();
+    LOG_MODULE("CoyoteBleController", "remember_model", LOG_INFO,
+        "记忆设备型号:" << normalized.toStdString() << " → " << value.toStdString());
+}
+
+void CoyoteBleController::adopt_profile(const DeviceProfile& profile) {
+    if (profile.model.isEmpty() || !device_model_.isEmpty()) {
+        return;
+    }
+    device_model_ = profile.model;
+    device_label_ = profile.label;
+    device_type_ = profile.type;
+    device_output_capable_ = profile.output;
+    support_state_ = profile.state;
+    emit stateChanged();
 }
 
 void CoyoteBleController::attach_opossum(OpossumBleController* opossum) {
@@ -368,7 +454,7 @@ void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info)
     // 加入 UI 列表：行上带「已支持 / 实验性 / 暂不支持」三态标签
     QVariantMap item;
     QString displayName = info.name().isEmpty() ? QStringLiteral("郊狼设备(未知名称)") : info.name();
-    const DeviceProfile profile = identify(info.name());
+    const DeviceProfile profile = identify(info.name(), remembered_model(address));
     item.insert(QStringLiteral("name"), displayName);
     item.insert(QStringLiteral("address"), address);
     item.insert(QStringLiteral("supported"), profile.supported);
@@ -413,7 +499,7 @@ void CoyoteBleController::connectDevice(const QString& address) {
         return;
     }
 
-    const DeviceProfile profile = identify(target.name());
+    const DeviceProfile profile = identify(target.name(), remembered_model(address));
     if (profile.state == SupportState::Unsupported) {
         // 型号未登记或本版明确不支持（如固件过旧）：拒绝连接，避免写入语义不匹配的指令
         LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
@@ -503,8 +589,9 @@ void CoyoteBleController::connectDevice(const QString& address) {
         set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
         return;
     }
-    if (profile.state == SupportState::Experimental) {
-        // 实验性型号：行可点选，但驱动未实现，明确告知而不是假装可用
+    if (profile.state == SupportState::Experimental && !profile.supported) {
+        // 实验性型号且驱动未实现：行可点选，但明确告知而不是假装可用
+        // （名称不在型号表内的设备由 identify() 标记为可连接，沿用不限定型号的既有行为放行）
         LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
             "实验性型号驱动尚未实现:" << target.name().toStdString() << " 型号 " << profile.model.toStdString());
         set_status(QStringLiteral("%1 驱动尚未实现").arg(profile.label));
@@ -531,6 +618,10 @@ void CoyoteBleController::connectDevice(const QString& address) {
     device_type_ = profile.type;
     device_output_capable_ = profile.output;
     support_state_ = profile.state;
+    // 首次成功识别出型号时写回记忆：名称命中与连接后首帧反推共用同一份记忆
+    if (!profile.model.isEmpty()) {
+        remember_model(address, profile.type);
+    }
 
     // 用完整的 target 对象创建控制器
     controller_ = QLowEnergyController::createCentral(target, this);
@@ -731,6 +822,37 @@ void CoyoteBleController::on_characteristic_changed(const QLowEnergyCharacterist
             emit batteryChanged();
         }
         return;
+    }
+    // 尚未识别出型号时按首帧反推：只认能唯一判定的首字节，已有记忆或名称命中时不覆盖
+    if (device_model_.isEmpty() && !value.isEmpty()) {
+        const quint8 head = static_cast<quint8>(value.at(0));
+        const QString inferred = model_from_frame_head(head);
+        if (inferred.isEmpty()) {
+            if (head == 0xD0 && !model_ambiguity_logged_) {
+                model_ambiguity_logged_ = true;
+                LOG_MODULE("CoyoteBleController", "on_characteristic_changed", LOG_DEBUG,
+                    "无法据首帧判定型号: 首字节 D0 在爪印与灵猫之间歧义");
+            }
+        }
+        else if (const QString remembered = remembered_model(device_address_);
+                 !remembered.isEmpty() && remembered != inferred) {
+            if (!model_conflict_logged_) {
+                model_conflict_logged_ = true;
+                LOG_MODULE("CoyoteBleController", "on_characteristic_changed", LOG_WARN,
+                    "首帧反推型号与记忆不一致，以记忆为准: 记忆 " << remembered.toStdString()
+                                                                 << " 首帧 " << inferred.toStdString());
+            }
+        }
+        else {
+            const DeviceProfile inferred_profile = identify(QString(), inferred);
+            if (!inferred_profile.model.isEmpty()) {
+                adopt_profile(inferred_profile);
+                remember_model(device_address_, inferred_profile.type);
+                LOG_MODULE("CoyoteBleController", "on_characteristic_changed", LOG_INFO,
+                    "按首帧反推型号: " << inferred_profile.type.toStdString() << " 型号段 "
+                                       << inferred_profile.model.toStdString());
+            }
+        }
     }
     if (!value.isEmpty() && static_cast<quint8>(value.at(0)) == 0x53) {
         // 设备自报身份帧（0x53 + MAC）：只记一次，避免 100ms 级刷屏
