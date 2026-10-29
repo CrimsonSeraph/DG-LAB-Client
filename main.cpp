@@ -5,6 +5,7 @@
 
 #include "AppBridge.h"
 #include "AppConfig.h"
+#include "CivetBleController.h"
 #include "Console.h"
 #include "CoyoteBleController.h"
 #include "DebugLog.h"
@@ -204,14 +205,26 @@ int main(int argc, char* argv[]) {
     PawPrintsBleController pawprints;
     pawprints.initialize();
     ble.attach_pawprints(&pawprints);
-    // 爪印通知 → paw 数值模块，该模块的内置事件声明接进事件运行时（插件声明之外的第二个来源）
-    DeviceValueBridge paw_bridge(&pawprints);
-    paw_bridge.initialize();
+    // 灵猫边缘控制传感器 V1（实验性输入设备）：同样复用扫描与连接入口，写入由灵猫驱动接管
+    CivetBleController civet;
+    civet.initialize();
+    ble.attach_civet(&civet);
+    // 爪印通知 → paw 数值模块、灵猫气压 → civet 数值模块，两个模块的内置事件声明接进事件运行时
+    // （插件声明之外的第二个来源）
+    DeviceValueBridge device_bridge(&pawprints, &civet);
+    device_bridge.initialize();
     event_runtime.register_builtin_events(DeviceValueBridge::kModuleName, DeviceValueBridge::builtin_events());
+    event_runtime.register_builtin_events(DeviceValueBridge::kCivetModuleName,
+        DeviceValueBridge::civet_builtin_events());
     // 实验性设备首次连接成功的一次性提示：输入类设备不实现 IOutputDevice，按 MAC 复用同一机制
     QObject::connect(&pawprints, &PawPrintsBleController::stateChanged, &device, [&device, &pawprints]() {
         if (pawprints.connected()) {
             device.notify_experimental_device(pawprints.device_address());
+        }
+    });
+    QObject::connect(&civet, &CivetBleController::stateChanged, &device, [&device, &civet]() {
+        if (civet.connected()) {
+            device.notify_experimental_device(civet.device_address());
         }
     });
 
