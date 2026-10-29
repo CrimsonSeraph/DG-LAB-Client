@@ -16,7 +16,7 @@
 | `Qt6::Widgets` | `QSystemTrayIcon` / `QMenu`：系统托盘图标与三项菜单（`TrayController`） |
 | `AppConfig` / `DebugLog` | 核心基础设施 |
 | `ModuleManager` / `RuleManager` | 数据与规则来源 |
-| `DeviceController` / `DglabRelayServer` / `IOutputDevice` / `CoyoteBleController` / `OpossumBleController` | 设备通信：应用内 V3 / V4 中转服务与蓝牙直连（郊狼 V3、负鼠 V1）；`DeviceController` 只依赖输出设备接口 `IOutputDevice`，经 `attach_output()` 可注入多台设备，默认设备评选为郊狼优先、其次负鼠 |
+| `DeviceController` / `DglabRelayServer` / `IOutputDevice` / `CoyoteBleController` / `OpossumBleController` / `PawPrintsBleController` / `DeviceValueBridge` | 设备通信：应用内 V3 / V4 中转服务与蓝牙直连（郊狼 V3、负鼠 V1，以及爪印 V1.1 输入侧）；`DeviceController` 只依赖输出设备接口 `IOutputDevice`，经 `attach_output()` 可注入多台设备，默认设备评选为郊狼优先、其次负鼠；爪印是纯输入设备（不实现 `IOutputDevice`），通知经 `DeviceValueBridge` 写成 `paw` 模块数值 |
 
 ## 目录结构
 
@@ -200,9 +200,22 @@ src/ui/
 | `configBleColumn` | 连接卡内的蓝牙直连子区（位于扫码配对列下方，含状态 / 扫描 / 设备列表 / 强度增减） |
 | `configBleStatusText` | 蓝牙直连状态行：已连接显示「已连接 <设备名>」，未连接只显示「未连接」（单一状态行，不重复） |
 | `configBleStatusDetail` | 蓝牙状态明细（绑 `ble.status`）：与状态行文案相同时隐藏，扫描中 / 连接中 / 错误 / 断开等有价值的状态保留；只读 |
-| `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备 |
+| `bleScanButton` / `bleDisconnectButton` | 扫描 / 断开蓝牙设备；断开按钮在郊狼或负鼠输出链路连接时可用，爪印（纯输入设备）连上后经 `ble.pawConnected` 单独放开 |
 | `bleDeviceList` / `bleDeviceClick` | 蓝牙设备列表与行热区（`address` 属性）：行是 `Rectangle`（`Theme.surface` 底 + `Metrics.radiusSm` 圆角 + 常驻 `Theme.divider` 细边框），热区 `hoverEnabled: true`，悬停靠 `containsMouse` 绑定把底色换 `Theme.surfaceAlt`、描边换 `Theme.accent`，并给出手型光标；不新增任何 QML 信号处理器。行文字取 `Theme.textSecondary`（暂不支持的型号取 `Theme.textMuted`）并在名字后追加 C++ 给出的 `hint`；热区 `enabled: modelData.connectable`，光标随之在箭头与手型之间切换 |
 | `bleDeviceSupportBadge` | 行尾的设备状态徽标（`StatusBadge`）：`modelData.support` 为 2 已支持（绿）/ 1 实验性（黄）/ 0 暂不支持（红），文案由 C++ 的 `modelData.supportText` 给出，QML 不判断型号 |
+
+蓝牙型号三态与提示文案（全部由 `CoyoteBleController::identify()` 的 `kModelTable` 与 `on_device_discovered()` 决定，QML 只显示）：
+
+| 型号 | 徽标 | 行内 hint | 可点选 |
+| --- | --- | --- | --- |
+| `47L121` 郊狼 V3 | 已支持 | 空 | 是 |
+| `47L127` 负鼠 V1 | 实验性 | `型号 47L127，实验性驱动已实现，未经实机验证` | 是 |
+| `47L120` 爪印 V1.1 | 实验性 | `型号 47L120，实验性驱动已实现，未经实机验证` | 是（首次连接成功弹一次「此设备连接为实验性，功能未经完整验证」） |
+| `47L120100` 爪印 V1.0 | 暂不支持 | `需先升级固件（V1.0 不可连接，请在 DG-LAB 3.0 APP 更新配件固件）` | 否 |
+| `47L124` 灵猫 | 实验性 | `暂不可连接（型号 47L124，驱动尚未实现）` | 是（点选给出「灵猫（型号 47L124）驱动尚未实现，本版无法连接」） |
+| 其它 `47L1` 前缀 | 暂不支持 | `不可连接（型号 xxx，型号未登记）` | 否 |
+
+爪印连接成功后状态行显示「爪印已连接（实验性输入设备）」；50 指令未被 `51` 确认时显示「爪印未确认 50 指令」并弹一次 danger Toast。爪印不参与 `ble.connected` 的输出链路口径（该属性决定通道强度与默认设备），只体现在 `ble.status` 与型号行上。
 | `bleStrengthA{Increase,Decrease}` / `bleStrengthB{Increase,Decrease}` | 蓝牙通道强度增减 |
 
 波形设置页（`pages/WavePage.qml`）：外层 `ScrollView` 撑满窗口，页面只在窗口高度不足时滚动；波形内容全部来自配置页迁移，行为不变。

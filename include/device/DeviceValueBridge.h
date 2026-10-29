@@ -1,0 +1,141 @@
+/*
+ * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+#pragma once
+
+#include "EventDefinition.h"
+#include "ModuleValue.h"
+
+#include <QObject>
+
+#include <string>
+#include <vector>
+
+class PawPrintsBleController;
+
+// paw_values - 爪印在数值模块 `paw` 下的数值定义（驱动、桥接与单元测试共用）
+namespace paw_values {
+
+    /// @brief 单个数值的定义（id / 展示名 / 钳制范围）
+    struct ValueSpec {
+        const char* id;   ///< 数值 ID（规则与事件引用）
+        const char* name; ///< 数值中文名
+        int min;          ///< 下限
+        int max;          ///< 上限
+    };
+
+    inline constexpr ValueSpec kValues[] = {
+        {"button", "按下状态", 0, 1},
+        {"param", "触发参数", 0, 255},
+        {"event_id", "触发事件 ID", 0, 24},
+        {"accel", "加速度", 0, 255},
+        {"angle_x", "X 轴角度", -128, 127},
+        {"angle_y", "Y 轴角度", -128, 127},
+        {"angle_z", "Z 轴角度", -128, 127},
+        {"voltage", "外部电压", 0, 255},
+        {"battery", "电量", 0, 100},
+    };
+    constexpr int kValueCount = static_cast<int>(sizeof(kValues) / sizeof(kValues[0])); ///< 数值个数
+
+    /// @brief 按 id 查数值定义
+    /// @param id 数值 ID
+    /// @return 定义指针，未登记返回 nullptr
+    inline const ValueSpec* find(const std::string& id) {
+        for (int index = 0; index < kValueCount; ++index) {
+            if (id == kValues[index].id) {
+                return &kValues[index];
+            }
+        }
+        return nullptr;
+    }
+
+    /// @brief 把数值钳制到登记范围
+    /// @param id 数值 ID
+    /// @param value 原始数值
+    /// @return 钳制后的数值；未登记 id 原样返回
+    inline int clamp(const std::string& id, int value) {
+        const ValueSpec* spec = find(id);
+        if (spec == nullptr) {
+            return value;
+        }
+        if (value < spec->min) {
+            return spec->min;
+        }
+        if (value > spec->max) {
+            return spec->max;
+        }
+        return value;
+    }
+
+    /// @brief 构造注册用的数值列表（范围与 kValues 一致，写入时由 ModuleValue 再钳制一次）
+    /// @return 数值列表
+    inline std::vector<ModuleValue> build() {
+        std::vector<ModuleValue> values;
+        values.reserve(kValueCount);
+        for (int index = 0; index < kValueCount; ++index) {
+            const ValueSpec& spec = kValues[index];
+            values.emplace_back(spec.id, spec.name, QueryPeriod::SECOND, spec.id, spec.min, spec.max);
+        }
+        return values;
+    }
+
+} // namespace paw_values
+
+// DeviceValueBridge - 爪印驱动到数值模块 `paw` 的桥接
+// 把驱动的通知信号写成数值（全部经 ModuleManager::set_value，自动钳制并触发 value_changed），
+// 并持有该模块的内置事件声明（由 EventRuntime::register_builtin_events 接进事件引擎）。
+// D0 的 10Hz 全量物理数据默认不写入数值（避免 10Hz 触发规则求值），
+// 只有配置 app.devices.paw.d0_values 为 true 时才落值。
+class DeviceValueBridge : public QObject {
+    Q_OBJECT
+
+public:
+    /// @brief 构造桥接（不访问 ModuleManager 与配置）
+    /// @param paw 爪印驱动实例，可为空（为空时只注册数值）
+    /// @param parent 父对象
+    explicit DeviceValueBridge(PawPrintsBleController* paw, QObject* parent = nullptr);
+
+    ~DeviceValueBridge() override;
+
+    /// @brief 注册 `paw` 数值、写入初始状态并连接驱动信号
+    void initialize();
+
+    /// @brief `paw` 模块的内置事件声明（按键按下 / 抬起）
+    /// @return 事件声明列表；头文件内联，便于单元测试在不链接驱动的情况下核对声明内容
+    static std::vector<EventDefinition> builtin_events() {
+        EventDefinition pressed;
+        pressed.id = "button_pressed";
+        pressed.label = "按键按下";
+        pressed.trigger.value_id = "button";
+        pressed.trigger.compare = EventCompare::INCREASE;
+        pressed.trigger.amount = 1;
+
+        EventDefinition released;
+        released.id = "button_released";
+        released.label = "按键抬起";
+        released.trigger.value_id = "button";
+        released.trigger.compare = EventCompare::DECREASE;
+        released.trigger.amount = 1;
+
+        return {pressed, released};
+    }
+
+    static constexpr const char* kModuleName = "paw"; ///< 数值模块标识（同时是内置事件声明的模块标识）
+
+    /// @brief D0 物理数据是否写入数值（配置 app.devices.paw.d0_values，缺省 false）
+    bool d0_values_enabled() const { return d0_values_; }
+
+private:
+    void on_device_info(int indicator_color, int device_type, int battery);
+    void on_trigger_started(int event_id, int param);
+    void on_trigger_cancelled(int event_id);
+    void on_param_changed(int event_id, int param);
+    void on_physical_data(int pressed, int accel, int angle_x, int angle_y, int angle_z, int voltage);
+    void set_value(const char* value_id, int value);
+
+    PawPrintsBleController* paw_ = nullptr; ///< 爪印驱动（可为空）
+    bool d0_values_ = false;                ///< D0 物理数据是否落值
+    bool d0_skipped_logged_ = false;        ///< D0 未落值是否已记录一次
+};

@@ -7,6 +7,7 @@
 
 #include "DebugLog.h"
 #include "OpossumBleController.h"
+#include "PawPrintsBleController.h"
 
 #include <QBluetoothDeviceDiscoveryAgent>
 #include <QCoreApplication>
@@ -37,14 +38,19 @@ namespace {
         const char* label;   ///< 型号显示名
         bool has_driver;     ///< 本版是否已实现驱动（可连接）
         bool verified;       ///< 驱动是否经实机验证（未验证按实验性展示）
+        bool blocked;        ///< 登记为「暂不支持」：型号已识别但本版不可连接（如固件过旧）
         bool output;         ///< 是否具备输出能力（纯输入设备不参与默认设备评选）
         const char* type;    ///< 类型标识（默认设备优先级用）
+        const char* hint;    ///< 型号特定的行内提示（空串表示按三态生成）
     };
+    // 前缀按「先长后短」排列：47L120100（爪印 V1.0）必须先命中，否则会落到 47L120
     constexpr ModelEntry kModelTable[] = {
-        {"47L120", "爪印", false, false, false, "pawprint"},
-        {"47L121", "郊狼 V3", true, true, true, "coyote"},
-        {"47L124", "灵猫", false, false, false, "lynx"},
-        {"47L127", "负鼠", true, false, true, "opossum"},
+        {"47L120100", "爪印 V1.0", false, false, true, false, "pawprint",
+            "需先升级固件（V1.0 不可连接，请在 DG-LAB 3.0 APP 更新配件固件）"},
+        {"47L120", "爪印", true, false, false, false, "pawprint", ""},
+        {"47L121", "郊狼 V3", true, true, false, true, "coyote", ""},
+        {"47L124", "灵猫", false, false, false, false, "lynx", ""},
+        {"47L127", "负鼠", true, false, false, true, "opossum", ""},
     };
 
     // 驱动支持程度：实机验证过的驱动为已支持，驱动已实现但未验证或未实现均为实验性
@@ -106,7 +112,9 @@ CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& 
             profile.supported = entry.has_driver;
             profile.output = entry.output;
             profile.type = QString::fromLatin1(entry.type);
-            profile.state = support_state_of(entry.has_driver, entry.verified);
+            profile.state = entry.blocked ? SupportState::Unsupported
+                                          : support_state_of(entry.has_driver, entry.verified);
+            profile.hint = QString::fromUtf8(entry.hint);
             return profile;
         }
     }
@@ -151,9 +159,33 @@ void CoyoteBleController::attach_opossum(OpossumBleController* opossum) {
     });
 }
 
+void CoyoteBleController::attach_pawprints(PawPrintsBleController* pawprints) {
+    pawprints_ = pawprints;
+    if (pawprints_ == nullptr) {
+        return;
+    }
+    // 驱动先于本类销毁时清空指针：本类析构仍会走 disconnectDevice()
+    connect(pawprints_, &QObject::destroyed, this, [this]() { pawprints_ = nullptr; });
+    // 爪印是纯输入设备（不继承 IOutputDevice）：只刷新状态文案与列表，不进入输出链路与默认设备评选
+    connect(pawprints_, &PawPrintsBleController::stateChanged, this, [this]() {
+        emit stateChanged();
+        emit statusChanged();
+    });
+    connect(pawprints_, &PawPrintsBleController::statusChanged, this, [this]() {
+        if (pawprints_active()) {
+            emit statusChanged();
+        }
+    });
+}
+
 // 负鼠是否为界面上的当前链路（郊狼未连接且负鼠已连接）
 bool CoyoteBleController::opossum_active() const {
     return !connected_ && opossum_ != nullptr && opossum_->connected();
+}
+
+// 爪印是否为界面上的当前链路（郊狼与负鼠都未连接且爪印已连接）
+bool CoyoteBleController::pawprints_active() const {
+    return !connected_ && !opossum_active() && pawprints_ != nullptr && pawprints_->connected();
 }
 
 bool CoyoteBleController::link_connected() const {
@@ -181,7 +213,17 @@ int CoyoteBleController::link_strength_b() const {
 }
 
 QString CoyoteBleController::link_status() const {
-    return opossum_active() ? opossum_->status() : status_;
+    if (opossum_active()) {
+        return opossum_->status();
+    }
+    if (pawprints_active()) {
+        return pawprints_->status();
+    }
+    return status_;
+}
+
+bool CoyoteBleController::paw_connected() const {
+    return pawprints_ != nullptr && pawprints_->connected();
 }
 
 bool CoyoteBleController::screen_sync_available() const {
@@ -303,7 +345,11 @@ void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info)
     // 行内提示：实验性型号区分「驱动已实现未验证」与「驱动尚未实现」，未知型号给出可连接的型号段
     const QString model_text = profile.model.isEmpty() ? QString() : QStringLiteral("型号 %1，").arg(profile.model);
     QString hint;
-    if (profile.state == SupportState::Experimental) {
+    if (!profile.hint.isEmpty()) {
+        // 型号特定提示优先（如爪印 V1.0 需先升级固件）
+        hint = profile.hint;
+    }
+    else if (profile.state == SupportState::Experimental) {
         hint = profile.supported ? QStringLiteral("%1实验性驱动已实现，未经实机验证")
                                        .arg(model_text)
                                  : QStringLiteral("暂不可连接（%1驱动尚未实现）").arg(model_text);
@@ -335,11 +381,14 @@ void CoyoteBleController::connectDevice(const QString& address) {
 
     const DeviceProfile profile = identify(target.name());
     if (profile.state == SupportState::Unsupported) {
-        // 型号未登记：GATT 相同但指令含义不同，拒绝连接避免误写
+        // 型号未登记或本版明确不支持（如固件过旧）：拒绝连接，避免写入语义不匹配的指令
         LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
             "拒绝连接未支持型号:" << target.name().toStdString() << " 型号 " << profile.model.toStdString());
-        set_status(QStringLiteral("暂不支持该设备（型号 %1）").arg(profile.model));
-        emit errorOccurred(QStringLiteral("暂不支持该设备（型号 %1）").arg(profile.model));
+        const QString reason = profile.hint.isEmpty()
+            ? QStringLiteral("暂不支持该设备（型号 %1）").arg(profile.model)
+            : profile.hint;
+        set_status(reason);
+        emit errorOccurred(reason);
         return;
     }
     if (profile.type == QStringLiteral("opossum")) {
@@ -358,7 +407,33 @@ void CoyoteBleController::connectDevice(const QString& address) {
         if (connected_) {
             disconnectDevice();
         }
+        if (pawprints_ != nullptr && pawprints_->connected()) {
+            pawprints_->disconnect_device();
+        }
         opossum_->connect_device(target);
+        set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
+        return;
+    }
+    if (profile.type == QStringLiteral("pawprint")) {
+        // 爪印：GATT 相同但指令集不同且是纯输入设备，写入交给爪印驱动；扫描与连接入口仍走本类
+        if (pawprints_ == nullptr) {
+            LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN, "爪印驱动未接入，拒绝连接");
+            set_status(QStringLiteral("爪印驱动未接入"));
+            emit errorOccurred(QStringLiteral("爪印驱动未接入，本版无法连接该设备"));
+            return;
+        }
+        if (pawprints_->connected()) {
+            set_status(QStringLiteral("爪印已连接"));
+            return;
+        }
+        // 同一时间只维持一条蓝牙链路：连接爪印前先断开输出链路
+        if (connected_) {
+            disconnectDevice();
+        }
+        if (opossum_ != nullptr && opossum_->connected()) {
+            opossum_->disconnect_device();
+        }
+        pawprints_->connect_device(target);
         set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
         return;
     }
@@ -371,9 +446,12 @@ void CoyoteBleController::connectDevice(const QString& address) {
             .arg(profile.label, profile.model));
         return;
     }
-    // 同一时间只维持一条蓝牙链路：连接郊狼前先断开负鼠
+    // 同一时间只维持一条蓝牙链路：连接郊狼前先断开负鼠与爪印
     if (opossum_ != nullptr && opossum_->connected()) {
         opossum_->disconnect_device();
+    }
+    if (pawprints_ != nullptr && pawprints_->connected()) {
+        pawprints_->disconnect_device();
     }
 
     pending_address_ = address;
@@ -768,6 +846,9 @@ void CoyoteBleController::disconnectDevice() {
     battery_timer_->stop();
     if (opossum_ != nullptr && opossum_->connected()) {
         opossum_->disconnect_device();
+    }
+    if (pawprints_ != nullptr && pawprints_->connected()) {
+        pawprints_->disconnect_device();
     }
     if (controller_ != nullptr) {
         controller_->disconnectFromDevice();

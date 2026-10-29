@@ -23,7 +23,8 @@ include/
 ├── rule/     # 规则引擎 + 规则图
 ├── module/   # 数值模块 + 数据接收器
 ├── wave/     # 波形模型与库
-├── ble/      # 输出设备接口 + 郊狼 V3 / 负鼠 V1 蓝牙直连
+├── ble/      # 输出设备接口 + 郊狼 V3 / 负鼠 V1 蓝牙直连、爪印 V1.1 输入侧直连
+├── device/   # 设备数值桥（爪印通知 → 数值模块 paw）
 ├── net/      # 应用内 WebSocket 中转服务与网卡地址选择器
 ├── plugin/   # 插件接口
 ├── ui/       # 界面桥接对象
@@ -63,7 +64,7 @@ include/
 | `DataListener.h`  | 通用数据接收器与解析器接口                    |
 | `PluginMeta.h`  | 展示元数据侧车（`plugin.json`）读取             |
 
-## 四、wave/ · ble/ · net/
+## 四、wave/ · ble/ · net/ · device/
 
 | 文件                        | 描述                           |
 | --------------------------- | ------------------------------ |
@@ -73,6 +74,9 @@ include/
 | `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1），实现 `IOutputDevice`；兼任扫描与连接入口，负鼠型号转交负鼠驱动 |
 | `ble/OpossumBleController.h` | 负鼠振动控制器 V1 蓝牙直连（B0/B3/B2），实现 `IOutputDevice`，驱动支持程度固定为实验性 |
 | `ble/OpossumFrames.h` | 负鼠指令构造纯函数（B0 / B3 / B2 两形态）与郊狼 V3 帧 → 负鼠强度字节转换 |
+| `ble/PawPrintsBleController.h` | 爪印无线按钮传感器 V1.1 输入侧蓝牙直连（50 指令 + 51/5A/5B/5C/D0/F1 通知），**不实现 `IOutputDevice`**，驱动支持程度固定为实验性 |
+| `ble/PawFrames.h` | 爪印 50 指令构造与 51/5A/5B/5C/D0/F1 解析纯函数，含 F1 阈值的 `/2` 展示换算 |
+| `device/DeviceValueBridge.h` | 设备数值桥：爪印通知 → `paw` 模块数值（`paw_values` 定义表与钳制），并持有该模块的内置事件声明 |
 | `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务（含二维码载荷与展示文本接口） |
 | `net/IpSelector.h`          | 局域网地址选择器（候选网卡枚举、黑/白名单、手动选中地址，QML 侧经 `device.ipSelector` 读取） |
 
@@ -123,8 +127,8 @@ include/
 - `B0`：每 100ms 写入 —— 序列号 + 强度解读方式 + 双通道强度 + 双通道各 4 组频率/强度。
 - `BF`：软上限与频率/强度平衡参数，**重连后必须重写**。
 - `B1`：主机回传序列号 + 双通道实际强度。
-- 型号识别：按蓝牙名前缀 `47L1xxxx` 分类，映射表是 `CoyoteBleController.cpp` 匿名命名空间的 `kModelTable`（型号段 / 显示名 / 驱动是否已实现 / 是否经实机验证 / 输出能力 / 类型标识）——`47L120` 爪印（未实现）、`47L121` 郊狼 V3（已实现且验证）、`47L124` 灵猫（未实现）、`47L127` 负鼠（已实现、未验证）。GATT 与郊狼 V3 相同的设备靠名字区分，未登记前缀一律标记「暂不支持（型号 xxx）」并在 `connectDevice()` 前拒绝连接，避免写入语义不匹配的指令；非 `47L1` 前缀沿用不限定型号的既有行为。驱动已实现但未验证的型号按「实验性」展示且可连接，行内提示区分「实验性驱动已实现，未经实机验证」与「暂不可连接（驱动尚未实现）」。
-- 扫描与连接入口：扫描仍由本类统一做，界面上的连接状态、电量、强度与状态文案读的是当前生效链路（郊狼优先，其次负鼠）；负鼠型号的连接请求转交 `OpossumBleController`，连接负鼠前会先断开郊狼链路。同一时间只维持一条蓝牙链路。
+- 型号识别：按蓝牙名前缀 `47L1xxxx` 分类，映射表是 `CoyoteBleController.cpp` 匿名命名空间的 `kModelTable`（型号段 / 显示名 / 驱动是否已实现 / 是否经实机验证 / 输出能力 / 类型标识 / 行内提示覆盖）——`47L120` 爪印 V1.1（已实现、未验证、纯输入设备）、`47L120100` 爪印 V1.0（固件过旧，不可连接，行内提示「需先升级固件」）、`47L121` 郊狼 V3（已实现且验证）、`47L124` 灵猫（未实现）、`47L127` 负鼠（已实现、未验证）；前缀按「先长后短」匹配，V1.0 必须先命中。GATT 与郊狼 V3 相同的设备靠名字区分，未登记前缀一律标记「暂不支持（型号 xxx）」并在 `connectDevice()` 前拒绝连接，避免写入语义不匹配的指令；非 `47L1` 前缀沿用不限定型号的既有行为。驱动已实现但未验证的型号按「实验性」展示且可连接，行内提示区分「实验性驱动已实现，未经实机验证」与「暂不可连接（驱动尚未实现）」。
+- 扫描与连接入口：扫描仍由本类统一做，界面上的连接状态、电量、强度与状态文案读的是当前生效链路（郊狼优先，其次负鼠）；负鼠型号的连接请求转交 `OpossumBleController`，爪印型号的连接请求转交 `PawPrintsBleController`；连接任一设备前都会先断开其它蓝牙链路。同一时间只维持一条蓝牙链路。
 - 输出设备接口：`IOutputDevice` 是上层唯一的设备依赖（连接状态、电量、`strength_a/b`、`wave_sending/frame/frames`、`set_strength` / `play_wave` / `stop_wave` / `apply_limits`，以及 `outputStateChanged` / `outputStrengthChanged` / `outputWaveChanged` 三个信号）。`CoyoteBleController` 以上述既有信号转发接口信号，发射时机与次数不变。
 
 外部协议参考 `DG-LAB-OPENSOURCE/coyote/v3/README_V3.md`。
@@ -139,6 +143,18 @@ include/
 - 波形：郊狼 V3 帧是「频率 4B + 强度 4B」，负鼠只要强度，因此取第 4~7 字节重打包成 B0 的 4 个强度字节，频率信息丢弃（有损转换）；帧不足八字节或非 HEX 时跳过该帧并静音。
 - 波形进度：B0 无回执，每次 B0 写入后主动发 `outputWaveChanged`，事件波形按此节奏推进。
 - 实验性：驱动已实现但**没有实机验证**，`support_state()` 固定返回实验性，连接成功后按 `app.devices.<MAC>.experimental_notice_shown` 弹一次性提示。
+
+### 爪印无线按钮传感器 V1.1（`ble/PawPrintsBleController.h`）
+
+- GATT 与郊狼 V3 相同：服务 `0x180C`（写 `0x150A`、通知 `0x150B`）；**没有 `0x180A` 电量服务**，电量由 `51` 消息携带。
+- 纯输入设备：不继承 `IOutputDevice`，不参与通道下发与默认设备评选；扫描与连接入口仍由 `CoyoteBleController` 统一负责，`47L120` 型号的写入交给本驱动。
+- `50`：17 字节 = 头 + 主指示灯颜色 + 15 字节触发模式设置。**连上后必须立刻写**（协议要求，否则设备可能断开）；写入后等 `51` 回执，无回执则重试一次（共 2 次），仍失败记 `LOG_ERROR` 并经 `errorOccurred` 提示。断连重连走同一条 `write_config()`。
+- 缺省 50 配置：指示灯色 `0x01`（黄），触发模式 `0x05`（按下/抬起＋加速度/角度），按下/抬起事件 ID `0x01`，按下时参数立刻 +255、抬起时立刻 −255，加速度/角度触发事件 ID 填 0（不启用）。构造细节见 `PawFrames.h` 的 `build_config()` / `trigger_settings_button()`。
+- 通知：`51` 指示灯色/设备类型（爪印 V1.1 = `0x03`）/电量，`5A` 触发＋参数，`5B` 取消触发，`5C` 参数变化，`D0` 10Hz 全量物理数据，`F1` 自检角度阈值（有符号 2 字节，展示时 `/2`）。
+- 数值桥（`device/DeviceValueBridge.h`）：把上述通知写成 `paw` 模块的数值，全部经 `ModuleManager::set_value`（自动钳制并触发 `value_changed`）。
+- 文档矛盾的处理：外部电压触发（`0x0F`）的参数映射公式与示例 HEX 互相矛盾，本版**不实现该模式的参数换算**，只把原始参数原样上报（映射公式待上游确认）；`F1` 阈值 `/2` 后的取整规则未定，只做展示与数值上报，不做阈值判定逻辑；`5A/5B/5C` 无时序约束，按到达即处理。
+- 实验性：驱动已实现但**没有实机验证**，型号行按「实验性」展示且可连接，首次连接成功按 `app.devices.<MAC>.experimental_notice_shown` 弹一次性提示。
+- 外部协议参考 `DG-LAB-OPENSOURCE/paw-prints/README_CN.md`。
 
 ### V3 波形帧（`wave/Wave.h`）
 

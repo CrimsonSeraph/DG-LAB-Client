@@ -8,7 +8,7 @@
 
 | 层 | 定义位置 | 作用 |
 | --- | --- | --- |
-| 事件 | `plugin.json` → `events[]` | 触发容器：监听该插件已注册的一个数值，按比较规则判定是否触发 |
+| 事件 | `plugin.json` → `events[]`，或代码内置的设备声明（见本节末「内置设备声明来源」） | 触发容器：监听该模块已注册的一个数值，按比较规则判定是否触发 |
 | 子选项 | `plugin.json` → `events[].options[]` | 事件内的独立输出变体，例如「礼物」下的「小心心」与「玫瑰」 |
 | 输出配置 | `user.json` → `events.<事件id>.options.<子选项id>` | 单个子选项的通道、操作、模式、数值或百分比、步长 |
 
@@ -42,6 +42,29 @@
     ]
 }
 ```
+
+### 内置设备声明来源
+
+设备类模块没有插件侧车，事件声明直接写在代码里，与插件侧车声明并列为两个来源：
+
+| 来源 | 位置 | 载入方式 |
+| --- | --- | --- |
+| 插件声明 | 侧车 `plugin.json` 的 `events` 数组 | `ModuleManager::get_plugins()` 的 `PluginInfo::events`（解析路径未改动） |
+| 内置声明 | 代码常量（`DeviceValueBridge::builtin_events()`） | `EventRuntime::register_builtin_events(module_name, events)` |
+
+- 扩展点在 `EventRuntime`：注册表以模块标识为键（`builtin_events_`），`reload()` 先载入插件声明、再补内置声明；同一模块标识已由插件声明事件时以插件为准，内置声明被忽略。
+- 重复注册同一模块标识是整体替换（不是追加），`reload()` 先 `engine_.clear()` 再重建，因此不会出现重复声明或重复触发。
+- 注册后若运行时已 `initialize()`，立即 `reload()` 生效；否则在首次载入时生效。传入空列表等于清除该模块的内置声明。
+- 映射与启用规则完全不变：内置声明同样按 `app.plugins.<模块>.events.<事件>` 读映射、同样由级联集合决定是否启用（未映射的事件不参与输出）。
+
+本版内置声明只有爪印的 `paw` 模块，数值模块与事件模块同名：
+
+| 事件 id | 展示名 | 触发条件 | 说明 |
+| --- | --- | --- | --- |
+| `button_pressed` | 按键按下 | `button`，`compare=increase`，`amount=1` | 设备上报 5A（进入触发状态）时 `button` 由 0 变 1 |
+| `button_released` | 按键抬起 | `button`，`compare=decrease`，`amount=1` | 设备上报 5B（取消触发）时 `button` 由 1 变 0 |
+
+两个事件都没有子选项，映射里按隐式子选项 id `default` 配置；首次写入 `button=0`（驱动启动时）只登记前值，不触发。
 
 ## 三、trigger.compare 的取值
 

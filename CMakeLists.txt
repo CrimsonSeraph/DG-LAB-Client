@@ -247,16 +247,27 @@ set(EVENT
 	include/event/EventRuntime.h
 )
 
-# 蓝牙（ble）：郊狼 V3 直连（兼扫描入口）与负鼠 V1 直连
+# 蓝牙（ble）：郊狼 V3 直连（兼扫描入口）、负鼠 V1 直连与爪印 V1.1 输入侧直连
 set(BLE
 	# 源文件
 	src/ble/CoyoteBleController.cpp
 	src/ble/OpossumBleController.cpp
+	src/ble/PawPrintsBleController.cpp
 	# 头文件
 	include/ble/CoyoteBleController.h
 	include/ble/IOutputDevice.h
 	include/ble/OpossumBleController.h
 	include/ble/OpossumFrames.h
+	include/ble/PawFrames.h
+	include/ble/PawPrintsBleController.h
+)
+
+# 设备数值桥（device）：输入类设备（爪印）的通知 → 数值模块 paw
+set(DEVICE
+	# 源文件
+	src/device/DeviceValueBridge.cpp
+	# 头文件
+	include/device/DeviceValueBridge.h
 )
 
 # 网络（net）：应用内中转服务
@@ -361,6 +372,7 @@ set(PROJECT_SOURCES
 	${MODULE}
 	${EVENT}
 	${BLE}
+	${DEVICE}
 	${NET}
 	${WAVE}
 	${PLUGIN_HEADERS}
@@ -735,6 +747,7 @@ target_include_directories(${PROJECT_NAME}
 		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
 		${CMAKE_CURRENT_SOURCE_DIR}/include/net
 		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+		${CMAKE_CURRENT_SOURCE_DIR}/include/device
 		${CMAKE_CURRENT_SOURCE_DIR}/include/ui
 		# 第三方库（QR 码生成）
 		${CMAKE_CURRENT_SOURCE_DIR}/third_party/qrcodegen
@@ -901,6 +914,50 @@ target_include_directories(opossum_frames_test
 		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
 )
 add_test(NAME opossum_frames_test COMMAND opossum_frames_test)
+
+# 爪印无线按钮传感器 V1.1 输入侧（50 指令构造、51/5A/5B/5C/D0/F1 解析与 F1 的 /2 展示、数值钳制、
+# 内置事件声明进入 EventRuntime）：解析为纯函数，事件声明用例需要模块、事件、波形与配置层
+# 只用于测试，不进 PROJECT_SOURCES / 安装规则；全部用例在临时目录内构造，不触碰仓库 config/
+add_executable(paw_device_test
+	tests/paw_device_test.cpp
+	src/ble/CoyoteBleController.cpp
+	src/ble/OpossumBleController.cpp
+	src/ble/PawPrintsBleController.cpp
+	include/ble/CoyoteBleController.h
+	include/ble/IOutputDevice.h
+	include/ble/OpossumBleController.h
+	include/ble/PawPrintsBleController.h
+	${RULE}
+	${MODULE}
+	${EVENT}
+	${WAVE}
+	${CORE_CONFIG}
+	${CORE_LOG}
+)
+target_link_libraries(paw_device_test
+	PRIVATE
+		Qt::Core
+		Qt::Gui
+		Qt::Network
+		Qt::Qml
+		Qt::Bluetooth
+		nlohmann_json
+		miniz
+)
+target_include_directories(paw_device_test
+	PRIVATE
+		${DGLAB_GENERATED_DIR}
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/core
+		${CMAKE_CURRENT_SOURCE_DIR}/include/rule
+		${CMAKE_CURRENT_SOURCE_DIR}/include/module
+		${CMAKE_CURRENT_SOURCE_DIR}/include/event
+		${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+		${CMAKE_CURRENT_SOURCE_DIR}/include/wave
+		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+		${CMAKE_CURRENT_SOURCE_DIR}/include/device
+)
+add_test(NAME paw_device_test COMMAND paw_device_test)
 
 # 波形库数据层（官方内置波形资源、V2/V3 双版本帧、存储 round-trip、旧格式兼容与非法帧拒绝）
 # 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；

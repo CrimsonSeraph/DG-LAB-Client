@@ -9,6 +9,7 @@
 #include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DeviceController.h"
+#include "DeviceValueBridge.h"
 #include "EventBridge.h"
 #include "EventRuntime.h"
 #include "HomeBridge.h"
@@ -17,6 +18,7 @@
 #include "ModuleBridge.h"
 #include "ModuleManager.h"
 #include "OpossumBleController.h"
+#include "PawPrintsBleController.h"
 #include "RuleGraphBridge.h"
 #include "RuleManager.h"
 #include "ThemeManager.h"
@@ -198,6 +200,20 @@ int main(int argc, char* argv[]) {
     OpossumBleController opossum;
     opossum.initialize();
     ble.attach_opossum(&opossum);
+    // 爪印无线按钮传感器 V1.1（实验性输入设备）：扫描与连接入口复用蓝牙入口对象，写入由爪印驱动接管
+    PawPrintsBleController pawprints;
+    pawprints.initialize();
+    ble.attach_pawprints(&pawprints);
+    // 爪印通知 → paw 数值模块，该模块的内置事件声明接进事件运行时（插件声明之外的第二个来源）
+    DeviceValueBridge paw_bridge(&pawprints);
+    paw_bridge.initialize();
+    event_runtime.register_builtin_events(DeviceValueBridge::kModuleName, DeviceValueBridge::builtin_events());
+    // 实验性设备首次连接成功的一次性提示：输入类设备不实现 IOutputDevice，按 MAC 复用同一机制
+    QObject::connect(&pawprints, &PawPrintsBleController::stateChanged, &device, [&device, &pawprints]() {
+        if (pawprints.connected()) {
+            device.notify_experimental_device(pawprints.device_address());
+        }
+    });
 
     // 蓝牙接入输出链路：已连接的设备参与默认设备评选（郊狼优先，其次负鼠）
     device.attach_output(&ble);

@@ -9,8 +9,10 @@
 
 #include <QObject>
 
+#include <map>
 #include <set>
 #include <string>
+#include <vector>
 
 // 前置声明
 class QTimer;
@@ -32,9 +34,23 @@ public:
     /// @brief 重新载入所有模块的事件声明与映射
     void reload();
 
+    /// @brief 注册内置设备的事件声明（与插件侧车声明并列的第二个声明来源）
+    /// @param module_name 模块标识（同时是数值模块名，如 "paw"）
+    /// @param events 事件声明列表；空列表表示清除该模块的内置声明
+    /// @note 同一模块标识重复注册整体替换；该模块标识已由插件声明事件时以插件声明为准，内置声明被忽略；
+    ///       已初始化时立即重新载入，未初始化时在 initialize() 的首次载入生效
+    void register_builtin_events(const std::string& module_name,
+        const std::vector<EventDefinition>& events);
+
     /// @brief 只读访问引擎（供桥接读取流水）
     /// @return 事件引擎
     const EventEngine& engine() const;
+
+    /// @brief 已注册的内置事件声明（只读，供桥接与测试核对）
+    /// @return 模块标识 → 事件声明
+    const std::map<std::string, std::vector<EventDefinition>>& builtin_events() const {
+        return builtin_events_;
+    }
 
     /// @brief 设置运行期启用集合（启用级联：依赖集合中的事件视为启用）
     /// @param events 事件标识集合，写作 "<模块标识>/<事件 ID>"
@@ -68,6 +84,12 @@ private:
     EventEngine engine_; ///< 事件引擎
     QTimer* frame_timer_ = nullptr; ///< 帧定时器（initialize 前为空）
     std::set<std::string> cascade_events_; ///< 运行期启用集合（键为 "<模块标识>/<事件 ID>"）
+    std::map<std::string, std::vector<EventDefinition>> builtin_events_; ///< 内置事件声明（键为模块标识）
+
+    /// @brief 载入单个模块的事件声明与映射（声明来源无关，插件与内置共用）
+    /// @param module_name 模块标识
+    /// @param definitions 事件声明列表
+    void configure_module(const std::string& module_name, const std::vector<EventDefinition>& definitions);
 
     /// @brief 帧定时器触发：推进一帧并广播通道强度与流水
     void on_frame_tick();

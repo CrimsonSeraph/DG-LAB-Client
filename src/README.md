@@ -8,7 +8,8 @@
 | `rule/` | 规则引擎 | 规则实体与规则管理器（`Rule`/`RuleManager`），以及可视化规则图模型（`RuleGraph`） |
 | `module/` | 数值模块 | 数值模型与调度（`ModuleValue`/`Module`/`ModuleManager`，同时是插件宿主）、通用数据接收器 `DataListener` |
 | `wave/` | 波形 | 波形模型 `Wave`（V3 八字节帧）与波形库 `WaveLibrary` |
-| `ble/` | 蓝牙 | 输出设备接口 `IOutputDevice`、郊狼 V3 蓝牙直连 `CoyoteBleController`（兼扫描入口）与负鼠 V1 蓝牙直连 `OpossumBleController` |
+| `ble/` | 蓝牙 | 输出设备接口 `IOutputDevice`、郊狼 V3 蓝牙直连 `CoyoteBleController`（兼扫描入口）、负鼠 V1 蓝牙直连 `OpossumBleController`，以及爪印 V1.1 输入侧直连 `PawPrintsBleController` |
+| `device/` | 设备数值桥 | 输入类设备通知 → 数值模块：`DeviceValueBridge`（爪印 → `paw` 模块，含该模块的内置事件声明） |
 | `net/` | 网络 | 应用内 DG-LAB WebSocket 中转服务 `DglabRelayServer`（V3 / V4）与局域网地址选择器 `IpSelector` |
 | `ui/` | 界面层（C++ 侧） | 桥接对象（`AppBridge`/`DeviceController`/`HomeBridge`/`ModuleBridge`/`WaveBridge`/`RuleGraphBridge`/`LogBridge`）、主题令牌 `ThemeManager`、二维码 `QrImageProvider`、QML 连接集中点 `UiConnector`，以及 QML 文件 `qml/` |
 
@@ -22,7 +23,8 @@ src/
 ├── rule/     # 规则引擎 + 规则图模型
 ├── module/   # 数值模块与插件宿主 + 数据接收器
 ├── wave/     # 波形模型与波形库
-├── ble/      # 输出设备接口 + 郊狼 V3 / 负鼠 V1 蓝牙直连
+├── ble/      # 输出设备接口 + 郊狼 V3 / 负鼠 V1 蓝牙直连 + 爪印 V1.1 输入侧直连
+├── device/   # 设备数值桥（爪印通知 → 数值模块 paw）
 ├── net/      # 应用内 WebSocket 中转服务（V3 / V4）与网卡地址选择器
 ├── ui/       # 界面桥接对象 + QML 界面
 └── README.md # 本说明文件
@@ -86,13 +88,16 @@ ui     ->  core, module, rule, wave, net, ble
 | `Wave.cpp` | 波形模型：`name` / `source` / `raw` / `sections` 与 V2、V3 两套帧；段落（起止频率/强度）生成 V3 帧、HEX 规范化与校验、JSON 互转。字段与规范见 [docs/wave-data.md](../docs/wave-data.md) |
 | `WaveLibrary.cpp` | 波形库（`config/waves/waves.json`）：列表/保存/删除、A/B 通道当前波形；启动加载只读资源 `assets/waves/official_waves.json` 的 16 个官方波形（不可删除 / 改名 / 覆盖），发送帧按 `app.wave.protocol`（v2 / v3，缺省 v3）选择 |
 
-## 五、ble/ —— 蓝牙直连
+## 五、ble/ 与 device/ —— 蓝牙直连与设备数值桥
 
 | 文件 | 描述 |
 | --- | --- |
-| `CoyoteBleController.cpp` | 郊狼 V3 蓝牙：扫描/连接、每 100ms 写 B0（强度 + 双通道波形）、BF 软上限与平衡参数、B1 强度回执与电量；按蓝牙名前缀 `47L1xxxx` 识别型号（`kModelTable`：型号段 / 显示名 / 驱动是否已实现 / 是否经实机验证 / 输出能力 / 类型），未登记前缀标注「暂不支持」并拒绝连接；兼任扫描与连接入口，`47L127` 负鼠的连接转交 `OpossumBleController`，界面上的连接状态、电量与强度读当前生效链路（郊狼优先）；以 `IOutputDevice` 适配方法对外，接口信号由既有信号转发 |
+| `CoyoteBleController.cpp` | 郊狼 V3 蓝牙：扫描/连接、每 100ms 写 B0（强度 + 双通道波形）、BF 软上限与平衡参数、B1 强度回执与电量；按蓝牙名前缀 `47L1xxxx` 识别型号（`kModelTable`：型号段 / 显示名 / 驱动是否已实现 / 是否经实机验证 / 输出能力 / 类型 / 行内提示覆盖；前缀先长后短，`47L120100` 排在 `47L120` 之前），未登记前缀标注「暂不支持」并拒绝连接；兼任扫描与连接入口，`47L127` 负鼠的连接转交 `OpossumBleController`、`47L120` 爪印的连接转交 `PawPrintsBleController`（`47L120100` 固件过旧，标「暂不支持」并拒绝连接），界面上的连接状态、电量与强度读当前生效链路（郊狼优先，其次负鼠）；以 `IOutputDevice` 适配方法对外，接口信号由既有信号转发 |
 | `OpossumBleController.cpp` | 负鼠振动控制器 V1（`OpossumBleController : IOutputDevice`，`device_type()=opossum`、`support_state()` 固定实验性）：每 100ms 写 B0（双通道强度字节）、B3 强度指令（`0xFF` 不改）、B2 屏幕强度同步（24 字节完整形态失败后回退 20 字节截断形态，再失败置「屏幕同步不可用」并只记一条 WARN）、B3 回执与电量；波形帧取郊狼 V3 帧的第 4~7 字节（频率丢弃，有损转换），非法帧跳过并静音；B0 无回执，每次写入后主动发 `outputWaveChanged`；D0 按键数据本版未接入，只记一次 DEBUG |
 | `OpossumFrames.h`（include 侧） | 负鼠指令构造纯函数：`build_b0()`（越界整通道弃用）、`build_b3()`（`0xFF` 不改）、`build_b2()` / `build_b2_short()`（24 / 20 字节两形态）、`wave_bytes_from_v3_frame()`（郊狼 V3 帧 → 4 字节强度）；测试目标 `opossum_frames_test` |
+| `PawPrintsBleController.cpp` | 爪印无线按钮传感器 V1.1 输入侧（纯 `QObject`，**不实现 `IOutputDevice`**，无实机验证按实验性）：GATT 与郊狼 V3 相同、没有电量服务；服务发现完成后**立即写 50 指令**（17 字节），以 `51` 消息为回执，无回执重试一次（共 2 次）后记 `LOG_ERROR` 并经 `errorOccurred` 提示，断连重连走同一条 `write_config()`；解析 `51/5A/5B/5C/D0/F1` 并转成 `deviceInfoReceived` / `triggerStarted` / `triggerCancelled` / `paramChanged` / `physicalDataReceived` / `angleThresholdsChanged` 信号，`F1` 阈值按 `/2` 展示 |
+| `DeviceValueBridge.cpp` | 设备数值桥：注册 `paw` 模块数值（`paw_values` 定义表：`button` / `param` / `event_id` / `accel` / `angle_x,y,z` / `voltage` / `battery`，全部带钳制范围），把爪印信号写成数值（只经 `ModuleManager::set_value`），并给出该模块的内置事件声明 `button_pressed` / `button_released`（`compare=increase` / `decrease`，阈值 1）；`D0` 的 10Hz 全量数据默认不落值，只有 `app.devices.paw.d0_values` 为 true 时才写入 |
+| `PawFrames.h`（include 侧） | 爪印协议纯函数：`build_config()`（50 指令，触发设置长度必须 15）、`trigger_settings_none()` / `trigger_settings_button()`（`0x00` / `0x05` 触发模式）、`button_settings_byte()`（bit7 抬起 / bit6 角度子模式 / bit5~3、bit2~0 消抖）、`parse_message()`（51/5A/5B/5C/D0/F1，长度与固定字节不符一律未识别）、`halve_threshold()`（F1 展示值）；测试目标 `paw_device_test` |
 
 ## 六、net/ —— 应用内 WebSocket 中转服务
 

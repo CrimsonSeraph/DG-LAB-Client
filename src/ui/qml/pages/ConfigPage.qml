@@ -267,7 +267,8 @@ Item {
                                 objectName: "bleDisconnectButton"
                                 text: qsTr("断开")
                                 danger: true
-                                enabled: ble.connected
+                                // 爪印是纯输入设备，不进入 ble.connected 的输出链路口径，单独放开断开入口
+                                enabled: ble.connected || ble.pawConnected
                             }
                         }
 
@@ -305,8 +306,8 @@ Item {
                             model: ble.devices
                             spacing: Metrics.spacing2xs
 
-                            // 行尾徽标是驱动支持程度三态：已支持（郊狼）/ 实验性（驱动尚未实现）/ 暂不支持，
-                            // 只有前两态可点选，暂不支持的行热区禁用
+                            // 行尾徽标是驱动支持程度三态：已支持（郊狼）/ 实验性（负鼠、爪印已实现未验证、灵猫尚未实现）/ 暂不支持，
+                            // 只有前两态可点选，暂不支持的行热区禁用（爪印 V1.0 属于暂不支持，hint 提示需先升级固件）
                             delegate: Rectangle {
                                 width: bleDeviceList.width
                                 height: ComponentStyle.inputHeight

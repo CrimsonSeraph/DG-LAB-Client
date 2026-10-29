@@ -60,6 +60,12 @@ public:
     /// @param output 输出设备接口，可为空
     void attach_output(IOutputDevice* output);
 
+    /// @brief 按 MAC 触发「此设备连接为实验性，功能未经完整验证」一次性提示
+    /// @param mac 设备蓝牙 MAC（空串忽略）
+    /// @note 纯输入设备（如爪印）不实现 IOutputDevice，经本入口复用输出设备同一套机制：
+    ///       是否已提示记在 app.devices.<MAC>.experimental_notice_shown
+    void notify_experimental_device(const QString& mac);
+
     bool connected() const { return connected_; }
     bool connecting() const { return connecting_; }
 

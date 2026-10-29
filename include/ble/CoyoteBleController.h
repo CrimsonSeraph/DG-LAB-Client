@@ -22,6 +22,7 @@
 class QLowEnergyController;
 class QBluetoothDeviceDiscoveryAgent;
 class OpossumBleController;
+class PawPrintsBleController;
 class QTimer;
 
 // CoyoteBleController - 郊狼 V3 蓝牙直连（QML 上下文属性 ble）
@@ -38,6 +39,7 @@ class CoyoteBleController : public IOutputDevice {
     Q_PROPERTY(int strengthA READ link_strength_a NOTIFY strengthChanged)
     Q_PROPERTY(int strengthB READ link_strength_b NOTIFY strengthChanged)
     Q_PROPERTY(bool screenSyncAvailable READ screen_sync_available NOTIFY stateChanged)
+    Q_PROPERTY(bool pawConnected READ paw_connected NOTIFY stateChanged)
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
     Q_PROPERTY(QString status READ link_status NOTIFY statusChanged)
     Q_PROPERTY(QString deviceAddress READ device_address NOTIFY stateChanged)
@@ -52,6 +54,7 @@ public:
         bool output = true;     ///< 是否具备输出能力（纯输入设备不参与默认设备评选）
         QString type = QStringLiteral("unknown"); ///< 类型标识（默认设备评选用）
         SupportState state = SupportState::Unsupported; ///< 驱动支持程度（三态）
+        QString hint; ///< 型号特定的行内提示（空表示按三态生成）
     };
 
     explicit CoyoteBleController(QObject* parent = nullptr);
@@ -62,6 +65,10 @@ public:
     /// @brief 注入负鼠驱动：扫描列表里的负鼠型号连接与界面状态转交本对象
     /// @param opossum 负鼠驱动实例，可为空
     void attach_opossum(OpossumBleController* opossum);
+
+    /// @brief 注入爪印驱动：扫描列表里的爪印型号连接与界面状态转交本对象
+    /// @param pawprints 爪印驱动实例，可为空
+    void attach_pawprints(PawPrintsBleController* pawprints);
 
     /// @brief 按蓝牙名前缀识别设备型号
     /// @param name 蓝牙名
@@ -85,6 +92,8 @@ public:
     QString link_status() const;
     // 屏幕强度同步（B2）是否可用：负鼠离线时视为可用
     bool screen_sync_available() const;
+    // 爪印（纯输入设备）是否已连接
+    bool paw_connected() const;
     /// @brief 已连接设备的蓝牙 MAC（未连接时为空串）
     QString device_address() const override { return device_address_; }
     /// @brief 设备显示名（型号名，如「郊狼 V3」）
@@ -139,6 +148,8 @@ signals:
 private:
     // 负鼠是否为界面上的当前链路（郊狼未连接且负鼠已连接）
     bool opossum_active() const;
+    // 爪印是否为界面上的当前链路（郊狼与负鼠都未连接且爪印已连接）
+    bool pawprints_active() const;
     void on_device_discovered(const QBluetoothDeviceInfo& info);
     void on_scan_finished();
     void on_controller_connected();
@@ -169,6 +180,7 @@ private:
     const ChannelState& state_of(int channel) const;
 
     OpossumBleController* opossum_ = nullptr; ///< 负鼠驱动（扫描与连接入口共用本类）
+    PawPrintsBleController* pawprints_ = nullptr; ///< 爪印驱动（纯输入设备，扫描与连接入口共用本类）
     QBluetoothDeviceDiscoveryAgent* discovery_ = nullptr;
     QLowEnergyController* controller_ = nullptr;
     QLowEnergyService* coyote_service_ = nullptr;

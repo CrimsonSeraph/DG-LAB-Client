@@ -193,6 +193,21 @@ void DeviceController::attach_output(IOutputDevice* output) {
     });
 }
 
+void DeviceController::notify_experimental_device(const QString& mac) {
+    const QString normalized = mac.trimmed().toUpper();
+    if (normalized.isEmpty()) {
+        return;
+    }
+    auto& config = AppConfig::instance();
+    const std::string key = "app.devices." + normalized.toStdString() + ".experimental_notice_shown";
+    if (config.get_value<bool>(key, false)) {
+        return;
+    }
+    config.set_value_with_name<bool>(key, true, "user");
+    config.save_all();
+    emit experimentalDeviceNotice(QStringLiteral("此设备连接为实验性，功能未经完整验证"));
+}
+
 bool DeviceController::output_available() const {
     return connected_ || ble_ready();
 }
@@ -640,18 +655,7 @@ void DeviceController::notify_experimental_device(IOutputDevice* device) {
     if (device == nullptr || device->support_state() != IOutputDevice::SupportState::Experimental) {
         return;
     }
-    const QString mac = device->device_address().trimmed().toUpper();
-    if (mac.isEmpty()) {
-        return;
-    }
-    auto& config = AppConfig::instance();
-    const std::string key = "app.devices." + mac.toStdString() + ".experimental_notice_shown";
-    if (config.get_value<bool>(key, false)) {
-        return;
-    }
-    config.set_value_with_name<bool>(key, true, "user");
-    config.save_all();
-    emit experimentalDeviceNotice(QStringLiteral("此设备连接为实验性，功能未经完整验证"));
+    notify_experimental_device(device->device_address());
 }
 
 void DeviceController::refresh_limits() {

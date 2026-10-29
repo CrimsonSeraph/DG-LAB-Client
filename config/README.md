@@ -92,6 +92,7 @@
 | `app.output.default_device` | string | 默认输出设备的蓝牙 MAC（如 `D3:3B:5A:FA:43:0C`，空字符串表示自动评选）。只在该设备在线时生效；离线或用户主动断开时回退到自动评选（郊狼 > 负鼠 > 其它，同类型先连接者优先）。由 `DeviceController::setDefaultDevice()` 写入，首页看板的下拉是它的界面入口 |
 | `app.devices.<MAC>.limit_a` / `safety_a` / `limit_b` / `safety_b` | int | 该设备的通道上下限，优先于通道级默认值。未设置（或该键被删除）时回退到 `app.channels.<A\|B>.{limit, safety}`，再回退到内置默认（`limit=200` / `safety=150`）；读取集中在 `DeviceController::limits_for(mac, channel)`，界面显示与下发都用它算出的 `min(limit, safety)` |
 | `app.devices.<MAC>.experimental_notice_shown` | bool | 实验性设备首次连接成功的「功能未经完整验证」提示是否已经弹过；首次连接时写入 `true`，之后不再提示 |
+| `app.devices.paw.d0_values` | bool | 爪印 D0 模式（10Hz 全量物理数据）是否写入数值模块 `paw` 的 `accel` / `angle_x` / `angle_y` / `angle_z` / `voltage` / `button`；缺省 `false`（10Hz 数据不落值，避免 10Hz 触发规则求值）。键里的 `paw` 是驱动标识，不是设备 MAC |
 | `app.channels.<A\|B>.{limit, safety}` | int | 通道级上下限（所有插件共用），是所有设备的回退层；界面入口在插件详情的「通道上限」面板，写入与旧键迁移见 [docs/event-mapping.md](../docs/event-mapping.md) 的「通道上限」 |
 | `app.gsi.cs_dir` | string | CS2 GSI 插件记录的 CS 游戏目录（`CS2GsiPlugin` 通过 `PathFinder.py` 查找） |
 | `app.gsi.config_path` | string | CS2 GSI 插件生成的 `gamestate_integration_dglab.cfg` 完整路径 |

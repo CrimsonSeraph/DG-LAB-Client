@@ -66,18 +66,61 @@ void EventRuntime::initialize() {
 
 void EventRuntime::reload() {
     engine_.clear();
+    std::set<std::string> plugin_modules;
     const std::vector<ModuleManager::PluginInfo> plugins = ModuleManager::instance().get_plugins();
     for (const ModuleManager::PluginInfo& plugin : plugins) {
         if (plugin.module_name.empty() || plugin.events.empty()) {
             continue;
         }
-        std::map<std::string, EventConfig> configs = read_event_configs(plugin.module_name, plugin.events);
-        // 运行期启用集合覆盖映射里的 enabled（不写回配置）
-        apply_cascade_enabled(plugin.module_name, cascade_events_, configs);
-        engine_.configure(plugin.module_name, plugin.events, configs);
+        configure_module(plugin.module_name, plugin.events);
+        plugin_modules.insert(plugin.module_name);
     }
-    LOG_MODULE("EventRuntime", "reload", LOG_DEBUG, "事件映射载入完成，模块数 " << plugins.size());
+    // 内置设备声明是第二个来源：同一模块标识已由插件声明事件时以插件为准，避免两套声明互相覆盖
+    int builtin_modules = 0;
+    for (const auto& [module_name, definitions] : builtin_events_) {
+        if (definitions.empty() || plugin_modules.count(module_name) != 0) {
+            continue;
+        }
+        configure_module(module_name, definitions);
+        ++builtin_modules;
+    }
+    LOG_MODULE("EventRuntime", "reload", LOG_DEBUG,
+        "事件映射载入完成，插件模块数 " << plugin_modules.size() << " 内置模块数 " << builtin_modules);
     emit reloaded();
+}
+
+void EventRuntime::register_builtin_events(const std::string& module_name,
+    const std::vector<EventDefinition>& events) {
+    if (module_name.empty()) {
+        return;
+    }
+    if (events.empty()) {
+        // 空声明等于清除该模块的内置来源；插件仍在声明该模块时不动它的运行期状态
+        builtin_events_.erase(module_name);
+        bool plugin_declared = false;
+        for (const ModuleManager::PluginInfo& plugin : ModuleManager::instance().get_plugins()) {
+            if (plugin.module_name == module_name && !plugin.events.empty()) {
+                plugin_declared = true;
+                break;
+            }
+        }
+        if (!plugin_declared) {
+            engine_.remove_module(module_name);
+        }
+    }
+    else {
+        // 键为模块标识：重复注册整体替换，不会累积出重复声明
+        builtin_events_[module_name] = events;
+    }
+    LOG_MODULE("EventRuntime", "register_builtin_events", LOG_INFO,
+        "内置事件声明已注册: " << module_name << "，事件数 " << events.size());
+    if (frame_timer_ != nullptr) {
+        reload();
+    }
+}
+
+const EventEngine& EventRuntime::engine() const {
+    return engine_;
 }
 
 void EventRuntime::set_cascade_events(const std::set<std::string>& events) {
@@ -91,12 +134,16 @@ void EventRuntime::set_cascade_events(const std::set<std::string>& events) {
     reload();
 }
 
-const EventEngine& EventRuntime::engine() const {
-    return engine_;
-}
-
 int EventRuntime::channel_output(const std::string& channel) const {
     return engine_.channel_output(channel);
+}
+
+void EventRuntime::configure_module(const std::string& module_name,
+    const std::vector<EventDefinition>& definitions) {
+    std::map<std::string, EventConfig> configs = read_event_configs(module_name, definitions);
+    // 运行期启用集合覆盖映射里的 enabled（不写回配置）
+    apply_cascade_enabled(module_name, cascade_events_, configs);
+    engine_.configure(module_name, definitions, configs);
 }
 
 void EventRuntime::on_frame_tick() {
