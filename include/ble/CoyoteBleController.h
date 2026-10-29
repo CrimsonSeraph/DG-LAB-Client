@@ -21,21 +21,25 @@
 
 class QLowEnergyController;
 class QBluetoothDeviceDiscoveryAgent;
+class OpossumBleController;
 class QTimer;
 
 // CoyoteBleController - 郊狼 V3 蓝牙直连（QML 上下文属性 ble）
 // GATT 服务与 B0 / BF / B1 指令格式见 include/README.md 的「关键协议与约定」。
 // 实现 IOutputDevice：上层只经接口下发，GATT 细节留在本类内部。
+// 兼任蓝牙扫描与连接入口：扫描列表里的负鼠（47L127）型号转交 OpossumBleController 写入，
+// 界面上的连接状态、电量与强度读的是当前生效链路（郊狼优先，其次负鼠）。
 class CoyoteBleController : public IOutputDevice {
     Q_OBJECT
     Q_PROPERTY(bool scanning READ scanning NOTIFY stateChanged)
-    Q_PROPERTY(bool connected READ connected NOTIFY stateChanged)
-    Q_PROPERTY(QString deviceName READ device_name NOTIFY stateChanged)
-    Q_PROPERTY(int battery READ battery NOTIFY batteryChanged)
-    Q_PROPERTY(int strengthA READ strength_a NOTIFY strengthChanged)
-    Q_PROPERTY(int strengthB READ strength_b NOTIFY strengthChanged)
+    Q_PROPERTY(bool connected READ link_connected NOTIFY stateChanged)
+    Q_PROPERTY(QString deviceName READ link_device_name NOTIFY stateChanged)
+    Q_PROPERTY(int battery READ link_battery NOTIFY batteryChanged)
+    Q_PROPERTY(int strengthA READ link_strength_a NOTIFY strengthChanged)
+    Q_PROPERTY(int strengthB READ link_strength_b NOTIFY strengthChanged)
+    Q_PROPERTY(bool screenSyncAvailable READ screen_sync_available NOTIFY stateChanged)
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
-    Q_PROPERTY(QString status READ status NOTIFY statusChanged)
+    Q_PROPERTY(QString status READ link_status NOTIFY statusChanged)
     Q_PROPERTY(QString deviceAddress READ device_address NOTIFY stateChanged)
     Q_PROPERTY(QString deviceModel READ device_model NOTIFY stateChanged)
 
@@ -44,7 +48,7 @@ public:
     struct DeviceProfile {
         QString model;          ///< 型号段（如 47L127）
         QString label;          ///< 型号显示名（如 负鼠）
-        bool supported = false; ///< 本版是否可连接（驱动已实现）
+        bool supported = false; ///< 本版是否可连接（驱动已实现，含实验性驱动）
         bool output = true;     ///< 是否具备输出能力（纯输入设备不参与默认设备评选）
         QString type = QStringLiteral("unknown"); ///< 类型标识（默认设备评选用）
         SupportState state = SupportState::Unsupported; ///< 驱动支持程度（三态）
@@ -54,6 +58,10 @@ public:
     ~CoyoteBleController() override;
 
     void initialize();
+
+    /// @brief 注入负鼠驱动：扫描列表里的负鼠型号连接与界面状态转交本对象
+    /// @param opossum 负鼠驱动实例，可为空
+    void attach_opossum(OpossumBleController* opossum);
 
     /// @brief 按蓝牙名前缀识别设备型号
     /// @param name 蓝牙名
@@ -68,6 +76,15 @@ public:
     int strength_b() const override { return strength_b_; }
     QVariantList devices() const { return devices_; }
     QString status() const { return status_; }
+    // 界面口径的链路状态：郊狼在线取郊狼，否则取负鼠（无负鼠时与郊狼自身一致）
+    bool link_connected() const;
+    QString link_device_name() const;
+    int link_battery() const;
+    int link_strength_a() const;
+    int link_strength_b() const;
+    QString link_status() const;
+    // 屏幕强度同步（B2）是否可用：负鼠离线时视为可用
+    bool screen_sync_available() const;
     /// @brief 已连接设备的蓝牙 MAC（未连接时为空串）
     QString device_address() const override { return device_address_; }
     /// @brief 设备显示名（型号名，如「郊狼 V3」）
@@ -116,8 +133,12 @@ signals:
     void waveStateChanged();
     void statusChanged();
     void errorOccurred(const QString& message);
+    /// @brief 屏幕强度同步（B2）不可用状态变化（负鼠链路）
+    void screenSyncChanged();
 
 private:
+    // 负鼠是否为界面上的当前链路（郊狼未连接且负鼠已连接）
+    bool opossum_active() const;
     void on_device_discovered(const QBluetoothDeviceInfo& info);
     void on_scan_finished();
     void on_controller_connected();
@@ -147,6 +168,7 @@ private:
     /// @brief 取通道状态（channel: 1=A，其它按 B）
     const ChannelState& state_of(int channel) const;
 
+    OpossumBleController* opossum_ = nullptr; ///< 负鼠驱动（扫描与连接入口共用本类）
     QBluetoothDeviceDiscoveryAgent* discovery_ = nullptr;
     QLowEnergyController* controller_ = nullptr;
     QLowEnergyService* coyote_service_ = nullptr;
@@ -176,6 +198,7 @@ private:
     int last_set_a_ = -1; ///< 最近一条绝对强度（A），-1 表示未下发过
     int last_set_b_ = -1; ///< 最近一条绝对强度（B），-1 表示未下发过
     bool identity_frame_logged_ = false; ///< 设备身份帧是否已记录
+    bool opossum_link_shown_ = false; ///< 负鼠是否已成为界面当前链路（连接信号只在翻转时发）
     QString status_;
     ChannelState channel_a_;
     ChannelState channel_b_;

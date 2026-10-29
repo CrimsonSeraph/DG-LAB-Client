@@ -6,6 +6,7 @@
 #include "CoyoteBleController.h"
 
 #include "DebugLog.h"
+#include "OpossumBleController.h"
 
 #include <QBluetoothDeviceDiscoveryAgent>
 #include <QCoreApplication>
@@ -34,21 +35,22 @@ namespace {
     struct ModelEntry {
         const char* prefix;  ///< 蓝牙名前缀
         const char* label;   ///< 型号显示名
-        bool has_driver;     ///< 本版是否已实现驱动
+        bool has_driver;     ///< 本版是否已实现驱动（可连接）
+        bool verified;       ///< 驱动是否经实机验证（未验证按实验性展示）
         bool output;         ///< 是否具备输出能力（纯输入设备不参与默认设备评选）
         const char* type;    ///< 类型标识（默认设备优先级用）
     };
     constexpr ModelEntry kModelTable[] = {
-        {"47L120", "爪印", false, false, "pawprint"},
-        {"47L121", "郊狼 V3", true, true, "coyote"},
-        {"47L124", "灵猫", false, false, "lynx"},
-        {"47L127", "负鼠", false, true, "opossum"},
+        {"47L120", "爪印", false, false, false, "pawprint"},
+        {"47L121", "郊狼 V3", true, true, true, "coyote"},
+        {"47L124", "灵猫", false, false, false, "lynx"},
+        {"47L127", "负鼠", true, false, true, "opossum"},
     };
 
-    // 型号登记的型号段 → 驱动支持程度（已实现驱动为已支持，其余登记型号为实验性）
-    IOutputDevice::SupportState support_state_of(bool has_driver) {
-        return has_driver ? IOutputDevice::SupportState::Supported
-                          : IOutputDevice::SupportState::Experimental;
+    // 驱动支持程度：实机验证过的驱动为已支持，驱动已实现但未验证或未实现均为实验性
+    IOutputDevice::SupportState support_state_of(bool has_driver, bool verified) {
+        return (has_driver && verified) ? IOutputDevice::SupportState::Supported
+                                        : IOutputDevice::SupportState::Experimental;
     }
 
     // 驱动支持程度的界面文案
@@ -104,7 +106,7 @@ CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& 
             profile.supported = entry.has_driver;
             profile.output = entry.output;
             profile.type = QString::fromLatin1(entry.type);
-            profile.state = support_state_of(entry.has_driver);
+            profile.state = support_state_of(entry.has_driver, entry.verified);
             return profile;
         }
     }
@@ -120,6 +122,70 @@ CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& 
     profile.label = QStringLiteral("未知型号");
     profile.state = SupportState::Experimental;
     return profile;
+}
+
+void CoyoteBleController::attach_opossum(OpossumBleController* opossum) {
+    opossum_ = opossum;
+    if (opossum_ == nullptr) {
+        return;
+    }
+    // 驱动先于本类销毁时清空指针：本类析构仍会走 disconnectDevice()
+    connect(opossum_, &QObject::destroyed, this, [this]() { opossum_ = nullptr; });
+    // 只有负鼠成为界面当前链路时才广播连接变化，避免郊狼离线期间多余的复位
+    connect(opossum_, &OpossumBleController::stateChanged, this, [this]() {
+        const bool active = opossum_active();
+        if (active == opossum_link_shown_) {
+            return;
+        }
+        opossum_link_shown_ = active;
+        emit stateChanged();
+        emit waveStateChanged();
+    });
+    connect(opossum_, &OpossumBleController::strengthChanged, this, &CoyoteBleController::strengthChanged);
+    connect(opossum_, &OpossumBleController::batteryChanged, this, &CoyoteBleController::batteryChanged);
+    connect(opossum_, &OpossumBleController::screenSyncChanged, this, &CoyoteBleController::screenSyncChanged);
+    connect(opossum_, &OpossumBleController::statusChanged, this, [this]() {
+        if (opossum_active()) {
+            emit statusChanged();
+        }
+    });
+}
+
+// 负鼠是否为界面上的当前链路（郊狼未连接且负鼠已连接）
+bool CoyoteBleController::opossum_active() const {
+    return !connected_ && opossum_ != nullptr && opossum_->connected();
+}
+
+bool CoyoteBleController::link_connected() const {
+    return connected_ || opossum_active();
+}
+
+QString CoyoteBleController::link_device_name() const {
+    if (opossum_active()) {
+        const QString label = opossum_->device_label();
+        return label.isEmpty() ? opossum_->device_address() : label;
+    }
+    return device_name_;
+}
+
+int CoyoteBleController::link_battery() const {
+    return opossum_active() ? opossum_->battery() : battery_;
+}
+
+int CoyoteBleController::link_strength_a() const {
+    return opossum_active() ? opossum_->strength_a() : strength_a_;
+}
+
+int CoyoteBleController::link_strength_b() const {
+    return opossum_active() ? opossum_->strength_b() : strength_b_;
+}
+
+QString CoyoteBleController::link_status() const {
+    return opossum_active() ? opossum_->status() : status_;
+}
+
+bool CoyoteBleController::screen_sync_available() const {
+    return opossum_active() ? opossum_->screen_sync_available() : true;
 }
 
 void CoyoteBleController::set_status(const QString& text) {
@@ -234,11 +300,13 @@ void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info)
     item.insert(QStringLiteral("supportText"), support_text_of(profile.state));
     item.insert(QStringLiteral("connectable"), profile.state != SupportState::Unsupported);
     item.insert(QStringLiteral("output"), profile.output);
-    // 行内提示：实验性型号明确给出「驱动尚未实现」，未知型号给出可连接的型号段
+    // 行内提示：实验性型号区分「驱动已实现未验证」与「驱动尚未实现」，未知型号给出可连接的型号段
     const QString model_text = profile.model.isEmpty() ? QString() : QStringLiteral("型号 %1，").arg(profile.model);
     QString hint;
     if (profile.state == SupportState::Experimental) {
-        hint = QStringLiteral("暂不可连接（%1驱动尚未实现）").arg(model_text);
+        hint = profile.supported ? QStringLiteral("%1实验性驱动已实现，未经实机验证")
+                                       .arg(model_text)
+                                 : QStringLiteral("暂不可连接（%1驱动尚未实现）").arg(model_text);
     }
     else if (profile.state == SupportState::Unsupported) {
         hint = QStringLiteral("不可连接（%1型号未登记）").arg(model_text);
@@ -274,6 +342,26 @@ void CoyoteBleController::connectDevice(const QString& address) {
         emit errorOccurred(QStringLiteral("暂不支持该设备（型号 %1）").arg(profile.model));
         return;
     }
+    if (profile.type == QStringLiteral("opossum")) {
+        // 负鼠：GATT 相同但指令集不同，写入交给负鼠驱动；扫描与连接入口仍走本类
+        if (opossum_ == nullptr) {
+            LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN, "负鼠驱动未接入，拒绝连接");
+            set_status(QStringLiteral("负鼠驱动未接入"));
+            emit errorOccurred(QStringLiteral("负鼠驱动未接入，本版无法连接该设备"));
+            return;
+        }
+        if (opossum_->connected()) {
+            set_status(QStringLiteral("负鼠已连接"));
+            return;
+        }
+        // 同一时间只维持一条蓝牙链路：连接负鼠前先断开当前链路
+        if (connected_) {
+            disconnectDevice();
+        }
+        opossum_->connect_device(target);
+        set_status(QStringLiteral("正在连接 %1…").arg(profile.label));
+        return;
+    }
     if (profile.state == SupportState::Experimental) {
         // 实验性型号：行可点选，但驱动未实现，明确告知而不是假装可用
         LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
@@ -282,6 +370,10 @@ void CoyoteBleController::connectDevice(const QString& address) {
         emit errorOccurred(QStringLiteral("%1（型号 %2）驱动尚未实现，本版无法连接")
             .arg(profile.label, profile.model));
         return;
+    }
+    // 同一时间只维持一条蓝牙链路：连接郊狼前先断开负鼠
+    if (opossum_ != nullptr && opossum_->connected()) {
+        opossum_->disconnect_device();
     }
 
     pending_address_ = address;
@@ -624,6 +716,11 @@ void CoyoteBleController::applyLimits(int limitA, int limitB, int freqBalance, i
 }
 
 void CoyoteBleController::setStrength(int channel, int mode, int value) {
+    // 负鼠为当前链路时强度转交负鼠驱动（B3 只有绝对强度，相对增减由驱动折算）
+    if (opossum_active()) {
+        opossum_->set_strength(channel, mode, value);
+        return;
+    }
     ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
     if (mode == 3 || mode == 4) {
         // 连续增减：按次数转换为单次增减（沿用规则引擎的 0/1/2 语义）
@@ -669,6 +766,9 @@ void CoyoteBleController::stopWave(int channel) {
 void CoyoteBleController::disconnectDevice() {
     tick_timer_->stop();
     battery_timer_->stop();
+    if (opossum_ != nullptr && opossum_->connected()) {
+        opossum_->disconnect_device();
+    }
     if (controller_ != nullptr) {
         controller_->disconnectFromDevice();
         controller_->deleteLater();

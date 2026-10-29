@@ -16,6 +16,7 @@
 #include "ModuleBannerImageProvider.h"
 #include "ModuleBridge.h"
 #include "ModuleManager.h"
+#include "OpossumBleController.h"
 #include "RuleGraphBridge.h"
 #include "RuleManager.h"
 #include "ThemeManager.h"
@@ -193,9 +194,14 @@ int main(int argc, char* argv[]) {
     wave.initialize();
     CoyoteBleController ble;
     ble.initialize();
+    // 负鼠振动控制器（实验性）：扫描与连接入口复用蓝牙入口对象，写入由负鼠驱动接管
+    OpossumBleController opossum;
+    opossum.initialize();
+    ble.attach_opossum(&opossum);
 
-    // 蓝牙接入输出链路：蓝牙已连接时规则输出与波形经蓝牙直连下发
+    // 蓝牙接入输出链路：已连接的设备参与默认设备评选（郊狼优先，其次负鼠）
     device.attach_output(&ble);
+    device.attach_output(&opossum);
 
     QObject::connect(&device, &DeviceController::statusMessage, &bridge,
         [&bridge](const QString& message) { bridge.setStatus(message); });

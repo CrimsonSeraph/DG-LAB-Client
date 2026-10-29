@@ -8,7 +8,7 @@
 | `rule/` | 规则引擎 | 规则实体与规则管理器（`Rule`/`RuleManager`），以及可视化规则图模型（`RuleGraph`） |
 | `module/` | 数值模块 | 数值模型与调度（`ModuleValue`/`Module`/`ModuleManager`，同时是插件宿主）、通用数据接收器 `DataListener` |
 | `wave/` | 波形 | 波形模型 `Wave`（V3 八字节帧）与波形库 `WaveLibrary` |
-| `ble/` | 蓝牙 | 输出设备接口 `IOutputDevice` 与郊狼 V3 蓝牙直连 `CoyoteBleController` |
+| `ble/` | 蓝牙 | 输出设备接口 `IOutputDevice`、郊狼 V3 蓝牙直连 `CoyoteBleController`（兼扫描入口）与负鼠 V1 蓝牙直连 `OpossumBleController` |
 | `net/` | 网络 | 应用内 DG-LAB WebSocket 中转服务 `DglabRelayServer`（V3 / V4）与局域网地址选择器 `IpSelector` |
 | `ui/` | 界面层（C++ 侧） | 桥接对象（`AppBridge`/`DeviceController`/`HomeBridge`/`ModuleBridge`/`WaveBridge`/`RuleGraphBridge`/`LogBridge`）、主题令牌 `ThemeManager`、二维码 `QrImageProvider`、QML 连接集中点 `UiConnector`，以及 QML 文件 `qml/` |
 
@@ -22,7 +22,7 @@ src/
 ├── rule/     # 规则引擎 + 规则图模型
 ├── module/   # 数值模块与插件宿主 + 数据接收器
 ├── wave/     # 波形模型与波形库
-├── ble/      # 输出设备接口 + 郊狼 V3 蓝牙直连
+├── ble/      # 输出设备接口 + 郊狼 V3 / 负鼠 V1 蓝牙直连
 ├── net/      # 应用内 WebSocket 中转服务（V3 / V4）与网卡地址选择器
 ├── ui/       # 界面桥接对象 + QML 界面
 └── README.md # 本说明文件
@@ -90,7 +90,9 @@ ui     ->  core, module, rule, wave, net, ble
 
 | 文件 | 描述 |
 | --- | --- |
-| `CoyoteBleController.cpp` | 郊狼 V3 蓝牙：扫描/连接、每 100ms 写 B0（强度 + 双通道波形）、BF 软上限与平衡参数、B1 强度回执与电量；按蓝牙名前缀 `47L1xxxx` 识别型号（`kModelTable`：爪印 / 郊狼 / 灵猫 / 负鼠），未登记前缀标注「暂不支持」并拒绝连接；以 `IOutputDevice` 适配方法对外，接口信号由既有信号转发 |
+| `CoyoteBleController.cpp` | 郊狼 V3 蓝牙：扫描/连接、每 100ms 写 B0（强度 + 双通道波形）、BF 软上限与平衡参数、B1 强度回执与电量；按蓝牙名前缀 `47L1xxxx` 识别型号（`kModelTable`：型号段 / 显示名 / 驱动是否已实现 / 是否经实机验证 / 输出能力 / 类型），未登记前缀标注「暂不支持」并拒绝连接；兼任扫描与连接入口，`47L127` 负鼠的连接转交 `OpossumBleController`，界面上的连接状态、电量与强度读当前生效链路（郊狼优先）；以 `IOutputDevice` 适配方法对外，接口信号由既有信号转发 |
+| `OpossumBleController.cpp` | 负鼠振动控制器 V1（`OpossumBleController : IOutputDevice`，`device_type()=opossum`、`support_state()` 固定实验性）：每 100ms 写 B0（双通道强度字节）、B3 强度指令（`0xFF` 不改）、B2 屏幕强度同步（24 字节完整形态失败后回退 20 字节截断形态，再失败置「屏幕同步不可用」并只记一条 WARN）、B3 回执与电量；波形帧取郊狼 V3 帧的第 4~7 字节（频率丢弃，有损转换），非法帧跳过并静音；B0 无回执，每次写入后主动发 `outputWaveChanged`；D0 按键数据本版未接入，只记一次 DEBUG |
+| `OpossumFrames.h`（include 侧） | 负鼠指令构造纯函数：`build_b0()`（越界整通道弃用）、`build_b3()`（`0xFF` 不改）、`build_b2()` / `build_b2_short()`（24 / 20 字节两形态）、`wave_bytes_from_v3_frame()`（郊狼 V3 帧 → 4 字节强度）；测试目标 `opossum_frames_test` |
 
 ## 六、net/ —— 应用内 WebSocket 中转服务
 

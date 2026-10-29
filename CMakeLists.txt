@@ -247,13 +247,16 @@ set(EVENT
 	include/event/EventRuntime.h
 )
 
-# 蓝牙（ble）：郊狼 V3 直连
+# 蓝牙（ble）：郊狼 V3 直连（兼扫描入口）与负鼠 V1 直连
 set(BLE
 	# 源文件
 	src/ble/CoyoteBleController.cpp
+	src/ble/OpossumBleController.cpp
 	# 头文件
 	include/ble/CoyoteBleController.h
 	include/ble/IOutputDevice.h
+	include/ble/OpossumBleController.h
+	include/ble/OpossumFrames.h
 )
 
 # 网络（net）：应用内中转服务
@@ -883,6 +886,21 @@ target_include_directories(event_wave_test
 		${CMAKE_CURRENT_SOURCE_DIR}/include/event
 )
 add_test(NAME event_wave_test COMMAND event_wave_test)
+
+# 负鼠振动控制器指令构造（B0 布局与越界整通道弃用、郊狼 V3 帧转强度字节、B3 的 0xFF 语义、
+# B2 的 24 / 20 两种形态）：纯函数，只链接 Qt::Core
+add_executable(opossum_frames_test
+	tests/opossum_frames_test.cpp
+)
+target_link_libraries(opossum_frames_test
+	PRIVATE Qt::Core
+)
+target_include_directories(opossum_frames_test
+	PRIVATE
+		${CMAKE_CURRENT_SOURCE_DIR}/include
+		${CMAKE_CURRENT_SOURCE_DIR}/include/ble
+)
+add_test(NAME opossum_frames_test COMMAND opossum_frames_test)
 
 # 波形库数据层（官方内置波形资源、V2/V3 双版本帧、存储 round-trip、旧格式兼容与非法帧拒绝）
 # 需要配置层（wave.path / app.wave.protocol）与 DGLABClient.qrc 内的官方波形资源；

@@ -222,14 +222,14 @@ Item {
                         }
                     }
 
-                    // 蓝牙直连（郊狼 V3）：位于扫码配对列下方，占整卡宽度
+                    // 蓝牙直连（郊狼 V3 / 负鼠）：位于扫码配对列下方，占整卡宽度
                     ColumnLayout {
                         objectName: "configBleColumn"
                         Layout.fillWidth: true
                         spacing: ComponentStyle.groupTitleGap
 
                         Text {
-                            text: qsTr("蓝牙直连（郊狼 V3）")
+                            text: qsTr("蓝牙直连（郊狼 V3 / 负鼠）")
                             color: Theme.textSecondary
                             font.pixelSize: Typography.fontBody
                             font.bold: true
@@ -278,6 +278,17 @@ Item {
                             visible: ble.status.length > 0 && ble.status !== page.bleStatusLine
                             text: ble.status
                             color: Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        // 负鼠屏幕强度同步（B2）不可用的说明：B0 波形与 B3 强度下发不受影响
+                        Text {
+                            objectName: "configBleScreenSyncText"
+                            Layout.fillWidth: true
+                            visible: !ble.screenSyncAvailable
+                            text: qsTr("负鼠屏幕强度同步不可用，通道输出不受影响")
+                            color: Theme.warning
                             font.pixelSize: Typography.fontBody
                             elide: Text.ElideRight
                         }

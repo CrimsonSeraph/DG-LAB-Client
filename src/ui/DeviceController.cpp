@@ -122,16 +122,16 @@ void DeviceController::initialize() {
     ble_wave_timer_a_ = new QTimer(this);
     ble_wave_timer_a_->setSingleShot(true);
     connect(ble_wave_timer_a_, &QTimer::timeout, this, [this]() {
-        if (ble_ != nullptr) {
-            ble_->stop_wave(1);
+        if (IOutputDevice* device = active_output(0)) {
+            device->stop_wave(1);
         }
         rule_wave_[0] = RuleWaveState();
     });
     ble_wave_timer_b_ = new QTimer(this);
     ble_wave_timer_b_->setSingleShot(true);
     connect(ble_wave_timer_b_, &QTimer::timeout, this, [this]() {
-        if (ble_ != nullptr) {
-            ble_->stop_wave(2);
+        if (IOutputDevice* device = active_output(1)) {
+            device->stop_wave(2);
         }
         rule_wave_[1] = RuleWaveState();
     });
@@ -152,44 +152,45 @@ void DeviceController::initialize() {
 }
 
 void DeviceController::attach_output(IOutputDevice* output) {
-    ble_ = output;
-    if (ble_ != nullptr) {
-        // 蓝牙连接状态直接决定输出可用性，属性需要跟着广播
-        connect(ble_, &IOutputDevice::outputStateChanged, this, [this]() {
-            // 链路断开：事件波形与规则波形状态一并清空，重连后不残留「以为在播」的标志
-            if (!ble_ready()) {
-                abort_event_wave(0);
-                abort_event_wave(1);
-            }
-            else {
-                // 连接顺序用于同类型多台设备时「先连接的优先」评选
-                const QString mac = ble_->device_address().trimmed().toUpper();
-                if (!mac.isEmpty() && !connection_order_.contains(mac)) {
-                    connection_order_.insert(mac, ++connection_seq_);
-                }
-                notify_experimental_device();
-            }
-            emit outputReadyChanged();
-            // 在线设备与默认设备都随链路变化，界面列表与上下限跟着刷新
-            emit outputDevicesChanged();
-            emit defaultDeviceChanged();
-            refresh_limits();
-            // 链路切换后强度来源随之切换，需要按新链路广播一次
-            emit_authoritative_strength();
-        });
-        // 蓝牙回执是蓝牙在线时的强度唯一来源（B1 每 100ms 回传）
-        connect(ble_, &IOutputDevice::outputStrengthChanged, this, [this]() {
-            if (ble_ready()) {
-                emit_authoritative_strength();
-            }
-        });
-        connect(ble_, &IOutputDevice::outputWaveChanged, this, [this]() {
-            // 每次 B0 写入代表设备吃掉一帧波形，事件波形据此判断是否播完
-            ++event_wave_writes_[0];
-            ++event_wave_writes_[1];
-            emit waveOutputChanged();
-        });
+    if (output == nullptr || outputs_.contains(output)) {
+        return;
     }
+    outputs_.append(output);
+    // 蓝牙连接状态直接决定输出可用性，属性需要跟着广播
+    connect(output, &IOutputDevice::outputStateChanged, this, [this, output]() {
+        // 链路断开：事件波形与规则波形状态一并清空，重连后不残留「以为在播」的标志
+        if (!output->connected()) {
+            abort_event_wave(0);
+            abort_event_wave(1);
+        }
+        else {
+            // 连接顺序用于同类型多台设备时「先连接的优先」评选
+            const QString mac = output->device_address().trimmed().toUpper();
+            if (!mac.isEmpty() && !connection_order_.contains(mac)) {
+                connection_order_.insert(mac, ++connection_seq_);
+            }
+            notify_experimental_device(output);
+        }
+        emit outputReadyChanged();
+        // 在线设备与默认设备都随链路变化，界面列表与上下限跟着刷新
+        emit outputDevicesChanged();
+        emit defaultDeviceChanged();
+        refresh_limits();
+        // 链路切换后强度来源随之切换，需要按新链路广播一次
+        emit_authoritative_strength();
+    });
+    // 蓝牙回执是蓝牙在线时的强度唯一来源（郊狼 B1 每 100ms 回传，负鼠 B3 按变化回传）
+    connect(output, &IOutputDevice::outputStrengthChanged, this, [this, output]() {
+        if (output->connected()) {
+            emit_authoritative_strength();
+        }
+    });
+    connect(output, &IOutputDevice::outputWaveChanged, this, [this]() {
+        // 每次 B0 写入代表设备吃掉一帧波形，事件波形据此判断是否播完
+        ++event_wave_writes_[0];
+        ++event_wave_writes_[1];
+        emit waveOutputChanged();
+    });
 }
 
 bool DeviceController::output_available() const {
@@ -283,26 +284,29 @@ QVariantList DeviceController::output_devices() const {
 
 bool DeviceController::wave_sending(const QString& channel) const {
     const int index = channel_index_of(channel);
-    if (index < 0 || !ble_ready()) {
+    const IOutputDevice* device = default_output();
+    if (index < 0 || device == nullptr) {
         return false;
     }
-    return ble_->wave_sending(index + 1);
+    return device->wave_sending(index + 1);
 }
 
 int DeviceController::wave_frame(const QString& channel) const {
     const int index = channel_index_of(channel);
-    if (index < 0 || !ble_ready()) {
+    const IOutputDevice* device = default_output();
+    if (index < 0 || device == nullptr) {
         return 0;
     }
-    return ble_->wave_frame(index + 1);
+    return device->wave_frame(index + 1);
 }
 
 int DeviceController::wave_frames(const QString& channel) const {
     const int index = channel_index_of(channel);
-    if (index < 0 || !ble_ready()) {
+    const IOutputDevice* device = default_output();
+    if (index < 0 || device == nullptr) {
         return 0;
     }
-    return ble_->wave_frames(index + 1);
+    return device->wave_frames(index + 1);
 }
 
 QObject* DeviceController::ip_selector() const {
@@ -437,12 +441,12 @@ void DeviceController::clearQueue(int channel) {
     if (index == 0 || index == 1) {
         rule_wave_[index] = RuleWaveState();
     }
-    if (ble_ready()) {
+    if (IOutputDevice* device = active_output(index)) {
         QTimer* timer = wave_stop_timer(index);
         if (timer != nullptr) {
             timer->stop();
         }
-        ble_->stop_wave(channel);
+        device->stop_wave(channel);
         return;
     }
     if (relay_ != nullptr) {
@@ -580,14 +584,16 @@ void DeviceController::update_pairing_url() {
 }
 
 bool DeviceController::ble_ready() const {
-    return ble_ != nullptr && ble_->connected();
+    return default_output() != nullptr;
 }
 
 QList<IOutputDevice*> DeviceController::online_outputs() const {
     QList<IOutputDevice*> list;
-    // 当前只注入一台蓝牙输出设备；多设备接入时在此追加，评选与回退链无需改动
-    if (ble_ready() && ble_->output_capable()) {
-        list.append(ble_);
+    // 注入的蓝牙设备逐个判定：已连接且具备输出能力者参与评选与下发
+    for (IOutputDevice* device : outputs_) {
+        if (device->connected() && device->output_capable()) {
+            list.append(device);
+        }
     }
     return list;
 }
@@ -630,11 +636,11 @@ int DeviceController::connection_order(const QString& mac) const {
     return it == connection_order_.constEnd() ? std::numeric_limits<int>::max() : it.value();
 }
 
-void DeviceController::notify_experimental_device() {
-    if (ble_ == nullptr || ble_->support_state() != IOutputDevice::SupportState::Experimental) {
+void DeviceController::notify_experimental_device(IOutputDevice* device) {
+    if (device == nullptr || device->support_state() != IOutputDevice::SupportState::Experimental) {
         return;
     }
-    const QString mac = ble_->device_address().trimmed().toUpper();
+    const QString mac = device->device_address().trimmed().toUpper();
     if (mac.isEmpty()) {
         return;
     }
@@ -747,7 +753,8 @@ void DeviceController::notify_output_state() {
 }
 
 void DeviceController::emit_authoritative_strength() {
-    const bool from_ble = ble_ready();
+    const IOutputDevice* device = default_output();
+    const bool from_ble = device != nullptr;
     if (from_ble != strength_from_ble_) {
         strength_from_ble_ = from_ble;
         if (from_ble) {
@@ -758,7 +765,7 @@ void DeviceController::emit_authoritative_strength() {
         }
     }
     if (from_ble) {
-        emit strengthFeedback(ble_->strength_a(), ble_->strength_b(),
+        emit strengthFeedback(device->strength_a(), device->strength_b(),
             channel_limit(QStringLiteral("A")), channel_limit(QStringLiteral("B")));
         return;
     }

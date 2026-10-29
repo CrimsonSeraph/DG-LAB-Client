@@ -8,7 +8,7 @@
 | `rule/` | 规则引擎 | `Rule` / `RuleManager`（含模板实现）与规则图模型 `RuleGraph` |
 | `module/` | 数值模块 | `ModuleValue` / `Module` / `ModuleManager`（插件宿主）与 `DataListener` |
 | `wave/` | 波形 | `Wave` 与 `WaveLibrary` |
-| `ble/` | 蓝牙 | `IOutputDevice`（输出设备接口）、`CoyoteBleController` |
+| `ble/` | 蓝牙 | `IOutputDevice`（输出设备接口）、`CoyoteBleController`（兼扫描入口）、`OpossumBleController` |
 | `net/` | 网络 | `DglabRelayServer`、`IpSelector` |
 | `plugin/` | 插件接口 | `IPlugin`、`PluginHost`、`plugin_export.h` |
 | `ui/` | 界面层 | 桥接对象、`ThemeManager`、`QrImageProvider`、`UiConnector` |
@@ -23,7 +23,7 @@ include/
 ├── rule/     # 规则引擎 + 规则图
 ├── module/   # 数值模块 + 数据接收器
 ├── wave/     # 波形模型与库
-├── ble/      # 输出设备接口 + 郊狼 V3 蓝牙直连
+├── ble/      # 输出设备接口 + 郊狼 V3 / 负鼠 V1 蓝牙直连
 ├── net/      # 应用内 WebSocket 中转服务与网卡地址选择器
 ├── plugin/   # 插件接口
 ├── ui/       # 界面桥接对象
@@ -70,7 +70,9 @@ include/
 | `wave/Wave.h`               | V3 波形模型（段落 → 八字节帧） |
 | `wave/WaveLibrary.h`        | 波形库与 A/B 当前波形          |
 | `ble/IOutputDevice.h`      | 输出设备抽象接口（连接状态、电量、强度下发与回显、波形下发与进度、软上限、三个接口信号） |
-| `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1），实现 `IOutputDevice` |
+| `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1），实现 `IOutputDevice`；兼任扫描与连接入口，负鼠型号转交负鼠驱动 |
+| `ble/OpossumBleController.h` | 负鼠振动控制器 V1 蓝牙直连（B0/B3/B2），实现 `IOutputDevice`，驱动支持程度固定为实验性 |
+| `ble/OpossumFrames.h` | 负鼠指令构造纯函数（B0 / B3 / B2 两形态）与郊狼 V3 帧 → 负鼠强度字节转换 |
 | `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务（含二维码载荷与展示文本接口） |
 | `net/IpSelector.h`          | 局域网地址选择器（候选网卡枚举、黑/白名单、手动选中地址，QML 侧经 `device.ipSelector` 读取） |
 
@@ -121,10 +123,22 @@ include/
 - `B0`：每 100ms 写入 —— 序列号 + 强度解读方式 + 双通道强度 + 双通道各 4 组频率/强度。
 - `BF`：软上限与频率/强度平衡参数，**重连后必须重写**。
 - `B1`：主机回传序列号 + 双通道实际强度。
-- 型号识别：按蓝牙名前缀 `47L1xxxx` 分类，映射表是 `CoyoteBleController.cpp` 匿名命名空间的 `kModelTable`——`47L120` 爪印、`47L121` 郊狼 V3（唯一已实现驱动）、`47L124` 灵猫、`47L127` 负鼠。GATT 与郊狼 V3 相同的设备靠名字区分，未登记前缀一律标记「暂不支持（型号 xxx）」并在 `connectDevice()` 前拒绝连接，避免写入语义不匹配的指令；非 `47L1` 前缀沿用不限定型号的既有行为。
+- 型号识别：按蓝牙名前缀 `47L1xxxx` 分类，映射表是 `CoyoteBleController.cpp` 匿名命名空间的 `kModelTable`（型号段 / 显示名 / 驱动是否已实现 / 是否经实机验证 / 输出能力 / 类型标识）——`47L120` 爪印（未实现）、`47L121` 郊狼 V3（已实现且验证）、`47L124` 灵猫（未实现）、`47L127` 负鼠（已实现、未验证）。GATT 与郊狼 V3 相同的设备靠名字区分，未登记前缀一律标记「暂不支持（型号 xxx）」并在 `connectDevice()` 前拒绝连接，避免写入语义不匹配的指令；非 `47L1` 前缀沿用不限定型号的既有行为。驱动已实现但未验证的型号按「实验性」展示且可连接，行内提示区分「实验性驱动已实现，未经实机验证」与「暂不可连接（驱动尚未实现）」。
+- 扫描与连接入口：扫描仍由本类统一做，界面上的连接状态、电量、强度与状态文案读的是当前生效链路（郊狼优先，其次负鼠）；负鼠型号的连接请求转交 `OpossumBleController`，连接负鼠前会先断开郊狼链路。同一时间只维持一条蓝牙链路。
 - 输出设备接口：`IOutputDevice` 是上层唯一的设备依赖（连接状态、电量、`strength_a/b`、`wave_sending/frame/frames`、`set_strength` / `play_wave` / `stop_wave` / `apply_limits`，以及 `outputStateChanged` / `outputStrengthChanged` / `outputWaveChanged` 三个信号）。`CoyoteBleController` 以上述既有信号转发接口信号，发射时机与次数不变。
 
 外部协议参考 `DG-LAB-OPENSOURCE/coyote/v3/README_V3.md`。
+
+### 负鼠振动控制器 V1（`ble/OpossumBleController.h`）
+
+- GATT 与郊狼 V3 相同：服务 `0x180C`（写 `0x150A`、通知 `0x150B`）；电量服务 `0x180A`（读/通知 `0x1500`）。
+- `B0`：每 100ms 写入 20 字节 —— 头 + 7 字节 0 + A 通道 4 字节 + 4 字节 0 + B 通道 4 字节；每字节代表 25ms，量程 0~100，**任一字节越界则该通道 4 字节整条弃用**（写全 0 静音），另一通道不受影响。
+- `B3`：3 字节 —— 头 + A 通道强度 + B 通道强度，量程 0~200，`0xFF` 表示该通道不改。相对增减（模式 0/1 与连续增减 3/4）按设备回传强度折算成绝对值后再钳制。
+- `B2`：唯一用途是刷新设备屏幕上的通道强度显示（24 字节 = 头 + 21 字节固定段 + A + B）。文档同时标称写特征最长 20 字节，两者冲突：先按 24 字节写并等写入回执，失败（无写入回执能力 / 回执超时 / 服务错误）则截断到 20 字节重试一次，再失败则把 `screen_sync_available_` 置 false 并只记一条 WARN，B0 / B3 不受影响。界面经 `ble.screenSyncAvailable` 显示「屏幕强度同步不可用」。
+- 通知：`B3` 为强度回执（含物理按键造成的改变），收到后立刻补发 B2；`D0` 为 16 字节按键状态集，本版未接入输入侧，只在 DEBUG 记一次说明。
+- 波形：郊狼 V3 帧是「频率 4B + 强度 4B」，负鼠只要强度，因此取第 4~7 字节重打包成 B0 的 4 个强度字节，频率信息丢弃（有损转换）；帧不足八字节或非 HEX 时跳过该帧并静音。
+- 波形进度：B0 无回执，每次 B0 写入后主动发 `outputWaveChanged`，事件波形按此节奏推进。
+- 实验性：驱动已实现但**没有实机验证**，`support_state()` 固定返回实验性，连接成功后按 `app.devices.<MAC>.experimental_notice_shown` 弹一次性提示。
 
 ### V3 波形帧（`wave/Wave.h`）
 

@@ -56,7 +56,7 @@ public:
     /// @brief 创建中转服务与二维码提供者（不自动启动监听）
     void initialize();
 
-    /// @brief 绑定蓝牙输出设备（由 main 注入；已连接时优先走蓝牙输出）
+    /// @brief 绑定蓝牙输出设备（由 main 注入，可多次调用接入多台；已连接时优先走蓝牙输出）
     /// @param output 输出设备接口，可为空
     void attach_output(IOutputDevice* output);
 
@@ -189,9 +189,9 @@ private:
     /// @brief 解析当前使用的局域网地址（手动选中优先，其次按名单自动选择，最后回退环回）
     QString detect_lan_ip() const;
     void update_pairing_url();
-    /// @brief 蓝牙是否可作为输出通道
+    /// @brief 默认输出设备是否在线（蓝牙链路是否可作为输出通道）
     bool ble_ready() const;
-    /// @brief 在线且具备输出能力的设备列表（当前只有一台注入的蓝牙设备）
+    /// @brief 在线且具备输出能力的设备列表（注入的蓝牙设备中已连接者）
     QList<IOutputDevice*> online_outputs() const;
     /// @brief 按「用户覆盖 → 郊狼 > 负鼠 > 其它 → 先连接优先」选出默认输出设备
     IOutputDevice* default_output() const;
@@ -199,7 +199,8 @@ private:
     /// @param mac 设备 MAC
     int connection_order(const QString& mac) const;
     /// @brief 实验性设备首次连接成功时提示一次（记录到 app.devices.<MAC>.experimental_notice_shown）
-    void notify_experimental_device();
+    /// @param device 刚连上的输出设备
+    void notify_experimental_device(IOutputDevice* device);
     /// @brief 上下限配置变化时广播（外部修改 user.json 后界面与下发跟随）
     void refresh_limits();
     /// @brief 通道当前可用的输出设备
@@ -258,7 +259,7 @@ private:
 
     DglabRelayServer* relay_ = nullptr;
     QrImageProvider* qr_provider_ = nullptr;
-    IOutputDevice* ble_ = nullptr; ///< 蓝牙输出设备（main 注入，可为空；当前唯一输出目标）
+    QList<IOutputDevice*> outputs_; ///< 注入的蓝牙输出设备（郊狼 / 负鼠可同时接入）
     QTimer* ble_wave_timer_a_ = nullptr; ///< A 通道蓝牙波形停止定时器
     QTimer* ble_wave_timer_b_ = nullptr; ///< B 通道蓝牙波形停止定时器
     IpSelector* ip_selector_ = nullptr; ///< 局域网地址选择器（黑/白名单与手动选中地址）
