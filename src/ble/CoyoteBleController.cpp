@@ -34,14 +34,33 @@ namespace {
     struct ModelEntry {
         const char* prefix;  ///< 蓝牙名前缀
         const char* label;   ///< 型号显示名
-        bool supported;      ///< 本版是否已实现驱动
+        bool has_driver;     ///< 本版是否已实现驱动
+        bool output;         ///< 是否具备输出能力（纯输入设备不参与默认设备评选）
+        const char* type;    ///< 类型标识（默认设备优先级用）
     };
     constexpr ModelEntry kModelTable[] = {
-        {"47L120", "爪印", false},
-        {"47L121", "郊狼 V3", true},
-        {"47L124", "灵猫", false},
-        {"47L127", "负鼠", false},
+        {"47L120", "爪印", false, false, "pawprint"},
+        {"47L121", "郊狼 V3", true, true, "coyote"},
+        {"47L124", "灵猫", false, false, "lynx"},
+        {"47L127", "负鼠", false, true, "opossum"},
     };
+
+    // 型号登记的型号段 → 驱动支持程度（已实现驱动为已支持，其余登记型号为实验性）
+    IOutputDevice::SupportState support_state_of(bool has_driver) {
+        return has_driver ? IOutputDevice::SupportState::Supported
+                          : IOutputDevice::SupportState::Experimental;
+    }
+
+    // 驱动支持程度的界面文案
+    QString support_text_of(IOutputDevice::SupportState state) {
+        if (state == IOutputDevice::SupportState::Supported) {
+            return QStringLiteral("已支持");
+        }
+        if (state == IOutputDevice::SupportState::Experimental) {
+            return QStringLiteral("实验性");
+        }
+        return QStringLiteral("暂不支持");
+    }
 
 } // namespace
 
@@ -82,7 +101,10 @@ CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& 
         if (name.startsWith(prefix)) {
             profile.model = prefix;
             profile.label = QString::fromUtf8(entry.label);
-            profile.supported = entry.supported;
+            profile.supported = entry.has_driver;
+            profile.output = entry.output;
+            profile.type = QString::fromLatin1(entry.type);
+            profile.state = support_state_of(entry.has_driver);
             return profile;
         }
     }
@@ -90,10 +112,13 @@ CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& 
         // 未登记的 47L1 前缀：型号段取前 6 位，标注暂不支持
         profile.model = name.left(6);
         profile.label = QStringLiteral("未知型号");
+        profile.state = SupportState::Unsupported;
         return profile;
     }
-    // 非 47L1 前缀沿用既有行为：不限定型号，按可连接设备列出
+    // 非 47L1 前缀：型号未知但沿用既有行为允许连接，按实验性列出（功能未经完整验证）
     profile.supported = true;
+    profile.label = QStringLiteral("未知型号");
+    profile.state = SupportState::Experimental;
     return profile;
 }
 
@@ -198,16 +223,27 @@ void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info)
     // 缓存完整的 QBluetoothDeviceInfo
     device_cache_.insert(address, info);
 
-    // 加入 UI 列表
+    // 加入 UI 列表：行上带「已支持 / 实验性 / 暂不支持」三态标签
     QVariantMap item;
     QString displayName = info.name().isEmpty() ? QStringLiteral("郊狼设备(未知名称)") : info.name();
     const DeviceProfile profile = identify(info.name());
     item.insert(QStringLiteral("name"), displayName);
     item.insert(QStringLiteral("address"), address);
     item.insert(QStringLiteral("supported"), profile.supported);
-    item.insert(QStringLiteral("hint"), profile.supported
-        ? QString()
-        : QStringLiteral("暂不支持（型号 %1）").arg(profile.model));
+    item.insert(QStringLiteral("support"), static_cast<int>(profile.state));
+    item.insert(QStringLiteral("supportText"), support_text_of(profile.state));
+    item.insert(QStringLiteral("connectable"), profile.state != SupportState::Unsupported);
+    item.insert(QStringLiteral("output"), profile.output);
+    // 行内提示：实验性型号明确给出「驱动尚未实现」，未知型号给出可连接的型号段
+    const QString model_text = profile.model.isEmpty() ? QString() : QStringLiteral("型号 %1，").arg(profile.model);
+    QString hint;
+    if (profile.state == SupportState::Experimental) {
+        hint = QStringLiteral("暂不可连接（%1驱动尚未实现）").arg(model_text);
+    }
+    else if (profile.state == SupportState::Unsupported) {
+        hint = QStringLiteral("不可连接（%1型号未登记）").arg(model_text);
+    }
+    item.insert(QStringLiteral("hint"), hint);
     devices_.append(item);
     emit devicesChanged();
 }
@@ -230,16 +266,32 @@ void CoyoteBleController::connectDevice(const QString& address) {
     }
 
     const DeviceProfile profile = identify(target.name());
-    if (!profile.supported) {
-        // 型号未接入：GATT 相同但指令含义不同，拒绝连接避免误写
+    if (profile.state == SupportState::Unsupported) {
+        // 型号未登记：GATT 相同但指令含义不同，拒绝连接避免误写
         LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
             "拒绝连接未支持型号:" << target.name().toStdString() << " 型号 " << profile.model.toStdString());
         set_status(QStringLiteral("暂不支持该设备（型号 %1）").arg(profile.model));
+        emit errorOccurred(QStringLiteral("暂不支持该设备（型号 %1）").arg(profile.model));
+        return;
+    }
+    if (profile.state == SupportState::Experimental) {
+        // 实验性型号：行可点选，但驱动未实现，明确告知而不是假装可用
+        LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
+            "实验性型号驱动尚未实现:" << target.name().toStdString() << " 型号 " << profile.model.toStdString());
+        set_status(QStringLiteral("%1 驱动尚未实现").arg(profile.label));
+        emit errorOccurred(QStringLiteral("%1（型号 %2）驱动尚未实现，本版无法连接")
+            .arg(profile.label, profile.model));
         return;
     }
 
     pending_address_ = address;
     device_name_ = target.name().isEmpty() ? QStringLiteral("郊狼设备") : target.name();
+    device_address_ = address;
+    device_label_ = profile.label.isEmpty() ? device_name_ : profile.label;
+    device_model_ = profile.model;
+    device_type_ = profile.type;
+    device_output_capable_ = profile.output;
+    support_state_ = profile.state;
 
     // 用完整的 target 对象创建控制器
     controller_ = QLowEnergyController::createCentral(target, this);
@@ -635,6 +687,13 @@ void CoyoteBleController::disconnectDevice() {
     scanning_ = false;
     connected_ = false;
     ready_ = false;
+    // 设备标识随连接失效：离线设备不参与默认设备评选，配置键仍在下次连接后继续生效
+    device_address_.clear();
+    device_label_.clear();
+    device_model_.clear();
+    device_type_ = QStringLiteral("unknown");
+    device_output_capable_ = true;
+    support_state_ = SupportState::Unsupported;
     emit stateChanged();
     emit waveStateChanged();
 }

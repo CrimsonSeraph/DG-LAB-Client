@@ -16,10 +16,15 @@
 #include "WaveLibrary.h"
 
 #include <QDateTime>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QTimer>
+#include <QVariantMap>
 
 #include <algorithm>
+#include <limits>
 
 namespace {
 
@@ -46,6 +51,17 @@ namespace {
             return 1;
         }
         return -1;
+    }
+
+    // 设备类型的默认设备优先级（数值越小越优先）：郊狼 > 负鼠 > 其它
+    int device_type_priority(const QString& type) {
+        if (type == QStringLiteral("coyote")) {
+            return 0;
+        }
+        if (type == QStringLiteral("opossum")) {
+            return 1;
+        }
+        return 2;
     }
 
     // 强度命令的通道号（字符串 "A"/"B" 或数字 1/2，其它按 A 处理）
@@ -120,6 +136,13 @@ void DeviceController::initialize() {
         rule_wave_[1] = RuleWaveState();
     });
 
+    // 外部修改 user.json 后配置每 2 秒重载一次，这里按同一节奏比对上下限并广播变化
+    limits_timer_ = new QTimer(this);
+    limits_timer_->setInterval(2000);
+    connect(limits_timer_, &QTimer::timeout, this, [this]() { refresh_limits(); });
+    limits_timer_->start();
+    refresh_limits();
+
     // 规则引擎命令统一经本类下发（规则层只依赖本类接口）
     connect(&RuleManager::instance(), &RuleManager::rule_command_ready,
         this, [this](const QJsonObject& cmd) { send_command(cmd); });
@@ -138,7 +161,19 @@ void DeviceController::attach_output(IOutputDevice* output) {
                 abort_event_wave(0);
                 abort_event_wave(1);
             }
+            else {
+                // 连接顺序用于同类型多台设备时「先连接的优先」评选
+                const QString mac = ble_->device_address().trimmed().toUpper();
+                if (!mac.isEmpty() && !connection_order_.contains(mac)) {
+                    connection_order_.insert(mac, ++connection_seq_);
+                }
+                notify_experimental_device();
+            }
             emit outputReadyChanged();
+            // 在线设备与默认设备都随链路变化，界面列表与上下限跟着刷新
+            emit outputDevicesChanged();
+            emit defaultDeviceChanged();
+            refresh_limits();
             // 链路切换后强度来源随之切换，需要按新链路广播一次
             emit_authoritative_strength();
         });
@@ -162,11 +197,88 @@ bool DeviceController::output_available() const {
 }
 
 int DeviceController::channel_limit(const QString& channel) const {
-    const EventChannelConfig config = read_channel_config(channel.toStdString());
+    const EventChannelConfig config = limits_for(default_device_address(), channel);
     // 展示上限取 min(limit, safety)：与详情页写入同源，安全上限是输出强度的硬钳制
     const int limit = std::clamp(config.limit, 0, MAX_STRENGTH);
     const int safety = std::clamp(config.safety, 0, MAX_STRENGTH);
     return std::min(limit, safety);
+}
+
+EventChannelConfig DeviceController::limits_for(const QString& mac, const QString& channel) const {
+    // 回退链的唯一实现：设备特有值 → app.channels.<通道>（含旧键迁移与内置默认）
+    EventChannelConfig config = read_channel_config(channel.toStdString());
+    const bool is_a = channel.compare(QStringLiteral("A"), Qt::CaseInsensitive) == 0;
+    const bool is_b = channel.compare(QStringLiteral("B"), Qt::CaseInsensitive) == 0;
+    const QString device = mac.trimmed().toUpper();
+    if (device.isEmpty() || (!is_a && !is_b)) {
+        return config;
+    }
+    // 设备特有值取 user.json 快照：配置系统对已加载的文件不再重读，快照让外部改动无需重启即可生效
+    const QJsonObject devices = config_snapshot_app_.value(QStringLiteral("devices")).toObject();
+    QJsonObject device_config;
+    for (auto it = devices.constBegin(); it != devices.constEnd(); ++it) {
+        if (it.key().compare(device, Qt::CaseInsensitive) == 0 && it.value().isObject()) {
+            device_config = it.value().toObject();
+            break;
+        }
+    }
+    const QString limit_key = is_a ? QStringLiteral("limit_a") : QStringLiteral("limit_b");
+    const QString safety_key = is_a ? QStringLiteral("safety_a") : QStringLiteral("safety_b");
+    if (device_config.contains(limit_key)) {
+        config.limit = device_config.value(limit_key).toInt(config.limit);
+    }
+    if (device_config.contains(safety_key)) {
+        config.safety = device_config.value(safety_key).toInt(config.safety);
+    }
+    return config;
+}
+
+QString DeviceController::default_device_address() const {
+    const IOutputDevice* device = default_output();
+    return device == nullptr ? QString() : device->device_address();
+}
+
+int DeviceController::default_device_index() const {
+    const QString address = default_device_address();
+    if (address.isEmpty()) {
+        return -1;
+    }
+    const QVariantList devices = output_devices();
+    for (int index = 0; index < devices.size(); ++index) {
+        const QString candidate = devices.at(index).toMap().value(QStringLiteral("address")).toString();
+        if (candidate.compare(address, Qt::CaseInsensitive) == 0) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+QVariantList DeviceController::output_devices() const {
+    QList<IOutputDevice*> devices = online_outputs();
+    // 列表顺序即评选顺序：先按类型优先级（郊狼 > 负鼠 > 其它），同类型按先连接优先
+    std::stable_sort(devices.begin(), devices.end(),
+        [this](const IOutputDevice* left, const IOutputDevice* right) {
+            const int left_priority = device_type_priority(left->device_type());
+            const int right_priority = device_type_priority(right->device_type());
+            if (left_priority != right_priority) {
+                return left_priority < right_priority;
+            }
+            return connection_order(left->device_address()) < connection_order(right->device_address());
+        });
+    QVariantList list;
+    for (const IOutputDevice* device : devices) {
+        const QString address = device->device_address();
+        const QString label = device->device_label();
+        QVariantMap item;
+        item.insert(QStringLiteral("address"), address);
+        item.insert(QStringLiteral("label"), label);
+        item.insert(QStringLiteral("name"), label.isEmpty() ? address : label + QStringLiteral(" · ") + address);
+        item.insert(QStringLiteral("model"), device->device_model());
+        item.insert(QStringLiteral("type"), device->device_type());
+        item.insert(QStringLiteral("support"), static_cast<int>(device->support_state()));
+        list.append(item);
+    }
+    return list;
 }
 
 bool DeviceController::wave_sending(const QString& channel) const {
@@ -380,6 +492,31 @@ void DeviceController::setOutputTarget(const QString& channel, const QString& ta
         "通道 " << channel_name_of(index).toStdString() << " 输出目标切换为 " << target.toStdString());
 }
 
+void DeviceController::setDefaultDevice(const QString& mac) {
+    const QString normalized = mac.trimmed().toUpper();
+    auto& config = AppConfig::instance();
+    config.set_value_with_name<std::string>("app.output.default_device", normalized.toStdString(), "user");
+    config.save_all();
+    LOG_MODULE("DeviceController", "setDefaultDevice", LOG_INFO,
+        "默认设备切换为 " << (normalized.isEmpty() ? std::string("（自动评选）") : normalized.toStdString()));
+    // 默认设备变化后界面上限与下发目标立即跟随
+    emit defaultDeviceChanged();
+    emit outputDevicesChanged();
+    refresh_limits();
+    for (int index = 0; index < 2; ++index) {
+        channel_output_[index].reset_output();
+        update_channel_output(index);
+    }
+}
+
+void DeviceController::setDefaultDeviceByIndex(int index) {
+    const QVariantList devices = output_devices();
+    if (index < 0 || index >= devices.size()) {
+        return;
+    }
+    setDefaultDevice(devices.at(index).toMap().value(QStringLiteral("address")).toString());
+}
+
 void DeviceController::send_command(const QJsonObject& cmd) {
     if (!output_available()) {
         emit statusMessage(QStringLiteral("中转服务未启动且蓝牙未连接，命令未发送"));
@@ -446,15 +583,112 @@ bool DeviceController::ble_ready() const {
     return ble_ != nullptr && ble_->connected();
 }
 
+QList<IOutputDevice*> DeviceController::online_outputs() const {
+    QList<IOutputDevice*> list;
+    // 当前只注入一台蓝牙输出设备；多设备接入时在此追加，评选与回退链无需改动
+    if (ble_ready() && ble_->output_capable()) {
+        list.append(ble_);
+    }
+    return list;
+}
+
+IOutputDevice* DeviceController::default_output() const {
+    const QList<IOutputDevice*> online = online_outputs();
+    if (online.isEmpty()) {
+        return nullptr;
+    }
+    // 用户覆盖值只在该设备在线时生效；离线（含用户主动断开）自动回到下面的自动评选
+    const QString configured = QString::fromStdString(AppConfig::instance().get_value<std::string>(
+        "app.output.default_device", std::string())).trimmed();
+    if (!configured.isEmpty()) {
+        for (IOutputDevice* device : online) {
+            if (device->device_address().compare(configured, Qt::CaseInsensitive) == 0) {
+                return device;
+            }
+        }
+    }
+    IOutputDevice* best = nullptr;
+    for (IOutputDevice* device : online) {
+        if (best == nullptr) {
+            best = device;
+            continue;
+        }
+        const int priority = device_type_priority(device->device_type());
+        const int best_priority = device_type_priority(best->device_type());
+        const bool earlier = connection_order(device->device_address())
+            < connection_order(best->device_address());
+        if (priority < best_priority || (priority == best_priority && earlier)) {
+            best = device;
+        }
+    }
+    return best;
+}
+
+int DeviceController::connection_order(const QString& mac) const {
+    const auto it = connection_order_.constFind(mac.trimmed().toUpper());
+    // 未登记序号的设备排在同类型设备之后
+    return it == connection_order_.constEnd() ? std::numeric_limits<int>::max() : it.value();
+}
+
+void DeviceController::notify_experimental_device() {
+    if (ble_ == nullptr || ble_->support_state() != IOutputDevice::SupportState::Experimental) {
+        return;
+    }
+    const QString mac = ble_->device_address().trimmed().toUpper();
+    if (mac.isEmpty()) {
+        return;
+    }
+    auto& config = AppConfig::instance();
+    const std::string key = "app.devices." + mac.toStdString() + ".experimental_notice_shown";
+    if (config.get_value<bool>(key, false)) {
+        return;
+    }
+    config.set_value_with_name<bool>(key, true, "user");
+    config.save_all();
+    emit experimentalDeviceNotice(QStringLiteral("此设备连接为实验性，功能未经完整验证"));
+}
+
+void DeviceController::refresh_limits() {
+    // 设备特有上下限读 user.json 快照：配置系统对已加载文件不再重读，这里按修改时间自行刷新一次
+    const QFileInfo info(QStringLiteral("config/user.json"));
+    const QDateTime modified = info.lastModified();
+    if (modified.isValid() && modified != config_modified_) {
+        config_modified_ = modified;
+        QFile file(info.filePath());
+        if (file.open(QIODevice::ReadOnly)) {
+            const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+            config_snapshot_app_ = document.object().value(QStringLiteral("app")).toObject();
+            const int device_count = config_snapshot_app_.value(QStringLiteral("devices")).toObject().size();
+            LOG_MODULE("DeviceController", "refresh_limits", LOG_INFO,
+                "user.json 快照已刷新，设备上下限条目 " << device_count);
+        }
+    }
+    const int limit_a = channel_limit(QStringLiteral("A"));
+    const int limit_b = channel_limit(QStringLiteral("B"));
+    if (limit_a == cached_limit_a_ && limit_b == cached_limit_b_) {
+        return;
+    }
+    // 首次只记录当前值，不广播（避免启动期连带刷新整张看板）
+    const bool first_read = cached_limit_a_ < 0 && cached_limit_b_ < 0;
+    cached_limit_a_ = limit_a;
+    cached_limit_b_ = limit_b;
+    if (first_read) {
+        return;
+    }
+    LOG_MODULE("DeviceController", "refresh_limits", LOG_INFO,
+        "通道上限跟随配置更新: A=" << limit_a << " B=" << limit_b);
+    emit limitsChanged();
+}
+
 IOutputDevice* DeviceController::active_output(int index) const {
     if (index < 0 || index > 1) {
         return nullptr;
     }
-    // 每通道单选目标：本版唯一目标 coyote 对应注入的蓝牙设备
+    // 每通道单选目标：本版唯一目标 coyote 对应默认输出设备
     if (outputTarget(channel_name_of(index)) != QString::fromLatin1(kTargetCoyote)) {
         return nullptr;
     }
-    return ble_ready() ? ble_ : nullptr;
+    return default_output();
 }
 
 bool DeviceController::output_target_ready() const {

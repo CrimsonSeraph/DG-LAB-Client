@@ -80,6 +80,37 @@ GlassCard {
         }
     }
 
+    // 默认设备：只列在线输出设备（郊狼 / 负鼠等有输出能力的型号），
+    // 切换后通道强度、波形与事件波形的下发目标一并改用该设备
+    RowLayout {
+        width: parent.width
+        spacing: Metrics.spacingMd
+
+        Text {
+            text: qsTr("默认设备")
+            color: Theme.textSecondary
+            font.pixelSize: Typography.fontBody
+        }
+
+        AppComboBox {
+            objectName: "homeDefaultDeviceCombo"
+            Layout.fillWidth: true
+            Layout.preferredWidth: 0
+            visible: home.outputDevices.length > 0
+            model: home.outputDevices
+            textRole: "name"
+            currentIndex: home.defaultDeviceIndex
+        }
+
+        Text {
+            objectName: "homeDefaultDeviceEmpty"
+            visible: home.outputDevices.length === 0
+            text: qsTr("无在线输出设备")
+            color: Theme.textMuted
+            font.pixelSize: Typography.fontBody
+        }
+    }
+
     Text {
         objectName: "dashboardRelayState"
         width: parent.width

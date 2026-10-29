@@ -30,6 +30,9 @@ class HomeBridge : public QObject {
     Q_PROPERTY(QString waveB READ wave_b NOTIFY dataChanged)
     Q_PROPERTY(QString channelAState READ channel_a_state NOTIFY dataChanged)
     Q_PROPERTY(QString channelBState READ channel_b_state NOTIFY dataChanged)
+    Q_PROPERTY(QVariantList outputDevices READ output_devices NOTIFY deviceChanged)
+    Q_PROPERTY(QString defaultDevice READ default_device NOTIFY deviceChanged)
+    Q_PROPERTY(int defaultDeviceIndex READ default_device_index NOTIFY deviceChanged)
     Q_PROPERTY(bool waveSendingA READ wave_sending_a NOTIFY waveStateChanged)
     Q_PROPERTY(int waveFrameA READ wave_frame_a NOTIFY waveStateChanged)
     Q_PROPERTY(int waveFramesA READ wave_frames_a NOTIFY waveStateChanged)
@@ -54,6 +57,12 @@ public:
     int limit_a() const;
     /// @brief 通道 B 展示上限（全局通道配置的 min(limit, safety)）
     int limit_b() const;
+    /// @brief 在线输出设备列表（默认设备下拉的数据源）
+    QVariantList output_devices() const;
+    /// @brief 当前默认设备 MAC（无在线输出设备时为空串）
+    QString default_device() const;
+    /// @brief 默认设备在在线输出设备列表中的下标（无默认设备时为 -1）
+    int default_device_index() const;
     bool running_a() const;
     bool running_b() const;
     QVariantList modules_a() const;
@@ -112,12 +121,16 @@ public:
     Q_INVOKABLE void requestWaveSelect(const QString& channel);
     /// @brief 切换迷你窗锁定状态并持久化
     Q_INVOKABLE void toggleMiniWindowLock();
+    /// @brief 按在线输出设备列表下标切换默认设备
+    /// @param index 列表下标，越界时忽略
+    Q_INVOKABLE void setDefaultDeviceIndex(int index);
 
 signals:
     void dataChanged();
     void waveStateChanged();
     void miniWindowLockedChanged();
     void channelWaveSelectRequested(const QString& channel);
+    void deviceChanged();
     void miniWindowOpacityChanged();
     void miniWindowSizeChanged();
     void miniWindowWaveChanged();

@@ -72,6 +72,8 @@ private slots:
     void on_confirm_canceled();
     // 首页通道
     void on_channel_toggle_clicked();
+    // 首页看板：默认设备下拉
+    void on_home_default_device_activated(int index);
     // 配置：连接
     void on_config_connect_clicked();
     // 配置：网卡 IP 选择

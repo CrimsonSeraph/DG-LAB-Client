@@ -36,13 +36,18 @@ class CoyoteBleController : public IOutputDevice {
     Q_PROPERTY(int strengthB READ strength_b NOTIFY strengthChanged)
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
+    Q_PROPERTY(QString deviceAddress READ device_address NOTIFY stateChanged)
+    Q_PROPERTY(QString deviceModel READ device_model NOTIFY stateChanged)
 
 public:
     /// @brief 蓝牙名前缀识别结果（47L1xxxx 的型号段）
     struct DeviceProfile {
         QString model;          ///< 型号段（如 47L127）
         QString label;          ///< 型号显示名（如 负鼠）
-        bool supported = false; ///< 本版是否可连接
+        bool supported = false; ///< 本版是否可连接（驱动已实现）
+        bool output = true;     ///< 是否具备输出能力（纯输入设备不参与默认设备评选）
+        QString type = QStringLiteral("unknown"); ///< 类型标识（默认设备评选用）
+        SupportState state = SupportState::Unsupported; ///< 驱动支持程度（三态）
     };
 
     explicit CoyoteBleController(QObject* parent = nullptr);
@@ -63,6 +68,15 @@ public:
     int strength_b() const override { return strength_b_; }
     QVariantList devices() const { return devices_; }
     QString status() const { return status_; }
+    /// @brief 已连接设备的蓝牙 MAC（未连接时为空串）
+    QString device_address() const override { return device_address_; }
+    /// @brief 设备显示名（型号名，如「郊狼 V3」）
+    QString device_label() const override { return device_label_; }
+    QString device_model() const override { return device_model_; }
+    QString device_type() const override { return device_type_; }
+    bool device_output_capable() const { return device_output_capable_; }
+    bool output_capable() const override { return device_output_capable_; }
+    SupportState support_state() const override { return support_state_; }
 
     Q_INVOKABLE void startScan();
     Q_INVOKABLE void connectDevice(const QString& address);
@@ -144,6 +158,12 @@ private:
     QVariantList devices_;
     QString device_name_;
     QString pending_address_;
+    QString device_address_; ///< 已连接设备的蓝牙 MAC（默认设备配置键）
+    QString device_label_;   ///< 设备显示名（型号名）
+    QString device_model_;   ///< 设备型号段（如 47L121）
+    QString device_type_ = QStringLiteral("unknown"); ///< 类型标识（coyote / opossum / unknown）
+    bool device_output_capable_ = true; ///< 已连接设备是否具备输出能力
+    SupportState support_state_ = SupportState::Unsupported; ///< 已连接设备的驱动支持程度
     bool scanning_ = false;
     bool connected_ = false;
     bool ready_ = false;

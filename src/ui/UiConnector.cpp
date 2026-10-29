@@ -228,6 +228,13 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
                     app_->showToast(message, AppBridge::StatusDanger);
                 }
             });
+        // 实验性设备首次连接成功的一次性提示（是否已提示由 DeviceController 落盘判定）
+        QObject::connect(device_, &DeviceController::experimentalDeviceNotice, this,
+            [this](const QString& message) {
+                if (app_ != nullptr) {
+                    app_->showToast(message, AppBridge::StatusWarning);
+                }
+            });
         // device_.initialize() 早于本类构造，启动期（如中转服务端口占用）发出的 errorOccurred
         // 没有接收者；在此用 lastError 补弹一次 Toast，不改动 initialize() 的时序与信号语义。
         const QString startup_error = device_->last_error();
@@ -294,6 +301,10 @@ void UiConnector::attach(QObject* root_object) {
     // 主页看板只留通道启停：强度调节与波形选择已移出本页，不在此处连接
     connect_clicked(root_object, "channelAStartButton", SLOT(on_channel_toggle_clicked()));
     connect_clicked(root_object, "channelBStartButton", SLOT(on_channel_toggle_clicked()));
+    // 默认设备下拉：只列在线输出设备，切换后强度 / 波形 / 事件波形都改用该设备
+    if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("homeDefaultDeviceCombo"))) {
+        QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_home_default_device_activated(int)));
+    }
 
     // 迷你窗：首页入口打开窗口，锁定与关闭按钮由这里连接
     connect_clicked(root_object, "homeMiniWindowEntryButton", SLOT(on_home_mini_window_clicked()));
@@ -1102,6 +1113,13 @@ void UiConnector::on_channel_toggle_clicked() {
                 home_->toggleChannel(channel);
             }
         });
+}
+
+void UiConnector::on_home_default_device_activated(int index) {
+    if (home_ == nullptr) {
+        return;
+    }
+    home_->setDefaultDeviceIndex(index);
 }
 
 void UiConnector::on_wave_channel_clicked() {

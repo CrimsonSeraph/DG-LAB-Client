@@ -50,6 +50,10 @@ void HomeBridge::initialize() {
         connect(device_, &DeviceController::connectedChanged, this, &HomeBridge::dataChanged);
         // 通道状态包含输出可用性，蓝牙 / 中转任一路变化都要重算
         connect(device_, &DeviceController::outputReadyChanged, this, &HomeBridge::dataChanged);
+        // 设备列表与默认设备变化：下拉重排，通道上下限随默认设备切换
+        connect(device_, &DeviceController::outputDevicesChanged, this, &HomeBridge::deviceChanged);
+        connect(device_, &DeviceController::defaultDeviceChanged, this, &HomeBridge::deviceChanged);
+        connect(device_, &DeviceController::limitsChanged, this, &HomeBridge::dataChanged);
         // 波形下发状态（蓝牙帧推进）单独走一条信号，避免每帧连带刷新整张看板
         connect(device_, &DeviceController::waveOutputChanged, this, &HomeBridge::refresh_wave_state);
         refresh_wave_state();
@@ -93,6 +97,18 @@ int HomeBridge::limit_a() const {
 
 int HomeBridge::limit_b() const {
     return device_ == nullptr ? 0 : device_->channel_limit(QStringLiteral("B"));
+}
+
+QVariantList HomeBridge::output_devices() const {
+    return device_ == nullptr ? QVariantList() : device_->output_devices();
+}
+
+QString HomeBridge::default_device() const {
+    return device_ == nullptr ? QString() : device_->default_device_address();
+}
+
+int HomeBridge::default_device_index() const {
+    return device_ == nullptr ? -1 : device_->default_device_index();
 }
 
 QString HomeBridge::wave_a() const {
@@ -249,6 +265,14 @@ void HomeBridge::toggleMiniWindowLock() {
     emit miniWindowLockedChanged();
     LOG_MODULE("HomeBridge", "toggleMiniWindowLock", LOG_INFO,
         mini_window_locked_ ? "迷你窗已锁定" : "迷你窗已解锁");
+}
+
+void HomeBridge::setDefaultDeviceIndex(int index) {
+    if (device_ == nullptr) {
+        return;
+    }
+    device_->setDefaultDeviceByIndex(index);
+    emit deviceChanged();
 }
 
 QVariantList HomeBridge::build_modules(const QString& channel) const {

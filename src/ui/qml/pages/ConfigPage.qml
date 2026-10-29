@@ -294,6 +294,8 @@ Item {
                             model: ble.devices
                             spacing: Metrics.spacing2xs
 
+                            // 行尾徽标是驱动支持程度三态：已支持（郊狼）/ 实验性（驱动尚未实现）/ 暂不支持，
+                            // 只有前两态可点选，暂不支持的行热区禁用
                             delegate: Rectangle {
                                 width: bleDeviceList.width
                                 height: ComponentStyle.inputHeight
@@ -302,17 +304,28 @@ Item {
                                 border.width: Metrics.borderWidth
                                 border.color: deviceRowArea.containsMouse ? Theme.accent : Theme.divider
 
-                                Text {
-                                    anchors.left: parent.left
+                                RowLayout {
+                                    anchors.fill: parent
                                     anchors.leftMargin: Metrics.spacingMd
-                                    anchors.right: parent.right
                                     anchors.rightMargin: Metrics.spacingMd
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: modelData.name + "   " + modelData.address
-                                        + (modelData.supported ? "" : "   " + modelData.hint)
-                                    color: modelData.supported ? Theme.textSecondary : Theme.textMuted
-                                    font.pixelSize: Typography.fontBody
-                                    elide: Text.ElideRight
+                                    spacing: Metrics.spacingSm
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        Layout.preferredWidth: 0
+                                        text: modelData.name + "   " + modelData.address
+                                            + (modelData.hint.length > 0 ? "   " + modelData.hint : "")
+                                        color: modelData.connectable ? Theme.textSecondary : Theme.textMuted
+                                        font.pixelSize: Typography.fontBody
+                                        elide: Text.ElideRight
+                                    }
+
+                                    StatusBadge {
+                                        objectName: "bleDeviceSupportBadge"
+                                        Layout.alignment: Qt.AlignVCenter
+                                        text: modelData.supportText
+                                        level: modelData.support === 2 ? 1 : (modelData.support === 1 ? 2 : 3)
+                                    }
                                 }
 
                                 MouseArea {
@@ -321,8 +334,8 @@ Item {
                                     objectName: "bleDeviceClick"
                                     anchors.fill: parent
                                     hoverEnabled: true
-                                    enabled: modelData.supported
-                                    cursorShape: modelData.supported ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    enabled: modelData.connectable
+                                    cursorShape: modelData.connectable ? Qt.PointingHandCursor : Qt.ArrowCursor
                                     property string address: modelData.address
                                 }
                             }

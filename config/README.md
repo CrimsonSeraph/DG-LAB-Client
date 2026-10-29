@@ -62,7 +62,7 @@
 
 ### 3. `user.json` —— 用户自定义配置（界面外观等）
 
-该文件用于存储用户的个性化设置，如界面主题、字号、日志导出设置等：
+该文件用于存储用户的个性化设置，如界面主题、字号、日志导出设置、默认输出设备等：
 
 ```json
 {
@@ -70,6 +70,9 @@
         "ui": {
             "theme": "classic",
             "font_size": 16
+        },
+        "output": {
+            "default_device": ""
         }
     }
 }
@@ -86,11 +89,40 @@
 | `app.network.selected_ip` | string | 手动选中的中转地址（空字符串表示按名单自动选择）；非空时优先于自动选择 |
 | `app.websocket.ip` / `app.websocket.port` | string / int | 中转服务地址与端口，点「连接」或「选择网卡 IP」确定时写入 |
 | `app.output.<A\|B>.target` | string | 通道输出目标，目前只有 `coyote`（郊狼 V3 蓝牙直连）；缺省值与非法值都按 `coyote` 处理，由 `DeviceController::outputTarget()` / `setOutputTarget()` 读写，切目标时停旧目标波形并按当前强度重发 |
+| `app.output.default_device` | string | 默认输出设备的蓝牙 MAC（如 `D3:3B:5A:FA:43:0C`，空字符串表示自动评选）。只在该设备在线时生效；离线或用户主动断开时回退到自动评选（郊狼 > 负鼠 > 其它，同类型先连接者优先）。由 `DeviceController::setDefaultDevice()` 写入，首页看板的下拉是它的界面入口 |
+| `app.devices.<MAC>.limit_a` / `safety_a` / `limit_b` / `safety_b` | int | 该设备的通道上下限，优先于通道级默认值。未设置（或该键被删除）时回退到 `app.channels.<A\|B>.{limit, safety}`，再回退到内置默认（`limit=200` / `safety=150`）；读取集中在 `DeviceController::limits_for(mac, channel)`，界面显示与下发都用它算出的 `min(limit, safety)` |
+| `app.devices.<MAC>.experimental_notice_shown` | bool | 实验性设备首次连接成功的「功能未经完整验证」提示是否已经弹过；首次连接时写入 `true`，之后不再提示 |
+| `app.channels.<A\|B>.{limit, safety}` | int | 通道级上下限（所有插件共用），是所有设备的回退层；界面入口在插件详情的「通道上限」面板，写入与旧键迁移见 [docs/event-mapping.md](../docs/event-mapping.md) 的「通道上限」 |
 | `app.gsi.cs_dir` | string | CS2 GSI 插件记录的 CS 游戏目录（`CS2GsiPlugin` 通过 `PathFinder.py` 查找） |
 | `app.gsi.config_path` | string | CS2 GSI 插件生成的 `gamestate_integration_dglab.cfg` 完整路径 |
 | `app.gsi.port` | int | CS2 GSI 插件当前监听端口（端口被占用时自动重选并更新） |
 
 > 插件配置读写通过 `IPluginHost::get_config_value`/`set_config_value` 完成，插件无需直接解析配置文件。
+
+### 默认设备与每设备上下限
+
+设备唯一标识取蓝牙 MAC（设备侧固定，重连不变），配置键一律用它拼出。
+
+默认设备的评选只在**有输出能力**的设备之间进行（爪印、灵猫是纯输入设备，不参与），顺序为：
+
+1. 若 `app.output.default_device` 非空且该 MAC 当前在线，就用它。
+2. 否则自动评选：类型优先级 郊狼 > 负鼠 > 其它；同类型有多台时先连接的优先。
+3. 没有在线输出设备时没有默认设备，通道上下限只按通道级配置（`app.channels.<通道>`）计算。
+
+用户主动断开或设备掉线只会让该设备离开「在线」集合，因此默认设备自动回落到规则 2，配置键本身保留，重新连接后继续生效。
+
+上下限的读取只有一条链，集中在 `DeviceController::limits_for(mac, channel)`：
+
+```text
+app.devices.<MAC>.limit_a / safety_a（A 通道）
+app.devices.<MAC>.limit_b / safety_b（B 通道）
+        ↓ 该键缺失时
+app.channels.<A|B>.limit / safety
+        ↓ 该键缺失时
+内置默认 limit=200 / safety=150
+```
+
+界面展示与下发都取这条链的 `min(limit, safety)`（`DeviceController::channel_limit()`），因此切换默认设备后上下限立即跟随。
 
 ## 注意事项
 

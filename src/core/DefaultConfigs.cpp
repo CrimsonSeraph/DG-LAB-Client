@@ -86,6 +86,9 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
                         {"export_level_above", true},
                         {"export_dir", "./log/handle"}
                     }}
+                }},
+                {"output", {
+                    {"default_device", ""}
                 }}
             }},
             {"version", "1.0"},

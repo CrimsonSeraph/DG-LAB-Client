@@ -7,7 +7,10 @@
 
 #include "EventMath.h"
 
+#include <QDateTime>
+#include <QHash>
 #include <QJsonObject>
+#include <QList>
 #include <QObject>
 #include <QString>
 #include <QStringList>
@@ -42,6 +45,9 @@ class DeviceController : public QObject {
     Q_PROPERTY(bool outputReady READ output_ready NOTIFY outputReadyChanged)
     Q_PROPERTY(int pairingStage READ pairing_stage NOTIFY pairingStageChanged)
     Q_PROPERTY(QObject* ipSelector READ ip_selector CONSTANT)
+    Q_PROPERTY(QVariantList outputDevices READ output_devices NOTIFY outputDevicesChanged)
+    Q_PROPERTY(QString defaultDevice READ default_device_address NOTIFY defaultDeviceChanged)
+    Q_PROPERTY(int defaultDeviceIndex READ default_device_index NOTIFY defaultDeviceChanged)
 
 public:
     explicit DeviceController(QObject* parent = nullptr);
@@ -59,10 +65,21 @@ public:
 
     /// @brief 是否存在可用输出通道（中转服务已启动或蓝牙已连接）
     bool output_available() const;
-    /// @brief 通道展示上限（全局 app.channels.<通道> 的 min(limit, safety)，钳制在 0~200）
+    /// @brief 通道展示上限（默认设备的 min(limit, safety)，钳制在 0~200）
     /// @param channel 通道（"A"/"B"）
     /// @return 上限值；通道非法时返回 0
     int channel_limit(const QString& channel) const;
+    /// @brief 读取指定设备的通道上下限（设备特有值 → 全局通道值 → 内置默认的唯一实现）
+    /// @param mac 设备 MAC（空串表示只看全局通道配置）
+    /// @param channel 通道（"A"/"B"）
+    /// @return 通道配置（未钳制，钳制在 channel_limit 内完成）
+    EventChannelConfig limits_for(const QString& mac, const QString& channel) const;
+    /// @brief 当前默认设备 MAC（用户覆盖优先，否则按自动评选），无在线输出设备时为空串
+    QString default_device_address() const;
+    /// @brief 默认设备在在线输出设备列表中的下标（无默认设备时为 -1）
+    int default_device_index() const;
+    /// @brief 在线输出设备列表（含地址、名称、型号、类型与驱动支持程度）
+    QVariantList output_devices() const;
     /// @brief 波形是否正在经蓝牙下发
     /// @param channel 通道（"A"/"B"）
     bool wave_sending(const QString& channel) const;
@@ -119,6 +136,13 @@ public:
     /// @param target 目标标识（须在 outputTargets() 内）
     Q_INVOKABLE void setOutputTarget(const QString& channel, const QString& target);
 
+    /// @brief 写入默认设备覆盖值（app.output.default_device），空串表示回到自动评选
+    /// @param mac 设备 MAC
+    void setDefaultDevice(const QString& mac);
+    /// @brief 按在线输出设备列表下标切换默认设备（界面下拉入口）
+    /// @param index 列表下标，越界时忽略
+    Q_INVOKABLE void setDefaultDeviceByIndex(int index);
+
     /// @brief 发送规则引擎产生的命令
     void send_command(const QJsonObject& cmd);
 
@@ -147,6 +171,12 @@ signals:
     void lastErrorChanged();
     void outputReadyChanged();
     void pairingStageChanged();
+    void defaultDeviceChanged();
+    void outputDevicesChanged();
+    void limitsChanged();
+    /// @brief 实验性设备首次连接成功的一次性提示文案
+    /// @param message 提示文案
+    void experimentalDeviceNotice(const QString& message);
 
 private:
     /// @brief 规则侧波形状态（事件波形播放期间只登记不下发）
@@ -161,6 +191,17 @@ private:
     void update_pairing_url();
     /// @brief 蓝牙是否可作为输出通道
     bool ble_ready() const;
+    /// @brief 在线且具备输出能力的设备列表（当前只有一台注入的蓝牙设备）
+    QList<IOutputDevice*> online_outputs() const;
+    /// @brief 按「用户覆盖 → 郊狼 > 负鼠 > 其它 → 先连接优先」选出默认输出设备
+    IOutputDevice* default_output() const;
+    /// @brief 设备连接顺序序号（同一类型多台时先连接的优先）
+    /// @param mac 设备 MAC
+    int connection_order(const QString& mac) const;
+    /// @brief 实验性设备首次连接成功时提示一次（记录到 app.devices.<MAC>.experimental_notice_shown）
+    void notify_experimental_device();
+    /// @brief 上下限配置变化时广播（外部修改 user.json 后界面与下发跟随）
+    void refresh_limits();
     /// @brief 通道当前可用的输出设备
     /// @param index 通道索引（0=A，1=B）
     /// @return 目标设备指针；目标未接入或链路未就绪时返回空
@@ -233,6 +274,13 @@ private:
     int relay_strength_b_ = 0; ///< 中转回执记录的 B 通道强度
     int relay_limit_a_ = 0; ///< 中转回执记录的 A 通道上限
     int relay_limit_b_ = 0; ///< 中转回执记录的 B 通道上限
+    QTimer* limits_timer_ = nullptr;    ///< 上下限配置跟随定时器（外部改配置后刷新界面）
+    QDateTime config_modified_;         ///< 上次读到的 user.json 修改时间
+    QJsonObject config_snapshot_app_;   ///< user.json 的 app 子树快照（设备特有上下限的数据源）
+    int cached_limit_a_ = -1;           ///< 上次广播的 A 通道上限
+    int cached_limit_b_ = -1;           ///< 上次广播的 B 通道上限
+    QHash<QString, int> connection_order_; ///< 设备 MAC → 连接顺序序号
+    int connection_seq_ = 0;               ///< 连接顺序发号器
     bool strength_from_ble_ = false; ///< 当前强度回执来源是否为蓝牙直连
     ChannelOutputState channel_output_[2]; ///< A/B 通道输出合并状态（0=A，1=B）
     EventWaveState event_wave_[2]; ///< A/B 通道事件波形播放状态（0=A，1=B）

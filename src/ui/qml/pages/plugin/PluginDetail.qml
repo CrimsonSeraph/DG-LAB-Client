@@ -51,8 +51,8 @@ Item {
         ? 0
         : (root.defaultChannelValue === "B" ? 1 : 2)
 
-    // 通道上限与安全上限是全局设置：一律取 eventBridge.channels（app.channels.<A|B>），
-    // 与当前插件是否声明事件无关
+    // 通道上限与安全上限是通道级设置：本页读写 eventBridge.channels（app.channels.<A|B>），
+    // 它同时是「默认设备未设 app.devices.<MAC> 特有值」时的回退层，与当前插件是否声明事件无关
     function channelConfig(channel) {
         const source = eventBridge.channels;
         if (source === undefined || source === null || source[channel] === undefined) {
@@ -297,7 +297,7 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("通道上限（全局）")
+                                text: qsTr("通道上限（未设设备特有值时的回退值）")
                                 color: Theme.textPrimary
                                 font.pixelSize: Typography.fontSubtitle
                                 font.bold: true
@@ -305,7 +305,7 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("上限与安全上限都是全局通道设置，所有插件共用，改动立即对所有插件生效。")
+                                text: qsTr("上限与安全上限是所有插件共用的通道级设置。默认设备没有在 app.devices.<设备 MAC> 配置 limit_a / safety_a（B 通道为 limit_b / safety_b）时，显示与下发都用这里的值；删除设备特有键即回退到这里。")
                                 color: Theme.textMuted
                                 font.pixelSize: Typography.fontBody
                                 wrapMode: Text.WordWrap
@@ -313,7 +313,7 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("通道 A（全局）")
+                                text: qsTr("通道 A（通道级默认）")
                                 color: Theme.textSecondary
                                 font.pixelSize: Typography.fontBody
                                 font.bold: true
@@ -366,7 +366,7 @@ Item {
 
                             Text {
                                 Layout.fillWidth: true
-                                text: qsTr("通道 B（全局）")
+                                text: qsTr("通道 B（通道级默认）")
                                 color: Theme.textSecondary
                                 font.pixelSize: Typography.fontBody
                                 font.bold: true

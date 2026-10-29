@@ -6,6 +6,7 @@
 #pragma once
 
 #include <QObject>
+#include <QString>
 #include <QStringList>
 
 // IOutputDevice - 输出设备抽象接口（通道下发的唯一依赖）
@@ -15,6 +16,14 @@ class IOutputDevice : public QObject {
     Q_OBJECT
 
 public:
+    /// @brief 驱动支持程度（设备列表三态）
+    enum class SupportState {
+        Unsupported = 0, ///< 暂不支持（型号未登记）
+        Experimental = 1, ///< 实验性（型号已登记，驱动未实现）
+        Supported = 2     ///< 已支持
+    };
+    Q_ENUM(SupportState)
+
     // 构造：只转发 QObject 父对象
     explicit IOutputDevice(QObject* parent = nullptr) : QObject(parent) {}
     ~IOutputDevice() override = default;
@@ -26,6 +35,18 @@ public:
     // 设备回传的实际强度（A / B）
     virtual int strength_a() const = 0;
     virtual int strength_b() const = 0;
+    // 设备唯一标识（蓝牙 MAC，未连接时为空）
+    virtual QString device_address() const { return QString(); }
+    // 设备显示名（型号名，如「郊狼 V3」）
+    virtual QString device_label() const { return QString(); }
+    // 设备型号段（如 47L121）
+    virtual QString device_model() const { return QString(); }
+    // 设备类型标识（coyote / opossum / unknown，默认设备评选用）
+    virtual QString device_type() const { return QStringLiteral("unknown"); }
+    // 是否具备输出能力（纯输入设备返回 false，不参与默认设备评选）
+    virtual bool output_capable() const { return true; }
+    // 驱动支持程度
+    virtual SupportState support_state() const { return SupportState::Unsupported; }
     /// @brief 通道是否正在下发波形
     /// @param channel 通道（1=A，2=B）
     virtual bool wave_sending(int channel) const = 0;
