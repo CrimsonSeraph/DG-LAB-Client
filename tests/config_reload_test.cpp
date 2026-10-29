@@ -5,7 +5,9 @@
 
 // 配置热重读回归测试：外部改动经 reload() 生效并通知监听器、load() 仍幂等、
 // save() 不丢外部新增的键、JSON 损坏时保留上一份有效配置、文件删除后重建可再读、
-// 文件监听去抖后自动重读且自身写盘不触发重读循环、AppConfig::reload_all() 走同一条重读链路
+// 文件监听去抖后自动重读且自身写盘不触发重读循环、AppConfig::reload_all() 走同一条重读链路、
+// 保存前三方合并的四条规则（内存新增必留、磁盘新增并入、双方都改留应用值、磁盘删除按内存是否改过分流），
+// 以及运行期动态创建的 app.devices.<MAC> 子树连续写入与外部整份覆盖后仍完整
 // 全部用例在临时目录内构造，不触碰仓库 config/
 
 #include "AppConfig.h"
@@ -99,6 +101,15 @@ namespace {
     // 解析文件内容（失败返回 discarded，交给调用方断言）
     nlohmann::json parse_file(const std::string& path) {
         return nlohmann::json::parse(read_text(path), nullptr, false);
+    }
+
+    // 取 app.devices.<mac> 子树（缺失时返回空对象，避免 const 下标断言）
+    nlohmann::json device_section(const nlohmann::json& root, const std::string& mac) {
+        if (!root.is_object() || !root.contains("app") || !root["app"].contains("devices")
+            || !root["app"]["devices"].contains(mac)) {
+            return nlohmann::json::object();
+        }
+        return root["app"]["devices"][mac];
     }
 
     // 推进事件循环指定毫秒（文件监听去抖需要事件循环才能到点）
@@ -241,6 +252,182 @@ namespace {
         AppConfig::instance().shutdown();
     }
 
+
+    // 设备动态子树连续写入：逐键持久化后整棵子树完整，通道级配置不受影响
+    // （app.devices.<MAC> 是运行期才创建的子树，基准里本来没有它）
+    void test_device_subtree_sequential_writes(const std::string& dir) {
+        const std::string path = dir + "/devices_main.json";
+        write_text(path, base_config(0, 200).dump(4));
+        ConfigManager manager(path);
+        CHECK_TRUE("devices-load", manager.load());
+
+        manager.set<std::string>("app.devices.AA:BB:CC:DD:EE:FF.model", std::string("coyote"));
+        CHECK_TRUE("devices-save-model", manager.save());
+        manager.set<int>("app.devices.AA:BB:CC:DD:EE:FF.limit_a", 50);
+        CHECK_TRUE("devices-save-limit", manager.save());
+        manager.set<int>("app.devices.AA:BB:CC:DD:EE:FF.safety_a", 120);
+        CHECK_TRUE("devices-save-safety", manager.save());
+
+        const nlohmann::json memory = manager.raw();
+        const nlohmann::json on_disk = parse_file(path);
+        CHECK_TRUE("devices-disk-parsable", !on_disk.is_discarded());
+        std::printf("devices-subtree memory=%s\n",
+            memory.contains("app") && memory["app"].contains("devices")
+                ? memory["app"]["devices"].dump().c_str() : "<missing>");
+        std::printf("devices-subtree disk  =%s\n",
+            on_disk.contains("app") && on_disk["app"].contains("devices")
+                ? on_disk["app"]["devices"].dump().c_str() : "<missing>");
+
+        if (!on_disk.is_discarded()) {
+            const nlohmann::json section = on_disk["app"]["devices"]["AA:BB:CC:DD:EE:FF"];
+            CHECK_STRING("devices-disk-model", "coyote",
+                section.contains("model") && section["model"].is_string()
+                    ? section["model"].get<std::string>() : std::string());
+            CHECK_INT("devices-disk-limit", 50, section.value("limit_a", -1));
+            CHECK_INT("devices-disk-safety", 120, section.value("safety_a", -1));
+            CHECK_INT("devices-channels-untouched", 200, on_disk["app"]["channels"]["A"]["limit"].get<int>());
+            CHECK_INT("devices-channels-safety-untouched", 150,
+                on_disk["app"]["channels"]["A"]["safety"].get<int>());
+        }
+        const nlohmann::json memory_section = memory["app"]["devices"]["AA:BB:CC:DD:EE:FF"];
+        CHECK_STRING("devices-memory-model", "coyote",
+            memory_section.value("model", std::string()));
+        CHECK_INT("devices-memory-limit", 50, memory_section.value("limit_a", -1));
+        CHECK_INT("devices-memory-safety", 120, memory_section.value("safety_a", -1));
+        CHECK_INT("devices-memory-channels-untouched", 200,
+            memory["app"]["channels"]["A"]["limit"].get<int>());
+    }
+
+    // 外部整份覆盖（旧快照没有动态设备子树）之后保存：应用自己写的设备键必须保留
+    // 复现口径：合并基准取「上次写出的内容」时，这里会把 model 判成「磁盘删除」而丢掉
+    void test_device_subtree_survives_stale_write(const std::string& dir) {
+        const std::string mac = "AA:BB:CC:DD:EE:FF";
+        // 变体一：外部快照只缺 model（子树形状仍在）
+        {
+            const std::string path = dir + "/devices_stale_key.json";
+            write_text(path, base_config(0, 200).dump(4));
+            ConfigManager manager(path);
+            CHECK_TRUE("stale-key-load", manager.load());
+            manager.set<std::string>("app.devices." + mac + ".model", std::string("coyote"));
+            manager.set<int>("app.devices." + mac + ".limit_a", 50);
+            CHECK_TRUE("stale-key-save", manager.save());
+
+            nlohmann::json stale = manager.raw();
+            stale["app"]["devices"][mac].erase("model");
+            stale["external_note"]["from_editor"] = 7;
+            write_text(path, stale.dump(4));
+
+            manager.set<std::string>("app.ui.theme", std::string("dark"));
+            CHECK_TRUE("stale-key-save-after", manager.save());
+            const nlohmann::json on_disk = parse_file(path);
+            CHECK_TRUE("stale-key-parsable", !on_disk.is_discarded());
+            const nlohmann::json section = device_section(on_disk, mac);
+            std::printf("stale-key disk devices=%s\n",
+                on_disk.contains("app") && on_disk["app"].contains("devices")
+                    ? on_disk["app"]["devices"].dump().c_str() : "<missing>");
+            CHECK_STRING("stale-key-model-kept", "coyote", section.value("model", std::string()));
+            CHECK_INT("stale-key-limit-kept", 50, section.value("limit_a", -1));
+            CHECK_TRUE("stale-key-external-merged", on_disk.contains("external_note"));
+            CHECK_INT("stale-key-channels-untouched", 200,
+                on_disk["app"]["channels"]["A"]["limit"].get<int>());
+        }
+        // 变体二：外部快照整棵设备子树都没有
+        {
+            const std::string path = dir + "/devices_stale_tree.json";
+            write_text(path, base_config(0, 200).dump(4));
+            ConfigManager manager(path);
+            CHECK_TRUE("stale-tree-load", manager.load());
+            manager.set<std::string>("app.devices." + mac + ".model", std::string("coyote"));
+            manager.set<int>("app.devices." + mac + ".limit_a", 50);
+            manager.set<int>("app.devices." + mac + ".safety_a", 120);
+            CHECK_TRUE("stale-tree-save", manager.save());
+
+            nlohmann::json stale = base_config(0, 200);
+            stale["external_note"]["from_editor"] = 9;
+            write_text(path, stale.dump(4));
+
+            manager.set<std::string>("app.ui.theme", std::string("light"));
+            CHECK_TRUE("stale-tree-save-after", manager.save());
+            const nlohmann::json on_disk = parse_file(path);
+            CHECK_TRUE("stale-tree-parsable", !on_disk.is_discarded());
+            const nlohmann::json section = device_section(on_disk, mac);
+            std::printf("stale-tree disk devices=%s\n",
+                on_disk.contains("app") && on_disk["app"].contains("devices")
+                    ? on_disk["app"]["devices"].dump().c_str() : "<missing>");
+            CHECK_STRING("stale-tree-model-kept", "coyote", section.value("model", std::string()));
+            CHECK_INT("stale-tree-limit-kept", 50, section.value("limit_a", -1));
+            CHECK_INT("stale-tree-safety-kept", 120, section.value("safety_a", -1));
+            CHECK_TRUE("stale-tree-external-merged", on_disk.contains("external_note"));
+            CHECK_INT("stale-tree-channels-untouched", 200,
+                on_disk["app"]["channels"]["A"]["limit"].get<int>());
+        }
+    }
+
+    // 三方合并的四条规则：内存新增必留、磁盘新增并入、双方都改留应用值、磁盘删除按内存是否改过分流
+    void test_merge_rules(const std::string& dir) {
+        // 规则一 / 二 / 四前半：基准 = 首次读盘内容
+        const std::string path = dir + "/merge_rules_a.json";
+        nlohmann::json initial = base_config(0, 200);
+        initial["app"]["devices"] = nlohmann::json::object();
+        initial["app"]["devices"]["MAC"] = nlohmann::json::object();
+        initial["app"]["devices"]["MAC"]["limit_a"] = 50;
+        write_text(path, initial.dump(4));
+        ConfigManager manager(path);
+        CHECK_TRUE("rules-load", manager.load());
+
+        // 规则一：只在内存新增的键（基准与磁盘都没有）必须保留
+        manager.set<std::string>("app.devices.MAC.model", std::string("coyote"));
+        nlohmann::json external = base_config(0, 200);
+        external["app"]["devices"] = nlohmann::json::object();
+        external["app"]["devices"]["MAC"] = nlohmann::json::object();
+        // 规则二：只在磁盘新增的键 → 并入内存
+        external["app"]["devices"]["MAC"]["limit_b"] = 60;
+        // 规则四前半：磁盘删除、内存未改 → 跟随删除（limit_a 来自磁盘且未改动）
+        write_text(path, external.dump(4));
+        CHECK_TRUE("rules-save-1", manager.save());
+
+        const nlohmann::json on_disk = parse_file(path);
+        CHECK_TRUE("rules-parsable-1", !on_disk.is_discarded());
+        const nlohmann::json section = device_section(on_disk, "MAC");
+        std::printf("merge-rules disk devices=%s\n",
+            on_disk.is_object() && on_disk.contains("app") && on_disk["app"].contains("devices")
+                ? on_disk["app"]["devices"].dump().c_str() : "<missing>");
+        CHECK_STRING("rules-memory-only-kept", "coyote", section.value("model", std::string()));
+        CHECK_TRUE("rules-disk-new-merged", section.contains("limit_b"));
+        CHECK_INT("rules-disk-new-value", 60, section.value("limit_b", -1));
+        CHECK_TRUE("rules-external-delete-followed", !section.contains("limit_a"));
+        CHECK_TRUE("rules-memory-delete-followed", !device_section(manager.raw(), "MAC").contains("limit_a"));
+
+        // 规则三 / 四后半：这两个键来自磁盘（基准里有），改内存后才有意义
+        const std::string path2 = dir + "/merge_rules_b.json";
+        nlohmann::json seeded = base_config(0, 200);
+        seeded["app"]["devices"] = nlohmann::json::object();
+        seeded["app"]["devices"]["MAC"] = nlohmann::json::object();
+        seeded["app"]["devices"]["MAC"]["safety_a"] = 90;
+        seeded["app"]["devices"]["MAC"]["limit_b"] = 60;
+        write_text(path2, seeded.dump(4));
+        ConfigManager manager2(path2);
+        CHECK_TRUE("rules-load-2", manager2.load());
+
+        // 规则三：双方都改同一个键 → 保留应用值
+        manager2.set<int>("app.devices.MAC.safety_a", 130);
+        nlohmann::json external2 = seeded;
+        external2["app"]["devices"]["MAC"]["safety_a"] = 95;
+        write_text(path2, external2.dump(4));
+        CHECK_TRUE("rules-save-2", manager2.save());
+        CHECK_INT("rules-both-changed-keeps-app", 130,
+            device_section(parse_file(path2), "MAC").value("safety_a", -1));
+
+        // 规则四后半：磁盘删除、内存也改过 → 保留内存值（同时记一条 WARN）
+        manager2.set<int>("app.devices.MAC.limit_b", 70);
+        nlohmann::json external3 = parse_file(path2);
+        external3["app"]["devices"]["MAC"].erase("limit_b");
+        write_text(path2, external3.dump(4));
+        CHECK_TRUE("rules-save-3", manager2.save());
+        CHECK_INT("rules-delete-conflict-keeps-memory", 70,
+            device_section(parse_file(path2), "MAC").value("limit_b", -1));
+    }
+
 } // namespace
 
 int main(int argc, char** argv) {
@@ -260,6 +447,9 @@ int main(int argc, char** argv) {
     test_delete_and_recreate(dir);
     test_watch_debounce_and_self_write(dir);
     test_app_config_reload_all(dir);
+    test_device_subtree_sequential_writes(dir);
+    test_device_subtree_survives_stale_write(dir);
+    test_merge_rules(dir);
 
     if (failures != 0) {
         std::printf("config_reload_test: %d assertion(s) failed\n", failures);

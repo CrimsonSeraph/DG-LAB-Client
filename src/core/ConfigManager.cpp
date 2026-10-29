@@ -34,8 +34,20 @@ namespace {
     constexpr int kReloadDebounceMs = 300;                     ///< 外部写盘去抖窗口（毫秒）
     constexpr auto kSelfWriteWindow = std::chrono::seconds(5); ///< 自身写盘的判定时间窗
 
-    // 三方合并：只有双方都改过的叶子保留内存值，其余取磁盘值；外部新增的键并入内存
-    void merge_three_way(nlohmann::json& ours, const nlohmann::json& base, const nlohmann::json& theirs) {
+    // 三方合并的统计：只用来决定日志，不参与合并判定
+    struct MergeStats {
+        int adopted_disk = 0;                 ///< 采用磁盘值（外部新增 / 外部手改 / 外部删除）
+        int kept_memory_only = 0;             ///< 磁盘与基准都没有、只在内存里存在的新增键
+        int kept_local_change = 0;            ///< 双方都改过，按约定保留内存值
+        int kept_delete_conflict = 0;         ///< 磁盘删除但内存改过，保留内存值的冲突
+        std::string first_memory_only_key;     ///< 第一个内存新增键（拼日志用）
+        std::string first_delete_conflict_key; ///< 第一个删除冲突键（拼日志用）
+    };
+
+    // 三方合并（基准是最后一次从磁盘读到的内容）：
+    // 逐键规则——内存新增键保留、磁盘新增键并入、双方都改保留应用值、磁盘删除按内存是否改过分流
+    void merge_three_way(nlohmann::json& ours, const nlohmann::json& base, const nlohmann::json& theirs,
+        const std::string& prefix, MergeStats& stats) {
         if (!ours.is_object() || !theirs.is_object()) {
             return;
         }
@@ -48,6 +60,7 @@ namespace {
             keys.insert(it.key());
         }
         for (const std::string& key : keys) {
+            const std::string path = prefix.empty() ? key : prefix + "." + key;
             const nlohmann::json::const_iterator base_it = base_object.find(key);
             const bool base_has = base_it != base_object.end();
             nlohmann::json::iterator our_it = ours.find(key);
@@ -56,15 +69,34 @@ namespace {
             const bool theirs_has = their_it != theirs.end();
 
             if (!theirs_has) {
-                // 磁盘侧没有该键：内存没改过就跟着删除，内存新增或改过的保留
-                if (ours_has && base_has && *our_it == *base_it) {
+                if (!ours_has) {
+                    continue;
+                }
+                if (base_has && *our_it == *base_it) {
+                    // 磁盘删除、内存未改：跟随删除
                     ours.erase(our_it);
+                    ++stats.adopted_disk;
+                }
+                else if (!base_has) {
+                    // 内存新增（基准与磁盘都没有）：磁盘这一侧没有它不构成删除，必须保留
+                    if (stats.first_memory_only_key.empty()) {
+                        stats.first_memory_only_key = path;
+                    }
+                    ++stats.kept_memory_only;
+                }
+                else {
+                    // 磁盘删除、内存也改过：保留内存值并留痕（由调用方记 WARN）
+                    if (stats.first_delete_conflict_key.empty()) {
+                        stats.first_delete_conflict_key = path;
+                    }
+                    ++stats.kept_delete_conflict;
                 }
                 continue;
             }
             if (!ours_has) {
                 // 外部新增的键：并入内存，保存时不再丢失
                 ours[key] = *their_it;
+                ++stats.adopted_disk;
                 continue;
             }
             if (*our_it == *their_it) {
@@ -73,16 +105,21 @@ namespace {
             if (base_has && *our_it == *base_it) {
                 // 只有磁盘改过：采用磁盘值（外部手改在保存时同样生效）
                 *our_it = *their_it;
+                ++stats.adopted_disk;
                 continue;
             }
             if (base_has && *their_it == *base_it) {
                 // 只有内存改过：保留内存值
+                ++stats.kept_local_change;
                 continue;
             }
             if ((*our_it).is_object() && (*their_it).is_object()) {
                 // 双方都改过同一子树：递归合并，叶子冲突保留内存值（应用内动作优先）
-                merge_three_way(*our_it, base_has ? *base_it : nlohmann::json::object(), *their_it);
+                merge_three_way(*our_it, base_has ? *base_it : nlohmann::json::object(), *their_it, path, stats);
+                continue;
             }
+            // 双方都改过同一个叶子（基准缺失时也算双方都改）：保留应用值
+            ++stats.kept_local_change;
         }
     }
 
@@ -213,6 +250,20 @@ bool ConfigManager::save() {
         const std::string payload = config_.dump(4);
         file << payload;
         file.flush();
+        const bool write_ok = file.good();
+        file.close();
+        if (!write_ok) {
+            LOG_MODULE("ConfigManager", "save", LOG_ERROR, "配置写入失败，保留内存数据: " << config_path_);
+            return false;
+        }
+        // 写盘后回读校验：只有磁盘确实拿到这份内容，才把它记成「已同步」。
+        // 否则后续合并会把「从未落盘的键」当成磁盘已有，一次外部覆盖就会把它判成磁盘删除
+        std::string verify_raw;
+        nlohmann::json verify_parsed;
+        if (read_disk_config(verify_raw, verify_parsed) != DiskReadResult::kOk || verify_raw != payload) {
+            LOG_MODULE("ConfigManager", "save", LOG_WARN, "写盘回读内容与预期不一致，不记录同步基准: " << config_path_);
+            return false;
+        }
         mark_self_write(payload);
         LOG_MODULE("ConfigManager", "save", LOG_DEBUG, "配置数据已写入文件");
 
@@ -459,6 +510,7 @@ ConfigManager::DiskReadResult ConfigManager::read_disk_config(std::string& raw, 
 
 void ConfigManager::remember_synced_content(const std::string& raw) const {
     synced_content_ = raw;
+    base_content_ = raw;
     has_self_write_ = false;
 }
 
@@ -499,19 +551,30 @@ void ConfigManager::align_with_disk_before_save() {
         return;
     }
     if (raw == synced_content_) {
+        // 磁盘仍是上次同步的那份内容：没有外部改动可并入
         return;
     }
 
+    // 基准只能是「最后一次从磁盘读到的内容」：自身写盘不更新它，
+    // 否则应用刚写出的新键会被当成磁盘上早已存在的键，一次外部整份覆盖就会被判成「磁盘删除」
     nlohmann::json base = nlohmann::json::object();
-    if (!synced_content_.empty()) {
-        base = nlohmann::json::parse(synced_content_, nullptr, false);
+    if (!base_content_.empty()) {
+        base = nlohmann::json::parse(base_content_, nullptr, false);
         if (base.is_discarded()) {
             base = nlohmann::json::object();
         }
     }
-    merge_three_way(config_, base, parsed);
+    MergeStats stats;
+    merge_three_way(config_, base, parsed, std::string(), stats);
+    if (stats.kept_delete_conflict > 0) {
+        LOG_MODULE("ConfigManager", "align_with_disk_before_save", LOG_WARN,
+            "写盘前合并冲突：磁盘删除了内存改过的键，保留内存值 " << stats.kept_delete_conflict
+            << " 处（例如 " << stats.first_delete_conflict_key << "）: " << config_path_);
+    }
     LOG_MODULE("ConfigManager", "align_with_disk_before_save", LOG_INFO,
-        "写盘前已并入外部改动（外部新增的键不会丢失）: " << config_path_);
+        "写盘前已并入外部改动：并入 " << stats.adopted_disk << " 处、保留内存新增 "
+        << stats.kept_memory_only << " 处（例如 " << stats.first_memory_only_key << "）、保留内存改动 "
+        << stats.kept_local_change << " 处: " << config_path_);
 }
 
 bool ConfigManager::disk_content_matches_synced() const {

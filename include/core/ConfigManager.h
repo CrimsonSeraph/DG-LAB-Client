@@ -48,8 +48,9 @@ public:
     bool reload();
 
     /// @brief 保存当前配置到文件
-    /// @return 成功返回 true
-    /// @note 写盘前与磁盘做三方合并，外部新增的键不会被内存数据覆盖
+    /// @return 成功返回 true（写盘失败或回读校验不一致时返回 false）
+    /// @note 写盘前与磁盘做三方合并：外部新增的键并入内存，内存新增的键必定保留，
+    ///       只有「基准里存在且内存未改」的键才跟随磁盘删除
     bool save();
 
     /// @brief 开启/关闭配置文件变更监听
@@ -139,7 +140,8 @@ private:
     mutable std::unordered_map<std::string, std::vector<std::string>> split_cache_; ///< 键路径拆分缓存
 
     std::unique_ptr<ConfigWatchState> watch_;                     ///< 文件监听状态（未开启时为空）
-    mutable std::string synced_content_;                          ///< 上次与磁盘同步的内容（三方合并基准）
+    mutable std::string synced_content_;                          ///< 上次与磁盘同步的内容（变更检测：自身写盘后即等于磁盘内容）
+    mutable std::string base_content_;                            ///< 三方合并基准：最后一次从磁盘读到的内容（自身写盘不更新）
     mutable std::string self_write_content_;                      ///< 最近一次自身写盘的内容
     mutable std::chrono::steady_clock::time_point self_write_at_{}; ///< 最近一次自身写盘的时刻
     mutable bool has_self_write_ = false;                         ///< 是否存在待判定的自身写盘事件
@@ -172,7 +174,7 @@ private:
     /// @return 是自身写盘返回 true
     bool consume_self_write_event() const;
 
-    /// @brief 保存前与磁盘做三方合并，把外部改动并入内存
+    /// @brief 保存前与磁盘做三方合并，把外部改动并入内存（基准是最后一次读盘内容）
     void align_with_disk_before_save();
 
     /// @brief 磁盘内容是否与上次同步内容一致（目录级事件会带来同目录其它文件的写盘）
