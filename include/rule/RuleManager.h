@@ -69,7 +69,7 @@ public:
     // { version, plugin, kind: "pluginRuleGraph", graph, rules }。
     /// @brief 插件级规则图文件名
     /// @param plugin_id 插件（模块）标识
-    /// @return 文件名（如 "plugin_buckshot.json"）
+    /// @return 文件名（如 "plugin_gsi.json"）
     std::string get_plugin_graph_file(const std::string& plugin_id) const;
 
     /// @brief 列出已有插件级规则图的插件标识

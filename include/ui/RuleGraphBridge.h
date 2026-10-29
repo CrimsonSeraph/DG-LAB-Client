@@ -63,7 +63,7 @@ public:
     /// @brief 当前图中某节点上游的依赖集合
     /// @param from_node_id 起点节点 id
     Q_INVOKABLE QVariantMap graphDependencies(int from_node_id) const;
-    /// @brief 某插件输出节点被哪些图引用（显示文本，如 "总规则图"、"buckshot 规则图"）
+    /// @brief 某插件输出节点被哪些图引用（显示文本，如 "总规则图"、"gsi 规则图"）
     /// @param plugin_id 插件（模块）标识
     Q_INVOKABLE QStringList outputReferrers(const QString& plugin_id) const;
 

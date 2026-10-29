@@ -141,28 +141,28 @@ CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& 
 
 CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& name,
     const QString& remembered_model) {
+    // 记忆优先于名称：操作系统会把广播名换成占位名，只有 MAC 记忆能还原型号语义
+    const QString remembered = remembered_model.trimmed().toLower();
+    if (const ModelEntry* entry = entry_of_type(remembered)) {
+        return profile_of_entry(*entry);
+    }
+    // 名称命中型号表：用表里的型号、显示名与支持程度
     for (const ModelEntry& entry : kModelTable) {
         if (name.startsWith(QString::fromLatin1(entry.prefix))) {
             return profile_of_entry(entry);
         }
     }
-    // 名称未命中型号表：按 MAC 记忆的型号补齐（操作系统只给占位名的设备靠它恢复型号语义）
-    const QString remembered = remembered_model.trimmed().toLower();
-    if (const ModelEntry* entry = entry_of_type(remembered)) {
-        return profile_of_entry(*entry);
-    }
     DeviceProfile profile;
     if (name.startsWith(QStringLiteral("47L1"))) {
-        // 未登记的 47L1 前缀：型号段取前 6 位，标注暂不支持
+        // 未登记的 47L1 前缀：型号段取前 6 位，标注不支持
         profile.model = name.left(6);
-        profile.label = QStringLiteral("未知型号");
-        profile.state = SupportState::Unsupported;
+        profile.label = QStringLiteral("未登记型号");
+        profile.hint = QStringLiteral("未登记的 DG-LAB 型号");
         return profile;
     }
-    // 非 47L1 前缀：型号未知但沿用既有行为允许连接，按实验性列出（功能未经完整验证）
-    profile.supported = true;
-    profile.label = QStringLiteral("未知型号");
-    profile.state = SupportState::Experimental;
+    // 非 47L1 前缀（手机、耳机、手环等）：不是 DG-LAB 设备，一律不支持
+    profile.label = QStringLiteral("未知设备");
+    profile.hint = QStringLiteral("非 DG-LAB 设备");
     return profile;
 }
 
@@ -453,7 +453,7 @@ void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info)
 
     // 加入 UI 列表：行上带「已支持 / 实验性 / 暂不支持」三态标签
     QVariantMap item;
-    QString displayName = info.name().isEmpty() ? QStringLiteral("郊狼设备(未知名称)") : info.name();
+    QString displayName = info.name().isEmpty() ? QStringLiteral("未知设备(未知名称)") : info.name();
     const DeviceProfile profile = identify(info.name(), remembered_model(address));
     item.insert(QStringLiteral("name"), displayName);
     item.insert(QStringLiteral("address"), address);
@@ -462,7 +462,7 @@ void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info)
     item.insert(QStringLiteral("supportText"), support_text_of(profile.state));
     item.insert(QStringLiteral("connectable"), profile.state != SupportState::Unsupported);
     item.insert(QStringLiteral("output"), profile.output);
-    // 行内提示：实验性型号区分「驱动已实现未验证」与「驱动尚未实现」，未知型号给出可连接的型号段
+    // 行内提示：型号特定的提示优先（未登记 / 非 DG-LAB 设备 / 需升级固件），实验性型号另有统一文案
     const QString model_text = profile.model.isEmpty() ? QString() : QStringLiteral("型号 %1，").arg(profile.model);
     QString hint;
     if (!profile.hint.isEmpty()) {
@@ -501,12 +501,12 @@ void CoyoteBleController::connectDevice(const QString& address) {
 
     const DeviceProfile profile = identify(target.name(), remembered_model(address));
     if (profile.state == SupportState::Unsupported) {
-        // 型号未登记或本版明确不支持（如固件过旧）：拒绝连接，避免写入语义不匹配的指令
+        // 型号未登记、非 DG-LAB 设备或本版明确不支持（如固件过旧）：拒绝连接，避免写入语义不匹配的指令
         LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
             "拒绝连接未支持型号:" << target.name().toStdString() << " 型号 " << profile.model.toStdString());
         const QString reason = profile.hint.isEmpty()
             ? QStringLiteral("暂不支持该设备（型号 %1）").arg(profile.model)
-            : profile.hint;
+            : QStringLiteral("暂不支持该设备：%1").arg(profile.hint);
         set_status(reason);
         emit errorOccurred(reason);
         return;
@@ -591,7 +591,7 @@ void CoyoteBleController::connectDevice(const QString& address) {
     }
     if (profile.state == SupportState::Experimental && !profile.supported) {
         // 实验性型号且驱动未实现：行可点选，但明确告知而不是假装可用
-        // （名称不在型号表内的设备由 identify() 标记为可连接，沿用不限定型号的既有行为放行）
+        // （型号表当前没有「已登记但无驱动」的条目，该分支留给后续接入的型号）
         LOG_MODULE("CoyoteBleController", "connectDevice", LOG_WARN,
             "实验性型号驱动尚未实现:" << target.name().toStdString() << " 型号 " << profile.model.toStdString());
         set_status(QStringLiteral("%1 驱动尚未实现").arg(profile.label));

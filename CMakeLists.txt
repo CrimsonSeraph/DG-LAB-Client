@@ -770,17 +770,6 @@ dgl_add_plugin(dgl_warthunder_plugin
 	META_DIR module/warthunder/meta
 )
 
-dgl_add_plugin(dgl_buckshot_plugin
-	SOURCES
-		module/buckshot/BuckshotPlugin.h
-		module/buckshot/BuckshotPlugin.cpp
-	QT_LIBS
-		Qt::Core
-		Qt::Network
-		Qt::WebSockets
-	META_DIR module/buckshot/meta
-)
-
 dgl_add_plugin(dgl_gsi_plugin
 	SOURCES
 		module/gsi/CS2GsiPlugin.h

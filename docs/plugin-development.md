@@ -4,7 +4,7 @@
 
 ## 插件系统
 
-- **插件系统（IPlugin）** 提供插件化模块接口 `IPlugin`（纯虚基类）：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明与错误码返回；统一跨平台导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性），约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 工厂导出，主程序加载时校验 API 版本（`PLUGIN_API_VERSION`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`，类名/方法名自动为插件自身名称与函数名）；内存隔离约定插件自行 `new`/`delete`（宿主仅调用 `destroy_plugin`）。`ModuleManager` 作为插件宿主：启动时扫描 `<程序目录>/module/`（路径由 `config/main.json` 的 `app.module.path` 配置，`app.module.scan_load` 控制"扫描即加载"），通过 `QLibrary` 动态加载、校验 API 版本与依赖、注入日志回调与宿主上下文（`IPluginHost`：数值注册/写入、共享 `DataListener`），并管理加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。社区插件模板（`docs/community_plugin_template/`）演示完整的接口实现、导出与侧车样例；已注册的插件（`gsi`/`warthunder`/`buckshot`）构建后自动复制到 `<程序目录>/module/` 供扫描加载，展示元数据侧车随动态库放入 `module/<目标名>/plugin.json`。
+- **插件系统（IPlugin）** 提供插件化模块接口 `IPlugin`（纯虚基类）：生命周期（`initialize`/`uninitialize`/`cleanup`/`can_unload`）、自描述（名称、版本、API 版本、能力标志、依赖列表）、线程安全声明与错误码返回；统一跨平台导出宏 `PLUGIN_EXPORT`（Windows `_WIN32` / GCC/Clang 可见性），约定 `extern "C"` 的 `create_plugin`/`destroy_plugin`/`get_plugin_api_version` 工厂导出，主程序加载时校验 API 版本（`PLUGIN_API_VERSION`）。插件日志通过回调转发由宿主统一记录（不直接使用 `LOG_MODULE`，类名/方法名自动为插件自身名称与函数名）；内存隔离约定插件自行 `new`/`delete`（宿主仅调用 `destroy_plugin`）。`ModuleManager` 作为插件宿主：启动时扫描 `<程序目录>/module/`（路径由 `config/main.json` 的 `app.module.path` 配置，`app.module.scan_load` 控制"扫描即加载"），通过 `QLibrary` 动态加载、校验 API 版本与依赖、注入日志回调与宿主上下文（`IPluginHost`：数值注册/写入、共享 `DataListener`），并管理加载状态（暂未加载/已加载/加载失败）；卸载时执行 `can_unload` 检查 → `uninitialize` → `cleanup` → `destroy_plugin`。社区插件模板（`docs/community_plugin_template/`）演示完整的接口实现、导出与侧车样例；已注册的插件（`gsi`/`warthunder`）构建后自动复制到 `<程序目录>/module/` 供扫描加载，展示元数据侧车随动态库放入 `module/<目标名>/plugin.json`。
 
 ## 接口与约定
 
@@ -12,9 +12,9 @@
 
 ### 1. 目录与现有插件
 
-- **源码目录**: `module/`（每个插件一个子目录，如 `module/gsi/`、`module/warthunder/`、`module/buckshot/`）。
+- **源码目录**: `module/`（每个插件一个子目录，如 `module/gsi/`、`module/warthunder/`）。
 - **运行时扫描目录**: 默认 `<程序目录>/module/`，构建后插件 DLL 自动复制至此；路径可由 `config/main.json` 的 `app.module.path` 更改。
-- **现有插件**: `module/gsi/`（CS2 GSI 插件）、`module/warthunder/`（战争雷霆遥测插件）、`module/buckshot/`（恶魔轮盘桥接插件）；社区模板见 [`docs/community_plugin_template/`](community_plugin_template/README.md)。
+- **现有插件**: `module/gsi/`（CS2 GSI 插件）、`module/warthunder/`（战争雷霆遥测插件）；社区模板见 [`docs/community_plugin_template/`](community_plugin_template/README.md)。
 
 ### 2. 接口（IPlugin，`include/plugin/IPlugin.h`）
 

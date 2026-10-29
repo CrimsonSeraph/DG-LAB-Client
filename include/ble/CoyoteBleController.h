@@ -77,13 +77,13 @@ public:
 
     /// @brief 按蓝牙名前缀识别设备型号
     /// @param name 蓝牙名
-    /// @return 识别结果；非 47L1 前缀返回未限定型号的可连接结果
+    /// @return 识别结果；未登记的 47L1 前缀与非 47L1 前缀都返回不支持
     static DeviceProfile identify(const QString& name);
 
-    /// @brief 按蓝牙名识别型号，名称未命中型号表时回退到按 MAC 记忆的型号
+    /// @brief 按型号识别设备：MAC 记忆的型号优先，其次蓝牙名前缀
     /// @param name 蓝牙名
     /// @param remembered_model 该 MAC 记忆的型号标识（coyote / pawprint / civet / opossum，空串表示无记忆）
-    /// @return 识别结果；名称命中优先于记忆，两者都未命中时返回可连接的未知型号
+    /// @return 识别结果；记忆命中优先于名称，两者都未命中时未登记的 47L1 与非 47L1 前缀均返回不支持
     static DeviceProfile identify(const QString& name, const QString& remembered_model);
 
     /// @brief 按连接后通知帧的首字节反推型号

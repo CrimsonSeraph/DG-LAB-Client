@@ -10,7 +10,6 @@
 module/
 ├── gsi/                # CS2 GSI 插件（完整功能示例：路径查找、配置生成、SteamID 归属区分）
 ├── warthunder/         # 战争雷霆遥测插件（轮询 127.0.0.1:8111 空战遥测）
-├── buckshot/           # 恶魔轮盘桥接插件（WebSocket 服务端接收 JSON 事件）
 └── README.md           # 本说明文件
 ```
 
@@ -22,7 +21,6 @@ module/
 | --- | --- | --- | --- |
 | `module/gsi/` | `dgl_gsi_plugin` | `Qt::Core Qt::Network` | CS2 GSI 数据接收与数值输出 |
 | `module/warthunder/` | `dgl_warthunder_plugin` | `Qt::Core Qt::Network` | 轮询本地空战遥测，输出速度/高度/有效性 |
-| `module/buckshot/` | `dgl_buckshot_plugin` | `Qt::Core Qt::Network Qt::WebSockets` | WebSocket 服务端接收外部桥接事件 |
 
 ## 源码组织与命名约定
 

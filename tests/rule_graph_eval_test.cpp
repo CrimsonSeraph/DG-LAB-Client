@@ -96,7 +96,7 @@ namespace {
         return AppConfig::instance().get_value<nlohmann::json>(key, nlohmann::json::object());
     }
 
-    // 插件图样例：hp + damage → 默认输出（与 config/rules/plugin_buckshot.json 同形状）
+    // 插件图样例：hp + damage → 默认输出（与 config/rules/plugin_<插件标识>.json 同形状）
     const char* PLUGIN_GRAPH_JSON = R"({
     "graph": {
         "plugin": "probe",

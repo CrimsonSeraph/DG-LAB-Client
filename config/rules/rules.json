@@ -1,28 +1,10 @@
 {
     "DGLABClient": "DG-LAB-Client",
     "graph": {
-        "edges": [
-            {
-                "from": 1,
-                "id": 1,
-                "port": 0,
-                "to": 2
-            }
-        ],
+        "edges": [],
         "nextEdgeId": 2,
         "nextNodeId": 3,
         "nodes": [
-            {
-                "id": 1,
-                "name": "恶魔轮盘 输出",
-                "pluginId": "buckshot",
-                "references": [
-                    "plugin:buckshot"
-                ],
-                "type": "pluginOutput",
-                "x": 120.0,
-                "y": 80.0
-            },
             {
                 "channel": "A",
                 "id": 2,

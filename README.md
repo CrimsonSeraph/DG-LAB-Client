@@ -54,7 +54,6 @@
 | [CONTRIBUTING.md](CONTRIBUTING.md)、[CodingStyle.md](CodingStyle.md)、[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 贡献流程、编码规范、行为准则 |
 | [screenshot/README.md](screenshot/README.md) | 截图目录、规格与重新生成步骤 |
 | [config/README.md](config/README.md)、[include/README.md](include/README.md)、[src/README.md](src/README.md)、[src/ui/README.md](src/ui/README.md)、[module/README.md](module/README.md) | 各目录的字段、分层与控件契约 |
-| [NextStep.md](NextStep.md) | 后续计划 |
 
 ## 许可与致谢
 

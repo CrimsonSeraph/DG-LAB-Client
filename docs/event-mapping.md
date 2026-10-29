@@ -101,7 +101,7 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
 }
 ```
 
-buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 1 点触发）：
+按数值减少触发（插件注册的数值 id 为 `hp`，每次减少至少 1 点触发）：
 
 ```json
 {
@@ -114,7 +114,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
 
 ## 四、user.json 的映射结构
 
-映射写在 `user.json` 的 `app.plugins.<模块名>` 下，键为插件 `name()` 返回的模块标识（如 `buckshot`）。
+映射写在 `user.json` 的 `app.plugins.<模块名>` 下，键为插件 `name()` 返回的模块标识（如 `gsi`）。
 
 无子选项的事件（`options` 为空数组）在映射里同样占一个子选项条目，id 固定为 `default`：`events.<事件id>.options.default`，字段与普通子选项完全相同。
 
@@ -153,7 +153,7 @@ buckshot 的 HP 减少（插件注册的数值 id 为 `hp`，每次掉血至少 
     "app": {
         "channels": { "A": { "limit": 200, "safety": 150 }, "B": { "limit": 200, "safety": 150 } },
         "plugins": {
-            "buckshot": {
+            "gsi": {
                 "channel": "AB",
                 "events": {
                     "gift": {

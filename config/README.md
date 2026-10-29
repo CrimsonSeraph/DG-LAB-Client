@@ -93,7 +93,7 @@
 | `app.devices.<MAC>.limit_a` / `safety_a` / `limit_b` / `safety_b` | int | 该设备的通道上下限，优先于通道级默认值。未设置（或该键被删除）时回退到 `app.channels.<A\|B>.{limit, safety}`，再回退到内置默认（`limit=200` / `safety=150`）；读取集中在 `DeviceController::limits_for(mac, channel)`，界面显示与下发都用它算出的 `min(limit, safety)` |
 | `app.ui.tray_hint_shown` | bool | Windows 11 托盘折叠区提示是否已经弹过：首次运行（托盘可用）弹一次 Toast 并写 `true`，之后不再提示。图标位置归系统所有，应用无法程序化移到常显区域 |
 | `app.devices.<MAC>.experimental_notice_shown` | bool | 实验性设备首次连接成功的「功能未经完整验证」提示是否已经弹过；首次连接时写入 `true`，之后不再提示 |
-| `app.devices.<MAC>.model` | string | 该 MAC 记忆的型号标识（`coyote` / `pawprint` / `civet` / `opossum`）：蓝牙名未命中型号表时按它恢复型号语义（郊狼即「已支持」）。首次成功识别出型号时写入（名称命中或连接后首帧反推），之后扫描与连接都直接使用 |
+| `app.devices.<MAC>.model` | string | 该 MAC 记忆的型号标识（`coyote` / `pawprint` / `civet` / `opossum`）：识别时优先于蓝牙名（操作系统可能只给占位名），命中即按该型号的状态处理（郊狼即「已支持」）。首次成功识别出型号时写入（名称命中或连接后首帧反推），之后扫描与连接都直接使用 |
 | `app.devices.paw.d0_values` | bool | 爪印 D0 模式（10Hz 全量物理数据）是否写入数值模块 `paw` 的 `accel` / `angle_x` / `angle_y` / `angle_z` / `voltage` / `button`；缺省 `false`（10Hz 数据不落值，避免 10Hz 触发规则求值）。键里的 `paw` 是驱动标识，不是设备 MAC |
 | `app.devices.civet.pressure_epsilon` | int | 灵猫气压的落值阈值，单位与数值一致（0.01 kPa）；缺省 `10`（即 0.1 kPa）。气压每 100ms 上报一次，只有与上一次落值的差达到阈值才写 `civet` 模块的 `pressure` / `raw`，其余上报丢弃并计数（其余抖动因此不触发规则求值）；设为 `0` 或负值等于「与原值不同即落值」，即回到 10Hz。键里的 `civet` 是驱动标识，不是设备 MAC |
 | `app.channels.<A\|B>.{limit, safety}` | int | 通道级上下限（所有插件共用），是所有设备的回退层；界面入口在插件详情的「通道上限」面板，写入与旧键迁移见 [docs/event-mapping.md](../docs/event-mapping.md) 的「通道上限」 |

@@ -15,7 +15,7 @@
 ```json
 {
     "version": "1.0",
-    "plugin": "buckshot",          // 总规则图写空字符串
+    "plugin": "my_plugin",          // 总规则图写空字符串
     "nextNodeId": 6,
     "nextEdgeId": 4,
     "nodes": [ ... ],
@@ -40,7 +40,7 @@
 两个新增节点都携带插件标识（`pluginId`）与引用列表（`references`）：
 
 ```json
-{ "id": 5, "type": "defaultOutput", "name": "默认输出", "pluginId": "buckshot", "references": [ "top" ] }
+{ "id": 5, "type": "defaultOutput", "name": "默认输出", "pluginId": "my_plugin", "references": [ "top" ] }
 ```
 
 数据层不变量：
@@ -53,7 +53,7 @@
 
 图标识：总规则图 = `top`；插件规则图 = `plugin:<插件标识>`。显示文本由 `rule_graph_ref_display` 给出（`总规则图` / `<插件标识> 规则图`）。
 
-- 总规则图里的插件输出节点写 `references: ["plugin:buckshot"]`，表示它引用该插件图。
+- 总规则图里的插件输出节点写 `references: ["plugin:my_plugin"]`，表示它引用该插件图。
 - 插件规则图的默认输出节点写 `references: ["top"]`，表示它被总规则图引用；被多个图引用时按「总规则图在前、其余按插件标识排序」排列。
 
 `references` 由 `RuleManager::sync_output_references` 在每次保存后重建：扫描总规则图与全部插件图里的插件输出节点，写回被引用插件的默认输出节点。读取用 `RuleManager::get_output_referrers(plugin_id)`（原始图标识）与 `RuleGraph::output_references()`（当前图的引用列表）。
@@ -70,7 +70,7 @@
 | `plugins` | 图涉及的插件标识（输出节点归属与引用） |
 | `events` | 依赖插件声明的事件，写作 `<插件标识>/<事件 ID>` |
 
-起点为通道节点或输出节点时得到「该输出依赖的子规则/事件」；`from_node_id = 0` 表示整图。总规则图查询会并入其插件输出节点对应插件图的依赖（只展开一层）：因此「启动总规则图的通道 A」即可拿到 `buckshot` 图里的规则与事件。事件来自插件侧车声明（`ModuleManager::get_plugins()`），仅供启用级联判定，不改变求值流程。
+起点为通道节点或输出节点时得到「该输出依赖的子规则/事件」；`from_node_id = 0` 表示整图。总规则图查询会并入其插件输出节点对应插件图的依赖（只展开一层）：因此「启动总规则图的通道 A」即可拿到 `my_plugin` 图里的规则与事件。事件来自插件侧车声明（`ModuleManager::get_plugins()`），仅供启用级联判定，不改变求值流程。
 
 ## 5. C++ / 桥接 API
 
@@ -125,6 +125,6 @@
 ## 8. 迁移策略
 
 1. 旧 `rules.json`（只有 `rules` 字段、无 `graph`）：`RuleGraph::load` 依次尝试规则文件的 `graph` 字段 → 旧版 `<规则文件>.graph.json` 侧车 → `import_from_rules()` 从规则集生成图。加载不丢数据，保存时把图写入规则文件的 `graph` 字段，侧车文件保留但不再更新。
-2. 内置预置规则已从 `config/rules/rules.json` 移除（`rules` 为空对象），改为默认插件图样例 `config/rules/plugin_buckshot.json`，其默认输出节点由总规则图的插件输出节点引用。老用户文件里的规则仍按第 1 条读入。
+2. 内置预置规则已从 `config/rules/rules.json` 移除（`rules` 为空对象），预置图只保留一个示例通道节点；插件图在首次编辑插件规则时按 `plugin_<插件标识>.json` 生成，其默认输出节点由总规则图的插件输出节点引用。老用户文件里的规则仍按第 1 条读入。
 3. 旧侧车文件里的节点位置在首次保存后迁入规则文件；保存后节点 JSON 会补齐缺省字段（`op`、`advanced` 等），属正常归一。
 4. `plugin_*.json` 与 `*.graph.json` 不再出现在规则文件列表（`get_available_rule_files`）中。

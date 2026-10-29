@@ -46,7 +46,6 @@ DG-LAB-Client/
 ├── CONTRIBUTING.md             # 贡献指南（配套 CodingStyle.md、CODE_OF_CONDUCT.md）
 ├── DGLABClient.qrc             # Qt 资源清单
 ├── LICENSE                     # 许可证（GPL-3.0-only）
-├── NextStep.md                 # 后续计划
 ├── NOTICE                      # 第三方组件声明
 ├── README.md                   # 本文件
 └── main.cpp                    # 程序入口
