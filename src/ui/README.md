@@ -44,7 +44,7 @@ src/ui/
 │   │   ├── WavePage.qml        # 波形设置：目标通道、A/B 波形预览、波形库与编辑器入口（导航第 3 项）
 │   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
 │   │   ├── LogPage.qml         # 日志：列表、级别过滤与手动导出选项（导航第 5 项）
-│   │   ├── DevicePage.qml      # 设备管理：蓝牙扫描、已连接链路、默认设备与按设备通道上下限（导航第 6 项）
+│   │   ├── DevicePage.qml      # 设备管理：蓝牙扫描、已连接链路、默认设备、按设备通道上下限与通道级回退值（导航第 6 项）
 │   │   ├── ConfigPage.qml      # 设置：连接（中转表单 + 扫码配对）与主题（仅经左下角面板入口可达）
 │   │   ├── plugin/            # 插件中心：插件卡、插件详情、事件映射面板
 │   │   └── AboutPage.qml       # 关于（仅经左下角面板入口可达）
@@ -115,7 +115,7 @@ src/ui/
 
 导航与左下角面板：
 
-左侧导航按「主页 / 插件中心 / 波形设置 / 小游戏 / 日志 / 设备管理」排列（新页追加在末尾，既有导航项顺序与文案不变）；模块页已从代码移除（首页入口现为「插件管理」→ 插件中心），`AboutPage` 仅经左下角面板入口可达。导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
+左侧导航按「主页 / 插件中心 / 波形设置 / 小游戏 / 日志 / 设备管理」排列（新页追加在末尾，既有导航项顺序与文案不变）；模块页已从代码移除（首页的「插件管理」快捷入口亦已移除，插件中心只经左侧导航进入），`AboutPage` 仅经左下角面板入口可达。导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
 
 | objectName | 行为 |
 | --- | --- |
@@ -133,14 +133,13 @@ src/ui/
 | `deviceStatusName` | 连接总数：`已连接设备 ×N`，N = `ble.connectedLinkCount`（蓝牙已连接链路数）+ App 在线客户端数（无连接时「未连接设备」）；与看板设备卡、状态栏同一句文案 |
 | `deviceStatusBle` / `deviceStatusApp` | 蓝牙 0/1（`蓝牙已连接` / `蓝牙未连接`）与 App 在线客户端数（`App 已连接 ×N` / `App 未连接`） |
 | `deviceStatusDevice` | 蓝牙设备名：`ble.connected` 且 `ble.deviceName` 非空时可见 |
-| `homePluginEntryButton` | 首页页头「插件管理」→ 插件中心（`UiConnector::on_home_plugin_entry_clicked()`） |
 | `homeRuleEditorButton` / `configRuleEditorButton` | 打开规则编辑器 |
 
 带插件标识的导航只有 `app.openPluginDetail(pluginKey)` 一个入口：`AppBridge` 先切到插件中心，再发 `pluginDetailRequested(pluginKey)`，`UiConnector::on_plugin_detail_requested()` 把键解析成插件文件名后写 `pluginCenterPage` 的 `selectedFile` 与 `detailVisible`（即打开该插件详情）。键可写插件文件名或模块标识，两者都匹配。目标插件未扫描到或已卸载时不打开详情：只停在插件中心列表并弹一次 `warning` Toast（`未找到插件 …，已打开插件中心`），不会留下空白详情。之所以不扩展 `navigate(int page)`：带键的语义只对插件中心成立，`navigate` 保持「纯切页」单一职责，其余 8 处调用点无需感知页面负载。
 
 主页看板（`pages/HomePage.qml` 与 `pages/home/`）：
 
-主页已改为看板：按三行排列——设备状态卡与「已启用插件 + 近期触发」同行、通道 A 卡与通道 A 波形卡同行、通道 B 卡与通道 B 波形卡同行；页头只保留「插件管理」与「规则编辑器」两个快捷入口（模块页入口已随该页移除，波形设置入口已移除）。强度调节不在本页（后续由迷你窗提供），波形选择在波形设置页。
+主页已改为看板：按三行排列——设备状态卡与「已启用插件 + 近期触发」同行、通道 A 卡与通道 A 波形卡同行、通道 B 卡与通道 B 波形卡同行；页头只保留「规则编辑器」一个快捷入口（插件中心经左侧导航进入，原「插件管理」按钮已移除；模块页入口与波形设置入口同样已移除）。强度调节不在本页（后续由迷你窗提供），波形选择在波形设置页。
 
 `homePage` / `homeScrollView` / `homeDashboardGrid` 为页面根项、滚动视图与两列看板栅格（`columns` 随 `page.singleColumn` 在 2 / 1 之间切换，单列时六张卡按「设备状态 → 插件+触发 → 通道 A → A 波形 → 通道 B → B 波形」顺序排列）；`homeDashboardRightStack` 是「已启用插件 + 近期触发」的纵向滚动容器（`Flickable`，两列时高度由同行的设备状态卡决定，`contentHeight` 取自内部 `ColumnLayout` 位置器，内容超出时在该区域内部滚动；单列时没有同行伙伴，按内容自然高度交给页面滚动）。原 `homeDashboardLeftColumn` / `homeDashboardRightColumn` 两个列容器已随三行重排移除。
 
@@ -210,14 +209,14 @@ src/ui/
 
 蓝牙直连（扫描 / 断开 / 设备列表 / 强度增减）已整体移到设备管理页，上表不再有对应条目：旧 objectName `configBleColumn` / `configBleStatusText` / `configBleStatusDetail` / `configBleScreenSyncText` / `bleScanButton` / `bleDisconnectButton` / `bleDeviceList` / `bleDeviceClick` / `bleDeviceSupportBadge` / `bleStrength{A,B}{Increase,Decrease}` 已全部删除，`ConfigPage.qml` 里不再出现任何 `ble.` 绑定；`UiConnector` 对上述旧名字的连接一并移除，没有悬空连接或空壳卡片。
 
-设备管理页（`pages/DevicePage.qml`，导航第 6 项，`AppBridge::Page::DevicePage = 8`）：四张卡——扫描结果、已连接链路、默认设备、通道上限与安全上限。
+设备管理页（`pages/DevicePage.qml`，导航第 6 项，`AppBridge::Page::DevicePage = 8`）：五张卡——扫描结果、已连接链路、默认设备、通道上限与安全上限、通道级回退值。
 
 | objectName | 行为 |
 | --- | --- |
 | `devicePage` | 页面根项：承载四个由 C++ 写入的编辑态属性 `limitsAddress`（正在编辑上下限的设备 MAC）/ `limitsFallbackA` / `limitsFallbackB`（该通道两个键都未落盘时标「默认」）/ `limitTargets`（上下限下拉的模型：在线输出设备 + 已记忆设备） |
 | `deviceScrollView` | 页面滚动容器 |
 | `deviceScanButton` | 扫描（`UiConnector::on_ble_scan_clicked()` → `CoyoteBleController::startScan()`）；扫描中置灰，文案「扫描中…」 |
-| `deviceScanCard` / `deviceLinksCard` / `deviceDefaultCard` / `deviceLimitCard` | 四张卡的根节点（`GlassCard`）：扫描结果 / 已连接链路 / 默认设备 / 通道上下限，只承载排版，无交互 |
+| `deviceScanCard` / `deviceLinksCard` / `deviceDefaultCard` / `deviceLimitCard` / `deviceChannelFallbackCard` | 五张卡的根节点（`GlassCard`）：扫描结果 / 已连接链路 / 默认设备 / 按设备的通道上下限 / 通道级回退值，只承载排版，无交互 |
 | `deviceScanStatusText` | 扫描状态行（绑 `ble.status`），无状态文案时给「点击「扫描设备」开始发现附近的设备」引导 |
 | `deviceScanList` | 扫描结果列表（`model: ble.devices`），每行固定细边框与圆角，不加悬停态底色（行本身不再是热区，动作集中在行尾按钮） |
 | `deviceScanRowName` / `deviceScanRowDetail` | 行内两行文本：蓝牙名（暂不支持的型号取 `Theme.textMuted`）与「MAC · 型号 · 原因」 |
@@ -238,8 +237,12 @@ src/ui/
 | `deviceLimitFallbackBadge{A,B}` | 「默认」徽标（`StatusBadge` level 0）：该通道两个键都未落盘时可见 |
 | `deviceEffective{A,B}` | 生效值行「生效 N」：纯绑定 `Math.min(上限, 安全上限)` |
 | `deviceLimitHint` | 回退链说明「生效值取 min(上限, 安全上限)；未设置的键沿用 app.channels 通道值与内置默认 200 / 150」：只读 |
+| `deviceChannelFallbackHint` | 回退层说明行「设备未单独设置时使用：上方按设备设置的上下限优先……再回退内置默认 200 / 150」：只读 |
+| `deviceChannelLimit{A,B}` / `deviceChannelSafety{A,B}` | 四台 `AppSpinBox`（0~200，步进 1，可键入），编辑通道级回退值 `app.channels.<A\|B>.{limit, safety}`；回显走 `Binding on value` 绑 `eventBridge.channels`（聚焦时不覆盖用户输入），`valueModified()` 由 C++ 连接后按 objectName（`Limit` / `Safety` + `A` / `B`）调 `UiConnector::on_device_channel_fallback_modified()` |
+| `deviceChannelEffective{A,B}` | 回退层的生效值行「生效 N」：纯绑定 `Math.min(上限, 安全上限)` |
+| `deviceChannelFallbackWiring` | 写入位置说明行（`user.json` 的 `app.channels.<通道>.{limit, safety}`，所有插件共用）：只读 |
 
-C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety / effective 与 `device_limit` / `device_safety` 两个来源标记）、`setDeviceLimit(mac, channel, kind, value)`（写 `app.devices.<MAC>.{limit,safety}_{a,b}` 并 `refresh_limits()`）、`CoyoteBleController::has_link(address)` 与 `disconnectDeviceByAddress(address)`（按 MAC 断开，其它设备不受影响）。`UiConnector::refresh_device_limits_fields()` 在加载、链路变化、默认设备切换与配置变化后回填四条输入与两个「默认」标记。
+C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety / effective 与 `device_limit` / `device_safety` 两个来源标记）、`setDeviceLimit(mac, channel, kind, value)`（写 `app.devices.<MAC>.{limit,safety}_{a,b}` 并 `refresh_limits()`）、`CoyoteBleController::has_link(address)` 与 `disconnectDeviceByAddress(address)`（按 MAC 断开，其它设备不受影响）。`UiConnector::refresh_device_limits_fields()` 在加载、链路变化、默认设备切换与配置变化后回填四条输入与两个「默认」标记。通道级回退值不经过设备控制器：`UiConnector::on_device_channel_fallback_modified()` 取 `context_object("eventBridge")` 调 `EventBridge::setChannelConfig(channel, limit, safety)`（只改被编辑的那个键，另一个键由 `read_channel_config(channel)` 带出），写盘后由 `EventBridge::dataChanged` 让界面上的 `Binding on value` 与生效值一起刷新。
 
 蓝牙型号三态与提示文案（全部由 `CoyoteBleController::identify()` 的 `kModelTable`、该 MAC 记忆的型号与 `on_device_discovered()` 决定，QML 只显示；三态徽标与行内 hint 现由设备管理页 `deviceScanRowSupport` / `deviceScanRowDetail` 呈现）：
 
@@ -299,15 +302,19 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `modulePeriodCombo` | 统一查询周期下拉（`periodOptions`，文案为毫秒数值）；`currentIndex` 绑定 `moduleBridge.uniformPeriodIndex` 回显实际周期（全部数值一致时为该周期下标，不一致为 -1、无选中项，未注册数值时按 `basePeriodMs` 回显）；`activated` 与「应用」共用同一槽 |
 | `modulePeriodMismatchHint` | 「各数值周期不一致」提示，仅 `uniformPeriodIndex < 0` 时可见：只读 |
 | `modulePeriodApplyButton` | 把所选周期应用到全部数值 |
+| `pluginCardGrid` | 插件卡片网格（`GridLayout`，`columns` 随网格 / 列表视图在 2 / 1 之间切换）：`UiConnector::watch_items()` 沿它扫描每张卡上的规则入口按钮 |
+| `pluginRuleEntryButton` | 已启用插件卡片上的规则入口（`AppButton`，`visible: item.enabled`）：没有 `config/rules/plugin_<插件标识>.json` 时文案「创建规则」+`f067` 加号图标，有则「编辑规则」+`f304` 钢笔图标；点击由 `watch_items` 连到 `UiConnector::on_plugin_rule_entry_clicked()`，读 sender 的 `pluginModule` / `ruleGraphExists` 后 `loadPluginGraph()` 切到该插件图，再打开 `ruleEditorDialog`（不是先开总图）。未启用插件不显示该按钮 |
+
+规则入口的两种文案由 `pluginCenterPage.ruleGraphPlugins` 驱动（C++ 写入：已有规则图文件的插件标识列表），刷新触发点三处——`attach()` 首次连接后、`ModuleBridge::dataChanged`（加载插件列表、启用 / 停用插件）、`RuleGraphBridge::pluginGraphsChanged`（保存规则图）；每次刷新同时重扫一遍 `pluginCardGrid`，让搜索 / 分类重建出的新卡片也连上 C++（已连接项由 `connected_items_` 去重）。
 
 已启用栏条目没有新增 objectName：「配置 →」热区同样调用 `app.openPluginDetail(fileName)`，走与首页看板相同的解析与降级路径；网格卡片的热区仍走页面内的 `openDetail()`（已在本页，无需再切页）。
 
-插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。「模式与输出」页签的「通道上限（未设设备特有值时的回退值）」面板一律读 `eventBridge.channels`（即 `app.channels.<A|B>` 的通道级 `limit` / `safety`），与当前插件是否声明事件无关，未启用或未声明事件的插件同样显示真实通道值；它是默认设备没有配置 `app.devices.<MAC>.{limit_a,safety_a,limit_b,safety_b}` 时的回退层，界面文案直接写明这一点，不存在第二套「全局上限」；插件未声明事件时只有「输出通道」下拉禁用并提示「该插件未声明事件，默认输出通道不可用」。
+插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 两个页签（触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。原「模式与输出」页签已整页移除，其中的通道级面板迁到设备管理页「通道级回退值」卡（仍读 `eventBridge.channels`，即 `app.channels.<A|B>` 的 `limit` / `safety`，仍是每设备上下限未设置时的回退层，不存在第二套「全局上限」）：通道上限与安全上限不再在详情里编辑，改到设备管理页的「通道级回退值」卡（同一份 `app.channels.<A|B>`），界面上不再有模块级的 `channel` 下拉；该键（`app.plugins.<模块>.channel`）只剩兼容读取，事件落到哪个通道由事件映射的子选项与规则图通道节点决定。
 
 | objectName | 行为 |
 | --- | --- |
 | `pluginDetail` | 详情根项；`item` 变化即同步模块标识到 `ModuleBridge::selectModule()`，其余属性只读 |
-| `pluginValuesPanel` | 「数值」页签的滚动容器，`activeTab === 2` 时可见；`contentHeight` 取自 `valueColumn` 位置器，只读 |
+| `pluginValuesPanel` | 「数值」页签的滚动容器，`activeTab === 1` 时可见；`contentHeight` 取自 `valueColumn` 位置器，只读 |
 | `pluginValuesScrollBar` | 数值列表竖向滚动条（`ScrollBar` 附属在 `pluginValuesPanel` 上，`policy: AsNeeded`），句柄取 `Theme` 令牌且常驻可见（默认 Basic 样式句柄静止时透明），无交互 |
 | `pluginValuesEmpty` | 数值空态面板（「该插件尚未注册数值」），`selectedValues` 为空时可见，只读 |
 
@@ -497,10 +504,10 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
-复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 69 处（规则图编辑器调整窗口这一批新增 2 处：右下角调整手柄的 `onPressed` / `onPositionChanged`，已登记在「同文件右下角调整手柄」一行；其余交互仍全部由 C++ 按 `objectName` 连接），按文件分组：
+复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 64 处（插件详情移除「模式与输出」页签时连带删掉 5 处，本批没有新增处理器；规则图编辑器调整窗口那一批的 2 处：右下角调整手柄的 `onPressed` / `onPositionChanged` 仍登记在「同文件右下角调整手柄」一行；其余交互仍全部由 C++ 按 `objectName` 连接），按文件分组：
 
 - `dialogs/RuleEditorDialog.qml` 33 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 6（含通道节点目标设备下拉）、右下角调整手柄 2，即上表五行，逐处已登记。
-- `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 8 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
+- `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 3 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
 - `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击（行委托由 `Repeater` 动态生成，本次仍保留处理器）只调 `app.openPluginDetail(fileName)`，导航与定位全在 C++（`AppBridge` + `UiConnector::on_plugin_detail_requested()`），QML 不再自己决定导航目标；处理器本身仍属待迁移项。
 - `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表新增两行，逐处已登记。
 - `components/` 7 处：`AppTabs` / `AppSlider` / `AppSegment` / `AppChip` 各 1，把自身鼠标事件转发成自己的信号（`tabClicked` / `moved` / `selected` / `clicked`），属组件内部实现，不是页面交互；`AppTagStrip` 3 处（`onWheel` / `onPressed` / `onPositionChanged`），即上表新增三行，逐处已登记。

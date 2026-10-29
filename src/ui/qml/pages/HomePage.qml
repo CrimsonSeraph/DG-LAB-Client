@@ -7,6 +7,7 @@ import QtQuick.Layouts
 //          通道 A | 通道 A 波形；通道 B | 通道 B 波形。窄窗口整体退化为单列。
 // 强度增减与波形选择已移出本页（迷你窗 / 波形设置页负责），卡内只留只读数值与说明。
 // 交互约定：页内导航按钮用 app.navigate，其余交互控件仍由 C++（UiConnector）按 objectName 连接。
+// 页头只留「规则编辑器」：插件中心经左侧导航进入，本页不再提供插件中心快捷入口。
 Item {
     id: page
 
@@ -40,11 +41,6 @@ Item {
                     + " · " + (ble.connected ? qsTr("蓝牙已连接") : qsTr("蓝牙未连接"))
                     + " · " + (home.channelAState === "idle" && home.channelBState === "idle"
                         ? qsTr("通道空闲") : qsTr("通道运行中"))
-
-                AppButton {
-                    objectName: "homePluginEntryButton"
-                    text: qsTr("插件管理")
-                }
 
                 AppButton {
                     objectName: "homeRuleEditorButton"

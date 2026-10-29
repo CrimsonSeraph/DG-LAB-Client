@@ -121,14 +121,14 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `channel` | string | 模块级默认输出通道：`A` / `B` / `AB`，缺省 `AB`；子选项 `channel` 为空串时按它展开，见「默认通道与跟随默认」 |
+| `channel` | string | 模块级默认输出通道：`A` / `B` / `AB`，缺省 `AB`；子选项 `channel` 为空串时按它展开，见「默认通道与跟随默认」。**仅为兼容读取，界面不再暴露**：插件详情已没有该下拉，新配置不再写这个键，读取逻辑保留只为兼容既有 `user.json` |
 | `events.<事件id>.dataType` | string | 输出数据类型：`strength` / `percent` / `wave`，缺省 `strength`，非法值按 `strength` 处理，见「输出数据类型」 |
 | `events.<事件id>.wave` | string | 事件波形名，空串表示不附加波形 |
 | `events.<事件id>.merge` | string | 该事件多路结果的合并规则：`multiply` / `max` / `min` / `weighted` |
 | `events.<事件id>.weight` | number | 合并权重，`merge=weighted` 时使用 |
 | `events.<事件id>.frames` | number | 事件激活窗口帧数（1 帧 = 100ms），默认 10（1 秒）；`0` 视为 1 帧，超过 600 截断为 600 |
 | `events.<事件id>.options.<子选项id>` | object | 该子选项的输出配置 |
-| `option.channel` | string | 输出通道：`A` / `B`；空串表示跟随模块默认通道 `channel` |
+| `option.channel` | string | 输出通道：`A` / `B`；空串表示跟随模块默认通道 `channel`（该模块级键已无界面入口，空串按兼容读取的模块值展开，缺省 `AB`） |
 | `option.operation` | string | 操作：`increase` / `set` / `decrease` / `ramp_up` / `ramp_down` |
 | `option.mode` | string | 取值模式：`value` / `percent` |
 | `option.value` | number | `mode=value` 时使用的数值 |
@@ -287,7 +287,7 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
 通道上限与安全上限属于通道而不是插件：A、B 各一个唯一值，所有插件共用，插件停用或换成另一个插件都不影响它。
 
 - 存储位置：`user.json` 的 `app.channels.<通道>.{limit, safety}`（缺省 `limit=200`、`safety=150`）。
-- 它是**通道级回退层**：默认设备若在 `app.devices.<设备 MAC>.{limit_a, safety_a, limit_b, safety_b}` 配了设备特有值，就按设备值执行；该键缺失或被删除时回退到这里。整条回退链只有一处实现（`DeviceController::limits_for(mac, channel)`），插件详情的面板写的是这一层，文案明确写作「未设设备特有值时的回退值」。
+- 它是**通道级回退层**：默认设备若在 `app.devices.<设备 MAC>.{limit_a, safety_a, limit_b, safety_b}` 配了设备特有值，就按设备值执行；该键缺失或被删除时回退到这里。整条回退链只有一处实现（`DeviceController::limits_for(mac, channel)`）；这一层的界面入口是设备管理页的「通道级回退值」卡（按设备的上下限在相邻一张卡里），文案明确写作「设备未单独设置时使用」。
 - 事件引擎在载入模块时按通道读取同一份全局值，同一通道上的多个模块拿到的是同一对上限。
 - 主页与状态栏展示的上限是 `min(limit, safety)`，与详情页写入的是同一份配置。
 - 迁移：旧版本把上限写在 `app.plugins.<模块>.channels.<通道>`。读取时若全局键 `app.channels.<通道>` 缺失，就按模块名字典序取旧键中首个存在的值写回全局键并返回；写入之后只读全局键，旧键不再参与，也不再被清理或改写。

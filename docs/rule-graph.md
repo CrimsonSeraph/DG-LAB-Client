@@ -7,7 +7,7 @@
 | 文件 | 内容 | 由图 API 读写 |
 | --- | --- | --- |
 | `config/rules/rules.json` | 总规则图：`graph` 字段；`rules` 字段为兼容旧格式的规则集合 | `RuleGraph::load/save`、`RuleManager::read_rule_graph_json/write_rule_graph_json` |
-| `config/rules/plugin_<插件标识>.json` | 插件规则图：`graph`（图）+ `rules`（由规则节点派生的规则集合） | `RuleManager::get_plugin_rule_graph/save_plugin_rule_graph` |
+| `config/rules/plugin_<插件标识>.json` | 插件规则图：`graph`（图）+ `rules`（由规则节点派生的规则集合）；插件标识取插件的模块标识（`IPlugin::name()`），文件名随之而定（本机 CS2 插件的规则图是 `plugin_CS2 GSI 模块.json`） | `RuleManager::get_plugin_rule_graph/save_plugin_rule_graph` |
 | `config/rules/<规则文件>.graph.json` | 旧版规则图侧车（只读兼容，保存时不再写回） | `RuleGraph::load` 的兜底分支 |
 
 图的 JSON 形状：
@@ -156,6 +156,8 @@
 - 保存成功后，未脏的草稿会按磁盘内容重新载入一次，让默认输出节点的「被谁引用」立即反映新拓扑。
 
 批量写盘由 `RuleManager::save_rule_graphs(top_file, top_graph, plugin_graphs, failures)` 承担：总图经 `write_rule_graph_json` + `modify_rule_file` 写入规则文件的 `graph` 与 `rules` 字段，插件图经 `write_plugin_rule_graph` 写入 `plugin_<插件标识>.json`，全部写完只调用一次 `sync_output_references()`；`failures` 按写入顺序给出失败条目（空字符串表示总图）。
+
+插件中心里每个已启用插件的卡片带一个规则入口：没有 `config/rules/plugin_<插件标识>.json` 时显示「创建规则」，有则「编辑规则」。点击后先 `loadPluginGraph(插件标识)` 再打开编辑器，因此编辑器一打开就已经停在该插件图上（不是先开总图再切）；没有图文件时载入的是 `import_from_plugin()` 生成的默认图，首次保存才落盘。文案随启用状态与图文件存在性刷新，触发点是加载插件列表、启用 / 停用插件与保存规则图。
 
 ## 9. 迁移策略
 

@@ -188,7 +188,6 @@ QVariantList EventBridge::events() const {
         item.insert(QStringLiteral("displayName"),
             to_qstring(plugin.display_name.empty() ? plugin.module_name : plugin.display_name));
         item.insert(QStringLiteral("channels"), channels);
-        item.insert(QStringLiteral("defaultChannel"), to_qstring(read_default_channel(plugin.module_name)));
         item.insert(QStringLiteral("events"), events);
         list.append(item);
     }
@@ -249,17 +248,6 @@ void EventBridge::setChannelConfig(const QString& module, const QString& channel
     // 兼容旧签名：module 参数不再参与存储，通道上限是全局值
     Q_UNUSED(module);
     setChannelConfig(channel, limit, safety);
-}
-
-void EventBridge::setDefaultChannel(const QString& module, const QString& channel) {
-    const std::string module_name = module.toStdString();
-    if (module_name.empty()) {
-        return;
-    }
-    write_default_channel(module_name, channel.toStdString());
-    LOG_MODULE("EventBridge", "setDefaultChannel", LOG_INFO,
-        "默认输出通道已写入: 模块=" << module_name << " 通道=" << read_default_channel(module_name));
-    apply_change();
 }
 
 void EventBridge::setEventConfig(const QString& module, const QString& event_id, const QString& wave,

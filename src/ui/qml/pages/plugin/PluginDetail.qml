@@ -2,7 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 插件详情：返回入口 + 头图区 + 三个页签（模式与输出 / 触发事件 / 数值）。
+// 插件详情：返回入口 + 头图区 + 两个页签（触发事件 / 数值）。
+// 通道上限与安全上限属于通道级回退值，入口在设备管理页，本页不再暴露。
 Item {
     id: root
 
@@ -18,7 +19,6 @@ Item {
         ? String(root.item.moduleName)
         : ""
     readonly property bool enabledState: root.item !== null && root.item.enabled === true
-    readonly property bool hasEventData: root.eventsItem !== null
     // 头图遮罩不透明度：压暗图片左侧，保证叠在上面的文字可读
     readonly property real bannerScrimOpacity: 0.9
     // 头图源：侧车 banner 只是文件名，交给 modulebanner 提供器按 <插件文件名>/<头图文件名> 解析
@@ -34,37 +34,6 @@ Item {
         }
         return "image://modulebanner/" + file + "/" + banner;
     }
-    readonly property var channelAConfig: root.channelConfig("A")
-    readonly property var channelBConfig: root.channelConfig("B")
-    readonly property int limitA: root.channelAConfig === null ? 0 : Number(root.channelAConfig.limit)
-    readonly property int safetyA: root.channelAConfig === null ? 0 : Number(root.channelAConfig.safety)
-    readonly property int limitB: root.channelBConfig === null ? 0 : Number(root.channelBConfig.limit)
-    readonly property int safetyB: root.channelBConfig === null ? 0 : Number(root.channelBConfig.safety)
-    // defaultChannel 取值 A / B / AB，对应下拉的 0 / 1 / 2
-    readonly property string defaultChannelValue: {
-        if (root.eventsItem === null || root.eventsItem.defaultChannel === undefined) {
-            return "AB";
-        }
-        return String(root.eventsItem.defaultChannel);
-    }
-    readonly property int defaultChannelIndex: root.defaultChannelValue === "A"
-        ? 0
-        : (root.defaultChannelValue === "B" ? 1 : 2)
-
-    // 通道上限与安全上限是通道级设置：本页读写 eventBridge.channels（app.channels.<A|B>），
-    // 它同时是「默认设备未设 app.devices.<MAC> 特有值」时的回退层，与当前插件是否声明事件无关
-    function channelConfig(channel) {
-        const source = eventBridge.channels;
-        if (source === undefined || source === null || source[channel] === undefined) {
-            return null;
-        }
-        return source[channel];
-    }
-
-    function channelValueForIndex(index) {
-        return index === 0 ? "A" : (index === 1 ? "B" : "AB");
-    }
-
     // 选中插件已注册的数值项，由 C++ 侧 selectModule 后的刷新驱动
     readonly property var valueList: moduleBridge.selectedValues
 
@@ -228,226 +197,17 @@ Item {
 
         AppTabs {
             Layout.fillWidth: true
-            model: [qsTr("模式与输出"), qsTr("触发事件"), qsTr("数值")]
+            model: [qsTr("触发事件"), qsTr("数值")]
             currentIndex: root.activeTab
             onTabClicked: function (index) {
                 root.activeTab = index;
             }
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            visible: root.activeTab === 0
-            spacing: Metrics.cardSpacing
-
-            Flickable {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                contentWidth: width
-                contentHeight: outputColumn.implicitHeight
-                clip: true
-                boundsBehavior: Flickable.StopAtBounds
-
-                ColumnLayout {
-                    id: outputColumn
-
-                    width: parent.width
-                    spacing: Metrics.cardSpacing
-
-                    AppField {
-                        Layout.fillWidth: true
-                        label: qsTr("输出通道")
-                        hint: root.hasEventData
-                            ? qsTr("事件的默认下发通道；子选项选「跟随默认」时按此展开，AB 会在两个通道各生效一次")
-                            : qsTr("该插件未声明事件，默认输出通道不可用。")
-
-                        AppComboBox {
-                            id: defaultChannelCombo
-
-                            width: parent.width
-                            enabled: root.hasEventData
-                            model: [qsTr("通道 A"), qsTr("通道 B"), qsTr("A + B")]
-                            Binding on currentIndex {
-                                value: root.defaultChannelIndex
-                                restoreMode: Binding.RestoreNone
-                            }
-                            onActivated: function (index) {
-                                eventBridge.setDefaultChannel(root.moduleName, root.channelValueForIndex(index));
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: channelColumn.implicitHeight + Metrics.cardPadding * 2
-                        radius: Metrics.cardRadius
-                        color: Theme.surface
-                        border.width: Metrics.borderWidth
-                        border.color: Theme.border
-
-                        ColumnLayout {
-                            id: channelColumn
-
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.top: parent.top
-                            anchors.margins: Metrics.cardPadding
-                            spacing: Metrics.spacingMd
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("通道上限（未设设备特有值时的回退值）")
-                                color: Theme.textPrimary
-                                font.pixelSize: Typography.fontSubtitle
-                                font.bold: true
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("上限与安全上限是所有插件共用的通道级设置。默认设备没有在 app.devices.<设备 MAC> 配置 limit_a / safety_a（B 通道为 limit_b / safety_b）时，显示与下发都用这里的值；删除设备特有键即回退到这里。")
-                                color: Theme.textMuted
-                                font.pixelSize: Typography.fontBody
-                                wrapMode: Text.WordWrap
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("通道 A（通道级默认）")
-                                color: Theme.textSecondary
-                                font.pixelSize: Typography.fontBody
-                                font.bold: true
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Metrics.spacingXl
-
-                                AppField {
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 0
-                                    label: qsTr("上限")
-
-                                    AppSpinBox {
-                                        id: limitASpin
-
-                                        width: parent.width
-                                        from: 0
-                                        to: 200
-                                        Binding on value {
-                                            value: root.limitA
-                                            when: !limitASpin.activeFocus
-                                            restoreMode: Binding.RestoreNone
-                                        }
-                                        onValueModified: eventBridge.setChannelConfig("A", value, root.safetyA)
-                                    }
-                                }
-
-                                AppField {
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 0
-                                    label: qsTr("安全上限")
-
-                                    AppSpinBox {
-                                        id: safetyASpin
-
-                                        width: parent.width
-                                        from: 0
-                                        to: 200
-                                        Binding on value {
-                                            value: root.safetyA
-                                            when: !safetyASpin.activeFocus
-                                            restoreMode: Binding.RestoreNone
-                                        }
-                                        onValueModified: eventBridge.setChannelConfig("A", root.limitA, value)
-                                    }
-                                }
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: qsTr("通道 B（通道级默认）")
-                                color: Theme.textSecondary
-                                font.pixelSize: Typography.fontBody
-                                font.bold: true
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Metrics.spacingXl
-
-                                AppField {
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 0
-                                    label: qsTr("上限")
-
-                                    AppSpinBox {
-                                        id: limitBSpin
-
-                                        width: parent.width
-                                        from: 0
-                                        to: 200
-                                        Binding on value {
-                                            value: root.limitB
-                                            when: !limitBSpin.activeFocus
-                                            restoreMode: Binding.RestoreNone
-                                        }
-                                        onValueModified: eventBridge.setChannelConfig("B", value, root.safetyB)
-                                    }
-                                }
-
-                                AppField {
-                                    Layout.fillWidth: true
-                                    Layout.preferredWidth: 0
-                                    label: qsTr("安全上限")
-
-                                    AppSpinBox {
-                                        id: safetyBSpin
-
-                                        width: parent.width
-                                        from: 0
-                                        to: 200
-                                        Binding on value {
-                                            value: root.safetyB
-                                            when: !safetyBSpin.activeFocus
-                                            restoreMode: Binding.RestoreNone
-                                        }
-                                        onValueModified: eventBridge.setChannelConfig("B", root.limitB, value)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            GlassCard {
-                Layout.preferredWidth: Metrics.navWidth + Metrics.spacing3xl * 2
-                Layout.fillHeight: true
-                title: qsTr("分发范围")
-
-                Text {
-                    width: parent.width
-                    text: qsTr("输出分发到全部已连接设备，本页不提供逐设备选择。")
-                    color: Theme.textSecondary
-                    font.pixelSize: Typography.fontBody
-                    wrapMode: Text.WordWrap
-                }
-
-                Text {
-                    width: parent.width
-                    text: qsTr("两个上限都是全局设置：主页与状态栏显示 min(上限, 安全上限)，写入后由事件运行时按新上限折算。")
-                    color: Theme.textMuted
-                    font.pixelSize: Typography.fontBody
-                    wrapMode: Text.WordWrap
-                }
-            }
-        }
-
         EventMappingPanel {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.activeTab === 1
+            visible: root.activeTab === 0
             item: root.eventsItem
         }
 
@@ -457,7 +217,7 @@ Item {
 
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.activeTab === 2
+            visible: root.activeTab === 1
             contentWidth: width
             contentHeight: valueColumn.implicitHeight
             clip: true

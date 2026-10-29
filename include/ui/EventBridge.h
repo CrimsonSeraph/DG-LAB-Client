@@ -61,10 +61,6 @@ public:
     /// @param safety 通道安全上限
     /// @deprecated 新调用点改用 setChannelConfig(channel, limit, safety)
     Q_INVOKABLE void setChannelConfig(const QString& module, const QString& channel, int limit, int safety);
-    /// @brief 写入模块级默认输出通道
-    /// @param module 模块标识
-    /// @param channel 默认通道（"A"/"B"/"AB"，非法值按 "AB" 落盘）
-    Q_INVOKABLE void setDefaultChannel(const QString& module, const QString& channel);
     /// @brief 写入事件映射，已存的子选项映射原样保留
     /// @param module 模块标识
     /// @param event_id 事件标识

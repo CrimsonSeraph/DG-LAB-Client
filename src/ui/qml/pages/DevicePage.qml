@@ -2,8 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 设备管理页：蓝牙扫描、已连接链路、默认设备与按设备的通道上下限。
-// 交互约定：本文件不写信号处理器；扫描 / 连接 / 断开 / 下拉 / 上下限全部由 C++（UiConnector）按 objectName 连接。
+// 设备管理页：蓝牙扫描、已连接链路、默认设备、按设备的通道上下限与通道级回退值。
+// 交互约定：本文件不写信号处理器；扫描 / 连接 / 断开 / 下拉 / 上下限 / 回退值全部由 C++（UiConnector）按 objectName 连接。
 Item {
     id: page
 
@@ -15,6 +15,27 @@ Item {
     property bool limitsFallbackB: true
     // C++ 写入：上下限编辑目标（在线输出设备 + 已记忆设备，离线项名称带「离线」）
     property var limitTargets: []
+
+    // 通道级回退值（app.channels.<通道>）：每设备上下限里没设置的键回退到它，再回退内置默认
+    function channelFallback(channel) {
+        const source = eventBridge.channels;
+        if (source === undefined || source === null || source[channel] === undefined) {
+            return null;
+        }
+        return source[channel];
+    }
+
+    // 回退层的通道上限：配置缺失时按内置默认 200 显示
+    function channelFallbackLimit(channel) {
+        const entry = page.channelFallback(channel);
+        return (entry === null || entry.limit === undefined) ? 200 : Number(entry.limit);
+    }
+
+    // 回退层的安全上限：配置缺失时按内置默认 150 显示
+    function channelFallbackSafety(channel) {
+        const entry = page.channelFallback(channel);
+        return (entry === null || entry.safety === undefined) ? 150 : Number(entry.safety);
+    }
 
     ScrollView {
         id: scrollView
@@ -548,6 +569,166 @@ Item {
                         color: Theme.textMuted
                         font.pixelSize: Typography.fontBody
                         elide: Text.ElideRight
+                    }
+                }
+            }
+
+            // 通道级回退值：每设备上下限里没设置的键回退到这里，再回退内置默认（app.channels.<通道>）
+            GlassCard {
+                objectName: "deviceChannelFallbackCard"
+                Layout.fillWidth: true
+                title: qsTr("通道级回退值")
+
+                ColumnLayout {
+                    width: parent.width
+                    spacing: ComponentStyle.groupTitleGap
+
+                    Text {
+                        objectName: "deviceChannelFallbackHint"
+                        Layout.fillWidth: true
+                        text: qsTr("设备未单独设置时使用：上方按设备设置的上下限优先，某台设备缺哪一项就回退到这里的通道值，再回退内置默认 200 / 150；当前生效值仍为 min(上限, 安全上限)。")
+                        color: Theme.textMuted
+                        font.pixelSize: Typography.fontBody
+                        wrapMode: Text.WordWrap
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Metrics.spacingMd
+
+                        Text {
+                            text: qsTr("A 通道")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        Text {
+                            text: qsTr("上限")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        AppSpinBox {
+                            id: fallbackLimitASpin
+
+                            objectName: "deviceChannelLimitA"
+                            editable: true
+                            from: 0
+                            to: 200
+                            stepSize: 1
+                            Binding on value {
+                                value: page.channelFallbackLimit("A")
+                                when: !fallbackLimitASpin.activeFocus
+                                restoreMode: Binding.RestoreNone
+                            }
+                        }
+
+                        Text {
+                            text: qsTr("安全上限")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        AppSpinBox {
+                            id: fallbackSafetyASpin
+
+                            objectName: "deviceChannelSafetyA"
+                            editable: true
+                            from: 0
+                            to: 200
+                            stepSize: 1
+                            Binding on value {
+                                value: page.channelFallbackSafety("A")
+                                when: !fallbackSafetyASpin.activeFocus
+                                restoreMode: Binding.RestoreNone
+                            }
+                        }
+
+                        Text {
+                            objectName: "deviceChannelEffectiveA"
+                            text: qsTr("生效 %1").arg(Math.min(fallbackLimitASpin.value, fallbackSafetyASpin.value))
+                            color: Theme.accent
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Metrics.spacingMd
+
+                        Text {
+                            text: qsTr("B 通道")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        Text {
+                            text: qsTr("上限")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        AppSpinBox {
+                            id: fallbackLimitBSpin
+
+                            objectName: "deviceChannelLimitB"
+                            editable: true
+                            from: 0
+                            to: 200
+                            stepSize: 1
+                            Binding on value {
+                                value: page.channelFallbackLimit("B")
+                                when: !fallbackLimitBSpin.activeFocus
+                                restoreMode: Binding.RestoreNone
+                            }
+                        }
+
+                        Text {
+                            text: qsTr("安全上限")
+                            color: Theme.textSecondary
+                            font.pixelSize: Typography.fontBody
+                        }
+
+                        AppSpinBox {
+                            id: fallbackSafetyBSpin
+
+                            objectName: "deviceChannelSafetyB"
+                            editable: true
+                            from: 0
+                            to: 200
+                            stepSize: 1
+                            Binding on value {
+                                value: page.channelFallbackSafety("B")
+                                when: !fallbackSafetyBSpin.activeFocus
+                                restoreMode: Binding.RestoreNone
+                            }
+                        }
+
+                        Text {
+                            objectName: "deviceChannelEffectiveB"
+                            text: qsTr("生效 %1").arg(Math.min(fallbackLimitBSpin.value, fallbackSafetyBSpin.value))
+                            color: Theme.accent
+                            font.pixelSize: Typography.fontBody
+                            elide: Text.ElideRight
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+                    }
+
+                    Text {
+                        objectName: "deviceChannelFallbackWiring"
+                        Layout.fillWidth: true
+                        text: qsTr("写入 user.json 的 app.channels.<通道>.{limit, safety}，所有插件共用；事件运行时按它折算强度上限。")
+                        color: Theme.textMuted
+                        font.pixelSize: Typography.fontBody
+                        wrapMode: Text.WordWrap
                     }
                 }
             }

@@ -9,6 +9,7 @@
 #include "CoyoteBleController.h"
 #include "DebugLog.h"
 #include "DeviceController.h"
+#include "EventMapping.h"
 #include "HomeBridge.h"
 #include "IpSelector.h"
 #include "LogBridge.h"
@@ -315,7 +316,6 @@ void UiConnector::attach(QObject* root_object) {
         }
         QObject::connect(button, SIGNAL(clicked()), this, SLOT(on_nav_button_clicked()));
     }
-    connect_clicked(root_object, "homePluginEntryButton", SLOT(on_home_plugin_entry_clicked()));
     connect_clicked(root_object, "homeRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "configRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "ruleEditorCloseButton", SLOT(on_rule_editor_close_clicked()));
@@ -402,6 +402,18 @@ void UiConnector::attach(QObject* root_object) {
     if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("modulePeriodCombo"))) {
         QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_module_period_applied()));
     }
+    // 插件卡规则入口：卡片由 Repeater 生成，沿网格可视化子树扫描按钮（点击时从 sender 取插件标识）
+    watch_items(root_object, "pluginCardGrid", QStringLiteral("pluginRuleEntryButton"),
+        SLOT(on_plugin_rule_entry_clicked()));
+    // 按钮文案随启用状态与规则图文件存在性变化：加载插件列表 / 启停插件 / 保存规则后各刷一次
+    if (module_ != nullptr) {
+        QObject::connect(module_, &ModuleBridge::dataChanged, this, &UiConnector::refresh_plugin_rule_entries);
+    }
+    if (rule_graph_ != nullptr) {
+        QObject::connect(rule_graph_, &RuleGraphBridge::pluginGraphsChanged, this,
+            &UiConnector::refresh_plugin_rule_entries);
+    }
+    refresh_plugin_rule_entries();
 
     // 插件详情：选中插件变化时把模块标识交给模块桥接，供「数值」页签读取
     if (auto* detail = root_object->findChild<QObject*>(QStringLiteral("pluginDetail"))) {
@@ -491,6 +503,14 @@ void UiConnector::attach(QObject* root_object) {
             QObject::connect(spin, SIGNAL(valueModified()), this, SLOT(on_device_limit_value_modified()));
         }
     }
+    // 四条通道级回退值：同样只在用户增减或键入后写盘（app.channels.<通道>）
+    for (const char* spin_name : {"deviceChannelLimitA", "deviceChannelSafetyA", "deviceChannelLimitB",
+             "deviceChannelSafetyB"}) {
+        if (auto* spin = root_object->findChild<QObject*>(QString::fromLatin1(spin_name))) {
+            QObject::connect(spin, SIGNAL(valueModified()), this,
+                SLOT(on_device_channel_fallback_modified()));
+        }
+    }
     // 链路与配置变化后回填上下限（新设备上线 / 默认设备切换 / 外部改配置）
     if (device_ != nullptr) {
         QObject::connect(device_, &DeviceController::outputDevicesChanged, this,
@@ -538,6 +558,18 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "updateDialogCloseButton", SLOT(on_update_dialog_close_clicked()));
 
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
+}
+
+// 取 QML 上下文属性里的桥接对象（如注入的 eventBridge）：不引入新的构造参数，也不改装配入口
+QObject* UiConnector::context_object(const char* name) const {
+    if (root_.isNull()) {
+        return nullptr;
+    }
+    QQmlContext* context = qmlContext(root_.data());
+    if (context == nullptr) {
+        return nullptr;
+    }
+    return context->contextProperty(QString::fromLatin1(name)).value<QObject*>();
 }
 
 QObject* UiConnector::find(const char* object_name) const {
@@ -1036,10 +1068,6 @@ void UiConnector::on_nav_button_clicked() {
     }
 }
 
-void UiConnector::on_home_plugin_entry_clicked() {
-    app_->navigate(AppBridge::PluginCenterPage);
-}
-
 // 定位到指定插件详情：解析插件键后在插件中心页设置选中项，目标不存在时只提示
 void UiConnector::on_plugin_detail_requested(const QString& plugin_key) {
     auto* page = find("pluginCenterPage");
@@ -1078,6 +1106,27 @@ void UiConnector::on_plugin_detail_requested(const QString& plugin_key) {
     }
     page->setProperty("selectedFile", file_name);
     page->setProperty("detailVisible", true);
+}
+
+// 插件卡规则入口：按 sender 的插件标识切到该插件图（没有图文件时按已注册数值生成默认图），再打开编辑器
+void UiConnector::on_plugin_rule_entry_clicked() {
+    auto* button = sender();
+    if (button == nullptr || rule_graph_ == nullptr) {
+        return;
+    }
+    const QString plugin_id = button->property("pluginModule").toString();
+    if (plugin_id.isEmpty()) {
+        LOG_MODULE("UiConnector", "on_plugin_rule_entry_clicked", LOG_WARN,
+            "插件卡缺少插件标识，规则入口无动作");
+        return;
+    }
+    // 先切图再开弹窗：编辑器用 currentGraphPlugin 绑定左栏与画布，打开即停在该插件图上
+    const bool has_graph = button->property("ruleGraphExists").toBool();
+    rule_graph_->refreshModuleValues();
+    rule_graph_->loadPluginGraph(plugin_id);
+    open_dialog("ruleEditorDialog");
+    LOG_MODULE("UiConnector", "on_plugin_rule_entry_clicked", LOG_INFO,
+        "打开插件规则图: 插件=" << plugin_id.toStdString() << " 已有图文件=" << has_graph);
 }
 
 void UiConnector::on_rule_editor_clicked() {
@@ -1613,10 +1662,55 @@ void UiConnector::on_device_limits_changed() {
     refresh_device_limits_fields();
 }
 
+// 通道级回退值：只改被编辑的那个键，另一个键取当前通道值；写入与界面刷新都交给事件桥接
+void UiConnector::on_device_channel_fallback_modified() {
+    auto* spin = sender();
+    if (spin == nullptr) {
+        return;
+    }
+    QObject* event_bridge = context_object("eventBridge");
+    if (event_bridge == nullptr) {
+        LOG_MODULE("UiConnector", "on_device_channel_fallback_modified", LOG_WARN,
+            "未找到事件桥接: eventBridge");
+        return;
+    }
+    const QString name = spin->objectName();
+    const QString channel = name.endsWith(QStringLiteral("A")) ? QStringLiteral("A") : QStringLiteral("B");
+    const bool safety = name.contains(QStringLiteral("Safety"));
+    const EventChannelConfig current = read_channel_config(channel.toStdString());
+    const int edited = spin->property("value").toInt();
+    const int limit = safety ? current.limit : edited;
+    const int safety_value = safety ? edited : current.safety;
+    QMetaObject::invokeMethod(event_bridge, "setChannelConfig", Q_ARG(QString, channel),
+        Q_ARG(int, limit), Q_ARG(int, safety_value));
+    LOG_MODULE("UiConnector", "on_device_channel_fallback_modified", LOG_INFO,
+        "通道级回退值已提交: 通道=" << channel.toStdString() << " 上限=" << limit
+            << " 安全上限=" << safety_value);
+}
 
 QVariantList UiConnector::limit_targets() const {
     // 在线输出设备 + 已记忆设备（离线项标注「离线」）：规则编辑器通道节点的设备下拉共用同一份实现
     return device_ == nullptr ? QVariantList() : device_->outputDeviceTargets();
+}
+
+// 插件卡「创建规则 / 编辑规则」：把已有规则图的插件标识推给插件中心页，并重扫一次规则入口按钮
+void UiConnector::refresh_plugin_rule_entries() {
+    auto* page = find("pluginCenterPage");
+    if (page == nullptr) {
+        return;
+    }
+    QVariantList with_graphs;
+    if (rule_graph_ != nullptr) {
+        for (const QVariant& entry : rule_graph_->plugin_graphs()) {
+            const QVariantMap item = entry.toMap();
+            if (item.value(QStringLiteral("hasGraph")).toBool()) {
+                with_graphs.append(item.value(QStringLiteral("plugin")));
+            }
+        }
+    }
+    page->setProperty("ruleGraphPlugins", with_graphs);
+    // 委托随搜索 / 分类重建后重新扫描：已连接过的按钮由 connected_items_ 去重，不会重复连接
+    on_tracked_children_changed();
 }
 
 void UiConnector::refresh_device_limits_fields() {

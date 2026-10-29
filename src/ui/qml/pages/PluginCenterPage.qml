@@ -16,6 +16,9 @@ Item {
     property int viewMode: 0
     property string selectedFile: ""
     property bool detailVisible: false
+    // C++ 写入：已有 config/rules/plugin_<插件标识>.json 的插件标识（moduleName）列表，
+    // 加载插件列表 / 启停插件 / 保存规则后由 UiConnector 刷新，决定卡片显示「创建规则」还是「编辑规则」
+    property var ruleGraphPlugins: []
 
     // 分类判定：游戏 = 标签含「游戏」或「HTTP」；外设 = 标签含「WebSocket」「桥接」「串口」「HID」「外设」
     readonly property var categoryOptions: [qsTr("全部"), qsTr("游戏"), qsTr("外设")]
@@ -30,6 +33,14 @@ Item {
             }
         }
         return list;
+    }
+
+    // 该插件是否已有规则图文件（plugin_<插件标识>.json）
+    function hasRuleGraph(moduleName) {
+        if (moduleName === undefined || moduleName === null) {
+            return false;
+        }
+        return page.ruleGraphPlugins.indexOf(String(moduleName)) >= 0;
     }
 
     function tagList(item) {
@@ -253,6 +264,7 @@ Item {
 
                     GridLayout {
                         id: cardGrid
+                        objectName: "pluginCardGrid"
 
                         width: parent.width
                         columns: page.viewMode === 0 ? 2 : 1
@@ -271,6 +283,7 @@ Item {
                                 Layout.preferredHeight: implicitHeight
                                 item: modelData
                                 selected: String(page.selectedFile) === String(modelData.fileName)
+                                hasRuleGraph: page.hasRuleGraph(modelData.moduleName)
                                 onOpenDetail: page.openDetail(modelData.fileName)
                                 onToggleEnabled: moduleBridge.togglePlugin(String(modelData.fileName))
                             }

@@ -62,7 +62,6 @@ protected:
 private slots:
     // 导航
     void on_nav_button_clicked();
-    void on_home_plugin_entry_clicked();
     void on_plugin_detail_requested(const QString& plugin_key);
     void on_rule_editor_clicked();
     void on_rule_editor_close_clicked();
@@ -109,6 +108,8 @@ private slots:
     void on_module_period_applied();
     // 插件中心：详情页选中插件变化时同步数值页签的模块标识
     void on_plugin_detail_item_changed();
+    // 插件卡规则入口：没有 plugin_<插件标识>.json 时新建，有则直接编辑；打开编辑器并切到该插件图
+    void on_plugin_rule_entry_clicked();
     // 波形库与编辑器
     void on_wave_select_clicked();
     void on_wave_channel_clicked();
@@ -154,6 +155,8 @@ private slots:
     void on_device_limit_device_activated(int index);
     void on_device_limit_value_modified();
     void on_device_limits_changed();
+    // 设备管理页：通道级回退值（app.channels.<通道>，设备未单独设置时使用）
+    void on_device_channel_fallback_modified();
     // 日志
     void on_log_export_clicked();
     void on_log_clear_clicked();
@@ -193,6 +196,10 @@ private:
     void watch_items(QObject* root_object, const char* owner_name, const QString& item_name, const char* slot);
     void scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot);
     QObject* find(const char* object_name) const;
+    /// @brief 取根对象所在 QML 上下文里的上下文属性对象（如注入的 eventBridge）
+    /// @param name 上下文属性名
+    /// @return 对象指针，取不到时返回空
+    QObject* context_object(const char* name) const;
     /// @brief 把选中地址写入地址栏并走既有地址更新路径（二维码载荷随之刷新）
     void apply_selected_ip(const QString& ip);
     /// @brief 按关键词输入框的内容增删名单（空关键词给出提示）
@@ -207,6 +214,9 @@ private:
     void apply_mini_window_wave();
     /// @brief 按当前选中的设备回填四条上下限（无在线设备时回填通道回退值并标注「默认」）
     void refresh_device_limits_fields();
+    /// @brief 刷新插件卡「创建规则 / 编辑规则」状态：把已有规则图文件的插件标识推给插件中心页
+    /// @note 触发点：加载插件列表、启用 / 停用插件（ModuleBridge::dataChanged）、保存规则（RuleGraphBridge::pluginGraphsChanged）
+    void refresh_plugin_rule_entries();
     /// @brief 上下限编辑目标列表：在线输出设备 + 已记忆设备（app.devices 里出现过、且不是纯输入设备的 MAC）
     /// @return 列表项含 address / name / label / online，离线项名称带「离线」
     QVariantList limit_targets() const;
