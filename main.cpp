@@ -85,7 +85,9 @@ int main(int argc, char* argv[]) {
     // 统一使用 Basic 样式：界面外观完全由 QML 的样式令牌控制（不叠加平台样式）
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
-    // 配置初始化
+    // 配置初始化：先取一次日志单例，它必须比配置单例先构造、因而比后者后析构——
+    // 配置单例在静态析构期仍会 save_all() 写日志，日志对象那时必须还活着
+    (void)DebugLog::instance();
     auto& config = AppConfig::instance();
     try {
         if (!config.initialize("./config")) {
@@ -285,13 +287,5 @@ int main(int argc, char* argv[]) {
 
     const int exit_code = app.exec();
 
-    // 退出收尾一：蓝牙输出设备先于桥接层析构，而 DeviceController 的输出列表只存裸指针，
-    // 设备析构期间仍会发状态信号，回调走到 online_outputs() 会摸到已销毁的设备（实测段错误）。
-    // 这里在返回前断开这两台输出设备到设备控制器的连接，退出路径不再跨到已销毁对象。
-    QObject::disconnect(&ble, nullptr, &device, nullptr);
-    QObject::disconnect(&opossum, nullptr, &device, nullptr);
-    // 退出收尾二：配置单例在 main 返回后才析构，其保存动作会写日志；LogBridge 已经不在了，
-    // 那条 sink 回调会指到已销毁对象（实测段错误），这里先把它摘掉。
-    DebugLog::instance().unregister_log_sink("qt_ui");
     return exit_code;
 }

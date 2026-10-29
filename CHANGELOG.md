@@ -50,10 +50,10 @@
 - **默认主题改为 classic**: `DefaultConfigs`、出厂 `config/user.json` 与 `ThemeManager` 回退值统一为 `classic`，未知主题也落到该预设。
 - **插件骨架调整**: 示例插件迁出为 `docs/community_plugin_template/`，新增战争雷霆遥测与恶魔轮盘桥接两个插件，`module/README.md` 重写。
 - **文档体系拆分**: 根 README 收敛为定位、核心特性、快速开始、文档索引与许可，架构、功能、设备、构建、FAQ、截图、插件开发与规则文件各自独立成篇；交接文档里的不可变要求并入 `CONTRIBUTING.md`，环境事实与验收清单进入 `docs/build.md`。同批的 README 口径同步、插件清单更新、模块页失效引用清理与截图画廊张数修正合并在此。
-- **退出路径**: `main.cpp` 在 `app.exec()` 返回后先做两步收尾（断开蓝牙输出设备到 `DeviceController` 的连接、摘掉 QML 日志 sink），再让各对象按既有顺序析构；退出耗时实测 330 ms（空闲）/ 350 ms（郊狼蓝牙在线）中位数，分段数据记在 `docs/build.md`。
+- **退出路径**: 退出耗时基线实测 320 ms（空闲）/ 459 ms（郊狼在线）中位数，其中 QML 引擎析构仅 11–15 ms；原先记录的 5.6 s 无法复现，已按段记入 `docs/build.md`，后续按分段优化而不是按 5.6 s 拍数字。
 ### Fixed
 
-- **退出段错误**: ① `CoyoteBleController` 析构时仍发状态信号，而 `DeviceController::online_outputs()` 里存着已销毁负鼠的裸指针，回调直接跳到垃圾地址；② `LogBridge` 从不注销自己的日志 sink，`main` 返回后配置单例析构保存时会写日志并回调到已销毁的 `LogBridge`。两处都在 `main.cpp` 的退出收尾里消除后，退出码回到 0、err/out 均 0 字节。
+- **退出段错误（根因修复）**: ① `DeviceController::attach_output` 现在给每个注入的输出设备连 `QObject::destroyed`，设备先于控制器销毁时自动从 `outputs_` 移除——此前 `online_outputs()` 会解引用已销毁的负鼠，回调直接跳到垃圾地址；② `LogBridge` 析构时注销自己的 `qt_ui` 日志 sink——此前 `main` 返回后配置单例析构保存仍会写日志，回调指到已销毁的 `LogBridge`。另外 `main.cpp` 在配置初始化前先取一次 `DebugLog` 单例，确保它比配置单例活得久。已验证：空闲 / 郊狼在线 / 连接后再断开三种退出均退出码 0，err 与 out 均 0 字节。
 - **插件卸载残留事件状态**: `EventEngine` 新增 `remove_module` 与 `has_module`，抹除模块声明、激活窗口、通道累计、斜坡与上下限快照，卸载后再来的数值变化不再重建状态；`ModuleManager` 注销时广播 `module_unregistered`，由 `EventRuntime` 接线。
 - **迷你窗确认弹层不可见**: 主窗口隐藏或最小化时先拉起再弹确认层，迷你窗关闭运行中通道不再出现看不见的确认框。
 - **配置页波形卡浅色底**: 波形选择对话框在经典主题下改由 `AppDialog` 令牌着色，不再沿用 Qt 默认浅色背景。

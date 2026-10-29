@@ -265,7 +265,7 @@ private:
 
     DglabRelayServer* relay_ = nullptr;
     QrImageProvider* qr_provider_ = nullptr;
-    QList<IOutputDevice*> outputs_; ///< 注入的蓝牙输出设备（郊狼 / 负鼠可同时接入）
+    QList<IOutputDevice*> outputs_; ///< 注入的蓝牙输出设备（郊狼 / 负鼠可同时接入；设备销毁时自动移出）
     QTimer* ble_wave_timer_a_ = nullptr; ///< A 通道蓝牙波形停止定时器
     QTimer* ble_wave_timer_b_ = nullptr; ///< B 通道蓝牙波形停止定时器
     IpSelector* ip_selector_ = nullptr; ///< 局域网地址选择器（黑/白名单与手动选中地址）

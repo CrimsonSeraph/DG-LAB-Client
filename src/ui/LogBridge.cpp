@@ -41,7 +41,11 @@ LogBridge::LogBridge(QObject* parent)
     : QObject(parent) {
 }
 
-LogBridge::~LogBridge() = default;
+LogBridge::~LogBridge() {
+    // 先摘掉自己的日志通道：本对象先于配置单例析构，配置单例在静态析构期仍会 save_all()
+    // 写日志，残留的回调会指到已销毁的 LogBridge（实测段错误）
+    DebugLog::instance().unregister_log_sink("qt_ui");
+}
 
 void LogBridge::initialize() {
     exporter_.load_settings();

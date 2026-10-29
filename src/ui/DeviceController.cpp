@@ -164,6 +164,9 @@ void DeviceController::attach_output(IOutputDevice* output) {
         return;
     }
     outputs_.append(output);
+    // 设备先于本类销毁时把它移出列表：设备析构期间仍会发状态信号，回调一路走到
+    // online_outputs() 逐个解引用，残留裸指针会踩到已销毁对象（实测段错误）
+    connect(output, &QObject::destroyed, this, [this, output]() { outputs_.removeAll(output); });
     // 蓝牙连接状态直接决定输出可用性，属性需要跟着广播
     connect(output, &IOutputDevice::outputStateChanged, this, [this, output]() {
         // 链路断开：事件波形与规则波形状态一并清空，重连后不残留「以为在播」的标志
