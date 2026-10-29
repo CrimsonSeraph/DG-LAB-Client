@@ -476,6 +476,66 @@ int main(int argc, char** argv) {
         legacy_graph.nodes().front().target_device.isEmpty());
     CHECK_INT("legacy-input-count", 1, legacy_graph.input_count(legacy_graph.nodes().front().id));
 
+    // 13) 批量保存（编辑器「保存全部」的 C++ 路径）：总图在前、插件图按标识排序，
+    //     一次调用写完并统一重建引用列表；某一张失败不中断其余
+    RuleGraph batch_top;
+    batch_top.load(QStringLiteral("rules.json"));
+    const int top_nodes_before = static_cast<int>(batch_top.nodes().size());
+    GraphNode batch_channel;
+    batch_channel.type = GraphNodeType::Channel;
+    batch_channel.channel = QStringLiteral("B");
+    batch_channel.name = QStringLiteral("通道 B");
+    batch_channel.x = 40;
+    batch_channel.y = 200;
+    CHECK_TRUE("batch-add-top-node", batch_top.add_node(batch_channel) > 0);
+
+    RuleGraph batch_plugin = RuleManager::instance().get_plugin_rule_graph("probe");
+    const int plugin_nodes_before = static_cast<int>(batch_plugin.nodes().size());
+    GraphNode batch_source;
+    batch_source.type = GraphNodeType::Module;
+    batch_source.value_id = QStringLiteral("hp");
+    batch_source.name = QStringLiteral("生命值");
+    batch_source.x = 20;
+    batch_source.y = 240;
+    CHECK_TRUE("batch-add-plugin-node", batch_plugin.add_node(batch_source) > 0);
+
+    std::map<std::string, RuleGraph> batch_plugins;
+    batch_plugins["probe"] = batch_plugin;
+    std::vector<std::string> batch_failures;
+    CHECK_TRUE("batch-save-all",
+        RuleManager::instance().save_rule_graphs("rules.json", &batch_top, batch_plugins, batch_failures));
+    CHECK_INT("batch-save-no-failure", 0, static_cast<int>(batch_failures.size()));
+
+    // 两张文件都更新：总图多一个通道 B 节点，插件图多一个数值源节点
+    RuleGraph reloaded_top;
+    reloaded_top.load(QStringLiteral("rules.json"));
+    CHECK_INT("batch-save-top-written", top_nodes_before + 1,
+        static_cast<int>(reloaded_top.nodes().size()));
+    RuleGraph reloaded_plugin = RuleManager::instance().get_plugin_rule_graph("probe");
+    CHECK_INT("batch-save-plugin-written", plugin_nodes_before + 1,
+        static_cast<int>(reloaded_plugin.nodes().size()));
+
+    // 引用列表在批量保存末尾统一重建：插件图默认输出节点重新指向总规则图
+    const int reloaded_output_id = reloaded_plugin.default_output_node();
+    const GraphNode* reloaded_output = reloaded_plugin.find_node(reloaded_output_id);
+    CHECK_TRUE("batch-save-references-synced", reloaded_output != nullptr
+        && reloaded_output->references.contains(rule_graph_top_ref()));
+
+    // 13b) 总图没有可写入的规则文件：记一条失败（空标识），插件图仍然写盘
+    RuleGraph extra_plugin;
+    const int extra_id = extra_plugin.add_node(batch_source);
+    CHECK_TRUE("batch-partial-add-node", extra_id > 0);
+    std::map<std::string, RuleGraph> partial_plugins;
+    partial_plugins["probe2"] = extra_plugin;
+    std::vector<std::string> partial_failures;
+    CHECK_TRUE("batch-partial-not-all-ok",
+        !RuleManager::instance().save_rule_graphs("", &batch_top, partial_plugins, partial_failures));
+    CHECK_INT("batch-partial-failure-count", 1, static_cast<int>(partial_failures.size()));
+    CHECK_STRING("batch-partial-failure-top", "",
+        partial_failures.empty() ? std::string("missing") : partial_failures.front());
+    CHECK_TRUE("batch-partial-other-written",
+        RuleManager::instance().has_plugin_rule_graph("probe2"));
+
     if (failures == 0) {
         std::printf("rule_graph_eval_test: 全部用例通过\n");
         return 0;

@@ -222,13 +222,14 @@ RuleGraph RuleManager::get_plugin_rule_graph(const std::string& plugin_id) const
     return load_plugin_rule_graph_locked(plugin_id);
 }
 
-bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph) {
+bool RuleManager::write_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph,
+    bool& cascade_dirty) {
+    cascade_dirty = false;
     if (plugin_id.empty()) {
-        LOG_MODULE("RuleManager", "save_plugin_rule_graph", LOG_WARN, "插件标识为空，无法保存插件规则图");
+        LOG_MODULE("RuleManager", "write_plugin_rule_graph", LOG_WARN, "插件标识为空，无法保存插件规则图");
         return false;
     }
     bool saved = false;
-    bool cascade_dirty = false;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         const std::string filename = get_plugin_graph_file(plugin_id);
@@ -254,10 +255,16 @@ bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const Rul
             scan_directory();
             // 图已变化：按新图重算已启用来源的依赖集合（下一次求值同样读新图）
             cascade_dirty = refresh_cascades_locked();
-            LOG_MODULE("RuleManager", "save_plugin_rule_graph", LOG_INFO,
+            LOG_MODULE("RuleManager", "write_plugin_rule_graph", LOG_INFO,
                 "插件规则图已保存: " << filename);
         }
     }
+    return saved;
+}
+
+bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph) {
+    bool cascade_dirty = false;
+    const bool saved = write_plugin_rule_graph(plugin_id, graph, cascade_dirty);
     if (saved) {
         sync_output_references();
     }
@@ -265,6 +272,52 @@ bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const Rul
         emit cascade_changed();
     }
     return saved;
+}
+
+bool RuleManager::save_rule_graphs(const std::string& top_file, const RuleGraph* top_graph,
+    const std::map<std::string, RuleGraph>& plugin_graphs,
+    std::vector<std::string>& failures) {
+    failures.clear();
+    bool wrote_any = false;
+    bool cascade_dirty = false;
+    // 总规则图先写：插件图保存后重建引用列表时会读到总图里的插件输出节点
+    if (top_graph != nullptr) {
+        bool saved = false;
+        if (top_file.empty()) {
+            LOG_MODULE("RuleManager", "save_rule_graphs", LOG_WARN, "总规则图没有可写入的规则文件");
+        }
+        else {
+            const bool graph_ok = write_rule_graph_json(top_file, top_graph->to_json());
+            const bool rules_ok = modify_rule_file(top_file, top_graph->to_rules_json());
+            saved = graph_ok && rules_ok;
+        }
+        wrote_any = wrote_any || saved;
+        if (!saved) {
+            failures.push_back(std::string());
+        }
+    }
+    // 插件图按标识排序逐个写；某一张失败不中断其余
+    for (const auto& entry : plugin_graphs) {
+        bool entry_cascade = false;
+        if (write_plugin_rule_graph(entry.first, entry.second, entry_cascade)) {
+            wrote_any = true;
+        }
+        else {
+            failures.push_back(entry.first);
+        }
+        cascade_dirty = cascade_dirty || entry_cascade;
+    }
+    // 全部写完后统一重建引用列表（总图与插件图互相引用时只读一次最新内容）
+    if (wrote_any) {
+        sync_output_references();
+    }
+    if (cascade_dirty) {
+        emit cascade_changed();
+    }
+    LOG_MODULE("RuleManager", "save_rule_graphs", failures.empty() ? LOG_INFO : LOG_ERROR,
+        "批量保存规则图: 写入 " << (plugin_graphs.size() + (top_graph != nullptr ? 1 : 0))
+            << " 张，失败 " << failures.size() << " 张");
+    return failures.empty();
 }
 
 std::optional<nlohmann::json> RuleManager::read_rule_graph_json(const std::string& filename) const {

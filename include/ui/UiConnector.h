@@ -66,6 +66,9 @@ private slots:
     void on_plugin_detail_requested(const QString& plugin_key);
     void on_rule_editor_clicked();
     void on_rule_editor_close_clicked();
+    void on_rule_discard_save_clicked();
+    void on_rule_discard_discard_clicked();
+    void on_rule_discard_cancel_clicked();
     void on_rule_save_clicked();
     void on_rule_fit_view_clicked();
     // 通用确认弹层

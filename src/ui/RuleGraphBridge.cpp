@@ -85,8 +85,10 @@ void RuleGraphBridge::initialize() {
         }
     }
     if (!current_rule_file_.isEmpty()) {
-        graph_.load(current_rule_file_);
+        graph_ = load_graph_from_disk(QString());
     }
+    drafts_.clear();
+    dirty_graphs_.clear();
     apply_default_device();
     rebuild_module_values();
     emit graphChanged();
@@ -284,10 +286,12 @@ void RuleGraphBridge::loadRuleFile(const QString& file_name) {
     }
     current_rule_file_ = file_name;
     current_graph_plugin_.clear();
-    graph_.load(file_name);
+    // 换规则文件等于重新打开编辑器：全部草稿与脏标记作废，避免把旧文件的图写进新文件
+    drafts_.clear();
+    dirty_graphs_.clear();
+    graph_ = load_graph_from_disk(QString());
     apply_default_device();
     selected_node_id_ = 0;
-    dirty_ = false;
     emit dirtyChanged();
     emit selectionChanged();
     emit graphChanged();
@@ -295,48 +299,157 @@ void RuleGraphBridge::loadRuleFile(const QString& file_name) {
 }
 
 bool RuleGraphBridge::save() {
-    if (current_graph_plugin_.isEmpty() && current_rule_file_.isEmpty()) {
-        return false;
+    if (dirty_graphs_.empty()) {
+        emit statusMessage(QStringLiteral("没有需要保存的改动"));
+        return true;
     }
-    const bool ok = current_graph_plugin_.isEmpty()
-        ? graph_.save(current_rule_file_)
-        : RuleManager::instance().save_plugin_rule_graph(current_graph_plugin_.toStdString(), graph_);
-    dirty_ = !ok;
-    emit dirtyChanged();
-    emit graphChanged();
-    emit pluginGraphsChanged();
-    emit statusMessage(ok ? QStringLiteral("规则图已保存") : QStringLiteral("规则图保存失败"));
-    return ok;
-}
+    // 写入顺序：总规则图在前（插件图保存时会重建引用列表，需要读到最新的总图），插件图按标识排序
+    std::map<std::string, RuleGraph> plugin_graphs;
+    for (const auto& key : dirty_graphs_) {
+        if (!key.isEmpty()) {
+            plugin_graphs[key.toStdString()] = pending_graph(key);
+        }
+    }
+    const bool has_top = dirty_graphs_.count(QString()) > 0;
+    const RuleGraph top_graph = has_top ? pending_graph(QString()) : RuleGraph();
+    std::vector<std::string> failures;
+    const bool ok = RuleManager::instance().save_rule_graphs(
+        current_rule_file_.toStdString(), has_top ? &top_graph : nullptr, plugin_graphs, failures);
 
-void RuleGraphBridge::loadPluginGraph(const QString& plugin_id) {
-    // 空标识表示回到总规则图：从规则文件重载，丢弃插件图上的未保存改动
-    if (plugin_id.isEmpty()) {
-        if (current_rule_file_.isEmpty()) {
-            graph_ = RuleGraph();
-            graph_.import_from_rules();
+    // 写盘成功的图清脏；失败的图保留脏标记与草稿，界面继续提示未保存
+    std::set<QString> failed_keys;
+    for (const auto& failure : failures) {
+        failed_keys.insert(QString::fromStdString(failure));
+    }
+    QStringList saved_labels;
+    QStringList failed_labels;
+    for (const auto& key : dirty_graphs_) {
+        if (failed_keys.count(key) > 0) {
+            failed_labels.append(graph_label(key));
         }
         else {
-            graph_.load(current_rule_file_);
+            saved_labels.append(graph_label(key));
         }
-        current_graph_plugin_.clear();
-        selected_node_id_ = 0;
-        dirty_ = false;
-        emit dirtyChanged();
-        emit selectionChanged();
-        emit graphChanged();
-        emit statusMessage(QStringLiteral("已返回总规则图"));
-        return;
     }
-    graph_ = RuleManager::instance().get_plugin_rule_graph(plugin_id.toStdString());
-    apply_default_device();
-    current_graph_plugin_ = plugin_id;
-    selected_node_id_ = 0;
-    dirty_ = false;
+    dirty_graphs_ = failed_keys;
+
+    // 保存后磁盘上的引用列表已重建：未脏的图与磁盘一致，重新载入以刷新「被谁引用」
+    if (!saved_labels.isEmpty()) {
+        for (auto& entry : drafts_) {
+            if (dirty_graphs_.count(entry.first) == 0) {
+                entry.second = load_graph_from_disk(entry.first);
+            }
+        }
+        if (dirty_graphs_.count(current_graph_plugin_) == 0) {
+            graph_ = load_graph_from_disk(current_graph_plugin_);
+            apply_default_device();
+            selected_node_id_ = 0;
+        }
+    }
+
     emit dirtyChanged();
     emit selectionChanged();
     emit graphChanged();
-    emit statusMessage(QStringLiteral("已载入插件规则图：") + plugin_id);
+    emit pluginGraphsChanged();
+    if (ok) {
+        emit statusMessage(QStringLiteral("已保存 %1 张规则图：%2")
+            .arg(saved_labels.size())
+            .arg(saved_labels.join(QStringLiteral("、"))));
+    }
+    else {
+        emit statusMessage(QStringLiteral("保存未完成：%1 写盘失败，改动已保留（其余 %2 张已保存）")
+            .arg(failed_labels.join(QStringLiteral("、")))
+            .arg(saved_labels.size()));
+    }
+    LOG_MODULE("RuleGraphBridge", "save", ok ? LOG_INFO : LOG_ERROR,
+        QStringLiteral("批量保存: 成功 %1 张, 失败 %2 张")
+            .arg(saved_labels.size()).arg(failed_labels.size()).toStdString());
+    return ok;
+}
+
+void RuleGraphBridge::discardChanges() {
+    const bool had_dirty = !dirty_graphs_.empty();
+    drafts_.clear();
+    dirty_graphs_.clear();
+    graph_ = load_graph_from_disk(current_graph_plugin_);
+    apply_default_device();
+    selected_node_id_ = 0;
+    if (had_dirty) {
+        emit dirtyChanged();
+    }
+    emit selectionChanged();
+    emit graphChanged();
+    LOG_MODULE("RuleGraphBridge", "discardChanges", LOG_INFO, "已丢弃规则图草稿");
+}
+
+void RuleGraphBridge::loadPluginGraph(const QString& plugin_id) {
+    switch_graph(plugin_id);
+}
+
+void RuleGraphBridge::switch_graph(const QString& plugin_id) {
+    if (plugin_id == current_graph_plugin_) {
+        return;
+    }
+    // 切图只换视图：当前图连同未保存改动一起存入草稿，目标图优先取草稿，
+    // 草稿里没有（首次进入该图）才读盘并纳入草稿；整个过程不写盘
+    drafts_[current_graph_plugin_] = graph_;
+    const auto draft = drafts_.find(plugin_id);
+    if (draft != drafts_.end()) {
+        graph_ = draft->second;
+        drafts_.erase(draft);
+    }
+    else {
+        graph_ = load_graph_from_disk(plugin_id);
+    }
+    current_graph_plugin_ = plugin_id;
+    apply_default_device();
+    selected_node_id_ = 0;
+    emit selectionChanged();
+    emit graphChanged();
+    emit statusMessage(plugin_id.isEmpty()
+        ? QStringLiteral("已返回总规则图")
+        : QStringLiteral("已载入插件规则图：") + plugin_id);
+}
+
+RuleGraph RuleGraphBridge::load_graph_from_disk(const QString& plugin_id) const {
+    if (plugin_id.isEmpty()) {
+        RuleGraph graph;
+        if (current_rule_file_.isEmpty()) {
+            // 没有可用的规则文件：按规则集生成图（不落盘，保存时才写）
+            graph.import_from_rules();
+            return graph;
+        }
+        graph.load(current_rule_file_);
+        return graph;
+    }
+    return RuleManager::instance().get_plugin_rule_graph(plugin_id.toStdString());
+}
+
+RuleGraph RuleGraphBridge::pending_graph(const QString& plugin_id) const {
+    if (plugin_id == current_graph_plugin_) {
+        return graph_;
+    }
+    const auto draft = drafts_.find(plugin_id);
+    return draft == drafts_.end() ? RuleGraph() : draft->second;
+}
+
+QString RuleGraphBridge::graph_label(const QString& plugin_id) const {
+    return plugin_id.isEmpty() ? QStringLiteral("总规则图")
+                               : rule_graph_ref_display(rule_graph_plugin_ref(plugin_id));
+}
+
+QStringList RuleGraphBridge::dirty_graphs() const {
+    QStringList labels;
+    // 顺序稳定：总规则图在前，插件图按标识排序
+    if (dirty_graphs_.count(QString()) > 0) {
+        labels.append(graph_label(QString()));
+    }
+    for (const auto& key : dirty_graphs_) {
+        if (!key.isEmpty()) {
+            labels.append(graph_label(key));
+        }
+    }
+    return labels;
 }
 
 QVariantMap RuleGraphBridge::graphDependencies() const {
@@ -650,8 +763,8 @@ void RuleGraphBridge::rebuild_module_values() {
 }
 
 void RuleGraphBridge::mark_dirty() {
-    if (!dirty_) {
-        dirty_ = true;
+    // 脏标记按图粒度：关闭确认与保存都按图汇总
+    if (dirty_graphs_.insert(current_graph_plugin_).second) {
         emit dirtyChanged();
     }
 }
@@ -712,4 +825,3 @@ QPointF RuleGraphBridge::input_port_position(const GraphNode& node, int port) co
 QPointF RuleGraphBridge::output_port_position(const GraphNode& node) const {
     return QPointF(node.x + kNodeWidth, node.y + kHeaderHeight / 2.0);
 }
-

@@ -451,6 +451,11 @@ ApplicationWindow {
         id: ruleEditorDialog
     }
 
+    // 规则图未保存改动的三选确认（关闭编辑器时由 C++ 打开，盖在编辑器之上）
+    RuleDiscardDialog {
+        id: ruleDiscardDialog
+    }
+
     // 软件更新对话框（左下角面板「检查更新」打开，C++ 侧按 objectName 驱动）
     UpdateDialog {
         id: updateDialog

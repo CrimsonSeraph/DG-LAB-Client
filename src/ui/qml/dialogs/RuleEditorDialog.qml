@@ -16,9 +16,20 @@ AppDialog {
     // 关闭只能由关闭按钮（C++ 侧 UiConnector 连接，未保存改动先确认）或代码触发，
     // Esc / 点击遮罩不关闭，避免绕过未保存改动拦截
     closePolicy: Popup.NoAutoClose
-    // 令牌值是理想尺寸，由 AppDialog 钳制到视口内，避免最小窗口下对话框被裁掉底部按钮
-    preferredWidth: ComponentStyle.dialogRuleEditorWidth
-    preferredHeight: ComponentStyle.dialogRuleEditorHeight
+
+    // 可调整大小：初始尺寸取令牌，右下角手柄拖动后改用 requestedWidth / requestedHeight；
+    // 两者都夹在 [最小尺寸, 视口内可用尺寸] 之间——空间够时最小尺寸生效，视口更小时跟随视口不裁切
+    property real requestedWidth: ComponentStyle.dialogRuleEditorWidth
+    property real requestedHeight: ComponentStyle.dialogRuleEditorHeight
+    // 手柄拖动的起点（场景坐标）与起始尺寸
+    property real resizePressX: 0
+    property real resizePressY: 0
+    property real resizeStartWidth: 0
+    property real resizeStartHeight: 0
+    width: Math.min(Math.max(ComponentStyle.dialogRuleEditorMinWidth, requestedWidth),
+        Overlay.overlay.width - Metrics.spacingXl * 2)
+    height: Math.min(Math.max(ComponentStyle.dialogRuleEditorMinHeight, requestedHeight),
+        Overlay.overlay.height - Metrics.spacingXl * 2)
 
     // 当前图标题：无插件 = 总规则图，否则取插件显示名
     function currentGraphTitle() {
@@ -932,6 +943,55 @@ AppDialog {
         }
     }
 
+    // 右下角调整手柄：Dialog 是窗口内的弹层，系统窗口管理器不参与拉伸，因此自绘一块热区。
+    // 手势例外已登记 src/ui/README.md（onPressed 记住起点、onPositionChanged 跟手改尺寸两项）。
+    Item {
+        id: resizeGrip
+
+        // 盖在内容区之上，靠右下角（检查器底部为活动留白，不遮挡控件）
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        width: ComponentStyle.dialogResizeHandleSize
+        height: width
+        z: 1
+
+        // 三条斜向短划作为可拉伸提示
+        Repeater {
+            model: 3
+
+            delegate: Rectangle {
+                width: Metrics.spacing2xs
+                height: Metrics.spacing2xs
+                color: Theme.textMuted
+                x: parent.width - Metrics.spacingSm - index * Metrics.spacingXs
+                y: parent.height - Metrics.spacingSm - (3 - index) * Metrics.spacingXs
+            }
+        }
+
+        MouseArea {
+            objectName: "ruleResizeHandle"
+
+            anchors.fill: parent
+            cursorShape: Qt.SizeFDiagCursor
+            // 尺寸计算用场景坐标：对话框居中，自身随尺寸向两侧生长，本地坐标会跟着漂移
+            onPressed: function (mouse) {
+                var point = mapToItem(null, mouse.x, mouse.y);
+                dialog.resizePressX = point.x;
+                dialog.resizePressY = point.y;
+                dialog.resizeStartWidth = dialog.width;
+                dialog.resizeStartHeight = dialog.height;
+            }
+            onPositionChanged: function (mouse) {
+                if (!mouse.pressed) {
+                    return;
+                }
+                var point = mapToItem(null, mouse.x, mouse.y);
+                dialog.requestedWidth = dialog.resizeStartWidth + (point.x - dialog.resizePressX);
+                dialog.requestedHeight = dialog.resizeStartHeight + (point.y - dialog.resizePressY);
+            }
+        }
+    }
+
     // 规则节点专用：规则名 / 值模式 / 启用
     Component {
         id: ruleFields
@@ -1056,9 +1116,12 @@ AppDialog {
                 Layout.fillWidth: true
             }
 
+            // 一次保存写全部有改动的图（总图 + 插件图），按钮上给出待写入的张数
             AppButton {
                 objectName: "ruleSaveButton"
-                text: ruleGraph.dirty ? qsTr("保存规则图 *") : qsTr("保存规则图")
+                text: ruleGraph.dirty
+                    ? qsTr("保存全部（%1 张图） *").arg(ruleGraph.dirtyGraphs.length)
+                    : qsTr("保存规则图")
                 primary: true
             }
         }

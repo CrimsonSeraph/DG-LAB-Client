@@ -319,6 +319,10 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "homeRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "configRuleEditorButton", SLOT(on_rule_editor_clicked()));
     connect_clicked(root_object, "ruleEditorCloseButton", SLOT(on_rule_editor_close_clicked()));
+    // 规则图未保存改动的三选确认：保存并关闭 / 放弃改动 / 取消
+    connect_clicked(root_object, "ruleDiscardSaveButton", SLOT(on_rule_discard_save_clicked()));
+    connect_clicked(root_object, "ruleDiscardDiscardButton", SLOT(on_rule_discard_discard_clicked()));
+    connect_clicked(root_object, "ruleDiscardCancelButton", SLOT(on_rule_discard_cancel_clicked()));
     connect_clicked(root_object, "ruleSaveButton", SLOT(on_rule_save_clicked()));
     connect_clicked(root_object, "ruleFitViewButton", SLOT(on_rule_fit_view_clicked()));
 
@@ -730,6 +734,22 @@ bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
         }
         return false;
     }
+    // 规则图三选确认盖在编辑器之上：Esc = 取消，Enter = 保存并关闭（弹层是 NoAutoClose，自己不处理键位）
+    if (dialog_visible("ruleDiscardDialog")) {
+        if (key_event->key() == Qt::Key_Escape) {
+            on_rule_discard_cancel_clicked();
+            return true;
+        }
+        if (key_event->key() == Qt::Key_Return || key_event->key() == Qt::Key_Enter) {
+            auto* discard_window = qobject_cast<QQuickWindow*>(watched);
+            if (is_text_entry((discard_window == nullptr) ? nullptr : discard_window->activeFocusItem())) {
+                return false;
+            }
+            on_rule_discard_save_clicked();
+            return true;
+        }
+        return false;
+    }
     if (key_event->key() == Qt::Key_Escape) {
         // Esc = 取消：未保存改动先弹确认，未改动直接关（三个对话框都是 NoAutoClose，这里是唯一入口）
         if (dialog_visible("ruleEditorDialog")) {
@@ -1076,16 +1096,58 @@ void UiConnector::on_rule_editor_close_clicked() {
     }
     const bool dirty = rule_graph_ != nullptr && rule_graph_->property("dirty").toBool();
     if (!dirty) {
+        // 无未保存改动：直接关闭，草稿与磁盘一致，不需要二次确认
         QMetaObject::invokeMethod(dialog, "close");
         return;
     }
-    // 有未保存改动：关闭会丢弃这些改动，先确认
-    ask_confirm(tr("放弃未保存的改动？"), tr("规则图有未保存的修改，关闭后将丢失。"), true,
-        [guard = QPointer<QObject>(dialog)]() {
-            if (!guard.isNull()) {
-                QMetaObject::invokeMethod(guard.data(), "close");
-            }
-        });
+    auto* discard = find("ruleDiscardDialog");
+    if (discard == nullptr) {
+        // 三选弹层缺失：退化为「放弃 / 取消」两选确认，不静默丢弃改动
+        LOG_MODULE("UiConnector", "on_rule_editor_close_clicked", LOG_WARN,
+            "未找到控件: ruleDiscardDialog，退化为放弃确认");
+        ask_confirm(tr("放弃未保存的改动？"), tr("规则图有未保存的修改，关闭后将丢失。"), true,
+            [this]() {
+                auto* editor = find("ruleEditorDialog");
+                if (editor != nullptr) {
+                    QMetaObject::invokeMethod(editor, "close");
+                }
+                if (rule_graph_ != nullptr) {
+                    rule_graph_->discardChanges();
+                }
+            });
+        return;
+    }
+    const QStringList dirty_graphs = rule_graph_ == nullptr ? QStringList() : rule_graph_->dirty_graphs();
+    discard->setProperty("messageText",
+        tr("%1 有未保存的改动。保存并关闭会把它们写回磁盘；放弃改动只关闭编辑器，磁盘文件保持不变。")
+            .arg(dirty_graphs.join(tr("、"))));
+    open_dialog("ruleDiscardDialog");
+}
+
+void UiConnector::on_rule_discard_save_clicked() {
+    if (rule_graph_ == nullptr) {
+        return;
+    }
+    // 保存并关闭：全部写盘成功才关闭；某张图写失败时编辑器留在原地，失败原因经 statusMessage 弹 Toast
+    const bool saved = rule_graph_->save();
+    close_dialog("ruleDiscardDialog");
+    if (saved) {
+        close_dialog("ruleEditorDialog");
+    }
+}
+
+void UiConnector::on_rule_discard_discard_clicked() {
+    // 放弃改动：丢掉全部草稿与脏标记，当前图按磁盘内容重新载入，随后关闭编辑器
+    if (rule_graph_ != nullptr) {
+        rule_graph_->discardChanges();
+    }
+    close_dialog("ruleDiscardDialog");
+    close_dialog("ruleEditorDialog");
+}
+
+void UiConnector::on_rule_discard_cancel_clicked() {
+    // 取消：只收起三选弹层，编辑器与草稿保持原样
+    close_dialog("ruleDiscardDialog");
 }
 
 void UiConnector::on_rule_save_clicked() {

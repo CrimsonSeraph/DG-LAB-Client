@@ -140,7 +140,24 @@
 - 事件侧：`EventRuntime` 维护 `std::set<std::string>` 白名单，`read_event_configs` 之后由 `apply_cascade_enabled` 覆盖 `enabled`，随后重新 `configure` 引擎，下一帧生效；`EventBridge` 展示同样按运行期集合显示为启用。
 - 依赖集合为空时该来源不改变任何判定，行为与未接入级联前一致。
 
-## 8. 迁移策略
+## 8. 编辑器草稿与批量保存
+
+编辑器（`RuleGraphBridge` + `dialogs/RuleEditorDialog.qml`）在打开期间持有内存草稿，切图不重读磁盘、也不写盘：
+
+| 状态 | 位置 | 含义 |
+| --- | --- | --- |
+| 当前图 | `RuleGraphBridge::graph_` | 正在编辑的那张图（唯一可改的实例） |
+| 草稿 | `drafts_`（图标识 → 图） | 非当前图的草稿；切出时写入、切入时取出，因此草稿表里永远不含当前图 |
+| 脏标记 | `dirty_graphs_`（图标识集合） | 每张图各自脏；`dirty`（聚合）与 `dirtyGraphs`（显示名列表）供界面使用 |
+
+- 切图（`loadPluginGraph(plugin_id)`，空字符串 = 总规则图）：把当前图存进草稿 → 目标图命中草稿就直接取出 → 未命中（首次进入）才从磁盘载入；全过程不写盘。返回同一张图时直接返回，不重载。
+- 保存（`save()`）：一次写全部脏图。顺序固定为**总规则图在前、插件图按标识排序**——插件图写盘时会重建默认输出节点的引用列表，需要读到最新的总图。写成功的图清脏；失败的图保留脏标记与草稿，界面汇总提示「哪几张失败、其余几张已保存」，不中断其余写入。
+- 丢弃（`discardChanges()`）：关闭编辑器时选「放弃改动」→ 清空草稿表与脏标记，当前图按磁盘内容重新载入。换规则文件（`loadRuleFile`）同样作废全部草稿。
+- 保存成功后，未脏的草稿会按磁盘内容重新载入一次，让默认输出节点的「被谁引用」立即反映新拓扑。
+
+批量写盘由 `RuleManager::save_rule_graphs(top_file, top_graph, plugin_graphs, failures)` 承担：总图经 `write_rule_graph_json` + `modify_rule_file` 写入规则文件的 `graph` 与 `rules` 字段，插件图经 `write_plugin_rule_graph` 写入 `plugin_<插件标识>.json`，全部写完只调用一次 `sync_output_references()`；`failures` 按写入顺序给出失败条目（空字符串表示总图）。
+
+## 9. 迁移策略
 
 1. 旧 `rules.json`（只有 `rules` 字段、无 `graph`）：`RuleGraph::load` 依次尝试规则文件的 `graph` 字段 → 旧版 `<规则文件>.graph.json` 侧车 → `import_from_rules()` 从规则集生成图。加载不丢数据，保存时把图写入规则文件的 `graph` 字段，侧车文件保留但不再更新。
 2. 内置预置规则已从 `config/rules/rules.json` 移除（`rules` 为空对象），预置图只保留一个示例通道节点；插件图在首次编辑插件规则时按 `plugin_<插件标识>.json` 生成，其默认输出节点由总规则图的插件输出节点引用。老用户文件里的规则仍按第 1 条读入。

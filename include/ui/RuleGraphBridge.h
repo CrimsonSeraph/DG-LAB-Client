@@ -13,6 +13,8 @@
 #include <QStringList>
 #include <QVariantList>
 
+#include <map>
+#include <set>
 #include <vector>
 
 class DeviceController;
@@ -30,6 +32,7 @@ class RuleGraphBridge : public QObject {
     Q_PROPERTY(int selectedNodeId READ selected_node_id NOTIFY selectionChanged)
     Q_PROPERTY(QVariantMap selectedNode READ selected_node NOTIFY selectionChanged)
     Q_PROPERTY(bool dirty READ dirty NOTIFY dirtyChanged)
+    Q_PROPERTY(QStringList dirtyGraphs READ dirty_graphs NOTIFY dirtyChanged)
     Q_PROPERTY(QVariantList pluginGraphs READ plugin_graphs NOTIFY pluginGraphsChanged)
     Q_PROPERTY(QString currentGraphPlugin READ current_graph_plugin NOTIFY graphChanged)
     Q_PROPERTY(QVariantList outputReferences READ output_references NOTIFY graphChanged)
@@ -52,18 +55,23 @@ public:
     QVariantList module_values() const;
     int selected_node_id() const { return selected_node_id_; }
     QVariantMap selected_node() const;
-    bool dirty() const { return dirty_; }
+    bool dirty() const { return !dirty_graphs_.empty(); }
+    QStringList dirty_graphs() const;
     QVariantList plugin_graphs() const;
     QString current_graph_plugin() const { return current_graph_plugin_; }
     QVariantList output_references() const;
     QVariantList channel_device_options() const;
 
     Q_INVOKABLE void loadRuleFile(const QString& file_name);
+    /// @brief 保存全部有未保存改动的图（总图 + 插件图），写盘失败的图保留草稿与脏标记
+    /// @return 全部写盘成功返回 true
     Q_INVOKABLE bool save();
+    /// @brief 丢弃全部草稿与脏标记，并按磁盘内容重新载入当前图（关闭编辑器时选「放弃改动」）
+    Q_INVOKABLE void discardChanges();
     Q_INVOKABLE void refreshModuleValues();
 
     // 插件级规则图
-    /// @brief 载入某插件的规则图（文件缺失时按插件数值生成默认图，保存后落盘）
+    /// @brief 切换视图到某插件的规则图（切图只换视图，未保存的草稿留在内存，不读写磁盘）
     /// @param plugin_id 插件（模块）标识；空字符串表示回到总规则图
     Q_INVOKABLE void loadPluginGraph(const QString& plugin_id);
     /// @brief 当前图的依赖集合（rules / valueIds / channels / plugins / events），整图
@@ -123,7 +131,18 @@ signals:
 
 private:
     void rebuild_module_values();
+    /// @brief 标记当前图有未保存改动（脏标记按图粒度）
     void mark_dirty();
+    /// @brief 切换当前图：当前图存入草稿，目标图优先取草稿，草稿没有再读盘（禁止写盘）
+    /// @param plugin_id 插件（模块）标识；空表示总规则图
+    void switch_graph(const QString& plugin_id);
+    /// @brief 从磁盘载入某张图（打开编辑器与放弃改动时使用）
+    /// @param plugin_id 插件（模块）标识；空表示总规则图
+    RuleGraph load_graph_from_disk(const QString& plugin_id) const;
+    /// @brief 某张图待保存的内容：当前图取 graph_，其余取草稿
+    RuleGraph pending_graph(const QString& plugin_id) const;
+    /// @brief 图的显示名（总规则图 / <插件> 规则图）
+    QString graph_label(const QString& plugin_id) const;
     /// @brief 把当前默认设备写进图（通道节点「跟随默认设备」的唯一入边判定用）
     void apply_default_device();
     /// @brief 通道节点的目标设备显示文本
@@ -138,8 +157,10 @@ private:
     QString current_rule_file_;
     QString current_graph_plugin_; ///< 当前图所属插件（空表示总规则图）
     QVariantList module_values_;
+    /// @brief 非当前图的草稿（图标识 → 图）；当前图以 graph_ 为准，切出时写入，切入时取出
+    std::map<QString, RuleGraph> drafts_;
+    std::set<QString> dirty_graphs_; ///< 有未保存改动的图标识（空字符串 = 总规则图）
     int selected_node_id_ = 0;
-    bool dirty_ = false;
     std::vector<GraphNode> clipboard_;
     int rule_node_counter_ = 1;
 };

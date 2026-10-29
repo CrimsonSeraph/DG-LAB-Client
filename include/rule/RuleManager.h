@@ -92,6 +92,16 @@ public:
     /// @return 保存成功返回 true；成功后重建默认输出节点的引用列表
     bool save_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph);
 
+    /// @brief 批量保存规则图：总规则图在前，插件图按标识排序，全部写完后统一重建引用列表
+    /// @param top_file 总规则图所在规则文件名；空表示总图没有可写入的文件（记一次失败）
+    /// @param top_graph 总规则图，nullptr 表示本次不写总图
+    /// @param plugin_graphs 插件图（插件标识 → 规则图）
+    /// @param failures 写盘失败的条目（空字符串表示总规则图，其余为插件标识），按写入顺序
+    /// @return 全部成功返回 true；某一张失败不中断其余（失败的条目留在 failures 里）
+    bool save_rule_graphs(const std::string& top_file, const RuleGraph* top_graph,
+        const std::map<std::string, RuleGraph>& plugin_graphs,
+        std::vector<std::string>& failures);
+
     /// @brief 读取规则文件内的规则图 JSON（"graph" 字段）
     /// @param filename 规则文件名
     /// @return 规则图 JSON；文件缺失、无 "graph" 字段或字段非对象时返回空
@@ -356,6 +366,8 @@ private:
     std::vector<std::string> plugin_graph_plugins_locked() const;                           ///< 扫描插件图文件（需已持有锁）
     nlohmann::json read_rule_graph_json_locked(const std::string& filename) const;          ///< 读取规则图 JSON（需已持有锁）
     RuleGraph load_plugin_rule_graph_locked(const std::string& plugin_id) const;            ///< 载入插件规则图（需已持有锁）
+    bool write_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph,
+        bool& cascade_dirty);                                                               ///< 写插件图文件并按需重算级联（不重建引用列表）
     RuleGraph load_top_rule_graph_locked() const;                                           ///< 载入总规则图（需已持有锁）
     RuleGraph load_rule_graph_by_ref_locked(const std::string& graph_ref) const;            ///< 按图标识载入规则图（需已持有锁）
     GraphDependency get_graph_dependencies_locked(const RuleGraph& graph,

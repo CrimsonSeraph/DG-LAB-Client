@@ -472,6 +472,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/dialogs/WaveConflictDialog.qml
 		src/ui/qml/dialogs/WaveTagDialog.qml
 		src/ui/qml/dialogs/RuleEditorDialog.qml
+		src/ui/qml/dialogs/RuleDiscardDialog.qml
 		src/ui/qml/dialogs/UpdateDialog.qml
 		src/ui/qml/dialogs/IpSelectDialog.qml
 		src/ui/qml/components/AppIcon.qml
