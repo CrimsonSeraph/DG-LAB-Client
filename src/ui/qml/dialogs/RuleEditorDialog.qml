@@ -486,6 +486,65 @@ Window {
                     return hit;
                 }
 
+                // 无限网格背景：网格线铺满可视区域，起点由画布平移量对步长取模得到，
+                // 因此任意平移距离下网格都不会跑出视口；间距与缩放同步，缩放过小时整体隐藏
+                Item {
+                    id: infiniteGrid
+
+                    anchors.fill: parent
+                    z: -1
+
+                    readonly property real gridStep: ComponentStyle.graphGridSize * canvas.zoom
+                    // 取模偏移落回 (-步长, 0]，保证第一根线画在视口外一格之内，平移任意距离都不会留白
+                    readonly property real offsetX: {
+                        if (infiniteGrid.gridStep <= 0) {
+                            return 0;
+                        }
+                        const remainder = canvas.panX % infiniteGrid.gridStep;
+                        return remainder > 0 ? remainder - infiniteGrid.gridStep : remainder;
+                    }
+                    readonly property real offsetY: {
+                        if (infiniteGrid.gridStep <= 0) {
+                            return 0;
+                        }
+                        const remainder = canvas.panY % infiniteGrid.gridStep;
+                        return remainder > 0 ? remainder - infiniteGrid.gridStep : remainder;
+                    }
+                    // 竖线与横线的条数：铺满当前视口，多留一条盖住右边缘与下边缘
+                    readonly property int columnCount: infiniteGrid.gridStep <= 0
+                        ? 0
+                        : Math.ceil(infiniteGrid.width / infiniteGrid.gridStep) + 1
+                    readonly property int rowCount: infiniteGrid.gridStep <= 0
+                        ? 0
+                        : Math.ceil(infiniteGrid.height / infiniteGrid.gridStep) + 1
+
+                    visible: gridStep >= 6
+
+                    Repeater {
+                        model: infiniteGrid.columnCount
+
+                        delegate: Rectangle {
+                            x: Math.round(infiniteGrid.offsetX + index * infiniteGrid.gridStep)
+                            width: Metrics.borderWidth
+                            height: infiniteGrid.height
+                            color: Theme.divider
+                            opacity: ComponentStyle.graphGridOpacity
+                        }
+                    }
+
+                    Repeater {
+                        model: infiniteGrid.rowCount
+
+                        delegate: Rectangle {
+                            y: Math.round(infiniteGrid.offsetY + index * infiniteGrid.gridStep)
+                            width: infiniteGrid.width
+                            height: Metrics.borderWidth
+                            color: Theme.divider
+                            opacity: ComponentStyle.graphGridOpacity
+                        }
+                    }
+                }
+
                 Item {
                     id: world
 
@@ -498,33 +557,6 @@ Window {
                         origin.y: 0
                         xScale: canvas.zoom
                         yScale: canvas.zoom
-                    }
-
-                    // 网格：横线与纵线同间距、同透明度（世界坐标单位，随画布缩放）
-                    Repeater {
-                        model: 120
-
-                        delegate: Rectangle {
-                            x: 0
-                            y: index * ComponentStyle.graphGridSize
-                            width: ComponentStyle.graphWorldWidth
-                            height: Metrics.borderWidth
-                            color: Theme.divider
-                            opacity: ComponentStyle.graphGridOpacity
-                        }
-                    }
-
-                    Repeater {
-                        model: Math.ceil(ComponentStyle.graphWorldWidth / ComponentStyle.graphGridSize)
-
-                        delegate: Rectangle {
-                            x: index * ComponentStyle.graphGridSize
-                            y: 0
-                            width: Metrics.borderWidth
-                            height: ComponentStyle.graphWorldHeight
-                            color: Theme.divider
-                            opacity: ComponentStyle.graphGridOpacity
-                        }
                     }
 
                     // 连线
@@ -945,8 +977,7 @@ Window {
 
             Loader {
                 Layout.fillWidth: true
-                active: ruleGraph.selectedNode.type === "rule"
-                    || ruleGraph.selectedNode.advanced === "expression"
+                active: ruleGraph.selectedNode.type === "rule" || ruleGraph.selectedNode.advanced === "expression"
                 sourceComponent: expressionFields
             }
 
@@ -1061,8 +1092,7 @@ Window {
                 Layout.fillWidth: true
                 model: ruleGraph.channelDeviceOptions
                 textRole: "name"
-                currentIndex: ruleGraph.channelDeviceIndex(
-                    ruleGraph.selectedNode.targetDevice === undefined ? "" : ruleGraph.selectedNode.targetDevice)
+                currentIndex: ruleGraph.channelDeviceIndex(ruleGraph.selectedNode.targetDevice === undefined ? "" : ruleGraph.selectedNode.targetDevice)
                 onActivated: ruleGraph.setChannelDeviceTargetByIndex(ruleGraph.selectedNode.id, currentIndex)
             }
 
@@ -1098,9 +1128,7 @@ Window {
         // 一次保存写全部有改动的图（总图 + 插件图），按钮上给出待写入的张数
         AppButton {
             objectName: "ruleSaveButton"
-            text: ruleGraph.dirty
-                ? qsTr("保存全部（%1 张图） *").arg(ruleGraph.dirtyGraphs.length)
-                : qsTr("保存规则图")
+            text: ruleGraph.dirty ? qsTr("保存全部（%1 张图） *").arg(ruleGraph.dirtyGraphs.length) : qsTr("保存规则图")
             primary: true
         }
     }

@@ -16,7 +16,13 @@ Item {
     property var expandedCategories: []
     property var expandedWaves: []
     property string renamingCategory: ""
-    property var categoryDrag: ({ active: false, name: "", fromIndex: -1, targetIndex: -1, restore: [] })
+    property var categoryDrag: ({
+            active: false,
+            name: "",
+            fromIndex: -1,
+            targetIndex: -1,
+            restore: []
+        })
 
     // 内置分类固定连在最前：拖动调序的目标下标不越过这一段
     readonly property int builtinCategoryCount: {
@@ -54,14 +60,12 @@ Item {
         const at = next.indexOf(name);
         if (at >= 0) {
             next.splice(at, 1);
-        }
-        else {
+        } else {
             next.push(name);
         }
         if (fromWaves) {
             page.expandedWaves = next;
-        }
-        else {
+        } else {
             page.expandedCategories = next;
         }
     }
@@ -72,11 +76,9 @@ Item {
         const at = next.indexOf(name);
         if (expanded && at < 0) {
             next.push(name);
-        }
-        else if (!expanded && at >= 0) {
+        } else if (!expanded && at >= 0) {
             next.splice(at, 1);
-        }
-        else {
+        } else {
             return;
         }
         page.expandedCategories = next;
@@ -111,8 +113,13 @@ Item {
 
     // 拖动开始：被拖动的分类先收起，收起态行高一致才好把位移换算成目标下标
     function beginCategoryDrag(name, index) {
-        page.categoryDrag = { active: true, name: name, fromIndex: index, targetIndex: index,
-            restore: page.expandedCategories.indexOf(name) >= 0 ? [name] : [] };
+        page.categoryDrag = {
+            active: true,
+            name: name,
+            fromIndex: index,
+            targetIndex: index,
+            restore: page.expandedCategories.indexOf(name) >= 0 ? [name] : []
+        };
         page.setCategoryExpanded(name, false);
     }
 
@@ -143,8 +150,13 @@ Item {
             }
             page.setCategoryExpanded(name, false);
         }
-        page.categoryDrag = { active: true, name: drag.name, fromIndex: drag.fromIndex,
-            targetIndex: target, restore: restore };
+        page.categoryDrag = {
+            active: true,
+            name: drag.name,
+            fromIndex: drag.fromIndex,
+            targetIndex: target,
+            restore: restore
+        };
     }
 
     // 拖动结束：先恢复让位分类原本的展开态，再提交调序（被拖动的分类保持收起）
@@ -153,7 +165,13 @@ Item {
         if (!drag.active) {
             return;
         }
-        page.categoryDrag = { active: false, name: "", fromIndex: -1, targetIndex: -1, restore: [] };
+        page.categoryDrag = {
+            active: false,
+            name: "",
+            fromIndex: -1,
+            targetIndex: -1,
+            restore: []
+        };
         for (let i = 0; i < drag.restore.length; ++i) {
             if (drag.restore[i] !== drag.name) {
                 page.setCategoryExpanded(drag.restore[i], true);
@@ -163,7 +181,7 @@ Item {
             return;
         }
         // 调序会让分类模型整表重建并销毁当前委托：提交放到本次手势回调之后
-        Qt.callLater(function() {
+        Qt.callLater(function () {
             waveBridge.moveTagCategory(drag.name, drag.targetIndex);
         });
     }
@@ -212,12 +230,18 @@ Item {
                             objectName: "waveChannelAButton"
                             text: "A"
                             primary: waveBridge.targetChannel === "A"
+                            Layout.preferredWidth: Metrics.buttonHeight * 2
+                            Layout.minimumWidth: Layout.preferredWidth
+                            Layout.maximumWidth: Layout.preferredWidth
                         }
 
                         AppButton {
                             objectName: "waveChannelBButton"
                             text: "B"
                             primary: waveBridge.targetChannel === "B"
+                            Layout.preferredWidth: Metrics.buttonHeight * 2
+                            Layout.minimumWidth: Layout.preferredWidth
+                            Layout.maximumWidth: Layout.preferredWidth
                         }
 
                         Item {
@@ -373,8 +397,7 @@ Item {
                                 readonly property string categoryName: modelData.name
                                 readonly property bool categoryBuiltin: modelData.builtin
                                 readonly property int categoryIndex: index
-                                readonly property bool categoryExpanded:
-                                    page.expandedCategories.indexOf(categoryName) >= 0
+                                readonly property bool categoryExpanded: page.expandedCategories.indexOf(categoryName) >= 0
                                 readonly property bool categoryRenaming: page.renamingCategory === categoryName
 
                                 width: waveTagCategoryList.width
@@ -431,8 +454,7 @@ Item {
                                             visible: categoryBlock.categoryRenaming
                                             focus: categoryBlock.categoryRenaming
                                             text: categoryBlock.categoryName
-                                            onEditingFinished:
-                                                page.commitCategoryRename(categoryBlock.categoryName, text)
+                                            onEditingFinished: page.commitCategoryRename(categoryBlock.categoryName, text)
                                         }
 
                                         // 调序手柄：三条横线，按住上下拖动，内置分类不提供
@@ -457,15 +479,12 @@ Item {
                                                 yAxis.enabled: true
                                                 onActiveChanged: {
                                                     if (active) {
-                                                        page.beginCategoryDrag(categoryBlock.categoryName,
-                                                            categoryBlock.categoryIndex);
-                                                    }
-                                                    else {
+                                                        page.beginCategoryDrag(categoryBlock.categoryName, categoryBlock.categoryIndex);
+                                                    } else {
                                                         page.endCategoryDrag();
                                                     }
                                                 }
-                                                onActiveTranslationChanged:
-                                                    page.updateCategoryDrag(activeTranslation.y)
+                                                onActiveTranslationChanged: page.updateCategoryDrag(activeTranslation.y)
                                             }
                                         }
                                     }
@@ -639,11 +658,7 @@ Item {
                                         }
 
                                         Text {
-                                            text: modelData.official
-                                                ? qsTr("内置只读")
-                                                : qsTr("%1 帧 · %2ms")
-                                                    .arg(modelData.frameCount)
-                                                    .arg(modelData.durationMs)
+                                            text: modelData.official ? qsTr("内置只读") : qsTr("%1 帧 · %2ms").arg(modelData.frameCount).arg(modelData.durationMs)
                                             color: Theme.textMuted
                                             font.pixelSize: Typography.fontBody
                                         }
