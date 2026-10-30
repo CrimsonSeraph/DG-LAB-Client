@@ -2,18 +2,170 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-// 波形设置页：目标通道、A/B 波形预览与波形库 / 编辑器入口。
+// 波形设置页：目标通道、A/B 波形预览、波形库入口、按分类展开的标签与可折叠的波形列表。
 // 内容随窗口高度滚动（外层 ScrollView 撑满窗口），页内分组只用「小标题 + 留白」。
-// 交互约定：本文件不写任何信号处理器；交互控件由 C++（UiConnector）按 objectName 连接。
+// 交互约定：本文件只有两处指针手势处理器（分类标题双击改名、拖动手柄调序，
+// 登记在 src/ui/README.md「信号处理器例外」），其余交互控件由 C++（UiConnector）按 objectName 连接。
 Item {
     id: page
 
     objectName: "wavePage"
 
+    // 展开集合与拖动 / 改名状态都是纯视图状态：只在本文件里维护，
+    // 点击展开由 C++ 按 objectName 翻转集合中的一项，拖动与改名由本文件的函数改写。
+    property var expandedCategories: []
+    property var expandedWaves: []
+    property string renamingCategory: ""
+    property var categoryDrag: ({ active: false, name: "", fromIndex: -1, targetIndex: -1, restore: [] })
+
+    // 内置分类固定连在最前：拖动调序的目标下标不越过这一段
+    readonly property int builtinCategoryCount: {
+        const categories = waveBridge.tagCategories;
+        let count = 0;
+        for (let i = 0; i < categories.length; ++i) {
+            if (!categories[i].builtin) {
+                break;
+            }
+            ++count;
+        }
+        return count;
+    }
+
     // 目标通道当前是否绑定了波形：清除入口按它表达可用性
     readonly property bool targetWaveBound: {
         const current = waveBridge.targetChannel === "A" ? waveBridge.currentA : waveBridge.currentB;
         return current.length > 0;
+    }
+
+    // 波形的强度序列：每帧 4 个 25ms 子单元，strength 取 0~100
+    function strengthSeries(name) {
+        const points = waveBridge.wavePoints(name);
+        const series = [];
+        for (let i = 0; i < points.length; ++i) {
+            series.push(points[i].strength);
+        }
+        return series;
+    }
+
+    // 点击某一行的标题：C++ 按 objectName 找到点击项后调本函数翻转集合中的一项
+    function toggleExpanded(propertyName, name) {
+        const fromWaves = propertyName === "expandedWaves";
+        const next = (fromWaves ? page.expandedWaves : page.expandedCategories).slice();
+        const at = next.indexOf(name);
+        if (at >= 0) {
+            next.splice(at, 1);
+        }
+        else {
+            next.push(name);
+        }
+        if (fromWaves) {
+            page.expandedWaves = next;
+        }
+        else {
+            page.expandedCategories = next;
+        }
+    }
+
+    // 改写分类展开集合（false 用于拖动期间强制收起）
+    function setCategoryExpanded(name, expanded) {
+        const next = page.expandedCategories.slice();
+        const at = next.indexOf(name);
+        if (expanded && at < 0) {
+            next.push(name);
+        }
+        else if (!expanded && at >= 0) {
+            next.splice(at, 1);
+        }
+        else {
+            return;
+        }
+        page.expandedCategories = next;
+    }
+
+    // 双击标题开始就地改名：内置分类（含「用户自定义」）名称固定，不进入改名状态
+    function startCategoryRename(name) {
+        const categories = waveBridge.tagCategories;
+        for (let i = 0; i < categories.length; ++i) {
+            if (categories[i].name !== name) {
+                continue;
+            }
+            if (!categories[i].builtin) {
+                page.renamingCategory = name;
+            }
+            return;
+        }
+    }
+
+    // 改名提交：与现有分类重名由桥接拒绝并经 operationFailed 提示，原名保持不变
+    function commitCategoryRename(name, value) {
+        if (page.renamingCategory !== name) {
+            return;
+        }
+        page.renamingCategory = "";
+        const trimmed = value.trim();
+        if (trimmed.length === 0 || trimmed === name) {
+            return;
+        }
+        waveBridge.renameTagCategory(name, trimmed);
+    }
+
+    // 拖动开始：被拖动的分类先收起，收起态行高一致才好把位移换算成目标下标
+    function beginCategoryDrag(name, index) {
+        page.categoryDrag = { active: true, name: name, fromIndex: index, targetIndex: index,
+            restore: page.expandedCategories.indexOf(name) >= 0 ? [name] : [] };
+        page.setCategoryExpanded(name, false);
+    }
+
+    // 拖动中：按位移更新目标下标，途经的让位分类一并收起并记下原本展开的
+    function updateCategoryDrag(deltaY) {
+        const drag = page.categoryDrag;
+        if (!drag.active) {
+            return;
+        }
+        const categories = waveBridge.tagCategories;
+        const step = ComponentStyle.waveTagHeaderHeight + Metrics.spacingXs;
+        const moved = Math.round(deltaY / step);
+        let target = drag.fromIndex + moved;
+        target = Math.max(page.builtinCategoryCount, Math.min(categories.length - 1, target));
+        if (target === drag.targetIndex) {
+            return;
+        }
+        const restore = drag.restore.slice();
+        const first = Math.min(drag.fromIndex, target);
+        const last = Math.max(drag.fromIndex, target);
+        for (let i = first; i <= last; ++i) {
+            const name = categories[i].name;
+            if (name === drag.name || restore.indexOf(name) >= 0) {
+                continue;
+            }
+            if (page.expandedCategories.indexOf(name) >= 0) {
+                restore.push(name);
+            }
+            page.setCategoryExpanded(name, false);
+        }
+        page.categoryDrag = { active: true, name: drag.name, fromIndex: drag.fromIndex,
+            targetIndex: target, restore: restore };
+    }
+
+    // 拖动结束：先恢复让位分类原本的展开态，再提交调序（被拖动的分类保持收起）
+    function endCategoryDrag() {
+        const drag = page.categoryDrag;
+        if (!drag.active) {
+            return;
+        }
+        page.categoryDrag = { active: false, name: "", fromIndex: -1, targetIndex: -1, restore: [] };
+        for (let i = 0; i < drag.restore.length; ++i) {
+            if (drag.restore[i] !== drag.name) {
+                page.setCategoryExpanded(drag.restore[i], true);
+            }
+        }
+        if (drag.targetIndex === drag.fromIndex || drag.targetIndex < page.builtinCategoryCount) {
+            return;
+        }
+        // 调序会让分类模型整表重建并销毁当前委托：提交放到本次手势回调之后
+        Qt.callLater(function() {
+            waveBridge.moveTagCategory(drag.name, drag.targetIndex);
+        });
     }
 
     ScrollView {
@@ -167,7 +319,7 @@ Item {
                 }
             }
 
-            // 波形标签：标签库分两层（内置带锁不可删、自定义可删），每个波形条目上方展示自己的标签
+            // 波形标签：分类展开栏（顺序即 waveBridge.tagCategories 的顺序）+ 可折叠的波形列表
             GlassCard {
                 objectName: "waveTagCard"
                 Layout.fillWidth: true
@@ -177,76 +329,251 @@ Item {
                     width: parent.width
                     spacing: ComponentStyle.groupSpacing
 
-                    Text {
-                        text: qsTr("标签库")
-                        color: Theme.textSecondary
-                        font.pixelSize: Typography.fontBody
-                    }
-
-                    // 内置标签：代码常量，带锁标识，本页不提供删除入口
                     RowLayout {
                         width: parent.width
                         spacing: Metrics.spacingMd
 
-                        Repeater {
-                            model: waveBridge.builtinTags
-
-                            delegate: RowLayout {
-                                spacing: Metrics.spacingXs
-
-                                AppIcon {
-                                    icon: "f023"
-                                    size: Typography.fontBody
-                                    color: Theme.textMuted
-                                }
-
-                                StatusBadge {
-                                    text: modelData
-                                    level: 0
-                                }
-                            }
-                        }
-
                         Text {
-                            visible: waveBridge.builtinTags.length === 0
-                            text: qsTr("暂无内置标签（等待官方标签清单）")
-                            color: Theme.textMuted
+                            text: qsTr("标签分类")
+                            color: Theme.textSecondary
                             font.pixelSize: Typography.fontBody
                         }
 
                         Item {
                             Layout.fillWidth: true
                         }
+
+                        AppTextField {
+                            objectName: "waveTagNewCategoryField"
+                            Layout.preferredWidth: ComponentStyle.inputMinWidth * 2
+                            placeholderText: qsTr("新建分类名")
+                        }
+
+                        AppButton {
+                            objectName: "waveTagNewCategoryButton"
+                            text: qsTr("新建分类")
+                            primary: true
+                        }
                     }
 
-                    // 自定义标签：存 config/waves/tags.json，删除时一并从使用中的波形上移除
-                    RowLayout {
+                    // 分类展开栏：默认全部收起，点标题行展开该分类的标签
+                    Column {
+                        id: waveTagCategoryList
+
+                        objectName: "waveTagCategoryList"
                         width: parent.width
                         spacing: Metrics.spacingXs
 
                         Repeater {
-                            model: waveBridge.customTags
+                            model: waveBridge.tagCategories
 
-                            delegate: StatusBadge {
-                                text: modelData
-                                level: 1
+                            delegate: Column {
+                                id: categoryBlock
+
+                                readonly property string categoryName: modelData.name
+                                readonly property bool categoryBuiltin: modelData.builtin
+                                readonly property int categoryIndex: index
+                                readonly property bool categoryExpanded:
+                                    page.expandedCategories.indexOf(categoryName) >= 0
+                                readonly property bool categoryRenaming: page.renamingCategory === categoryName
+
+                                width: waveTagCategoryList.width
+                                spacing: 0
+
+                                // 标题行：内置分类只显示名称；自建分类可双击改名，右侧手柄按住上下拖动调序
+                                Rectangle {
+                                    id: categoryHeader
+
+                                    width: parent.width
+                                    height: ComponentStyle.waveTagHeaderHeight
+                                    radius: Metrics.radiusSm
+                                    color: Theme.surfaceAlt
+                                    border.width: Metrics.borderWidth
+                                    border.color: Theme.divider
+                                    z: reorderDrag.active ? 1 : 0
+                                    transform: Translate {
+                                        y: reorderDrag.active ? reorderDrag.activeTranslation.y : 0
+                                    }
+
+                                    // 整行热区：点击展开 / 收起由 C++ 连接，双击自建分类就地改名
+                                    MouseArea {
+                                        objectName: "waveTagCategoryHeader"
+                                        anchors.fill: parent
+                                        enabled: !categoryBlock.categoryRenaming
+                                        property string categoryName: categoryBlock.categoryName
+                                        onDoubleClicked: page.startCategoryRename(categoryName)
+                                    }
+
+                                    RowLayout {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: Metrics.spacingMd
+                                        anchors.rightMargin: Metrics.spacingXs
+                                        spacing: Metrics.spacingSm
+
+                                        AppIcon {
+                                            icon: categoryBlock.categoryExpanded ? "f078" : "f054"
+                                            size: Typography.fontBody
+                                            color: Theme.textMuted
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            visible: !categoryBlock.categoryRenaming
+                                            text: categoryBlock.categoryName
+                                            color: Theme.textPrimary
+                                            font.pixelSize: Typography.fontBody
+                                            elide: Text.ElideRight
+                                        }
+
+                                        AppTextField {
+                                            objectName: "waveTagCategoryRenameField"
+                                            Layout.fillWidth: true
+                                            visible: categoryBlock.categoryRenaming
+                                            focus: categoryBlock.categoryRenaming
+                                            text: categoryBlock.categoryName
+                                            onEditingFinished:
+                                                page.commitCategoryRename(categoryBlock.categoryName, text)
+                                        }
+
+                                        // 调序手柄：三条横线，按住上下拖动，内置分类不提供
+                                        AppIcon {
+                                            objectName: "waveTagCategoryHandle"
+                                            visible: !categoryBlock.categoryBuiltin
+                                            icon: "f0c9"
+                                            size: Typography.fontBody
+                                            color: Theme.textMuted
+                                            Layout.preferredWidth: ComponentStyle.waveTagHandleWidth
+                                            Layout.preferredHeight: ComponentStyle.waveTagHeaderHeight
+
+                                            HoverHandler {
+                                                cursorShape: Qt.SizeVerCursor
+                                            }
+
+                                            DragHandler {
+                                                id: reorderDrag
+
+                                                target: null
+                                                xAxis.enabled: false
+                                                yAxis.enabled: true
+                                                onActiveChanged: {
+                                                    if (active) {
+                                                        page.beginCategoryDrag(categoryBlock.categoryName,
+                                                            categoryBlock.categoryIndex);
+                                                    }
+                                                    else {
+                                                        page.endCategoryDrag();
+                                                    }
+                                                }
+                                                onActiveTranslationChanged:
+                                                    page.updateCategoryDrag(activeTranslation.y)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // 展开内容：该分类的标签列表 + 新建标签 / 删除分类入口
+                                Column {
+                                    width: parent.width
+                                    visible: categoryBlock.categoryExpanded
+                                    topPadding: Metrics.spacingXs
+                                    spacing: Metrics.spacingXs
+
+                                    Repeater {
+                                        model: modelData.tags
+
+                                        delegate: Rectangle {
+                                            width: categoryBlock.width
+                                            height: Metrics.buttonHeight + Metrics.spacingMd
+                                            radius: Metrics.radiusSm
+                                            color: Theme.surface
+                                            border.width: Metrics.borderWidth
+                                            border.color: Theme.divider
+
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.margins: Metrics.spacingXs
+                                                anchors.leftMargin: Metrics.spacingMd
+                                                spacing: Metrics.spacingMd
+
+                                                AppIcon {
+                                                    visible: modelData.builtin
+                                                    icon: "f023"
+                                                    size: Typography.fontBody
+                                                    color: Theme.textMuted
+                                                }
+
+                                                Text {
+                                                    Layout.fillWidth: true
+                                                    text: modelData.name
+                                                    color: Theme.textPrimary
+                                                    font.pixelSize: Typography.fontBody
+                                                    elide: Text.ElideRight
+                                                }
+
+                                                Text {
+                                                    visible: modelData.usage > 0
+                                                    text: qsTr("%1 个波形在用").arg(modelData.usage)
+                                                    color: Theme.textMuted
+                                                    font.pixelSize: Typography.fontBody
+                                                }
+
+                                                // 内置标签不提供删除入口
+                                                AppButton {
+                                                    objectName: "waveTagCategoryTagDelete"
+                                                    visible: !modelData.builtin
+                                                    property string tagName: modelData.name
+                                                    text: qsTr("删除")
+                                                    danger: true
+                                                    outline: true
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        width: parent.width
+                                        visible: modelData.tags.length === 0
+                                        text: qsTr("该分类还没有标签")
+                                        color: Theme.textMuted
+                                        font.pixelSize: Typography.fontBody
+                                    }
+
+                                    RowLayout {
+                                        width: parent.width
+                                        spacing: Metrics.spacingMd
+
+                                        AppTextField {
+                                            id: categoryNewTagField
+                                            objectName: "waveTagCategoryNewField"
+                                            Layout.fillWidth: true
+                                            placeholderText: qsTr("在该分类下新建标签")
+                                        }
+
+                                        // 新标签名经属性绑定交给 C++，委托里的重复控件不为每个实例写处理器
+                                        AppButton {
+                                            objectName: "waveTagCategoryCreateClick"
+                                            property string categoryName: categoryBlock.categoryName
+                                            property string tagName: categoryNewTagField.text
+                                            text: qsTr("新建标签")
+                                        }
+
+                                        // 删除自建分类：二次确认由 C++ 走既有的 confirmDialog
+                                        AppButton {
+                                            objectName: "waveTagCategoryRemoveClick"
+                                            visible: !categoryBlock.categoryBuiltin
+                                            property string categoryName: categoryBlock.categoryName
+                                            text: qsTr("删除分类")
+                                            danger: true
+                                            outline: true
+                                        }
+                                    }
+                                }
                             }
-                        }
-
-                        Text {
-                            visible: waveBridge.customTags.length === 0
-                            text: qsTr("还没有自定义标签：在波形条目的「编辑标签」里新建")
-                            color: Theme.textMuted
-                            font.pixelSize: Typography.fontBody
-                        }
-
-                        Item {
-                            Layout.fillWidth: true
                         }
                     }
 
                     Text {
-                        text: qsTr("波形列表")
+                        text: qsTr("波形列表 · 点击行展开静态波形图")
                         color: Theme.textSecondary
                         font.pixelSize: Typography.fontBody
                     }
@@ -269,11 +596,22 @@ Item {
                                 border.width: Metrics.borderWidth
                                 border.color: Theme.divider
 
+                                // 标题行热区：只覆盖标题行，行内按钮与标签条在它上层，各自接收事件
+                                MouseArea {
+                                    objectName: "waveTagWaveHeader"
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    height: waveEntryRow.height + Metrics.spacingMd
+                                    property string waveName: modelData.name
+                                }
+
+                                // 内容贴顶排列：展开静态波形图时标题行位置不动，整行高度随内容撑开
                                 Column {
                                     id: waveEntry
                                     anchors.left: parent.left
                                     anchors.right: parent.right
-                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.top: parent.top
                                     anchors.margins: Metrics.spacingMd
                                     spacing: Metrics.spacingXs
 
@@ -303,7 +641,9 @@ Item {
                                         Text {
                                             text: modelData.official
                                                 ? qsTr("内置只读")
-                                                : qsTr("%1 帧 · %2ms").arg(modelData.frameCount).arg(modelData.durationMs)
+                                                : qsTr("%1 帧 · %2ms")
+                                                    .arg(modelData.frameCount)
+                                                    .arg(modelData.durationMs)
                                             color: Theme.textMuted
                                             font.pixelSize: Typography.fontBody
                                         }
@@ -314,6 +654,17 @@ Item {
                                             property string waveName: modelData.name
                                             text: qsTr("编辑标签")
                                         }
+                                    }
+
+                                    // 展开内容：该波形的静态波形图（strength 序列，取值 0~100）
+                                    AppSparkline {
+                                        objectName: "waveTagWavePreview"
+                                        width: parent.width
+                                        height: ComponentStyle.waveTagWaveChartHeight
+                                        visible: page.expandedWaves.indexOf(modelData.name) >= 0
+                                        maxValue: 100
+                                        // wavePoints 是 Q_INVOKABLE：收起态不必逐行解析帧，展开时才取序列
+                                        points: visible ? page.strengthSeries(modelData.name) : []
                                     }
                                 }
                             }

@@ -36,12 +36,12 @@ src/ui/
 │   │   ├── WaveEditorDialog.qml
 │   │   ├── WaveExportDialog.qml   # 波形导出：格式（JSON / .pulse）与范围（当前波形 / 全部波形）
 │   │   ├── WaveConflictDialog.qml # 导入名称冲突：覆盖 / 重命名 / 跳过，整批生效
-│   │   └── WaveTagDialog.qml      # 波形标签选择器：勾选 / 新建 / 删除自定义标签
+│   │   └── WaveTagDialog.qml      # 波形标签选择器：按分类分组勾选 / 新建 / 删除自定义标签
 │   ├── pages/
 │   │   ├── HomePage.qml        # 主页看板：设备 / 通道 / 插件 / 触发流水（导航第 1 项）
 │   │   ├── home/              # 看板卡片：设备状态、通道行与通道卡、已启用插件、触发流水
 │   │   ├── PluginCenterPage.qml # 插件中心：搜索 / 分类 / 网格与列表、已启用栏、同页插件详情（导航第 2 项）
-│   │   ├── WavePage.qml        # 波形设置：目标通道、A/B 波形预览、波形库与编辑器入口（导航第 3 项）
+│   │   ├── WavePage.qml        # 波形设置：目标通道、A/B 波形预览、波形库入口、标签分类展开栏与可折叠波形列表（导航第 3 项）
 │   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
 │   │   ├── LogPage.qml         # 日志：列表、级别过滤与手动导出选项（导航第 5 项）
 │   │   ├── DevicePage.qml      # 设备管理：蓝牙扫描、已连接链路、默认设备、按设备通道上下限与通道级回退值（导航第 6 项）
@@ -94,7 +94,7 @@ src/ui/
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发（强度回执按当前生效链路二选一：蓝牙在线只认 BLE 的 B1 回执，中转回执只记录不外发，链路切换时按新链路重播一次，两条链路不会互相覆盖）；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；事件波形经 `apply_event_wave()` 每帧判定，`dataType=wave` 的波形切换后播放一次、播完恢复接管前的规则波形；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源；输出目标按通道单选，`outputTargets()` / `outputTarget(channel)` / `setOutputTarget(channel, target)` 读写 `app.output.<A | B>.target`（本版只有 `coyote` 一个可选值，界面不显示下拉，切换路径已就位）；默认设备与上下限：`outputDevices` 列出在线输出设备、`defaultDevice`/`defaultDeviceIndex` 给出评选结果、`setDefaultDeviceByIndex(index)`写`app.output.default_device`，上下限读取集中在 `limits_for(mac, channel)`（设备特有值 → `app.channels.<A | B>`→ 内置默认 200/150），下发路径`active_output()` 返回的就是默认设备 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整；默认设备口径另见 `outputDevices`（在线输出设备列表）/ `defaultDevice`（当前默认设备 MAC）/ `defaultDeviceIndex`（默认设备在列表中的下标，无默认设备为 -1）与写入口 `setDefaultDeviceIndex(index)`；上限取默认设备的 `min(limit, safety)`，切换默认设备后立即跟随；另带波形下发状态 `waveSending{A,B}`（是否正在下发）、`waveFrame{A,B}`（当前帧序号，1 起）、`waveFrames{A,B}`（总帧数，未下发时为 0），三者同随 `waveStateChanged` 广播 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
-| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）；标签库按分类组织：七个内置分类（使用部位 / 使用场景 / 频率风格 / 波形时长 / 播放速率 / 波形来源 / 用户自定义）的名称与顺序固定、内置标签不可删，用户可另建分类并改名调序，标签名全库唯一；`tagCategories` 按分类给名称 / 是否内置 / 标签列表（每个标签带 `builtin` / `usage` / `checked` / `locked`），`createTagInCategory` / `createTagCategory` / `renameTagCategory` / `moveTagCategory` / `removeTagCategory` 承担增删改与调序，`tagLibrary` / `builtinTags` / `customTags` / `tagTargetName` / `tagMaxLength` 保留给波形页与标签选择器使用；存储为 `config/waves/tags.json` 的 version 2（只写用户侧分类与用户标签，内置定义来自 `src/wave/TagCatalog.cpp` 的代码表）；官方 16 个波形的内置标签按该代码表在加载时自动挂载、界面上锁定不可移除，用户追加的标签存在同一文件的 `official_wave_tags` 段，帧与名称仍只读（波形数据结构与标签规则见 [docs/wave-data.md](../../docs/wave-data.md)） |
+| `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）；标签库按分类组织：七个内置分类（使用部位 / 使用场景 / 频率风格 / 波形时长 / 播放速率 / 波形来源 / 用户自定义）的名称与顺序固定、内置标签不可删，用户可另建分类并改名调序，标签名全库唯一；`tagCategories` 按分类给名称 / 是否内置 / 标签列表（每个标签带 `builtin` / `usage` / `checked` / `locked`），`createTagInCategory` / `createTagCategory` / `renameTagCategory` / `moveTagCategory` / `removeTagCategory` 承担增删改与调序；`tagTargetName` / `tagMaxLength` 供标签选择器与新建输入框使用，`tagLibrary` / `builtinTags` / `customTags` 作为扁平投影保留（波形页与选择器已统一按 `tagCategories` 分组展示）；存储为 `config/waves/tags.json` 的 version 2（只写用户侧分类与用户标签，内置定义来自 `src/wave/TagCatalog.cpp` 的代码表）；官方 16 个波形的内置标签按该代码表在加载时自动挂载、界面上锁定不可移除，用户追加的标签存在同一文件的 `official_wave_tags` 段，帧与名称仍只读（波形数据结构与标签规则见 [docs/wave-data.md](../../docs/wave-data.md)） |
 | `ble` | `CoyoteBleController` | 蓝牙扫描/连接入口（郊狼 V3 与负鼠 V1 共用一份扫描列表）：电量、强度、波形播放；已连接设备的蓝牙 MAC 与型号经 `deviceAddress` / `deviceModel` 暴露，作为默认设备配置键（`app.devices.<MAC>`、`app.output.default_device`）；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务）。电量特征（0x1500）订阅通知并主动读取一次，两者回包都解析成百分比写入 `battery`，连接期间每 60 秒再读一次；重连后按最近一次绝对强度重发。扫描结果先按该 MAC 记忆的型号（`app.devices.<MAC>.model`）识别、再按蓝牙名 `47L1xxxx` 前缀分类（`kModelTable`），行上给出驱动支持程度三态（`support` / `supportText`，见下节）：郊狼 V3（`47L121`）为「已支持」；负鼠（`47L127`）、爪印（`47L120`）、灵猫（`47L124`）为「实验性」但驱动已实现、可点选连接（行内提示「实验性驱动已实现，未经实机验证」）；爪印 V1.0（`47L120100`）为「暂不支持」，提示需先升级固件；未登记的 `47L1` 前缀与非 `47L1` 设备（手机、耳机、手环等）一律「暂不支持」，行不可点击且 `connectDevice()` 同样拒绝并说明原因（「未登记的 DG-LAB 型号」/「非 DG-LAB 设备」），避免误连后写入不匹配的指令；记忆命中时按记忆型号的状态处理，因此广播名变成系统占位名的郊狼仍以「已支持」可连接。扫描与链路分离：本类只负责发现与型号识别（按 MAC 去重），驱动实例由 `BleDeviceManager` 按型号创建并以 MAC 登记，郊狼 / 负鼠可同时在线且互不打断；`connected` / `deviceName` / `battery` / `strengthA` / `strengthB` / `status` / `deviceAddress` / `deviceModel` 都是**默认设备**（用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者）的只读快照，`connectedLinks` 给出全部已连接设备（MAC / 型号 / 电量 / 连接序号）；`screenSyncAvailable` 取默认设备的屏幕同步回执；扫描列表的每行带 `address` / `model` / `type` / `connected` 与三态 `support` / `supportText`，已连接行在名称后追加「· 已连接」；爪印 / 灵猫按 MAC 各建实例，多台同型号可同时在线（每台一份 `paw_<后四位>` / `civet_<后四位>` 模块，后四位撞车追加 `_2` / `_3`） |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
@@ -272,8 +272,18 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `waveClearButton` | 「清除波形」→ `UiConnector::on_wave_clear_clicked()` → `WaveBridge::clearWave(targetChannel)`：解除当前目标通道（A 或 B）的波形指派，只解除指派，不删波形库条目；目标通道未绑定波形时用 `enabled: false` 表达不可用（不隐藏）。清除后 `WaveLibrary::current_changed` 经 `WaveBridge::dataChanged` 让 `currentA` / `currentB`、两条 `WavePreview` 与本按钮的可用性一起刷新 |
 | `waveImportButton` | 导入波形 → `on_wave_import_clicked()`：打开 `waveImportFileDialog`（`.json` / `.pulse` / `.zip` 按扩展名自动判格式，zip 解压后逐个 `.pulse` 复用同一套冲突三选与汇总） |
 | `waveExportButton` | 导出波形 → `on_wave_export_clicked()`：打开 `waveExportDialog` 先选格式与范围 |
-| `waveTagCard` | 波形标签卡根节点（`GlassCard`）：标签库（内置标签带锁标识、自定义标签用语义色，均为只读展示）与波形列表 |
-| `waveTagWaveList` | 波形列表容器（`Repeater` 按 `waveBridge.waves` 生成）：每个条目的标签与波形名同一行、靠右排列（`components/AppTagStrip.qml`），名称 `Layout.fillWidth` + 省略号截断、标签条最多占行宽的 40%，超出部分裁剪后可用滚轮或按住拖动横向查看；无标签时标签条 `visible: false` 整块不占位；本页不提供删除入口，删除在标签选择器里做 |
+| `waveTagCard` | 波形标签卡根节点（`GlassCard`）：标签分类展开栏（标签库按 `waveBridge.tagCategories` 组织，顺序即展示顺序）与波形列表 |
+| `waveTagCategoryList` | 分类展开栏容器（`Repeater` 按 `waveBridge.tagCategories` 生成）：每类一行标题，默认全部收起；`watch_items` 沿它扫描标题行热区、分类内的新建标签 / 删除标签 / 删除分类按钮。内置七类（使用部位 / 使用场景 / 频率风格 / 波形时长 / 播放速率 / 波形来源 / 用户自定义）连成一段固定在最前且不提供改名、调序、删除入口 |
+| `waveTagCategoryHeader` | 分类标题行热区（`MouseArea`，`categoryName` 属性）：点击由 `watch_items` 连到 `on_wave_tag_category_header_clicked()`，再调页面函数 `toggleExpanded()` 翻转 `expandedCategories`（展开状态只是页面上的视图数组，不进 C++ 桥接）；双击自建分类就地改名（处理器，见「信号处理器例外」） |
+| `waveTagCategoryRenameField` | 自建分类的就地改名输入框：双击标题行后出现并取焦，编辑结束调用 `WaveBridge::renameTagCategory()`；与现有分类重名时由桥接拒绝并经 `operationFailed` 提示，原名保持不变。内置分类名称固定，不进入改名状态 |
+| `waveTagCategoryHandle` | 自建分类右侧的调序手柄（三条横线 `f0c9` + `DragHandler`，内置分类不提供）：按住上下拖动时收起被拖动的分类与被动让位的分类，松手按完整列表里的目标下标调 `WaveBridge::moveTagCategory(name, targetIndex)`（越过内置区段由 C++ 拒绝） |
+| `waveTagCategoryNewField` / `waveTagCategoryCreateClick` | 展开分类内的新建标签输入框与按钮：按钮上的 `categoryName` / `tagName` 由委托属性绑定带过来（每个分类的新建按钮不为实例写处理器）→ `on_wave_tag_category_create_clicked()` → `createTagInCategory(category, tag)`；创建成功后分类表整表重建，该分类的输入框随委托一起重建（文本自然清空）。标签名全库唯一，重复时按桥接的失败提示 |
+| `waveTagCategoryTagDelete` | 展开分类内每个标签的删除入口（`tagName` 属性，内置标签 `visible: false`）→ 复用 `on_wave_tag_delete_clicked()`：仍有波形在用先经 `confirmDialog` 确认，确认后连同这些波形上的该标签一起移除 |
+| `waveTagCategoryRemoveClick` | 展开分类内的「删除分类」（`categoryName` 属性，内置分类不显示）→ `on_wave_tag_category_remove_clicked()`：先经 `confirmDialog` 二次确认（确认文案说明标签会连带删除并从波形上移除），确认后调 `removeTagCategory()` |
+| `waveTagNewCategoryField` / `waveTagNewCategoryButton` | 新建分类的输入框与按钮（`connect_clicked`）→ `on_wave_tag_new_category_clicked()` → `WaveBridge::createTagCategory(name)`：空名忽略，重名与超长由桥接拒绝并经 `operationFailed` 提示，成功后清空输入框 |
+| `waveTagWaveList` | 波形列表容器（`Repeater` 按 `waveBridge.waves` 生成）：每个条目默认折叠，标签与波形名同一行、靠右排列（`components/AppTagStrip.qml`），名称 `Layout.fillWidth` + 省略号截断、标签条最多占行宽的 40%，超出部分裁剪后可用滚轮或按住拖动横向查看；无标签时标签条 `visible: false` 整块不占位；本页不提供删除入口，删除在标签选择器里做 |
+| `waveTagWaveHeader` | 波形行标题热区（`MouseArea`，`waveName` 属性）：只覆盖标题行，行内「编辑标签」按钮与标签条在它上层、各自接收事件 → `on_wave_tag_wave_header_clicked()` 翻转页面上的 `expandedWaves`，展开 / 收起该波形的静态波形图 |
+| `waveTagWavePreview` | 展开后的静态波形图（`AppSparkline`，高度取 `ComponentStyle.waveTagWaveChartHeight`）：点取 `waveBridge.wavePoints(波形名)` 的 `strength` 序列（每帧 4 个 25ms 子单元，取值 0~100，`maxValue: 100`）；收起态不取序列。展开行高度随内容撑开 |
 | `waveTagEditClick` | 条目内「编辑标签」（`AppButton`，`waveName` 属性）→ `on_wave_tag_edit_clicked()`：写 `WaveBridge::beginTagEdit` 并打开 `waveTagDialog`；官方波形条目同样可用，只读的是其帧与名称 |
 
 日志页（`pages/LogPage.qml`）：页面用 `ColumnLayout` 撑满窗口高度，日志列表吃满面板剩余高度并自行滚动；手动导出设置写入 `user.json` 的 `app.log.manual.*`，导出时按该设置逐行过滤。
@@ -378,8 +388,8 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `waveConflictRenameField` | 重命名用的新名称输入框：`enabled: waveBridge.conflictCount === 1`（多条冲突时按序号自动生成），内容由 C++ 在点「重命名」时读取 |
 | `waveConflictOverwriteButton` / `waveConflictRenameButton` / `waveConflictSkipButton` | 覆盖（`danger` + `outline`，同名官方波形仍会被拒绝并记原因）/ 重命名（`primary`）/ 跳过：选择对整批生效，结果走 `importFinished` 汇总 Toast |
 | `waveImportFileDialog` / `waveExportFileDialog` | 系统文件对话框（`MainWindow.qml` 内的 `FileDialog`，`import QtQuick.Dialogs`）：打开 / 保存模式，只负责挑路径，读写全部由 `WaveLibrary` 完成；导入侧过滤器含 `.json` / `.pulse` / `.zip`，导出侧按当前格式切换过滤器与默认后缀（json / pulse / zip）；保存对话框打开前由 C++ 把建议路径写进 `currentFile`，`accepted` 经 `on_wave_import_file_accepted()` / `on_wave_export_file_accepted()` 交给 `WaveBridge`（`exportToFile` 会先去掉已知的波形扩展名再补目标后缀，避免保存框补错后缀） |
-| `waveTagDialog` | 波形标签选择器（`dialogs/WaveTagDialog.qml`）：标题带波形名，列出内置标签（锁标识 + 「内置」徽标，不可删）与自定义标签（`danger` + `outline` 的删除按钮）；勾选即写入该波形，取消勾选只从波形上移除、不动标签库；Esc 经 `UiConnector::eventFilter` 收起（等同「完成」） |
-| `waveTagDialogList` / `waveTagToggleClick` / `waveTagDeleteClick` | 标签列表、行热区（`tagName` 属性，勾选 / 取消）与行内删除（`tagName` 属性）：删除仍有波形在用的标签先经 `confirmDialog` 确认「N 个波形正在使用该标签」，确认后连同这些波形上的该标签一起移除 |
+| `waveTagDialog` | 波形标签选择器（`dialogs/WaveTagDialog.qml`）：标题带波形名，标签按 `waveBridge.tagCategories` 分组列出——每个分类一组、组标题只读（改名与调序在波形设置页做），空分类显示「暂无标签」；内置标签带锁标识 + 「内置」徽标，不可删；官方波形上由内置表挂载的标签（`locked=true`）显示「锁定」徽标且行热区禁用，只能查看不能取消；勾选即写入该波形，取消勾选只从波形上移除、不动标签库；Esc 经 `UiConnector::eventFilter` 收起（等同「完成」） |
+| `waveTagDialogList` / `waveTagToggleClick` / `waveTagDeleteClick` | 分类分组容器（`Flickable` 内的 `Column`：每个分类一个标题 + 该分类的标签行，`watch_items` 沿它扫描两类按钮）、标签行热区（`tagName` 属性，勾选 / 取消，`locked` 标签禁用）与行内删除（`tagName` 属性）：删除仍有波形在用的标签先经 `confirmDialog` 确认「N 个波形正在使用该标签」，确认后连同这些波形上的该标签一起移除 |
 | `waveTagDialogNewField` / `waveTagDialogCreateButton` | 新建标签输入框（占位提示带 `tagMaxLength`）与「新建并勾选」→ `on_wave_tag_create_clicked()`：名字大小写不同即沿用库里已有写法，空名字忽略，超长与写入失败经 `operationFailed` 弹 danger Toast |
 | `waveTagDialogCloseButton` | 「完成」：关闭对话框并调用 `WaveBridge::endTagEdit()` 清掉编辑目标 |
 | `waveEditorDialog` | 波形编辑器；`closePolicy: Popup.NoAutoClose`，关闭只走按钮，由 C++ 判断 `draftDirty` 后先弹确认 |
@@ -504,16 +514,18 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `components/AppTagStrip.qml` 标签条 `MouseArea` 的 `onWheel` | 标签总宽超过可用宽度时用滚轮左右查看剩余标签，滚轮是纯指针事件，无法用 `objectName` + C++ 连接表达；标签全部可见时处理器直接返回、不接管滚轮，页面照常滚动 | 处理器只改 `root.requestedOffset`（经 `clampOffset` 夹在两端之间），不读写任何模型、不导航 |
 | 同文件 `onPressed` | 拖动必须先记住指针起点与被按下时的偏移，按下事件同样只能由指针驱动 | 只记录 `pressX` / `pressOffset` 两个本地量，不改其它状态 |
 | 同文件 `onPositionChanged` | 按住左右拖动查看标签，位移必须逐帧跟随指针；与 `onPressed` 一起构成一处拖动交互（两处处理器一条手势） | 只在 `mouse.pressed` 为真时按水平位移改 `root.requestedOffset` 并夹紧两端，不写模型、不导航 |
+| `pages/WavePage.qml` 的 4 个处理器：分类标题行 `MouseArea` 的 `onDoubleClicked`（自建分类就地改名）、改名输入框 `AppTextField` 的 `onEditingFinished`（提交新名字）、调序手柄 `DragHandler` 的 `onActiveChanged` / `onActiveTranslationChanged`（拖动开始 / 结束与逐帧位移） | 双击改名与按住拖动都是指针手势，命中判定与位移增量无法用 `objectName` + C++ 连接表达；改名的新名字还只能取自输入框失焦或回车的那一刻 | 处理器只改页面上的视图状态（`expandedCategories` / `expandedWaves` / `renamingCategory` / `categoryDrag`）或调用 `waveBridge`（`renameTagCategory` / `moveTagCategory`）；点击展开、分类内新建标签、删除标签 / 分类、新建分类仍全部由 C++ 按 `objectName` 连接。拖动期间不碰模型，松手经 `Qt.callLater` 提交一次 `moveTagCategory` |
 
 已迁出：规则编辑器关闭按钮（`ruleEditorCloseButton`）原先写 `onClicked: dialog.close()`，现由 `UiConnector::on_rule_editor_close_clicked()` 连接，该槽只调窗口的 `close()`——有无未保存改动的判定集中在 `UiConnector::eventFilter` 的 `QEvent::Close` 分支（`ignore()` 否决本次关闭，并在编辑器窗口内打开三选弹层 `ruleDiscardDialog`：保存并关闭 / 放弃改动 / 取消），因此标题栏 ×、Esc 与关闭按钮走同一条判定，QML 不为编辑器窗口写 `onClosing`。
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
-复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 62 处（插件详情移除「模式与输出」页签时连带删掉 5 处；规则编辑器改为独立窗口这一批删掉右下角调整手柄的 2 处 `onPressed` / `onPositionChanged`，未新增任何处理器，其余交互仍全部由 C++ 按 `objectName` 连接），按文件分组：
+复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 66 处（标签分类批次在 `pages/WavePage.qml` 新增 4 处指针手势处理器，`dialogs/WaveTagDialog.qml` 仍为 0 处；此前的插件详情移除「模式与输出」页签连带删掉 5 处、规则编辑器改为独立窗口删掉右下角调整手柄的 2 处，其余交互仍全部由 C++ 按 `objectName` 连接），按文件分组：
 
 - `dialogs/RuleEditorDialog.qml` 31 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 6（含通道节点目标设备下拉），即上表四行，逐处已登记。
 - `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 3 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
 - `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击（行委托由 `Repeater` 动态生成，本次仍保留处理器）只调 `app.openPluginDetail(fileName)`，导航与定位全在 C++（`AppBridge` + `UiConnector::on_plugin_detail_requested()`），QML 不再自己决定导航目标；处理器本身仍属待迁移项。
+- `pages/WavePage.qml` 4 处：分类标题双击改名 `onDoubleClicked` 1、改名输入框 `onEditingFinished` 1、调序手柄 `DragHandler` 的 `onActiveChanged` / `onActiveTranslationChanged` 2，即上表新增一行，逐处已登记。
 - `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表新增两行，逐处已登记。
 - `components/` 7 处：`AppTabs` / `AppSlider` / `AppSegment` / `AppChip` 各 1，把自身鼠标事件转发成自己的信号（`tabClicked` / `moved` / `selected` / `clicked`），属组件内部实现，不是页面交互；`AppTagStrip` 3 处（`onWheel` / `onPressed` / `onPositionChanged`），即上表新增三行，逐处已登记。
 

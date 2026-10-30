@@ -146,6 +146,11 @@ private slots:
     void on_wave_tag_create_clicked();
     void on_wave_tag_delete_clicked();
     void on_wave_tag_dialog_close_clicked();
+    void on_wave_tag_category_header_clicked();
+    void on_wave_tag_category_create_clicked();
+    void on_wave_tag_category_remove_clicked();
+    void on_wave_tag_new_category_clicked();
+    void on_wave_tag_wave_header_clicked();
     // 蓝牙直连（设备管理页）：扫描与强度增减
     void on_ble_scan_clicked();
     void on_ble_strength_clicked();
@@ -225,6 +230,10 @@ private:
     /// @param object_name 文件对话框 objectName
     /// @param suggested_path 建议文件路径（为空时不写入）
     void open_file_dialog(const char* object_name, const QString& suggested_path);
+    /// @brief 翻转波形设置页上的展开集合（纯视图状态：集合声明在 QML 页面上，C++ 只调页面函数翻转一项）
+    /// @param property_name 页面上的集合名（expandedCategories / expandedWaves）
+    /// @param name_property 点击项上携带名称的属性名（categoryName / waveName）
+    void toggle_view_expansion(const char* property_name, const char* name_property);
 
     /// @brief 绑定自绘取色对话框：三条滑杆、HEX 输入与确定 / 取消的交互都在这里连接
     void bind_color_dialog(QObject* dialog);

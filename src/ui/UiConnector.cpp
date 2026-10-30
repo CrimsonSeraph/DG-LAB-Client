@@ -485,10 +485,23 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "waveTagDialogCreateButton", SLOT(on_wave_tag_create_clicked()));
     watch_items(root_object, "waveTagWaveList", QStringLiteral("waveTagEditClick"),
         SLOT(on_wave_tag_edit_clicked()));
+    // 波形行：点击标题行展开 / 收起该波形的静态波形图
+    watch_items(root_object, "waveTagWaveList", QStringLiteral("waveTagWaveHeader"),
+        SLOT(on_wave_tag_wave_header_clicked()));
     watch_items(root_object, "waveTagDialogList", QStringLiteral("waveTagToggleClick"),
         SLOT(on_wave_tag_toggle_clicked()));
     watch_items(root_object, "waveTagDialogList", QStringLiteral("waveTagDeleteClick"),
         SLOT(on_wave_tag_delete_clicked()));
+    // 波形标签分类：标题行点击展开 / 收起、分类内新建标签、删除自建分类，以及新建分类入口
+    watch_items(root_object, "waveTagCategoryList", QStringLiteral("waveTagCategoryHeader"),
+        SLOT(on_wave_tag_category_header_clicked()));
+    watch_items(root_object, "waveTagCategoryList", QStringLiteral("waveTagCategoryCreateClick"),
+        SLOT(on_wave_tag_category_create_clicked()));
+    watch_items(root_object, "waveTagCategoryList", QStringLiteral("waveTagCategoryTagDelete"),
+        SLOT(on_wave_tag_delete_clicked()));
+    watch_items(root_object, "waveTagCategoryList", QStringLiteral("waveTagCategoryRemoveClick"),
+        SLOT(on_wave_tag_category_remove_clicked()));
+    connect_clicked(root_object, "waveTagNewCategoryButton", SLOT(on_wave_tag_new_category_clicked()));
     // 系统文件对话框：只用它挑选路径，读写全部落在 WaveLibrary
     if (auto* export_file = root_object->findChild<QObject*>(QStringLiteral("waveExportFileDialog"))) {
         QObject::connect(export_file, SIGNAL(accepted()), this, SLOT(on_wave_export_file_accepted()));
@@ -765,6 +778,20 @@ void UiConnector::open_file_dialog(const char* object_name, const QString& sugge
         dialog->setProperty("currentFile", QUrl::fromLocalFile(suggested_path));
     }
     QMetaObject::invokeMethod(dialog, "open");
+}
+
+void UiConnector::toggle_view_expansion(const char* property_name, const char* name_property) {
+    auto* item = sender();
+    auto* page = find("wavePage");
+    if (item == nullptr || page == nullptr) {
+        return;
+    }
+    const QString name = item->property(name_property).toString();
+    if (name.isEmpty()) {
+        return;
+    }
+    QMetaObject::invokeMethod(page, "toggleExpanded", Q_ARG(QVariant, QString::fromLatin1(property_name)),
+        Q_ARG(QVariant, name));
 }
 
 bool UiConnector::dialog_visible(const char* object_name) const {
@@ -1639,6 +1666,64 @@ void UiConnector::on_wave_tag_dialog_close_clicked() {
     if (wave_ != nullptr) {
         wave_->endTagEdit();
     }
+}
+
+void UiConnector::on_wave_tag_category_header_clicked() {
+    // 展开状态是页面上的视图状态：C++ 只把点击项的分类名交给页面函数翻转
+    toggle_view_expansion("expandedCategories", "categoryName");
+}
+
+void UiConnector::on_wave_tag_category_create_clicked() {
+    auto* button = sender();
+    if (button == nullptr || wave_ == nullptr) {
+        return;
+    }
+    // 分类名与输入框里的标签名由委托上的属性绑定带过来，委托里的重复控件不为每个实例写处理器
+    const QString category = button->property("categoryName").toString();
+    if (category.isEmpty()) {
+        return;
+    }
+    // 空名忽略；超长与重名由 WaveBridge 经 operationFailed 说明。
+    // 创建成功后标签分类整表重建，该分类的输入框随委托一起重建（文本自然清空）。
+    wave_->createTagInCategory(category, button->property("tagName").toString());
+}
+
+void UiConnector::on_wave_tag_category_remove_clicked() {
+    auto* item = sender();
+    if (item == nullptr || wave_ == nullptr) {
+        return;
+    }
+    const QString category = item->property("categoryName").toString();
+    if (category.isEmpty()) {
+        return;
+    }
+    // 删除分类会连带删掉该分类下的标签，并从所有使用它们的波形上移除：先经 confirmDialog 二次确认
+    ask_confirm(tr("删除分类「%1」？").arg(category),
+        tr("该分类下的标签会一并删除，并从所有使用它们的波形上移除，不可恢复。"), true, [this, category]() {
+            if (wave_ != nullptr) {
+                wave_->removeTagCategory(category);
+            }
+        });
+}
+
+void UiConnector::on_wave_tag_new_category_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    auto* field = find("waveTagNewCategoryField");
+    const QString name = field == nullptr ? QString() : field->property("text").toString();
+    // 空名直接忽略；重名与超长由 WaveBridge 拒绝并经 operationFailed 说明
+    if (name.trimmed().isEmpty()) {
+        return;
+    }
+    if (wave_->createTagCategory(name) && field != nullptr) {
+        field->setProperty("text", QString());
+    }
+}
+
+void UiConnector::on_wave_tag_wave_header_clicked() {
+    // 波形行的展开状态同样只在页面侧维护
+    toggle_view_expansion("expandedWaves", "waveName");
 }
 
 void UiConnector::on_ble_scan_clicked() {

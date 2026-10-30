@@ -20,6 +20,12 @@ QtObject {
     readonly property int waveStrokeWidth: 2
     readonly property int waveFrequencyStrokeWidth: 1
 
+    // 波形标签分类：展开栏标题行高度、拖动调序手柄的命中宽度、
+    // 展开行里静态波形图的高度（收起态行高即标题行高度，调序的目标下标按它换算）
+    readonly property int waveTagHeaderHeight: 32
+    readonly property int waveTagHandleWidth: 28
+    readonly property int waveTagWaveChartHeight: 68
+
     // 规则节点编辑器
     readonly property int graphGridSize: 40
     // 网格线透明度：横线与纵线共用同一参数，避免两处各写一个近似值
