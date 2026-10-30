@@ -197,20 +197,30 @@ Window {
                     anchors.fill: parent
                     enabled: !home.miniWindowLocked
 
-                    property real press_x: 0
-                    property real press_y: 0
-                    property real window_x: 0
-                    property real window_y: 0
+                    // 按下时的指针屏幕坐标与窗口坐标。位移必须按屏幕坐标算：窗口内的相对坐标
+                    // 会随窗口移动一起变化，拿它当基准会让窗口反过来追自己，表现为跟不上与来回抖动
+                    property point pressCursor: Qt.point(0, 0)
+                    property point pressWindow: Qt.point(0, 0)
 
                     onPressed: (mouse) => {
-                        dragArea.press_x = mouse.x
-                        dragArea.press_y = mouse.y
-                        dragArea.window_x = root.x
-                        dragArea.window_y = root.y
+                        if (mouse.button !== Qt.LeftButton) {
+                            return;
+                        }
+                        // 优先交给系统窗口管理器拖动：位移由系统计算，窗口与指针一比一跟手；
+                        // 系统不支持时下面按屏幕坐标的兜底逻辑仍然生效，两条路径算的是同一个落点
+                        root.startSystemMove();
+                        const scene = dragArea.mapToItem(null, mouse.x, mouse.y);
+                        dragArea.pressCursor = Qt.point(root.x + scene.x, root.y + scene.y);
+                        dragArea.pressWindow = Qt.point(root.x, root.y);
                     }
                     onPositionChanged: (mouse) => {
-                        root.x = dragArea.window_x + (mouse.x - dragArea.press_x)
-                        root.y = dragArea.window_y + (mouse.y - dragArea.press_y)
+                        if (!mouse.pressed) {
+                            return;
+                        }
+                        // 指针屏幕坐标 = 窗口坐标加窗口内相对坐标，该值与窗口是否已经移动无关
+                        const scene = dragArea.mapToItem(null, mouse.x, mouse.y);
+                        root.x = dragArea.pressWindow.x + (root.x + scene.x) - dragArea.pressCursor.x;
+                        root.y = dragArea.pressWindow.y + (root.y + scene.y) - dragArea.pressCursor.y;
                     }
                 }
 
