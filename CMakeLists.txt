@@ -294,10 +294,12 @@ set(NET
 # 波形（wave）
 set(WAVE
 	# 源文件
+	src/wave/TagCatalog.cpp
 	src/wave/Wave.cpp
 	src/wave/WaveImportExport.cpp
 	src/wave/WaveLibrary.cpp
 	# 头文件
+	include/wave/TagCatalog.h
 	include/wave/Wave.h
 	include/wave/WaveImportExport.h
 	include/wave/WaveLibrary.h

@@ -55,6 +55,7 @@ class WaveBridge : public QObject {
     Q_PROPERTY(QString conflictNamesText READ conflict_names_text NOTIFY importChanged)
     Q_PROPERTY(QString pendingRename READ pending_rename NOTIFY importChanged)
     Q_PROPERTY(QVariantList tagLibrary READ tag_library NOTIFY tagsChanged)
+    Q_PROPERTY(QVariantList tagCategories READ tag_categories NOTIFY tagsChanged)
     Q_PROPERTY(QStringList builtinTags READ builtin_tags NOTIFY tagsChanged)
     Q_PROPERTY(QStringList customTags READ custom_tags NOTIFY tagsChanged)
     Q_PROPERTY(QString tagTargetName READ tag_target_name NOTIFY tagsChanged)
@@ -113,6 +114,9 @@ public:
     QString pending_rename() const { return pending_rename_; }
     /// @brief 标签选择器条目：{ name, builtin, usage, checked }（checked 针对当前编辑目标波形）
     QVariantList tag_library() const;
+    /// @brief 分类化标签库：每项 { name, builtin, tags }，tags 每项
+    ///        { name, builtin, usage, checked, locked }（checked / locked 针对当前编辑目标波形）
+    QVariantList tag_categories() const;
     /// @brief 内置标签（代码常量，不可删除）
     QStringList builtin_tags() const;
     /// @brief 自定义标签（config/waves/tags.json）
@@ -179,10 +183,20 @@ public:
     Q_INVOKABLE void toggleTag(const QString& tag);
     /// @brief 新建标签并勾选到当前目标波形（大小写不同即沿用库里的写法；超长拒绝）
     Q_INVOKABLE bool createTag(const QString& tag);
+    /// @brief 在指定分类下新建标签并勾选到当前目标波形（分类名为空表示「用户自定义」分类）
+    Q_INVOKABLE bool createTagInCategory(const QString& category, const QString& tag);
     /// @brief 使用该标签的波形数量（删除确认用）
     Q_INVOKABLE int tagUsage(const QString& tag);
-    /// @brief 删除自定义标签，并把该标签从使用中的波形上一并移除（内置标签拒绝）
+    /// @brief 删除标签，并把该标签从使用中的波形上一并移除（内置标签拒绝）
     Q_INVOKABLE void removeTag(const QString& tag);
+    /// @brief 新建自建分类（与现有分类重名则拒绝）
+    Q_INVOKABLE bool createTagCategory(const QString& name);
+    /// @brief 自建分类改名（内置分类拒绝；重名拒绝）
+    Q_INVOKABLE bool renameTagCategory(const QString& name, const QString& newName);
+    /// @brief 调整自建分类顺序（目标下标不得落到内置分类之前）
+    Q_INVOKABLE bool moveTagCategory(const QString& name, int targetIndex);
+    /// @brief 删除自建分类（其下标签一并删除并从波形上移除）
+    Q_INVOKABLE bool removeTagCategory(const QString& name);
 
 signals:
     void dataChanged();

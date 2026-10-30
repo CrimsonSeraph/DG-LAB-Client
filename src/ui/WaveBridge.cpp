@@ -238,6 +238,34 @@ QVariantList WaveBridge::tag_library() const {
     return list;
 }
 
+QVariantList WaveBridge::tag_categories() const {
+    auto& library = WaveLibrary::instance();
+    const Wave* target
+        = tag_target_name_.isEmpty() ? nullptr : library.get(tag_target_name_.toStdString());
+    QVariantList result;
+    for (const WaveTagCategory& category : library.tag_categories()) {
+        QVariantList tags;
+        for (const QString& tag : category.tags) {
+            QVariantMap item;
+            item.insert(QStringLiteral("name"), tag);
+            item.insert(QStringLiteral("builtin"), library.is_builtin_tag(tag));
+            item.insert(QStringLiteral("usage"), library.tag_usage(tag));
+            item.insert(QStringLiteral("checked"), target != nullptr && target->has_tag(tag));
+            // 内置表挂在官方波形上的标签在界面上锁定，只能查看
+            item.insert(QStringLiteral("locked"),
+                target != nullptr
+                    && library.is_tag_builtin_mounted(tag_target_name_.toStdString(), tag));
+            tags.append(item);
+        }
+        QVariantMap entry;
+        entry.insert(QStringLiteral("name"), category.name);
+        entry.insert(QStringLiteral("builtin"), category.builtin);
+        entry.insert(QStringLiteral("tags"), tags);
+        result.append(entry);
+    }
+    return result;
+}
+
 QStringList WaveBridge::builtin_tags() const {
     return WaveLibrary::instance().builtin_tags();
 }
@@ -694,14 +722,24 @@ void WaveBridge::toggleTag(const QString& tag) {
         return;
     }
     if (wave->has_tag(tag)) {
-        library.detach_tag(tag_target_name_.toStdString(), tag);
+        // 内置表挂在官方波形上的标签界面锁定，数据层同样拒绝移除
+        if (library.is_tag_builtin_mounted(tag_target_name_.toStdString(), tag)) {
+            emit operationFailed(QStringLiteral("「%1」由内置标签表挂在波形《%2》上，不可移除")
+                                     .arg(library.canonical_tag(tag), tag_target_name_));
+            return;
+        }
+        QString error;
+        if (!library.detach_tag(tag_target_name_.toStdString(), tag, &error)) {
+            emit operationFailed(error);
+            return;
+        }
         LOG_MODULE("WaveBridge", "toggleTag", LOG_INFO,
             "波形已移除标签: " + tag_target_name_.toStdString() + " / " + tag.toStdString());
         return;
     }
     QString error;
-    // 勾选时自动登记进标签库（内置标签天然在库里，add_custom_tag 不会重复写入）
-    if (!library.add_custom_tag(library.canonical_tag(tag), &error)) {
+    // 勾选时自动登记进标签库：库里没有的名字登记进「用户自定义」分类，已有名字沿用库里的分类与写法
+    if (library.category_of_tag(tag).isEmpty() && !library.create_user_tag(tag, &error)) {
         emit operationFailed(error);
         return;
     }
@@ -711,6 +749,10 @@ void WaveBridge::toggleTag(const QString& tag) {
 }
 
 bool WaveBridge::createTag(const QString& tag) {
+    return createTagInCategory(QString(), tag);
+}
+
+bool WaveBridge::createTagInCategory(const QString& category, const QString& tag) {
     auto& library = WaveLibrary::instance();
     const QString trimmed = tag.trimmed();
     // 空标签名直接忽略，不打断输入
@@ -723,13 +765,16 @@ bool WaveBridge::createTag(const QString& tag) {
                                  .arg(trimmed));
         return false;
     }
-    // 大小写不同视为同一个标签：沿用标签库里的写法，不产生第二条
-    const QString canonical = library.canonical_tag(trimmed);
     QString error;
-    if (!library.add_custom_tag(canonical, &error)) {
+    // 分类名为空表示「用户自定义」分类：新建标签的默认落点
+    const bool created = category.trimmed().isEmpty() ? library.create_user_tag(trimmed, &error)
+                                                     : library.create_tag(category, trimmed, &error);
+    if (!created) {
         emit operationFailed(error);
         return false;
     }
+    // 大小写不同视为同一个标签：沿用标签库里的写法，不产生第二条
+    const QString canonical = library.canonical_tag(trimmed);
     if (tag_target_name_.isEmpty()) {
         return true;
     }
@@ -738,7 +783,8 @@ bool WaveBridge::createTag(const QString& tag) {
         && !library.attach_tag(tag_target_name_.toStdString(), canonical, &error)) {
         emit operationFailed(error);
     }
-    LOG_MODULE("WaveBridge", "createTag", LOG_INFO, "已新建标签: " + canonical.toStdString());
+    LOG_MODULE("WaveBridge", "createTagInCategory", LOG_INFO,
+        "已新建标签: " + canonical.toStdString() + " / " + category.toStdString());
     return true;
 }
 
@@ -748,13 +794,49 @@ int WaveBridge::tagUsage(const QString& tag) {
 
 void WaveBridge::removeTag(const QString& tag) {
     QString error;
-    const int detached = WaveLibrary::instance().remove_custom_tag(tag, &error);
+    const int detached = WaveLibrary::instance().remove_tag(tag, &error);
     if (detached < 0) {
         emit operationFailed(error);
         return;
     }
     LOG_MODULE("WaveBridge", "removeTag", LOG_INFO,
         "已删除标签: " + tag.toStdString() + "（从 " + std::to_string(detached) + " 个波形上移除）");
+}
+
+bool WaveBridge::createTagCategory(const QString& name) {
+    QString error;
+    if (!WaveLibrary::instance().create_category(name, &error)) {
+        emit operationFailed(error);
+        return false;
+    }
+    return true;
+}
+
+bool WaveBridge::renameTagCategory(const QString& name, const QString& newName) {
+    QString error;
+    if (!WaveLibrary::instance().rename_category(name, newName, &error)) {
+        emit operationFailed(error);
+        return false;
+    }
+    return true;
+}
+
+bool WaveBridge::moveTagCategory(const QString& name, int targetIndex) {
+    QString error;
+    if (!WaveLibrary::instance().move_category(name, targetIndex, &error)) {
+        emit operationFailed(error);
+        return false;
+    }
+    return true;
+}
+
+bool WaveBridge::removeTagCategory(const QString& name) {
+    QString error;
+    if (!WaveLibrary::instance().remove_category(name, &error)) {
+        emit operationFailed(error);
+        return false;
+    }
+    return true;
 }
 
 bool WaveBridge::draft_dirty() const {

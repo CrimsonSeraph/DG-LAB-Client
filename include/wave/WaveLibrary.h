@@ -13,6 +13,7 @@
 
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 /// @brief 导入冲突处理策略：覆盖 / 重命名 / 跳过
@@ -41,6 +42,13 @@ struct WaveImportResult {
 
     /// @brief 汇总文案：导入 N 条：新增 / 覆盖 / 重命名 / 跳过，附跳过与缺帧原因
     QString summary() const;
+};
+
+/// @brief 标签分类：名称 + 是否内置分类 + 该分类下的标签（内置分类下内置标签在前、用户新增标签在后）
+struct WaveTagCategory {
+    QString name;     ///< 分类名（内置分类名不可改）
+    bool builtin = false; ///< 是否内置分类（名称与顺序固定，排在最前）
+    QStringList tags; ///< 该分类下的标签名（顺序即分类内展示顺序）
 };
 
 // WaveLibrary - 波形库（单例）
@@ -85,40 +93,82 @@ public:
     int frame_count(const std::string& name) const;
     int duration_ms(const std::string& name) const;
 
-    // 标签库分两层：内置标签是代码常量（随版本走，用户不可删除），
-    // 自定义标签存在 config/waves/tags.json；波形按名字引用标签，读到时统一规范化。
-    // 官方内置波形只读（帧与名称不可改），但标签是用户侧叠加数据：同样存在 tags.json 的
-    // official_wave_tags 段，每次由资源重建后重新应用。
-    /// @brief 内置标签（代码常量，随版本走，用户不可删除；本批为空，结构已就位）
+    // 标签库按分类组织：内置七类（名称与顺序来自 TagCatalog，固定在前）与用户自建分类
+    // （排在其后，顺序可调）。标签名全库唯一，用名字引用；波形按名字持有标签。
+    // 官方内置波形的标签 = 内置表自动挂载的内置标签 + 用户在 official_wave_tags 里的叠加标签：
+    // 前者界面锁定不可移除，后者可增删。
+    /// @brief 内置标签（代码表 TagCatalog，用户不可删除）
     QStringList builtin_tags() const;
-    /// @brief 自定义标签（config/waves/tags.json 里的顺序表）
+    /// @brief 用户标签全集（各分类下的用户新增标签，按分类顺序展开）
     QStringList custom_tags() const;
-    /// @brief 全部可选标签：内置在前、自定义在后，再补上被波形引用但未入库的标签
+    /// @brief 全部可选标签：按分类顺序展开，再补上被波形引用但未入库的标签
     QStringList all_tags() const;
-    /// @brief 是否内置标签（不可删除）
+    /// @brief 是否内置标签（来自代码表，与所在分类是否为内置分类无关）
     bool is_builtin_tag(const QString& tag) const;
     /// @brief 标签库里的统一写法；库中没有时返回规范化后的输入，非法（空 / 超长）返回空串
     QString canonical_tag(const QString& tag) const;
     /// @brief 使用该标签的波形数量（大小写不敏感）
     int tag_usage(const QString& tag) const;
 
-    /// @brief 新增自定义标签（大小写不敏感去重，重复写入沿用库里的写法）；成功或已存在均返回 true
-    /// @param error 失败原因（超长在此拒绝）
-    bool add_custom_tag(const QString& tag, QString* error = nullptr);
-    /// @brief 删除自定义标签，并从使用中的波形上一并移除该标签（内置标签拒绝）
+    // 分类模型
+    /// @brief 有序分类列表：内置七类固定在前，自建分类按用户调整后的顺序排在其后
+    std::vector<WaveTagCategory> tag_categories() const;
+    /// @brief 分类名（与 tag_categories 同序）
+    QStringList category_names() const;
+    /// @brief 指定分类下的标签（分类不存在返回空列表）
+    QStringList tags_of_category(const QString& category) const;
+    /// @brief 标签所属分类名（不在标签库中返回空串）
+    QString category_of_tag(const QString& tag) const;
+    /// @brief 内置分类数量（固定七类）
+    int builtin_category_count() const;
+    /// @brief 某波形上的标签按分类顺序排好的显示顺序（未入库的标签排在末尾）
+    QStringList tags_in_display_order(const std::string& wave_name) const;
+    /// @brief 该标签是否由内置表挂在该波形上（官方波形 + 内置标签表，界面锁定不可移除）
+    bool is_tag_builtin_mounted(const std::string& wave_name, const QString& tag) const;
+    /// @brief 创建自建分类：追加在自建分类末尾；名称与任何现有分类重名则拒绝（大小写不敏感）
+    /// @param error 失败原因
+    bool create_category(const QString& name, QString* error = nullptr);
+    /// @brief 自建分类改名（内置分类拒绝；新名字不得与任何现有分类重名）
+    /// @param name 原分类名
+    /// @param new_name 新分类名
+    /// @param error 失败原因
+    bool rename_category(const QString& name, const QString& new_name, QString* error = nullptr);
+    /// @brief 调整自建分类顺序
+    /// @param name 分类名
+    /// @param target_index 完整分类列表里的目标下标（不得落到内置分类之前）
+    /// @param error 失败原因（内置分类、越界到内置区段、分类不存在）
+    bool move_category(const QString& name, int target_index, QString* error = nullptr);
+    /// @brief 删除自建分类：其下标签一并从标签库与所有波形（含官方波形叠加段）上移除
+    /// @param name 分类名
+    /// @param error 失败原因（内置分类拒绝）
+    bool remove_category(const QString& name, QString* error = nullptr);
+    /// @brief 在指定分类下新建标签（标签名全库唯一，大小写不敏感）
+    /// @param category 目标分类名
+    /// @param tag 标签名
+    /// @param error 失败原因（分类不存在 / 名字非法 / 已属于别的分类）
+    bool create_tag(const QString& category, const QString& tag, QString* error = nullptr);
+    /// @brief 在「用户自定义」分类下新建标签（导入登记与勾选新建的统一入口）
+    bool create_user_tag(const QString& tag, QString* error = nullptr);
+    /// @brief 删除标签，并从使用中的波形上一并移除（内置标签拒绝）
     /// @return 从波形上移除该标签的波形数；拒绝或不存在返回 -1，原因写 error
-    int remove_custom_tag(const QString& tag, QString* error = nullptr);
-    /// @brief 给指定波形加标签（官方波形的标签存为叠加数据，帧与名称仍只读）
+    int remove_tag(const QString& tag, QString* error = nullptr);
+
+    /// @brief 给指定波形加标签（官方波形的用户叠加标签存进 tags.json，帧与名称仍只读）
     /// @param wave_name 波形名
     /// @param tag 标签名（大小写不敏感匹配库里已有写法）
     /// @param error 失败原因
     bool attach_tag(const std::string& wave_name, const QString& tag, QString* error = nullptr);
-    /// @brief 从指定波形上移除该标签（不动标签库；官方波形清掉多余标签后写回 tags.json）
-    bool detach_tag(const std::string& wave_name, const QString& tag);
-    /// @brief 批量自动登记标签（导入用）：只写非内置且未入库的标签，返回新增条数
+    /// @brief 从指定波形上移除标签（不动标签库；内置表挂上的标签拒绝，官方波形改写叠加段）
+    /// @param wave_name 波形名
+    /// @param tag 标签名
+    /// @param error 失败原因
+    bool detach_tag(const std::string& wave_name, const QString& tag, QString* error = nullptr);
+    /// @brief 批量自动登记标签（导入用）：只写标签库里没有的名字，登记进「用户自定义」分类
     int register_tags(const QStringList& tags);
-    /// @brief 注入内置标签（仅测试用：验证内置标签不可删除）
-    void set_builtin_tags_for_test(const QStringList& tags);
+    /// @brief 注入内置标签（仅测试用）：追加到指定内置分类，验证内置标签不可删与不落盘
+    void add_builtin_tags_for_test(const QString& category, const QStringList& tags);
+    /// @brief 注入官方波形的内置标签（仅测试用）：按内置表的同一条路径自动挂载
+    void add_builtin_wave_tags_for_test(const std::string& wave_name, const QStringList& tags);
 
     /// @brief 解析导入文件（按扩展名分派 .json / .pulse），只解析不写入
     WaveImportPlan plan_import(const QString& path) const;
@@ -156,19 +206,32 @@ private:
 
     void load();
     void load_official();
+    /// @brief 按内置表给官方波形挂上内置标签（资源重建后调用，排在用户叠加标签之前）
+    void apply_builtin_official_tags();
     /// @brief 应用官方波形的标签叠加数据（tags.json 的 official_wave_tags 段，资源重建后调用）
     void load_official_tags();
     void persist() const;
     std::string file_path() const;
-    /// @brief 自定义标签库文件路径（config/waves/tags.json）
+    /// @brief 标签库文件路径（config/waves/tags.json）
     std::string tags_file_path() const;
-    /// @brief 读取自定义标签库（文件缺失或损坏时为空，不报错）
+    /// @brief 读取标签库：version 1 的扁平标签整体迁入「用户自定义」分类，文件缺失或损坏按空库处理
     void load_tags();
-    /// @brief 写入自定义标签库与官方波形标签叠加数据（同一文件的两段）
+    /// @brief 写入标签库（version 2：只写自建分类、内置分类下的用户标签与官方波形叠加标签）
     void persist_tags() const;
+    /// @brief 从代码表重建分类（内置七类在前、内置标签在内），已存在的用户标签按原顺序保留
+    void rebuild_categories();
+    /// @brief 按分类顺序合并（分类名 → 标签）分组：内置分类名并入其用户标签，其余建成自建分类
+    void merge_category_groups(const std::vector<std::pair<QString, QStringList>>& groups);
+    /// @brief 标签所在分类的下标（大小写不敏感），不在标签库中返回 -1
+    int category_index_of_tag(const QString& tag) const;
+    /// @brief 官方波形按内置表（含测试注入）应挂上的内置标签
+    QStringList builtin_tags_of_wave(const std::string& wave_name) const;
 
     std::map<std::string, Wave> waves_;
-    QStringList custom_tags_; ///< 自定义标签（顺序即标签库展示顺序）
+    std::vector<WaveTagCategory> categories_; ///< 分类与标签（内置七类在前，自建分类在后）
+    std::map<QString, QStringList> builtin_extra_tags_; ///< 仅测试：注入到内置分类的内置标签
+    std::map<std::string, QStringList> builtin_extra_wave_tags_; ///< 仅测试：注入到官方波形的内置标签
+    bool tags_need_migrate_ = false; ///< 标签库读成 version 1，加载完成后按 version 2 重写一次
     std::string dir_;
     std::string current_a_;
     std::string current_b_;

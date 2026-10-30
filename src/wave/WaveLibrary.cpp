@@ -7,6 +7,7 @@
 
 #include "AppConfig.h"
 #include "DebugLog.h"
+#include "TagCatalog.h"
 #include "WaveImportExport.h"
 
 #include <QDir>
@@ -37,25 +38,35 @@ namespace {
         return QString();
     }
 
-    /// @brief 自定义标签库文件名
+    /// @brief 标签库文件名
     const char* const TAGS_FILE_NAME = "tags.json";
 
-    /// @brief 标签库文件结构版本
-    const int TAGS_FILE_VERSION = 1;
+    /// @brief 标签库文件结构版本（2：分类化，只存用户侧数据）
+    const int TAGS_FILE_VERSION = 2;
 
-    /// @brief tags.json 里官方波形标签叠加数据的键名（波形名 → 标签数组）
+    /// @brief tags.json 里官方波形标签叠加数据的键名（波形名 → 用户叠加的标签数组）
     const char* const OFFICIAL_TAGS_KEY = "official_wave_tags";
 
-    /// @brief 内置标签存储：代码常量随版本走；本批为空，官方 App 的标签清单到位后在此逐条追加
-    QStringList& builtin_tags_storage() {
-        static QStringList tags;
-        return tags;
-    }
+    /// @brief 分类化标签库的键名：数组，每项 { name, tags }
+    const char* const CATEGORIES_KEY = "categories";
+
+    /// @brief 旧版（version 1）扁平标签数组的键名，读取时整体迁入「用户自定义」分类
+    const char* const LEGACY_TAGS_KEY = "tags";
 
     /// @brief 名称在列表中的下标（大小写不敏感），未找到返回 -1
     int index_of_tag(const QStringList& tags, const QString& tag) {
         for (int index = 0; index < tags.size(); ++index) {
             if (tags.at(index).compare(tag, Qt::CaseInsensitive) == 0) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /// @brief 分类在列表中的下标（大小写不敏感），未找到返回 -1
+    int index_of_category(const std::vector<WaveTagCategory>& categories, const QString& name) {
+        for (int index = 0; index < static_cast<int>(categories.size()); ++index) {
+            if (categories.at(index).name.compare(name.trimmed(), Qt::CaseInsensitive) == 0) {
                 return index;
             }
         }
@@ -368,18 +379,36 @@ int WaveLibrary::duration_ms(const std::string& name) const {
 }
 
 QStringList WaveLibrary::builtin_tags() const {
-    return Wave::normalize_tags(builtin_tags_storage());
+    QStringList result = TagCatalog::builtin_tags();
+    for (const auto& [_, tags] : builtin_extra_tags_) {
+        for (const QString& tag : tags) {
+            if (index_of_tag(result, tag) < 0) {
+                result.append(tag);
+            }
+        }
+    }
+    return result;
 }
 
 QStringList WaveLibrary::custom_tags() const {
-    return custom_tags_;
+    QStringList result;
+    for (const WaveTagCategory& category : categories_) {
+        for (const QString& tag : category.tags) {
+            if (!is_builtin_tag(tag) && index_of_tag(result, tag) < 0) {
+                result.append(tag);
+            }
+        }
+    }
+    return result;
 }
 
 QStringList WaveLibrary::all_tags() const {
-    QStringList result = builtin_tags();
-    for (const QString& tag : custom_tags_) {
-        if (index_of_tag(result, tag) < 0) {
-            result.append(tag);
+    QStringList result;
+    for (const WaveTagCategory& category : categories_) {
+        for (const QString& tag : category.tags) {
+            if (index_of_tag(result, tag) < 0) {
+                result.append(tag);
+            }
         }
     }
     // 波形上引用了但没入库的标签（手工编辑过 waves.json / 删过 tags.json）同样列出来，避免选中态无法取消
@@ -404,14 +433,12 @@ QString WaveLibrary::canonical_tag(const QString& tag) const {
     if (normalized.isEmpty()) {
         return QString();
     }
-    const QStringList builtin = builtin_tags();
-    const int builtin_index = index_of_tag(builtin, normalized);
-    if (builtin_index >= 0) {
-        return builtin.at(builtin_index);
-    }
-    const int custom_index = index_of_tag(custom_tags_, normalized);
-    if (custom_index >= 0) {
-        return custom_tags_.at(custom_index);
+    for (const WaveTagCategory& category : categories_) {
+        for (const QString& existing : category.tags) {
+            if (existing.compare(normalized, Qt::CaseInsensitive) == 0) {
+                return existing;
+            }
+        }
     }
     return normalized;
 }
@@ -430,7 +457,219 @@ int WaveLibrary::tag_usage(const QString& tag) const {
     return count;
 }
 
-bool WaveLibrary::add_custom_tag(const QString& tag, QString* error) {
+std::vector<WaveTagCategory> WaveLibrary::tag_categories() const {
+    return categories_;
+}
+
+QStringList WaveLibrary::category_names() const {
+    QStringList names;
+    for (const WaveTagCategory& category : categories_) {
+        names.append(category.name);
+    }
+    return names;
+}
+
+QStringList WaveLibrary::tags_of_category(const QString& category) const {
+    const int index = index_of_category(categories_, category);
+    return index < 0 ? QStringList() : categories_.at(index).tags;
+}
+
+QString WaveLibrary::category_of_tag(const QString& tag) const {
+    const int index = category_index_of_tag(tag);
+    return index < 0 ? QString() : categories_.at(index).name;
+}
+
+int WaveLibrary::builtin_category_count() const {
+    return TagCatalog::builtin_category_count();
+}
+
+QStringList WaveLibrary::tags_in_display_order(const std::string& wave_name) const {
+    const Wave* wave = get(wave_name);
+    if (wave == nullptr) {
+        return QStringList();
+    }
+    QStringList result;
+    for (const WaveTagCategory& category : categories_) {
+        for (const QString& tag : category.tags) {
+            if (wave->has_tag(tag)) {
+                result.append(tag);
+            }
+        }
+    }
+    // 没入库的标签排在末尾，保持波形上的相对顺序
+    for (const QString& tag : wave->tags) {
+        const QString normalized = Wave::normalize_tag(tag);
+        if (!normalized.isEmpty() && index_of_tag(result, normalized) < 0) {
+            result.append(normalized);
+        }
+    }
+    return result;
+}
+
+bool WaveLibrary::is_tag_builtin_mounted(const std::string& wave_name, const QString& tag) const {
+    const QString normalized = Wave::normalize_tag(tag);
+    if (normalized.isEmpty() || !is_official(wave_name)) {
+        return false;
+    }
+    return index_of_tag(builtin_tags_of_wave(wave_name), normalized) >= 0;
+}
+
+bool WaveLibrary::create_category(const QString& name, QString* error) {
+    const QString normalized = Wave::normalize_tag(name);
+    if (normalized.isEmpty()) {
+        if (error != nullptr) {
+            *error = QStringLiteral("分类名不能为空，且最长 %1 个字符").arg(Wave::TAG_MAX_LENGTH);
+        }
+        return false;
+    }
+    if (index_of_category(categories_, normalized) >= 0) {
+        if (error != nullptr) {
+            *error = QStringLiteral("分类「%1」已存在").arg(normalized);
+        }
+        return false;
+    }
+    WaveTagCategory category;
+    category.name = normalized;
+    categories_.push_back(category);
+    persist_tags();
+    emit tags_changed();
+    LOG_MODULE("WaveLibrary", "create_category", LOG_INFO,
+        "已新建分类: " << normalized.toStdString());
+    return true;
+}
+
+bool WaveLibrary::rename_category(const QString& name, const QString& new_name, QString* error) {
+    const int index = index_of_category(categories_, name);
+    if (index < 0) {
+        if (error != nullptr) {
+            *error = QStringLiteral("分类「%1」不存在").arg(name.trimmed());
+        }
+        return false;
+    }
+    if (categories_.at(index).builtin) {
+        if (error != nullptr) {
+            *error = QStringLiteral("内置分类「%1」不可改名").arg(categories_.at(index).name);
+        }
+        return false;
+    }
+    const QString normalized = Wave::normalize_tag(new_name);
+    if (normalized.isEmpty()) {
+        if (error != nullptr) {
+            *error = QStringLiteral("分类名不能为空，且最长 %1 个字符").arg(Wave::TAG_MAX_LENGTH);
+        }
+        return false;
+    }
+    // 重名校验覆盖内置分类与全部自建分类，大小写不敏感；改名为自身不算重名
+    const int conflict = index_of_category(categories_, normalized);
+    if (conflict >= 0 && conflict != index) {
+        if (error != nullptr) {
+            *error = QStringLiteral("分类「%1」已存在，改名未生效").arg(categories_.at(conflict).name);
+        }
+        return false;
+    }
+    if (categories_.at(index).name == normalized) {
+        return true;
+    }
+    categories_[index].name = normalized;
+    persist_tags();
+    emit tags_changed();
+    LOG_MODULE("WaveLibrary", "rename_category", LOG_INFO,
+        "分类已改名: " << name.trimmed().toStdString() << " -> " << normalized.toStdString());
+    return true;
+}
+
+bool WaveLibrary::move_category(const QString& name, int target_index, QString* error) {
+    const int from = index_of_category(categories_, name);
+    if (from < 0) {
+        if (error != nullptr) {
+            *error = QStringLiteral("分类「%1」不存在").arg(name.trimmed());
+        }
+        return false;
+    }
+    if (categories_.at(from).builtin) {
+        if (error != nullptr) {
+            *error = QStringLiteral("内置分类「%1」顺序固定，不可调整").arg(categories_.at(from).name);
+        }
+        return false;
+    }
+    const int builtin_count = builtin_category_count();
+    if (target_index < builtin_count) {
+        if (error != nullptr) {
+            *error = QStringLiteral("自建分类不能排到内置分类前面");
+        }
+        return false;
+    }
+    const int last_index = static_cast<int>(categories_.size()) - 1;
+    const int to = target_index > last_index ? last_index : target_index;
+    if (to == from) {
+        return true;
+    }
+    const WaveTagCategory moved = categories_.at(from);
+    categories_.erase(categories_.begin() + from);
+    categories_.insert(categories_.begin() + to, moved);
+    persist_tags();
+    emit tags_changed();
+    LOG_MODULE("WaveLibrary", "move_category", LOG_INFO,
+        "分类顺序已调整: " << moved.name.toStdString() << " -> " << to);
+    return true;
+}
+
+bool WaveLibrary::remove_category(const QString& name, QString* error) {
+    const int index = index_of_category(categories_, name);
+    if (index < 0) {
+        if (error != nullptr) {
+            *error = QStringLiteral("分类「%1」不存在").arg(name.trimmed());
+        }
+        return false;
+    }
+    if (categories_.at(index).builtin) {
+        if (error != nullptr) {
+            *error = QStringLiteral("内置分类「%1」不可删除").arg(categories_.at(index).name);
+        }
+        return false;
+    }
+    const QStringList removed = categories_.at(index).tags;
+    categories_.erase(categories_.begin() + index);
+
+    // 分类下的标签随分类一起删除，并从所有波形（含官方波形的叠加段）上移除，不留悬空引用
+    int detached = 0;
+    for (auto& [_, wave] : waves_) {
+        bool touched = false;
+        QStringList kept;
+        for (const QString& existing : wave.tags) {
+            if (index_of_tag(removed, existing) >= 0) {
+                touched = true;
+                continue;
+            }
+            kept.append(existing);
+        }
+        if (touched) {
+            wave.tags = kept;
+            ++detached;
+        }
+    }
+    persist_tags();
+    if (detached > 0) {
+        persist();
+    }
+    emit tags_changed();
+    if (detached > 0) {
+        emit library_changed();
+    }
+    LOG_MODULE("WaveLibrary", "remove_category", LOG_INFO,
+        "已删除分类: " << name.trimmed().toStdString() << "，其下 " << removed.size()
+                       << " 个标签，从 " << detached << " 个波形上移除");
+    return true;
+}
+
+bool WaveLibrary::create_tag(const QString& category, const QString& tag, QString* error) {
+    const int index = index_of_category(categories_, category);
+    if (index < 0) {
+        if (error != nullptr) {
+            *error = QStringLiteral("分类「%1」不存在").arg(category.trimmed());
+        }
+        return false;
+    }
     const QString normalized = Wave::normalize_tag(tag);
     if (normalized.isEmpty()) {
         if (error != nullptr) {
@@ -438,18 +677,32 @@ bool WaveLibrary::add_custom_tag(const QString& tag, QString* error) {
         }
         return false;
     }
-    // 已存在（含大小写不同的写法）时沿用库里的写法，不产生第二条
-    if (is_builtin_tag(normalized) || index_of_tag(custom_tags_, normalized) >= 0) {
+    // 标签名全库唯一：已属于本分类时沿用库里的写法，属于别的分类则拒绝
+    const int owner = category_index_of_tag(normalized);
+    if (owner == index) {
         return true;
     }
-    custom_tags_.append(normalized);
+    if (owner >= 0) {
+        if (error != nullptr) {
+            *error = QStringLiteral("标签「%1」已属于分类「%2」，一个标签名只能属于一个分类")
+                         .arg(canonical_tag(normalized))
+                         .arg(categories_.at(owner).name);
+        }
+        return false;
+    }
+    categories_[index].tags.append(normalized);
     persist_tags();
     emit tags_changed();
-    LOG_MODULE("WaveLibrary", "add_custom_tag", LOG_INFO, "已新增自定义标签: " << normalized.toStdString());
+    LOG_MODULE("WaveLibrary", "create_tag", LOG_INFO,
+        "已新建标签: " << normalized.toStdString() << " / " << categories_.at(index).name.toStdString());
     return true;
 }
 
-int WaveLibrary::remove_custom_tag(const QString& tag, QString* error) {
+bool WaveLibrary::create_user_tag(const QString& tag, QString* error) {
+    return create_tag(TagCatalog::user_category_name(), tag, error);
+}
+
+int WaveLibrary::remove_tag(const QString& tag, QString* error) {
     const QString normalized = Wave::normalize_tag(tag);
     if (normalized.isEmpty()) {
         if (error != nullptr) {
@@ -461,28 +714,29 @@ int WaveLibrary::remove_custom_tag(const QString& tag, QString* error) {
         if (error != nullptr) {
             *error = QStringLiteral("「%1」是内置标签，不可删除").arg(normalized);
         }
-        LOG_MODULE("WaveLibrary", "remove_custom_tag", LOG_WARN,
-            "内置标签不可删除: " << normalized.toStdString());
+        LOG_MODULE("WaveLibrary", "remove_tag", LOG_WARN, "内置标签不可删除: " << normalized.toStdString());
         return -1;
     }
-    const int index = index_of_tag(custom_tags_, normalized);
+    const int index = category_index_of_tag(normalized);
     if (index < 0) {
         if (error != nullptr) {
-            *error = QStringLiteral("自定义标签库里没有「%1」").arg(normalized);
+            *error = QStringLiteral("标签库里没有「%1」").arg(normalized);
         }
         return -1;
     }
-    custom_tags_.removeAt(index);
+    const int position = index_of_tag(categories_.at(index).tags, normalized);
+    const QString stored = categories_.at(index).tags.at(position);
+    categories_[index].tags.removeAt(position);
 
     // 删除标签同时把它从使用中的波形（含官方波形的叠加标签）上移除：界面上的标签始终指向存在的库条目，不留悬空引用
     int detached = 0;
     for (auto& [_, wave] : waves_) {
-        if (!wave.has_tag(normalized)) {
+        if (!wave.has_tag(stored)) {
             continue;
         }
         QStringList kept;
         for (const QString& existing : wave.tags) {
-            if (existing.compare(normalized, Qt::CaseInsensitive) != 0) {
+            if (existing.compare(stored, Qt::CaseInsensitive) != 0) {
                 kept.append(existing);
             }
         }
@@ -498,8 +752,8 @@ int WaveLibrary::remove_custom_tag(const QString& tag, QString* error) {
     if (detached > 0) {
         emit library_changed();
     }
-    LOG_MODULE("WaveLibrary", "remove_custom_tag", LOG_INFO,
-        "已删除自定义标签: " << normalized.toStdString() << "，从 " << detached << " 个波形上移除");
+    LOG_MODULE("WaveLibrary", "remove_tag", LOG_INFO,
+        "已删除标签: " << stored.toStdString() << "，从 " << detached << " 个波形上移除");
     return detached;
 }
 
@@ -532,13 +786,30 @@ bool WaveLibrary::attach_tag(const std::string& wave_name, const QString& tag, Q
     return true;
 }
 
-bool WaveLibrary::detach_tag(const std::string& wave_name, const QString& tag) {
+bool WaveLibrary::detach_tag(const std::string& wave_name, const QString& tag, QString* error) {
     auto it = waves_.find(wave_name);
     if (it == waves_.end()) {
+        if (error != nullptr) {
+            *error = QStringLiteral("波形《%1》不在波形库中").arg(QString::fromStdString(wave_name));
+        }
         return false;
     }
     const QString normalized = Wave::normalize_tag(tag);
     if (normalized.isEmpty() || !it->second.has_tag(normalized)) {
+        if (error != nullptr) {
+            *error = QStringLiteral("波形《%1》上没有标签「%2」")
+                         .arg(QString::fromStdString(wave_name), canonical_tag(normalized));
+        }
+        return false;
+    }
+    // 内置表挂上的标签不属于用户叠加数据：界面锁定，数据层同样拒绝移除
+    if (is_tag_builtin_mounted(wave_name, normalized)) {
+        if (error != nullptr) {
+            *error = QStringLiteral("「%1」由内置标签表挂在波形《%2》上，不可移除")
+                         .arg(canonical_tag(normalized), QString::fromStdString(wave_name));
+        }
+        LOG_MODULE("WaveLibrary", "detach_tag", LOG_WARN,
+            "内置挂载的标签不可移除: " << wave_name << " / " << normalized.toStdString());
         return false;
     }
     QStringList kept;
@@ -558,14 +829,17 @@ bool WaveLibrary::detach_tag(const std::string& wave_name, const QString& tag) {
 }
 
 int WaveLibrary::register_tags(const QStringList& tags) {
+    const int index = index_of_category(categories_, TagCatalog::user_category_name());
+    if (index < 0) {
+        return 0;
+    }
     int added = 0;
     for (const QString& tag : tags) {
         const QString normalized = Wave::normalize_tag(tag);
-        if (normalized.isEmpty() || is_builtin_tag(normalized)
-            || index_of_tag(custom_tags_, normalized) >= 0) {
+        if (normalized.isEmpty() || category_index_of_tag(normalized) >= 0) {
             continue;
         }
-        custom_tags_.append(normalized);
+        categories_[index].tags.append(normalized);
         ++added;
     }
     if (added > 0) {
@@ -575,8 +849,38 @@ int WaveLibrary::register_tags(const QStringList& tags) {
     return added;
 }
 
-void WaveLibrary::set_builtin_tags_for_test(const QStringList& tags) {
-    builtin_tags_storage() = Wave::normalize_tags(tags);
+void WaveLibrary::add_builtin_tags_for_test(const QString& category, const QStringList& tags) {
+    const int index = index_of_category(categories_, category);
+    if (index < 0) {
+        return;
+    }
+    const QStringList normalized = Wave::normalize_tags(tags);
+    if (normalized.isEmpty()) {
+        return;
+    }
+    QStringList& stored = builtin_extra_tags_[categories_.at(index).name];
+    for (const QString& tag : normalized) {
+        if (index_of_tag(stored, tag) < 0) {
+            stored.append(tag);
+        }
+    }
+    // 按代码表重建分类：内置标签排在所属分类的用户标签之前
+    rebuild_categories();
+    emit tags_changed();
+}
+
+void WaveLibrary::add_builtin_wave_tags_for_test(const std::string& wave_name, const QStringList& tags) {
+    const QStringList normalized = Wave::normalize_tags(tags);
+    if (normalized.isEmpty()) {
+        return;
+    }
+    QStringList& stored = builtin_extra_wave_tags_[wave_name];
+    for (const QString& tag : normalized) {
+        if (index_of_tag(stored, tag) < 0) {
+            stored.append(tag);
+        }
+    }
+    apply_builtin_official_tags();
     emit tags_changed();
 }
 
@@ -959,8 +1263,15 @@ void WaveLibrary::load() {
     // 官方内置波形以资源为准，同名用户条目被覆盖
     load_official();
 
-    // 官方波形的标签是用户侧叠加数据：资源重建后按 tags.json 的 official_wave_tags 恢复
+    // 官方波形的标签 = 内置表自动挂载的内置标签 + tags.json 里的用户叠加标签
+    apply_builtin_official_tags();
     load_official_tags();
+
+    // 标签库读成 version 1 时按 version 2 重写一次：扁平标签已整体归入「用户自定义」分类
+    if (tags_need_migrate_) {
+        tags_need_migrate_ = false;
+        persist_tags();
+    }
 
     if (needs_persist) {
         persist();
@@ -1035,6 +1346,31 @@ void WaveLibrary::load_official() {
         "官方内置波形加载完成: " << loaded << " 个，跳过 " << skipped << " 个");
 }
 
+void WaveLibrary::apply_builtin_official_tags() {
+    int applied = 0;
+    for (auto& [name, wave] : waves_) {
+        if (!wave.is_official()) {
+            continue;
+        }
+        // 内置表挂载的标签排在前面，用户叠加标签按原顺序保留
+        QStringList mounted = builtin_tags_of_wave(name);
+        for (const QString& tag : wave.tags) {
+            if (index_of_tag(mounted, tag) < 0) {
+                mounted.append(tag);
+            }
+        }
+        if (mounted == wave.tags) {
+            continue;
+        }
+        wave.tags = mounted;
+        ++applied;
+    }
+    if (applied > 0) {
+        LOG_MODULE("WaveLibrary", "apply_builtin_official_tags", LOG_INFO,
+            "官方波形内置标签已挂载: " << applied << " 个波形");
+    }
+}
+
 void WaveLibrary::load_official_tags() {
     QFile file(QString::fromStdString(tags_file_path()));
     if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
@@ -1076,7 +1412,14 @@ void WaveLibrary::load_official_tags() {
         if (tags.isEmpty()) {
             continue;
         }
-        wave.tags = tags;
+        // 内置表挂上的内置标签保留在前，用户叠加标签追加在后
+        QStringList merged = wave.tags;
+        for (const QString& tag : tags) {
+            if (index_of_tag(merged, tag) < 0) {
+                merged.append(tag);
+            }
+        }
+        wave.tags = merged;
         ++applied;
     }
     LOG_MODULE("WaveLibrary", "load_official_tags", LOG_INFO,
@@ -1111,10 +1454,14 @@ std::string WaveLibrary::tags_file_path() const {
 }
 
 void WaveLibrary::load_tags() {
-    custom_tags_.clear();
+    // 内置分类的名称、顺序与内置标签只来自代码表，不落盘：每次加载都从代码表重建
+    categories_.clear();
+    rebuild_categories();
+    tags_need_migrate_ = false;
+
     QFile file(QString::fromStdString(tags_file_path()));
     if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
-        LOG_MODULE("WaveLibrary", "load_tags", LOG_INFO, "标签库文件缺失，自定义标签按空处理");
+        LOG_MODULE("WaveLibrary", "load_tags", LOG_INFO, "标签库文件缺失，用户标签按空处理");
         return;
     }
     const QByteArray data = file.readAll();
@@ -1128,38 +1475,91 @@ void WaveLibrary::load_tags() {
         LOG_MODULE("WaveLibrary", "load_tags", LOG_ERROR, "标签库解析失败: " << e.what());
         return;
     }
-    if (!json.contains("tags") || !json["tags"].is_array()) {
-        LOG_MODULE("WaveLibrary", "load_tags", LOG_WARN, "标签库缺少 tags 数组，按空处理");
-        return;
-    }
-    QStringList collected;
-    for (const auto& item : json["tags"]) {
-        if (item.is_string()) {
-            collected.append(QString::fromStdString(item.get<std::string>()));
+
+    std::vector<std::pair<QString, QStringList>> groups;
+    const auto categories_section = json.find(CATEGORIES_KEY);
+    if (categories_section != json.end() && categories_section->is_array()) {
+        for (const auto& item : *categories_section) {
+            if (!item.is_object()) {
+                continue;
+            }
+            const auto name = item.find("name");
+            if (name == item.end() || !name->is_string()) {
+                continue;
+            }
+            QStringList tags;
+            const auto tag_array = item.find("tags");
+            if (tag_array != item.end() && tag_array->is_array()) {
+                for (const auto& tag : *tag_array) {
+                    if (tag.is_string()) {
+                        tags.append(QString::fromStdString(tag.get<std::string>()));
+                    }
+                }
+            }
+            groups.emplace_back(QString::fromStdString(name->get<std::string>()), tags);
         }
     }
-    custom_tags_ = Wave::normalize_tags(collected);
+    else {
+        // version 1：扁平标签数组整体迁入「用户自定义」分类，加载完成后按 version 2 重写
+        QStringList legacy;
+        const auto legacy_section = json.find(LEGACY_TAGS_KEY);
+        if (legacy_section != json.end() && legacy_section->is_array()) {
+            for (const auto& item : *legacy_section) {
+                if (item.is_string()) {
+                    legacy.append(QString::fromStdString(item.get<std::string>()));
+                }
+            }
+        }
+        groups.emplace_back(TagCatalog::user_category_name(), legacy);
+        tags_need_migrate_ = true;
+    }
+
+    merge_category_groups(groups);
     LOG_MODULE("WaveLibrary", "load_tags", LOG_INFO,
-        "自定义标签已加载，共 " << custom_tags_.size() << " 个");
+        "标签库已加载：分类 " << categories_.size() << " 个，用户标签 " << custom_tags().size() << " 个");
 }
 
 void WaveLibrary::persist_tags() const {
     nlohmann::json json;
     json["version"] = TAGS_FILE_VERSION;
-    nlohmann::json tags = nlohmann::json::array();
-    for (const QString& tag : custom_tags_) {
-        tags.push_back(tag.toStdString());
+    // 只写用户侧数据：自建分类（含空分类）与各内置分类下的用户新增标签；内置标签不落盘
+    nlohmann::json categories = nlohmann::json::array();
+    for (const WaveTagCategory& category : categories_) {
+        QStringList user_tags;
+        for (const QString& tag : category.tags) {
+            if (!is_builtin_tag(tag)) {
+                user_tags.append(tag);
+            }
+        }
+        if (category.builtin && user_tags.isEmpty()) {
+            continue;
+        }
+        nlohmann::json entry;
+        entry["name"] = category.name.toStdString();
+        nlohmann::json tags = nlohmann::json::array();
+        for (const QString& tag : user_tags) {
+            tags.push_back(tag.toStdString());
+        }
+        entry["tags"] = tags;
+        categories.push_back(entry);
     }
-    json["tags"] = tags;
-    // 官方波形的标签单独成段：波形数据来自只读资源，标签是用户侧叠加数据
+    json[CATEGORIES_KEY] = categories;
+
+    // 官方波形的标签单独成段：波形数据来自只读资源，这里只存用户叠加的那部分
     nlohmann::json official_tags = nlohmann::json::object();
     for (const auto& [name, wave] : waves_) {
-        if (!wave.is_official() || wave.tags.isEmpty()) {
+        if (!wave.is_official()) {
             continue;
         }
         nlohmann::json tags_of_wave = nlohmann::json::array();
         for (const QString& tag : wave.tags) {
+            if (is_tag_builtin_mounted(name, tag)) {
+                continue;
+            }
             tags_of_wave.push_back(tag.toStdString());
+        }
+        if (tags_of_wave.empty()) {
+            continue;
         }
         official_tags[name] = tags_of_wave;
     }
@@ -1171,4 +1571,96 @@ void WaveLibrary::persist_tags() const {
         return;
     }
     output << json.dump(4);
+}
+
+void WaveLibrary::rebuild_categories() {
+    // 用户侧标签按分类名暂存，重建后按原顺序合并回去：代码表决定内置分类与内置标签
+    std::vector<std::pair<QString, QStringList>> groups;
+    for (const WaveTagCategory& category : categories_) {
+        QStringList user_tags;
+        for (const QString& tag : category.tags) {
+            if (!is_builtin_tag(tag)) {
+                user_tags.append(tag);
+            }
+        }
+        groups.emplace_back(category.name, user_tags);
+    }
+
+    categories_.clear();
+    for (const TagCategoryDef& def : TagCatalog::builtin_categories()) {
+        WaveTagCategory category;
+        category.name = def.name;
+        category.builtin = true;
+        category.tags = Wave::normalize_tags(def.tags);
+        for (const auto& [extra_category, extra_tags] : builtin_extra_tags_) {
+            if (extra_category.compare(def.name, Qt::CaseInsensitive) != 0) {
+                continue;
+            }
+            for (const QString& tag : extra_tags) {
+                if (index_of_tag(category.tags, tag) < 0) {
+                    category.tags.append(tag);
+                }
+            }
+        }
+        categories_.push_back(category);
+    }
+    merge_category_groups(groups);
+}
+
+void WaveLibrary::merge_category_groups(
+    const std::vector<std::pair<QString, QStringList>>& groups) {
+    for (const auto& [raw_name, tags] : groups) {
+        const QString name = raw_name.trimmed();
+        if (name.isEmpty()) {
+            continue;
+        }
+        int index = index_of_category(categories_, name);
+        if (index < 0) {
+            if (TagCatalog::is_builtin_category(name)) {
+                continue;
+            }
+            WaveTagCategory category;
+            category.name = name;
+            categories_.push_back(category);
+            index = static_cast<int>(categories_.size()) - 1;
+        }
+        for (const QString& tag : tags) {
+            const QString normalized = Wave::normalize_tag(tag);
+            // 标签名全库唯一：内置标签与先出现的分类已经占用的名字在这里丢弃
+            if (normalized.isEmpty() || category_index_of_tag(normalized) >= 0) {
+                continue;
+            }
+            categories_.at(index).tags.append(normalized);
+        }
+    }
+}
+
+int WaveLibrary::category_index_of_tag(const QString& tag) const {
+    const QString normalized = Wave::normalize_tag(tag);
+    if (normalized.isEmpty()) {
+        return -1;
+    }
+    for (int index = 0; index < static_cast<int>(categories_.size()); ++index) {
+        if (index_of_tag(categories_.at(index).tags, normalized) >= 0) {
+            return index;
+        }
+    }
+    return -1;
+}
+
+QStringList WaveLibrary::builtin_tags_of_wave(const std::string& wave_name) const {
+    QStringList result
+        = TagCatalog::builtin_tags_of_official_wave(QString::fromStdString(wave_name));
+    const QString name = QString::fromStdString(wave_name);
+    for (const auto& [extra_name, extra_tags] : builtin_extra_wave_tags_) {
+        if (QString::fromStdString(extra_name).compare(name, Qt::CaseInsensitive) != 0) {
+            continue;
+        }
+        for (const QString& tag : extra_tags) {
+            if (index_of_tag(result, tag) < 0) {
+                result.append(tag);
+            }
+        }
+    }
+    return Wave::normalize_tags(result);
 }
