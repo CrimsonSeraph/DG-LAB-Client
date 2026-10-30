@@ -8,7 +8,7 @@ import QtQuick.Layouts
 //          窄窗口整体退化为单列，单列时等高约束自然失效（行内只有一个孩子）。
 // 强度增减与波形选择已移出本页（迷你窗 / 波形设置页负责），卡内只留只读数值与说明。
 // 交互约定：页内导航按钮用 app.navigate，其余交互控件仍由 C++（UiConnector）按 objectName 连接。
-// 页头只留「规则编辑器」：插件中心经左侧导航进入，本页不再提供插件中心快捷入口。
+// 页头操作区给「迷你窗」与「规则编辑器」两个入口：插件中心经左侧导航进入，本页不提供插件中心快捷入口。
 Item {
     id: page
 
@@ -43,24 +43,15 @@ Item {
                     + " · " + (home.channelAState === "idle" && home.channelBState === "idle"
                         ? qsTr("通道空闲") : qsTr("通道运行中"))
 
-                AppButton {
-                    objectName: "homeRuleEditorButton"
-                    text: qsTr("规则编辑器")
-                }
-            }
-
-            // 迷你窗入口：打开无边框置顶的常驻小窗（可拖动 / 锁定 / 隐藏）
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Metrics.spacingMd
-
+                // 操作区从左到右：迷你窗入口（打开无边框置顶小窗）、规则编辑器
                 AppButton {
                     objectName: "homeMiniWindowEntryButton"
                     text: qsTr("迷你窗")
                 }
 
-                Item {
-                    Layout.fillWidth: true
+                AppButton {
+                    objectName: "homeRuleEditorButton"
+                    text: qsTr("规则编辑器")
                 }
             }
 
