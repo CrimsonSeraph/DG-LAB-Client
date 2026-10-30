@@ -16,13 +16,40 @@ namespace {
     // 「用户自定义」是内置分类（名字不可改）：用户在该分类下新建的标签属用户侧数据，不写在这里。
     const std::vector<TagCategoryDef>& category_table() {
         static const std::vector<TagCategoryDef> table = {
-            { QStringLiteral("使用部位"), {} },
-            { QStringLiteral("使用场景"), {} },
-            { QStringLiteral("频率风格"), {} },
-            { QStringLiteral("波形时长"), {} },
-            { QStringLiteral("播放速率"), {} },
-            { QStringLiteral("波形来源"), {} },
-            { QStringLiteral("用户自定义"), {} },
+            {QStringLiteral("使用部位"), {
+                                             QStringLiteral("肌肉（臀/腿/腹）"),
+                                             QStringLiteral("脚底"),
+                                             QStringLiteral("平滑肌（隐私部位）"),
+                                             QStringLiteral("体内（直肠/阴道）"),
+                                         }},
+            {QStringLiteral("使用场景"), {
+                                             QStringLiteral("前戏挑逗"),
+                                             QStringLiteral("刺激惩罚"),
+                                             QStringLiteral("高潮助力"),
+                                             QStringLiteral("按摩放松"),
+                                         }},
+            {QStringLiteral("频率风格"), {
+                                             QStringLiteral("纯高频"),
+                                             QStringLiteral("高频"),
+                                             QStringLiteral("低频"),
+                                             QStringLiteral("混合"),
+                                         }},
+            {QStringLiteral("波形时长"), {
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("10 秒-1 分钟"),
+                                             QStringLiteral("1-5 分钟"),
+                                             QStringLiteral("5 分钟以上"),
+                                         }},
+            {QStringLiteral("播放速率"), {
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("2X"),
+                                             QStringLiteral("4X"),
+                                         }},
+            {QStringLiteral("波形来源"), {
+                                             QStringLiteral("经典波形"),
+                                             QStringLiteral("自定义波形"),
+                                         }},
+            {QStringLiteral("用户自定义"), {}},
         };
         return table;
     }
@@ -31,7 +58,134 @@ namespace {
     // 条目按官方 App 的标签清单逐条追加，未追加时为空表。
     const std::map<QString, QStringList>& official_wave_tag_table() {
         static const std::map<QString, QStringList> table = {
-            // { QStringLiteral("呼吸"), { QStringLiteral("节奏") } },
+            {QStringLiteral("信号灯"), {
+                                           QStringLiteral("脚底"),
+                                           QStringLiteral("前戏挑逗"),
+                                           QStringLiteral("低频"),
+                                           QStringLiteral("10 秒以下"),
+                                           QStringLiteral("1X"),
+                                           QStringLiteral("经典波形"),
+                                       }},
+            {QStringLiteral("压缩"), {
+                                         QStringLiteral("肌肉（臀/腿/腹）"),
+                                         QStringLiteral("刺激惩罚"),
+                                         QStringLiteral("高频"),
+                                         QStringLiteral("10 秒以下"),
+                                         QStringLiteral("1X"),
+                                         QStringLiteral("经典波形"),
+                                     }},
+            {QStringLiteral("变速敲击"), {
+                                             QStringLiteral("肌肉（臀/腿/腹）"),
+                                             QStringLiteral("刺激惩罚"),
+                                             QStringLiteral("低频"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
+            {QStringLiteral("呼吸"), {
+                                         QStringLiteral("体内（直肠/阴道）"),
+                                         QStringLiteral("按摩放松"),
+                                         QStringLiteral("纯高频"),
+                                         QStringLiteral("10 秒以下"),
+                                         QStringLiteral("1X"),
+                                         QStringLiteral("经典波形"),
+                                     }},
+            {QStringLiteral("心跳节奏"), {
+                                             QStringLiteral("平滑肌（隐私部位）"),
+                                             QStringLiteral("前戏挑逗"),
+                                             QStringLiteral("混合"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
+            {QStringLiteral("快速按捏"), {
+                                             QStringLiteral("肌肉（臀/腿/腹）"),
+                                             QStringLiteral("刺激惩罚"),
+                                             QStringLiteral("纯高频"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
+            {QStringLiteral("按捏渐强"), {
+                                             QStringLiteral("肌肉（臀/腿/腹）"),
+                                             QStringLiteral("刺激惩罚"),
+                                             QStringLiteral("纯高频"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
+            {QStringLiteral("挑逗1"), {
+                                          QStringLiteral("平滑肌（隐私部位）"),
+                                          QStringLiteral("前戏挑逗"),
+                                          QStringLiteral("高频"),
+                                          QStringLiteral("10 秒以下"),
+                                          QStringLiteral("1X"),
+                                          QStringLiteral("经典波形"),
+                                      }},
+            {QStringLiteral("挑逗2"), {
+                                          QStringLiteral("平滑肌（隐私部位）"),
+                                          QStringLiteral("前戏挑逗"),
+                                          QStringLiteral("高频"),
+                                          QStringLiteral("10 秒以下"),
+                                          QStringLiteral("1X"),
+                                          QStringLiteral("经典波形"),
+                                      }},
+            {QStringLiteral("波浪涟漪"), {
+                                             QStringLiteral("平滑肌（隐私部位）"),
+                                             QStringLiteral("前戏挑逗"),
+                                             QStringLiteral("混合"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
+            {QStringLiteral("渐变弹跳"), {
+                                             QStringLiteral("脚底"),
+                                             QStringLiteral("前戏挑逗"),
+                                             QStringLiteral("高频"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
+            {QStringLiteral("潮汐"), {
+                                         QStringLiteral("体内（直肠/阴道）"),
+                                         QStringLiteral("按摩放松"),
+                                         QStringLiteral("高频"),
+                                         QStringLiteral("10 秒以下"),
+                                         QStringLiteral("1X"),
+                                         QStringLiteral("经典波形"),
+                                     }},
+            {QStringLiteral("节奏步伐"), {
+                                             QStringLiteral("脚底"),
+                                             QStringLiteral("前戏挑逗"),
+                                             QStringLiteral("纯高频"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
+            {QStringLiteral("连击"), {
+                                         QStringLiteral("肌肉（臀/腿/腹）"),
+                                         QStringLiteral("刺激惩罚"),
+                                         QStringLiteral("纯高频"),
+                                         QStringLiteral("10 秒以下"),
+                                         QStringLiteral("1X"),
+                                         QStringLiteral("经典波形"),
+                                     }},
+            {QStringLiteral("雨水冲刷"), {
+                                             QStringLiteral("脚底"),
+                                             QStringLiteral("按摩放松"),
+                                             QStringLiteral("混合"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
+            {QStringLiteral("颗粒摩擦"), {
+                                             QStringLiteral("肌肉（臀/腿/腹）"),
+                                             QStringLiteral("刺激惩罚"),
+                                             QStringLiteral("高频"),
+                                             QStringLiteral("10 秒以下"),
+                                             QStringLiteral("1X"),
+                                             QStringLiteral("经典波形"),
+                                         }},
         };
         return table;
     }
