@@ -6,8 +6,9 @@ import QtQuick.Shapes
 // 规则可视化编辑器（ComfyUI / UE 蓝图风格）。
 //
 // 信号处理器例外：本对话框的画布与节点手势（拖动、滚轮缩放、右键菜单、快捷键）
-// 属于 src/ui/README.md 中登记的"必须使用手势的视图"，允许写处理器；处理器只调用
-// ruleGraph（C++）的方法，图的增删改/复制粘贴/写回全部在 C++ 完成。
+// 属于 src/ui/README.md 中登记的"必须使用手势的视图"，允许写处理器；处理器只改画布自身的
+// 视图属性（平移、缩放、拖动增量）或调用 ruleGraph（C++）的方法，图的增删改/复制粘贴/写回
+// 全部在 C++ 完成。
 AppDialog {
     id: dialog
 
@@ -313,8 +314,14 @@ AppDialog {
                 property real panY: 20
                 property real zoom: 1.0
                 property int dragNodeId: -1
-                property real dragOffsetX: 0
-                property real dragOffsetY: 0
+                // 拖动增量（世界单位）：拖动期间节点与连线代理按它平移，模型坐标保持按下时的值
+                property real dragDx: 0
+                property real dragDy: 0
+                // 按下时的指针世界坐标与节点世界坐标：增量的基准与松手时的落点
+                property real dragOriginX: 0
+                property real dragOriginY: 0
+                property real dragNodeX: 0
+                property real dragNodeY: 0
                 property int connectFrom: -1
                 property real tempX: 0
                 property real tempY: 0
@@ -524,6 +531,14 @@ AppDialog {
                         model: ruleGraph.edges
 
                         delegate: Shape {
+                            id: edgeShape
+
+                            // 端点按被拖节点跟随增量平移，控制点与端点用同一组偏移
+                            readonly property real fromDx: canvas.dragNodeId === modelData.from ? canvas.dragDx : 0
+                            readonly property real fromDy: canvas.dragNodeId === modelData.from ? canvas.dragDy : 0
+                            readonly property real toDx: canvas.dragNodeId === modelData.to ? canvas.dragDx : 0
+                            readonly property real toDy: canvas.dragNodeId === modelData.to ? canvas.dragDy : 0
+
                             anchors.fill: parent
                             antialiasing: true
 
@@ -531,15 +546,15 @@ AppDialog {
                                 strokeColor: Theme.accent
                                 strokeWidth: ComponentStyle.edgeWidth
                                 fillColor: Theme.transparentFill
-                                startX: modelData.fromX
-                                startY: modelData.fromY
+                                startX: modelData.fromX + edgeShape.fromDx
+                                startY: modelData.fromY + edgeShape.fromDy
                                 PathCubic {
-                                    control1X: modelData.fromX + ComponentStyle.graphEdgeCurveOffset
-                                    control1Y: modelData.fromY
-                                    control2X: modelData.toX - ComponentStyle.graphEdgeCurveOffset
-                                    control2Y: modelData.toY
-                                    x: modelData.toX
-                                    y: modelData.toY
+                                    control1X: modelData.fromX + ComponentStyle.graphEdgeCurveOffset + edgeShape.fromDx
+                                    control1Y: modelData.fromY + edgeShape.fromDy
+                                    control2X: modelData.toX - ComponentStyle.graphEdgeCurveOffset + edgeShape.toDx
+                                    control2Y: modelData.toY + edgeShape.toDy
+                                    x: modelData.toX + edgeShape.toDx
+                                    y: modelData.toY + edgeShape.toDy
                                 }
                             }
                         }
@@ -588,8 +603,8 @@ AppDialog {
                         delegate: Rectangle {
                             property var nodeData: modelData
 
-                            x: modelData.x
-                            y: modelData.y
+                            x: nodeData.x + (canvas.dragNodeId === nodeData.id ? canvas.dragDx : 0)
+                            y: nodeData.y + (canvas.dragNodeId === nodeData.id ? canvas.dragDy : 0)
                             width: modelData.width
                             height: canvas.nodeHeight(modelData)
                             radius: Metrics.radiusSm
@@ -755,8 +770,12 @@ AppDialog {
                                 return;
                             }
                             canvas.dragNodeId = node.id;
-                            canvas.dragOffsetX = wx - node.x;
-                            canvas.dragOffsetY = wy - node.y;
+                            canvas.dragOriginX = wx;
+                            canvas.dragOriginY = wy;
+                            canvas.dragNodeX = node.x;
+                            canvas.dragNodeY = node.y;
+                            canvas.dragDx = 0;
+                            canvas.dragDy = 0;
                             return;
                         }
 
@@ -780,8 +799,10 @@ AppDialog {
                             canvas.tempY = wy;
                             return;
                         }
+                        // 拖动只更新增量：代理按增量平移，节点坐标在松手时一次性写入模型
                         if (canvas.dragNodeId >= 0) {
-                            ruleGraph.moveNode(canvas.dragNodeId, wx - canvas.dragOffsetX, wy - canvas.dragOffsetY);
+                            canvas.dragDx = wx - canvas.dragOriginX;
+                            canvas.dragDy = wy - canvas.dragOriginY;
                             return;
                         }
                         if (canvas.panning) {
@@ -798,6 +819,11 @@ AppDialog {
                         var dx = mouse.x - canvas.pressX;
                         var dy = mouse.y - canvas.pressY;
                         var moved = canvas.dragMoved || dx * dx + dy * dy >= canvas.clickMoveThreshold * canvas.clickMoveThreshold;
+                        // 拖动落点在复位增量前算好：模型里仍是按下时的坐标，新坐标 = 旧坐标 + 增量
+                        var dragId = canvas.dragNodeId;
+                        var dragX = canvas.dragNodeX + canvas.dragDx;
+                        var dragY = canvas.dragNodeY + canvas.dragDy;
+                        var dragged = dragId >= 0 && canvas.dragMoved;
                         if (canvas.connectFrom > 0) {
                             // 原地松开只是点击输出端口，不产生连线
                             var port = moved ? canvas.inputPortAt(wx, wy) : null;
@@ -809,10 +835,16 @@ AppDialog {
                         } else if (!moved && mouse.button === Qt.LeftButton && canvas.pressNodeId > 0) {
                             canvas.handleNodeClick(canvas.pressNodeId, wx, wy);
                         }
+                        // 复位与提交同处一个语句块：增量归零后到模型写回之间不会画出一帧原位
                         canvas.dragNodeId = -1;
+                        canvas.dragDx = 0;
+                        canvas.dragDy = 0;
                         canvas.panning = false;
                         canvas.pressNodeId = -1;
                         canvas.dragMoved = false;
+                        if (dragged) {
+                            ruleGraph.moveNode(dragId, dragX, dragY);
+                        }
                     }
 
                     onWheel: function (wheel) {
