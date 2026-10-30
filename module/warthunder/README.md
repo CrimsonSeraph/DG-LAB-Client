@@ -56,8 +56,7 @@
 | `mach_high` | 马赫数上穿 0.80 | `mach` `cross_above` 800 | `transonic` 跨音速 / `supersonic` 超音速 |
 | `telemetry_update` | 遥测状态更新 | `valid` `any` | `lost` 数据中断 |
 
-阈值取定标后的整数值：`g_load` 的 30 是 3.0G（×10），`climb` 的 100 是 10 m/s（×10），`mach` 的 800 是 Mach 0.80（×1000）。
-事件覆盖 `cross_below` / `cross_above` / `increase` / `decrease` / `any` 五种比较方式，语义见 [`docs/event-mapping.md`](../../docs/event-mapping.md)。
+阈值取定标后的整数值：`g_load` 的 30 是 3.0G（×10），`climb` 的 100 是 10 m/s（×10），`mach` 的 800 是 Mach 0.80（×1000）。事件覆盖 `cross_below` / `cross_above` / `increase` / `decrease` / `any` 五种比较方式，语义见 [`docs/event-mapping.md`](../../docs/event-mapping.md)。
 
 模块名与插件 `name()` 一致，均为 `warthunder`；展示名「战争雷霆」来自侧车 `meta/plugin.json` 的 `name` 字段。
 

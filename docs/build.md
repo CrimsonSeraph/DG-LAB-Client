@@ -124,10 +124,10 @@ powershell -NoProfile -Command "Get-Process -Name `DG-LAB-Client` -ErrorAction S
 cd build-agent/Release && (QT_FORCE_STDERR_LOGGING=1 QT_ASSUME_STDERR_HAS_CONSOLE=1 ./DG-LAB-Client.exe > out.txt 2> err.txt &) ; sleep 8
 ```
 
-  验收要求 `err.txt` 0 字节。日志文件开关：config 里 `app.log.file_enabled=true` 会写 `<exe>/log/dglab-YYYYMMDD.log`。
+验收要求 `err.txt` 0 字节。日志文件开关：config 里 `app.log.file_enabled=true` 会写 `<exe>/log/dglab-YYYYMMDD.log`。
+
 - **Windows 11 托盘图标默认进折叠区**：`QSystemTrayIcon` 无法程序化把图标移出折叠区（该位置归系统与用户所有），应用只能用一次 Toast 引导用户自己拖出来，状态记在 `user.json` 的 `app.ui.tray_hint_shown`。不要试图用 `Shell_NotifyIcon` 的附加标志绕过，Win11 不提供该能力。
-- **退出耗时基线（本机实测，中位数）**：`app.exec()` 返回后到进程结束约 **320 ms**（空闲，6 次）/ **459 ms**（郊狼蓝牙在线，6 次）/ **338 ms**（连接后再断开，3 次）；其中 QML 引擎析构只占 **11–15 ms**、窗口销毁约 50 ms、`QApplication` 析构约 40 ms，剩下的主要是静态析构期的配置保存与 CRT 退出。
-  **原先记录的「退出约 5.6 s」（含历史 4811 ms 引擎析构）在本机无法复现**：实测引擎析构始终在 20 ms 以内。当时的退出路径其实会段错误（`DeviceController::online_outputs()` 踩到已销毁设备、`LogBridge` 的 sink 回调在静态析构期被触发），崩溃收尾（WER 之类）很可能把「进程消失」的整体计时拖长了。**后续不要按 5.6 s 去优化**，要改就按上表逐段量。
+- **退出耗时基线（本机实测，中位数）**：`app.exec()` 返回后到进程结束约 **320 ms**（空闲，6 次）/ **459 ms**（郊狼蓝牙在线，6 次）/ **338 ms**（连接后再断开，3 次）；其中 QML 引擎析构只占 **11–15 ms**、窗口销毁约 50 ms、`QApplication` 析构约 40 ms，剩下的主要是静态析构期的配置保存与 CRT 退出。 **原先记录的「退出约 5.6 s」（含历史 4811 ms 引擎析构）在本机无法复现**：实测引擎析构始终在 20 ms 以内。当时的退出路径其实会段错误（`DeviceController::online_outputs()` 踩到已销毁设备、`LogBridge` 的 sink 回调在静态析构期被触发），崩溃收尾（WER 之类）很可能把「进程消失」的整体计时拖长了。**后续不要按 5.6 s 去优化**，要改就按上表逐段量。
 - **重新测退出需要临时打点**：用环境变量门控的 `QCoreApplication::quit()` 触发（不要用鼠标注入点托盘菜单），打点代码标 `// TEMP-EXIT-PROBE` / `// TEMP-VERIFY-PROBE`，交付前必须删除并重建。
 - **换行策略**：仓库 `.gitattributes` 是 `* text=auto eol=crlf`，索引（Git 对象）内统一存 LF，工作区应该是 CRLF。`git ls-files --eol` 若出现 `w/lf`，用「删文件 + `git checkout -- <文件>`」按属性重写即可——git 对「内容等价但只差换行」的文件不会主动重写，必须删掉再检出；重写后 `git diff` 仍为空（零内容变更），提交里不会出现任何行。
 - **界面取证禁用 PostMessage 注入**：本机 PostMessage 注入的鼠标与键盘消息对该 Qt 进程无效（返回成功但界面无反应），历史上曾据此得出「已点击验证」的假结论。界面取证一律改用 **UI Automation**（InvokePattern / ValuePattern），或直接函数级单测 + PrintWindow 静态截图，并在报告里区分「界面验证」与「函数级验证」。

@@ -37,7 +37,10 @@
             "id": "gift",
             "label": "礼物",
             "trigger": { "value": "hp", "compare": "decrease", "amount": 1 },
-            "options": [{ "id": "heart", "label": "小心心" }, { "id": "rose", "label": "玫瑰" }]
+            "options": [
+                { "id": "heart", "label": "小心心" },
+                { "id": "rose", "label": "玫瑰" }
+            ]
         }
     ]
 }
@@ -109,7 +112,10 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
     "id": "hurt",
     "label": "受伤",
     "trigger": { "value": "hp", "compare": "decrease", "amount": 1 },
-    "options": [{ "id": "light", "label": "轻伤" }, { "id": "heavy", "label": "重伤" }]
+    "options": [
+        { "id": "light", "label": "轻伤" },
+        { "id": "heavy", "label": "重伤" }
+    ]
 }
 ```
 
@@ -142,9 +148,9 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
 
 通道上限不在插件下，而在全局的 `app.channels.<通道>`，详见「通道上限」：
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `app.channels.<通道>.limit` | number | 通道上限，缺省 200 |
+| 字段                         | 类型   | 说明                                 |
+| ---------------------------- | ------ | ------------------------------------ |
+| `app.channels.<通道>.limit`  | number | 通道上限，缺省 200                   |
 | `app.channels.<通道>.safety` | number | 安全上限，输出强度的硬钳制，缺省 150 |
 
 `user.json` 的片段（插件映射在 `app.plugins.<模块名>` 下，通道配置在全局的 `app.channels`）：
@@ -163,8 +169,24 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
                         "merge": "multiply",
                         "weight": 1.0,
                         "options": {
-                            "heart": { "channel": "A", "operation": "increase", "mode": "value", "value": 5, "percent": 0, "step": 1, "edited_at": 0 },
-                            "rose": { "channel": "A", "operation": "set", "mode": "percent", "value": 0, "percent": 20, "step": 1, "edited_at": 0 }
+                            "heart": {
+                                "channel": "A",
+                                "operation": "increase",
+                                "mode": "value",
+                                "value": 5,
+                                "percent": 0,
+                                "step": 1,
+                                "edited_at": 0
+                            },
+                            "rose": {
+                                "channel": "A",
+                                "operation": "set",
+                                "mode": "percent",
+                                "value": 0,
+                                "percent": 20,
+                                "step": 1,
+                                "edited_at": 0
+                            }
                         }
                     }
                 },
@@ -189,12 +211,12 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
 
 ### operation
 
-| 取值 | 行为 |
-| --- | --- |
-| `increase` | 在当前强度上增加，增量取自 `mode` 选中的字段 |
-| `set` | 直接把强度设为给定值，受第六节互斥约束 |
-| `decrease` | 在当前强度上减少，减量取自 `mode` 选中的字段 |
-| `ramp_up` | 每个 100ms 帧对累加器增加 `step`，直到到达目标值，仅 `mode=value` |
+| 取值        | 行为                                                              |
+| ----------- | ----------------------------------------------------------------- |
+| `increase`  | 在当前强度上增加，增量取自 `mode` 选中的字段                      |
+| `set`       | 直接把强度设为给定值，受第六节互斥约束                            |
+| `decrease`  | 在当前强度上减少，减量取自 `mode` 选中的字段                      |
+| `ramp_up`   | 每个 100ms 帧对累加器增加 `step`，直到到达目标值，仅 `mode=value` |
 | `ramp_down` | 每个 100ms 帧对累加器减少 `step`，直到到达目标值，仅 `mode=value` |
 
 `ramp_up` / `ramp_down` 的帧固定 100ms；ramp 的目标值是该子选项按 `mode` 算出的值，每帧对累加器 ±`step`，到达目标即结束该 ramp 并归零。单个 ramp 激活最多 100 帧（10 秒）作保护，超时同样结束并归零。
@@ -205,9 +227,9 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
 
 ### mode
 
-| 取值 | 生效字段 |
-| --- | --- |
-| `value` | `value` 生效，`percent` 忽略 |
+| 取值      | 生效字段                     |
+| --------- | ---------------------------- |
+| `value`   | `value` 生效，`percent` 忽略 |
 | `percent` | `percent` 生效，`value` 忽略 |
 
 ### dataType
@@ -226,11 +248,11 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
 
 ### merge
 
-| 取值 | 行为 |
-| --- | --- |
-| `multiply` | 各路结果相乘 |
-| `max` | 取各路结果的最大值 |
-| `min` | 取各路结果的最小值 |
+| 取值       | 行为                 |
+| ---------- | -------------------- |
+| `multiply` | 各路结果相乘         |
+| `max`      | 取各路结果的最大值   |
+| `min`      | 取各路结果的最小值   |
 | `weighted` | 按 `weight` 加权合并 |
 
 `weighted` 的计算为 `Σ(weight_i × v_i) / Σ(weight_i)`；`weight` 缺省 1.0；`Σweight = 0` 时退化为算术平均。
@@ -305,12 +327,12 @@ war thunder 的高度下穿（插件注册的数值 id 为 `altitude`，单位�
 
 每次触发记录一条流水，供迷你窗展示：
 
-| 记录字段 | 说明 |
-| --- | --- |
-| 时间 | 触发时刻 |
-| 模块 | 插件模块标识（`IPlugin::name()`） |
-| 事件 | 事件的 `label` |
-| 子选项 | 子选项的 `label`；无子选项时留空 |
-| 通道 | 实际输出的通道 `A` / `B` |
-| 操作 | `operation` 取值 |
-| 变化量 | 本次输出引起的强度变化量 |
+| 记录字段 | 说明                              |
+| -------- | --------------------------------- |
+| 时间     | 触发时刻                          |
+| 模块     | 插件模块标识（`IPlugin::name()`） |
+| 事件     | 事件的 `label`                    |
+| 子选项   | 子选项的 `label`；无子选项时留空  |
+| 通道     | 实际输出的通道 `A` / `B`          |
+| 操作     | `operation` 取值                  |
+| 变化量   | 本次输出引起的强度变化量          |

@@ -108,25 +108,25 @@
 
 ## 五、对比度约束
 
-| 约束                                       | 下限   | 说明                             |
-| ------------------------------------------ | ------ | -------------------------------- |
-| `textPrimary` / `surface`                  | 7.0:1  | WCAG AAA，正文主色               |
-| `textPrimary` / `surfaceAlt`、`windowBg`   | 4.5:1  | 次级背景上的主文字仍可读         |
-| `textSecondary` / `surface`、`surfaceAlt`  | 4.5:1  | WCAG AA                          |
-| `textMuted` / `surface`、`surfaceAlt`      | 4.5:1  | WCAG AA                          |
-| `border` / `surface`、`surfaceAlt`         | 1.35:1 | 描边可辨（非文字，按可感知下限） |
-| `divider` / `surface`、`surfaceAlt`        | 1.15:1 | 分隔线/网格可辨                  |
-| `danger`、`warning`、`success` / `surface` | 4.5:1  | 语义色作为文字/描边时可读        |
-| `accentText` / `accent`、`hover`、`pressed` | 4.5:1  | 强调色按钮三种状态的填充文字     |
-| `selectionBg` / `surface`                 | 1.20:1 | 选中带相对底色可辨               |
-| `textPrimary` / `selectionBg`             | 4.5:1  | 下拉委托等画在选中带上的主文字   |
-| `selectionText` / `selectionBg`           | 4.5:1  | 导航选中态文字与其背景           |
-| `dangerText` / `danger`、`dangerPressed` | 4.5:1  | 危险按钮填充文字与其底色         |
+| 约束 | 下限 | 说明 |
+| --- | --- | --- |
+| `textPrimary` / `surface` | 7.0:1 | WCAG AAA，正文主色 |
+| `textPrimary` / `surfaceAlt`、`windowBg` | 4.5:1 | 次级背景上的主文字仍可读 |
+| `textSecondary` / `surface`、`surfaceAlt` | 4.5:1 | WCAG AA |
+| `textMuted` / `surface`、`surfaceAlt` | 4.5:1 | WCAG AA |
+| `border` / `surface`、`surfaceAlt` | 1.35:1 | 描边可辨（非文字，按可感知下限） |
+| `divider` / `surface`、`surfaceAlt` | 1.15:1 | 分隔线/网格可辨 |
+| `danger`、`warning`、`success` / `surface` | 4.5:1 | 语义色作为文字/描边时可读 |
+| `accentText` / `accent`、`hover`、`pressed` | 4.5:1 | 强调色按钮三种状态的填充文字 |
+| `selectionBg` / `surface` | 1.20:1 | 选中带相对底色可辨 |
+| `textPrimary` / `selectionBg` | 4.5:1 | 下拉委托等画在选中带上的主文字 |
+| `selectionText` / `selectionBg` | 4.5:1 | 导航选中态文字与其背景 |
+| `dangerText` / `danger`、`dangerPressed` | 4.5:1 | 危险按钮填充文字与其底色 |
 | `dangerOnAlt` / `warningOnAlt` / `successOnAlt` / `surfaceAlt` | 4.5:1 | 语义色画在次级表面上 |
-| `focusRing` / `surface`、`surfaceAlt`     | 3.0:1  | 焦点环（WCAG 非文本）            |
-| `textDisabled` / `surfaceDisabled`        | 3.0:1  | 禁用态文字（WCAG 非文本下限）    |
-| `borderDisabled` / `surfaceDisabled`      | 1.35:1 | 禁用态描边可辨                   |
-| `surfacePressed` / `textPrimary`           | 4.5:1  | 中性控件按下态文字               |
+| `focusRing` / `surface`、`surfaceAlt` | 3.0:1 | 焦点环（WCAG 非文本） |
+| `textDisabled` / `surfaceDisabled` | 3.0:1 | 禁用态文字（WCAG 非文本下限） |
+| `borderDisabled` / `surfaceDisabled` | 1.35:1 | 禁用态描边可辨 |
+| `surfacePressed` / `textPrimary` | 4.5:1 | 中性控件按下态文字 |
 
 约束由 `ThemeManager.cpp` 中的 `relative_luminance` / `contrast_ratio` / `ensure_contrast` / `ensure_background` / `selection_band` 保证：对不达标的前景/背景按 1% 步进向黑或白逼近，直到达标；由于黑白极值通常足以满足上述下限，结果确定且与主题数量无关。`selectionText` 的搜索目标取 4.55:1，留出 16 位通道量化余量。
 
@@ -134,35 +134,35 @@
 
 按 `recompute()` 复现计算后的关键组合（17 套预设全部 ≥ 下限，下表取三套代表）：
 
-| 组合 | 下限 | 浅色模式 | 深色模式 | 炭黑甜粉 |
-| --- | --- | --- | --- | --- |
-| `accentText` / `accent` | 4.5 | 4.91 | 5.26 | 4.67 |
-| `accentText` / `hover` | 4.5 | 6.21 | 6.19 | 5.44 |
-| `accentText` / `pressed` | 4.5 | 10.16 | 8.36 | 7.51 |
-| `selectionBg` / `surface` | 1.20 | 1.22 | 1.70 | 1.60 |
-| `textPrimary` / `selectionBg` | 4.5 | 5.84 | 7.42 | 9.23 |
-| `selectionText` / `selectionBg` | 4.5 | 4.60 | 4.58 | 4.59 |
-| `hover` / `pressed`（按下可见性） | — | 1.64 | 1.35 | 1.38 |
-| `dangerText` / `danger` | 4.5 | 5.44 | 6.15 | 5.51 |
-| `dangerText` / `dangerHover` | 4.5 | 6.40 | 7.03 | 6.36 |
-| `dangerText` / `dangerPressed` | 4.5 | 4.52 | 5.16 | 4.61 |
-| `dangerOnAlt` / `surfaceAlt` | 4.5 | 5.05 | 4.55 | 4.52 |
-| `warningOnAlt` / `surfaceAlt` | 4.5 | 4.55 | 4.51 | 4.54 |
-| `successOnAlt` / `surfaceAlt` | 4.5 | 4.64 | 4.55 | 4.51 |
-| `textDisabled` / `surfaceDisabled` | 3.0 | 4.77 | 5.53 | 6.86 |
-| `focusRing` / `surface` | 3.0 | 4.66 | 5.74 | 5.68 |
-| `borderDisabled` / `surfaceDisabled` | 1.35 | 1.43 | 1.97 | 1.97 |
+| 组合                                 | 下限 | 浅色模式 | 深色模式 | 炭黑甜粉 |
+| ------------------------------------ | ---- | -------- | -------- | -------- |
+| `accentText` / `accent`              | 4.5  | 4.91     | 5.26     | 4.67     |
+| `accentText` / `hover`               | 4.5  | 6.21     | 6.19     | 5.44     |
+| `accentText` / `pressed`             | 4.5  | 10.16    | 8.36     | 7.51     |
+| `selectionBg` / `surface`            | 1.20 | 1.22     | 1.70     | 1.60     |
+| `textPrimary` / `selectionBg`        | 4.5  | 5.84     | 7.42     | 9.23     |
+| `selectionText` / `selectionBg`      | 4.5  | 4.60     | 4.58     | 4.59     |
+| `hover` / `pressed`（按下可见性）    | —    | 1.64     | 1.35     | 1.38     |
+| `dangerText` / `danger`              | 4.5  | 5.44     | 6.15     | 5.51     |
+| `dangerText` / `dangerHover`         | 4.5  | 6.40     | 7.03     | 6.36     |
+| `dangerText` / `dangerPressed`       | 4.5  | 4.52     | 5.16     | 4.61     |
+| `dangerOnAlt` / `surfaceAlt`         | 4.5  | 5.05     | 4.55     | 4.52     |
+| `warningOnAlt` / `surfaceAlt`        | 4.5  | 4.55     | 4.51     | 4.54     |
+| `successOnAlt` / `surfaceAlt`        | 4.5  | 4.64     | 4.55     | 4.51     |
+| `textDisabled` / `surfaceDisabled`   | 3.0  | 4.77     | 5.53     | 6.86     |
+| `focusRing` / `surface`              | 3.0  | 4.66     | 5.74     | 5.68     |
+| `borderDisabled` / `surfaceDisabled` | 1.35 | 1.43     | 1.97     | 1.97     |
 
 17 套预设扫描结论：上述组合**全部达标**；主文字令牌（`textPrimary` / `textSecondary` / `textMuted` / `accent` 对 `surface`）的派生未改动，浅色模式 7.10 / 4.71 / 4.71 / 4.66、深色模式 12.65 / 6.93 / 5.76 / 5.74 与改造前一致。
 
 选中态由**两个令牌成对**承担：`selectionBg`（着色带）+`selectionText`（选中文字）。`selectionBg` 上只画 `textPrimary`（下拉委托）或 `selectionText`（导航选中），不再出现 `accentText`，因此无需让同一个背景同时对两极达标。四套代表主题的取值：
 
-| mode | `selectionBg` | `selectionText` | `textPrimary` | `accent` | `pressed` |
-| --- | --- | --- | --- | --- | --- |
-| `light` | `#E0E4E9` | `#5E656A` | `#4F565A` | `#697277` | `#3D4245` |
-| `night` | `#3F4953` | `#B2B8BF` | `#E6E8EA` | `#959EA7` | `#C2C7CC` |
-| `charcoal_pink` | `#593142` | `#F088B1` | `#FCE7EF` | `#EC6599` | `#F4A6C4` |
-| `classic` | `#54503E` | `#F1E3A6` | `#FDFCF4` | `#F1E3A6` | `#F7EFCB` |
+| mode            | `selectionBg` | `selectionText` | `textPrimary` | `accent`  | `pressed` |
+| --------------- | ------------- | --------------- | ------------- | --------- | --------- |
+| `light`         | `#E0E4E9`     | `#5E656A`       | `#4F565A`     | `#697277` | `#3D4245` |
+| `night`         | `#3F4953`     | `#B2B8BF`       | `#E6E8EA`     | `#959EA7` | `#C2C7CC` |
+| `charcoal_pink` | `#593142`     | `#F088B1`       | `#FCE7EF`     | `#EC6599` | `#F4A6C4` |
+| `classic`       | `#54503E`     | `#F1E3A6`       | `#FDFCF4`     | `#F1E3A6` | `#F7EFCB` |
 
 按下态：`pressed` 朝背离 `accentText` 的方向混 42%，`accentText` 在按下态的对比度随之升到 7.5:1 以上，且按下比悬停明显更深/更亮一档（三套代表主题 `hover`/`pressed` 对比度 1.64 / 1.35 / 1.38）。17 套中最紧的是克莱因黄、藤紫钛绿、马尔斯玫瑰、经典（1.06–1.10）：它们的 `accent` 本就接近白色，`accentText` 为深色，「背离文字」的方向很快撞到白色上限；再往深处走会跌破 4.5:1，故取物理可达的最大步进。
 
@@ -192,13 +192,13 @@
 
 原生控件不带主题，输入类控件统一使用 `src/ui/qml/components/` 下的封装（全部从 `Theme` 取色）：
 
-| 控件           | 基于        | 说明                                          |
-| -------------- | ----------- | --------------------------------------------- |
-| `AppSpinBox`   | `SpinBox`   | 内容区、上下指示器、背景全部主题化            |
+| 控件 | 基于 | 说明 |
+| --- | --- | --- |
+| `AppSpinBox` | `SpinBox` | 内容区、上下指示器、背景全部主题化 |
 | `AppTextField` | `TextField` | 文字/占位符/选区/背景主题化，聚焦描边转焦点环 |
-| `AppTextArea`  | `TextArea`  | 同上，用于表达式等长文本                      |
-| `AppComboBox`  | `ComboBox`  | 内容区、指示器、弹层、委托全部主题化          |
-| `AppCheckBox`  | `CheckBox`  | 指示器与文字主题化，选中态用强调色            |
+| `AppTextArea` | `TextArea` | 同上，用于表达式等长文本 |
+| `AppComboBox` | `ComboBox` | 内容区、指示器、弹层、委托全部主题化 |
+| `AppCheckBox` | `CheckBox` | 指示器与文字主题化，选中态用强调色 |
 | `AppButton` / `NavButton` | `Button` | 强调/危险/中性三态，按下用 `pressed` / `dangerPressed` / `surfacePressed`；导航选中态为 `selectionBg` + `selectionText` |
 | `AppColorDialog` | `AppDialog` | 取色对话框：颜色预览块、HEX 输入与三条 HSV 滑杆；底色、描边、文字与滑杆全部取 `Theme` 令牌，随主题切换 |
 

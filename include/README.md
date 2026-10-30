@@ -62,15 +62,15 @@ include/
 | `Module.h`        | 模块（数值集合与通道挂载）                    |
 | `ModuleManager.h` | 数值调度、变化推送、插件宿主（`IPluginHost`） |
 | `DataListener.h`  | 通用数据接收器与解析器接口                    |
-| `PluginMeta.h`  | 展示元数据侧车（`plugin.json`）读取             |
+| `PluginMeta.h`    | 展示元数据侧车（`plugin.json`）读取           |
 
 ## 四、wave/ · ble/ · net/ · device/
 
-| 文件                        | 描述                           |
-| --------------------------- | ------------------------------ |
-| `wave/Wave.h`               | V3 波形模型（段落 → 八字节帧） |
-| `wave/WaveLibrary.h`        | 波形库与 A/B 当前波形          |
-| `ble/IOutputDevice.h`      | 输出设备抽象接口（连接状态、电量、强度下发与回显、波形下发与进度、软上限、三个接口信号） |
+| 文件 | 描述 |
+| --- | --- |
+| `wave/Wave.h` | V3 波形模型（段落 → 八字节帧） |
+| `wave/WaveLibrary.h` | 波形库与 A/B 当前波形 |
+| `ble/IOutputDevice.h` | 输出设备抽象接口（连接状态、电量、强度下发与回显、波形下发与进度、软上限、三个接口信号） |
 | `ble/CoyoteBleController.h` | 郊狼 V3 蓝牙直连（B0/BF/B1），实现 `IOutputDevice`；兼任扫描与连接入口，负鼠型号转交负鼠驱动 |
 | `ble/OpossumBleController.h` | 负鼠振动控制器 V1 蓝牙直连（B0/B3/B2），实现 `IOutputDevice`，驱动支持程度固定为实验性 |
 | `ble/OpossumFrames.h` | 负鼠指令构造纯函数（B0 / B3 / B2 两形态）与郊狼 V3 帧 → 负鼠强度字节转换 |
@@ -79,8 +79,8 @@ include/
 | `ble/CivetBleController.h` | 灵猫边缘控制传感器 V1 输入侧蓝牙直连（50 指令 + D0 气压 + 0x1500 电量），**不实现 `IOutputDevice`**，驱动支持程度固定为实验性 |
 | `ble/CivetFrames.h` | 灵猫 50 / 66 指令构造与 D0 气压宽容解析（第 8、9 字节小端 ÷ 100 = kPa）纯函数，含电量 1 字节百分比 |
 | `device/DeviceValueBridge.h` | 设备数值桥：爪印通知 → `paw` 模块、灵猫气压 → `civet` 模块（`paw_values` / `civet_values` 定义表与钳制），并持有两个模块的内置事件声明 |
-| `net/DglabRelayServer.h`    | 应用内 V3/V4 中转服务（含二维码载荷与展示文本接口） |
-| `net/IpSelector.h`          | 局域网地址选择器（候选网卡枚举、黑/白名单、手动选中地址，QML 侧经 `device.ipSelector` 读取） |
+| `net/DglabRelayServer.h` | 应用内 V3/V4 中转服务（含二维码载荷与展示文本接口） |
+| `net/IpSelector.h` | 局域网地址选择器（候选网卡枚举、黑/白名单、手动选中地址，QML 侧经 `device.ipSelector` 读取） |
 
 ## 五、plugin/
 
@@ -92,21 +92,21 @@ include/
 
 ## 六、ui/
 
-| 文件                 | 描述                                          |
-| -------------------- | --------------------------------------------- |
-| `ThemeManager.h`     | 主题令牌（QML 单例 `Theme`）                  |
-| `AppBridge.h`        | 应用信息与页面导航                            |
+| 文件 | 描述 |
+| --- | --- |
+| `ThemeManager.h` | 主题令牌（QML 单例 `Theme`） |
+| `AppBridge.h` | 应用信息与页面导航 |
 | `DeviceController.h` | 内置中转服务、二维码载荷与展示文本、指令下发与回传 |
-| `HomeBridge.h`       | 首页通道面板数据                              |
-| `ModuleBridge.h`     | 模块页数据与操作                              |
-| `WaveBridge.h`       | 波形库与波形编辑器草稿                        |
-| `RuleGraphBridge.h`  | 规则图编辑器桥接                              |
-| `LogBridge.h`        | 界面日志收集与导出                            |
-| `QrImageProvider.h`  | 二维码图像提供者（载荷为官方终端二维码协议格式） |
+| `HomeBridge.h` | 首页通道面板数据 |
+| `ModuleBridge.h` | 模块页数据与操作 |
+| `WaveBridge.h` | 波形库与波形编辑器草稿 |
+| `RuleGraphBridge.h` | 规则图编辑器桥接 |
+| `LogBridge.h` | 界面日志收集与导出 |
+| `QrImageProvider.h` | 二维码图像提供者（载荷为官方终端二维码协议格式） |
 | `ModuleBannerImageProvider.h` | 插件侧车头图提供者（`image://modulebanner`，id 只接受「插件文件名 + 纯文件名」两段） |
-| `UiConnector.h`      | QML↔C++ 连接集中点                            |
-| `UpdateBridge.h`     | 更新界面桥接（QML 上下文属性 `updateBridge`） |
-| `TrayController.h`   | 系统托盘：图标与三项菜单（显示主窗口 / 显示迷你窗 / 退出）、主窗口关闭落点 |
+| `UiConnector.h` | QML↔C++ 连接集中点 |
+| `UpdateBridge.h` | 更新界面桥接（QML 上下文属性 `updateBridge`） |
+| `TrayController.h` | 系统托盘：图标与三项菜单（显示主窗口 / 显示迷你窗 / 退出）、主窗口关闭落点 |
 
 ## 关键协议与约定
 
@@ -186,14 +186,14 @@ include/
 
 ### 规则图节点与连线（`rule/RuleGraph.h`）
 
-| 节点类型   | 语义                                                                           |
-| ---------- | ------------------------------------------------------------------------------ |
-| `Rule`     | 规则节点：输入端口数量 = `valuePattern` 中 `{}` 的个数，带内容的 `{}` 显示名称 |
-| `Module`   | 模块源节点：来自某个已启用模块的数值                                           |
-| `Operator` | 基础运算节点：`+ - * /`（结果向下取整）                                        |
-| `Advanced` | 高级节点：`abs` / `square` / `sqrt` / `expression`（自定义表达式）             |
-| `Channel`  | 通道输出节点：`A` / `B`（单输入，同一通道只允许一个来源）                      |
-| `pluginOutput`  | 插件输出节点：只在总规则图出现、无输入端口，带 `pluginId`（归属插件）与 `references`（恒为一条 `plugin:<插件标识>`），取值 = 对应插件图默认输出的求值结果 |
+| 节点类型 | 语义 |
+| --- | --- |
+| `Rule` | 规则节点：输入端口数量 = `valuePattern` 中 `{}` 的个数，带内容的 `{}` 显示名称 |
+| `Module` | 模块源节点：来自某个已启用模块的数值 |
+| `Operator` | 基础运算节点：`+ - * /`（结果向下取整） |
+| `Advanced` | 高级节点：`abs` / `square` / `sqrt` / `expression`（自定义表达式） |
+| `Channel` | 通道输出节点：`A` / `B`（单输入，同一通道只允许一个来源） |
+| `pluginOutput` | 插件输出节点：只在总规则图出现、无输入端口，带 `pluginId`（归属插件）与 `references`（恒为一条 `plugin:<插件标识>`），取值 = 对应插件图默认输出的求值结果 |
 | `defaultOutput` | 默认输出节点：每个插件规则图恰好一个、单输入（本图唯一出口），带 `pluginId` 与 `references`（引用它的图标识，如 `["top"]`） |
 
 求值顺序为先插件图（默认输出节点的上游子图）、后总规则图（插件输出节点 → 通道节点，通道启用时下发绝对强度）；口径与规则节点的 `valuePattern` 一致，详见 [docs/rule-graph.md](../docs/rule-graph.md)。
@@ -214,13 +214,13 @@ QML 不写信号处理器（`onClicked` / `Connections`），每个交互控件�
 
 ```json
 {
-  "version": "2.4.0",
-  "release_notes": "...",
-  "platforms": {
-    "windows": { "file": "...", "sha256": "..." },
-    "macos":   { "file": "...", "sha256": "..." },
-    "linux":   { "file": "...", "sha256": "..." }
-  }
+    "version": "2.4.0",
+    "release_notes": "...",
+    "platforms": {
+        "windows": { "file": "...", "sha256": "..." },
+        "macos": { "file": "...", "sha256": "..." },
+        "linux": { "file": "...", "sha256": "..." }
+    }
 }
 ```
 

@@ -20,41 +20,31 @@
             "id": "health_critical",
             "label": "血量濒死",
             "trigger": { "value": "health", "compare": "cross_below", "amount": 25 },
-            "options": [
-                { "id": "near_death", "label": "濒死" }
-            ]
+            "options": [{ "id": "near_death", "label": "濒死" }]
         },
         {
             "id": "armor_break",
             "label": "护甲耗尽",
             "trigger": { "value": "armor", "compare": "cross_below", "amount": 1 },
-            "options": [
-                { "id": "cracked", "label": "护甲击破" }
-            ]
+            "options": [{ "id": "cracked", "label": "护甲击破" }]
         },
         {
             "id": "helmet_pickup",
             "label": "拾取头盔",
             "trigger": { "value": "has_helmet", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "helmet", "label": "头盔" }
-            ]
+            "options": [{ "id": "helmet", "label": "头盔" }]
         },
         {
             "id": "defuser_pickup",
             "label": "拾取拆弹器",
             "trigger": { "value": "has_defuser", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "defuser", "label": "拆弹器" }
-            ]
+            "options": [{ "id": "defuser", "label": "拆弹器" }]
         },
         {
             "id": "flash_blind",
             "label": "被闪光致盲",
             "trigger": { "value": "flashed", "compare": "cross_above", "amount": 128 },
-            "options": [
-                { "id": "blind", "label": "致盲" }
-            ]
+            "options": [{ "id": "blind", "label": "致盲" }]
         },
         {
             "id": "flash_recover",
@@ -66,9 +56,7 @@
             "id": "smoked_start",
             "label": "进入烟雾",
             "trigger": { "value": "smoked", "compare": "cross_above", "amount": 1 },
-            "options": [
-                { "id": "smoked", "label": "烟雾中" }
-            ]
+            "options": [{ "id": "smoked", "label": "烟雾中" }]
         },
         {
             "id": "smoke_clear",
@@ -80,9 +68,7 @@
             "id": "burning_start",
             "label": "开始燃烧",
             "trigger": { "value": "burning", "compare": "cross_above", "amount": 1 },
-            "options": [
-                { "id": "burning", "label": "燃烧中" }
-            ]
+            "options": [{ "id": "burning", "label": "燃烧中" }]
         },
         {
             "id": "kill",
@@ -97,9 +83,7 @@
             "id": "headshot",
             "label": "爆头击杀",
             "trigger": { "value": "round_killhs", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "headshot", "label": "爆头" }
-            ]
+            "options": [{ "id": "headshot", "label": "爆头" }]
         },
         {
             "id": "damage_dealt",
@@ -111,49 +95,45 @@
             "id": "death",
             "label": "自身阵亡",
             "trigger": { "value": "deaths", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "death", "label": "阵亡" }
-            ]
+            "options": [{ "id": "death", "label": "阵亡" }]
         },
         {
             "id": "mvp",
             "label": "获得 MVP",
             "trigger": { "value": "mvps", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "mvp", "label": "MVP" }
-            ]
+            "options": [{ "id": "mvp", "label": "MVP" }]
         },
         {
             "id": "assist",
             "label": "助攻",
             "trigger": { "value": "assists", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "assist", "label": "助攻" }
-            ]
+            "options": [{ "id": "assist", "label": "助攻" }]
         },
         {
             "id": "kill_total",
             "label": "总击杀增加",
             "trigger": { "value": "kills", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "kill", "label": "击杀" }
-            ]
+            "options": [{ "id": "kill", "label": "击杀" }]
         },
         {
             "id": "ct_loss_streak",
             "label": "CT 连败增加",
-            "trigger": { "value": "ct_consecutive_round_losses", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "ct_loss", "label": "CT 连续失利" }
-            ]
+            "trigger": {
+                "value": "ct_consecutive_round_losses",
+                "compare": "increase",
+                "amount": 1
+            },
+            "options": [{ "id": "ct_loss", "label": "CT 连续失利" }]
         },
         {
             "id": "t_loss_streak",
             "label": "T 连败增加",
-            "trigger": { "value": "t_consecutive_round_losses", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "t_loss", "label": "T 连续失利" }
-            ]
+            "trigger": {
+                "value": "t_consecutive_round_losses",
+                "compare": "increase",
+                "amount": 1
+            },
+            "options": [{ "id": "t_loss", "label": "T 连续失利" }]
         },
         {
             "id": "money_surge",
@@ -177,17 +157,13 @@
             "id": "ct_score_up",
             "label": "CT 得分",
             "trigger": { "value": "ct_score", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "ct_round", "label": "CT 回合得分" }
-            ]
+            "options": [{ "id": "ct_round", "label": "CT 回合得分" }]
         },
         {
             "id": "t_score_up",
             "label": "T 得分",
             "trigger": { "value": "t_score", "compare": "increase", "amount": 1 },
-            "options": [
-                { "id": "t_round", "label": "T 回合得分" }
-            ]
+            "options": [{ "id": "t_round", "label": "T 回合得分" }]
         },
         {
             "id": "bomb_state_advance",
@@ -204,17 +180,13 @@
             "id": "bomb_exploded",
             "label": "炸弹爆炸",
             "trigger": { "value": "bomb_state", "compare": "cross_above", "amount": 2 },
-            "options": [
-                { "id": "exploded", "label": "爆炸" }
-            ]
+            "options": [{ "id": "exploded", "label": "爆炸" }]
         },
         {
             "id": "bomb_defused",
             "label": "炸弹拆除",
             "trigger": { "value": "bomb_state", "compare": "cross_above", "amount": 3 },
-            "options": [
-                { "id": "defused", "label": "拆除" }
-            ]
+            "options": [{ "id": "defused", "label": "拆除" }]
         },
         {
             "id": "round_phase_change",

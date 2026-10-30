@@ -4,7 +4,6 @@
 
 ## 编译与运行
 
-
 <details>
 <summary><b>Q1: CMake 配置时找不到 Qt</b></summary>
 

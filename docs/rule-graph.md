@@ -40,7 +40,13 @@
 两个新增节点都携带插件标识（`pluginId`）与引用列表（`references`）：
 
 ```json
-{ "id": 5, "type": "defaultOutput", "name": "默认输出", "pluginId": "my_plugin", "references": [ "top" ] }
+{
+    "id": 5,
+    "type": "defaultOutput",
+    "name": "默认输出",
+    "pluginId": "my_plugin",
+    "references": ["top"]
+}
 ```
 
 数据层不变量：
@@ -78,13 +84,13 @@
 
 `RuleManager::get_graph_dependencies(graph, from_node_id)` 返回 `GraphDependency`：
 
-| 字段 | 含义 |
-| --- | --- |
-| `rules` | 上游可达的规则节点名 |
-| `value_ids` | 上游可达的模块数值 ID |
-| `channels` | 上游可达的通道（`A`/`B`） |
-| `plugins` | 图涉及的插件标识（输出节点归属与引用） |
-| `events` | 依赖插件声明的事件，写作 `<插件标识>/<事件 ID>` |
+| 字段        | 含义                                            |
+| ----------- | ----------------------------------------------- |
+| `rules`     | 上游可达的规则节点名                            |
+| `value_ids` | 上游可达的模块数值 ID                           |
+| `channels`  | 上游可达的通道（`A`/`B`）                       |
+| `plugins`   | 图涉及的插件标识（输出节点归属与引用）          |
+| `events`    | 依赖插件声明的事件，写作 `<插件标识>/<事件 ID>` |
 
 起点为通道节点或输出节点时得到「该输出依赖的子规则/事件」；`from_node_id = 0` 表示整图。总规则图查询会并入其插件输出节点对应插件图的依赖（只展开一层）：因此「启动总规则图的通道 A」即可拿到 `my_plugin` 图里的规则与事件。事件来自插件侧车声明（`ModuleManager::get_plugins()`），仅供启用级联判定，不改变求值流程。
 
@@ -106,12 +112,12 @@
 
 求值顺序固定为「先插件图、后总规则图」，由 `RuleManager::evaluate_graph_outputs()` 统一驱动，调用时机与规则计算同一周期：
 
-| 时机 | 触发点 |
-| --- | --- |
-| 模块数值变化 | `RuleManager::on_module_value_changed`（与规则级联计算同一次回调） |
-| 通道启用 | `RuleManager::set_channel_enabled(channel, true)` 解锁后立即求值一帧 |
-| 图输出启用 | `RuleManager::set_graph_output_enabled(graph_ref, true)` |
-| 手动 | `RuleManager::evaluate_graph_outputs()` |
+| 时机         | 触发点                                                               |
+| ------------ | -------------------------------------------------------------------- |
+| 模块数值变化 | `RuleManager::on_module_value_changed`（与规则级联计算同一次回调）   |
+| 通道启用     | `RuleManager::set_channel_enabled(channel, true)` 解锁后立即求值一帧 |
+| 图输出启用   | `RuleManager::set_graph_output_enabled(graph_ref, true)`             |
+| 手动         | `RuleManager::evaluate_graph_outputs()`                              |
 
 每一步的口径：
 

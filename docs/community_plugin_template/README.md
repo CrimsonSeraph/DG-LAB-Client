@@ -31,16 +31,16 @@ docs/community_plugin_template/
 
 侧车文件放在 `meta/plugin.json`，字段全部可选，缺失或 JSON 损坏时模块页回退到默认展示名。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | string | 插件标识，约定与 `name()` 一致 |
-| `name` | string | 展示名（模块页标题） |
-| `version` | string | 插件版本，建议与 `version()` 一致 |
-| `author` | string | 作者 |
-| `description` | string | 一句话简介 |
-| `banner` | string | 头图文件名，相对侧车目录；留空则不显示头图 |
-| `tags` | string[] | 标签，模块页显示为徽标 |
-| `events` | object[] | 事件声明（触发容器与子选项），示例见下文 |
+| 字段          | 类型     | 说明                                       |
+| ------------- | -------- | ------------------------------------------ |
+| `id`          | string   | 插件标识，约定与 `name()` 一致             |
+| `name`        | string   | 展示名（模块页标题）                       |
+| `version`     | string   | 插件版本，建议与 `version()` 一致          |
+| `author`      | string   | 作者                                       |
+| `description` | string   | 一句话简介                                 |
+| `banner`      | string   | 头图文件名，相对侧车目录；留空则不显示头图 |
+| `tags`        | string[] | 标签，模块页显示为徽标                     |
+| `events`      | object[] | 事件声明（触发容器与子选项），示例见下文   |
 
 ### 事件声明示例（events）
 
