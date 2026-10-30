@@ -14,6 +14,10 @@ GlassCard {
     objectName: "dashboardWaveCard" + root.channel
     title: qsTr("通道 %1 波形").arg(root.channel)
 
+    // 无障碍：整卡作为 Pane 暴露（UIA 与辅助技术能读到卡片范围与标题）
+    Accessible.role: Accessible.Pane
+    Accessible.name: root.title
+
     readonly property string waveName: {
         const name = (root.channel === "B") ? waveBridge.currentB : waveBridge.currentA;
         return (name === undefined || name === null) ? "" : String(name);

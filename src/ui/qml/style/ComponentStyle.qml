@@ -46,6 +46,10 @@ QtObject {
     readonly property int configIpFieldWidth: 180
     readonly property int configPortFieldWidth: 100
 
+    // 插件卡：插件中心网格统一卡片高度——有无头图、头图是否加载失败都占同一格，
+    // 无头图的卡片保留同高占位并居中显示内容，不再比有图卡片矮一截
+    readonly property int pluginCardHeight: 168
+
     // 模块卡片
     readonly property int moduleCardWidth: 232
     readonly property int moduleCardHeight: 118

@@ -49,7 +49,6 @@
 | [docs/wave-data.md](docs/wave-data.md) | 波形数据结构、标签规则与导入导出 |
 | [docs/theme.md](docs/theme.md) | 主题令牌、预设配色与对比度 |
 | [docs/community_plugin_template/README.md](docs/community_plugin_template/README.md) | 社区插件模板 |
-| [docs/ui-optimization-plan.md](docs/ui-optimization-plan.md) | 阶段三前的界面分析快照（历史，不再更新） |
 | [CHANGELOG.md](CHANGELOG.md) | 更新日志 |
 | [CONTRIBUTING.md](CONTRIBUTING.md)、[CodingStyle.md](CodingStyle.md)、[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 贡献流程、编码规范、行为准则 |
 | [screenshot/README.md](screenshot/README.md) | 截图目录、规格与重新生成步骤 |

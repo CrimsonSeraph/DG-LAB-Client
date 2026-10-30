@@ -51,7 +51,12 @@ Item {
     }
 
     implicitWidth: Metrics.navWidth + Metrics.spacing3xl * 2
-    implicitHeight: cardBody.implicitHeight + statusRow.implicitHeight + root.cardGap
+    // 统一高度令牌：插件中心网格里所有卡片同高，有无头图、头图是否加载失败都不改变卡片高度
+    implicitHeight: ComponentStyle.pluginCardHeight
+
+    // 无障碍：整卡作为 Pane 暴露（辅助技术与 UIA 能读到卡片范围与标题），内部按钮仍各自独立可读
+    Accessible.role: Accessible.Pane
+    Accessible.name: root.cardTitle
 
     Item {
         id: cardShell

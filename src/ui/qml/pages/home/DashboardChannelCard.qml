@@ -13,6 +13,10 @@ GlassCard {
     objectName: "dashboardChannel" + root.channel + "Card"
     title: qsTr("通道 %1 · 模块与规则").arg(root.channel)
 
+    // 无障碍：整卡作为 Pane 暴露（UIA 与辅助技术能读到卡片范围与标题）
+    Accessible.role: Accessible.Pane
+    Accessible.name: root.title
+
     // 分组之间用 groupSpacing 分隔，组内保持「小标题 + 留白」，不画内层描边
     Column {
         id: groups

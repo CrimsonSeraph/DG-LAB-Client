@@ -170,5 +170,4 @@ DG-LAB-Client/
 - [build.md](build.md)：构建、测试、环境事实与验收清单
 - [faq.md](faq.md)：常见问题
 - [screenshots.md](screenshots.md)：截图清单
-- [ui-optimization-plan.md](ui-optimization-plan.md)：阶段三前的界面分析快照（历史）
 - [../include/README.md](../include/README.md)、[../src/README.md](../src/README.md)、[../src/ui/README.md](../src/ui/README.md)：分层与界面控件契约

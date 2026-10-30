@@ -405,6 +405,9 @@ void UiConnector::attach(QObject* root_object) {
     // 插件卡规则入口：卡片由 Repeater 生成，沿网格可视化子树扫描按钮（点击时从 sender 取插件标识）
     watch_items(root_object, "pluginCardGrid", QStringLiteral("pluginRuleEntryButton"),
         SLOT(on_plugin_rule_entry_clicked()));
+    // 插件详情页头部的规则入口是静态单实例，按 objectName 直连；同一槽按 sender 的
+    // pluginModule / ruleGraphExists 定位插件图，与卡片走同一条路径
+    connect_clicked(root_object, "pluginDetailRuleEntryButton", SLOT(on_plugin_rule_entry_clicked()));
     // 按钮文案随启用状态与规则图文件存在性变化：加载插件列表 / 启停插件 / 保存规则后各刷一次
     if (module_ != nullptr) {
         QObject::connect(module_, &ModuleBridge::dataChanged, this, &UiConnector::refresh_plugin_rule_entries);

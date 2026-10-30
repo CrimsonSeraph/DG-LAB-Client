@@ -310,6 +310,9 @@ Item {
                 visible: page.detailVisible && page.selectedPlugin !== null
                 item: page.selectedPlugin
                 eventsItem: page.selectedEvents
+                // 与网格卡片同一份数据：详情页的规则按钮据此在「创建规则 / 编辑规则」之间切换
+                hasRuleGraph: page.selectedPlugin !== null
+                    && page.hasRuleGraph(page.selectedPlugin.moduleName)
                 onBack: page.detailVisible = false
             }
 

@@ -12,6 +12,8 @@ Item {
     property var item: null
     property var eventsItem: null
     property int activeTab: 0
+    // 与插件卡同一份数据（pluginCenterPage.ruleGraphPlugins）派生：该插件已有规则图文件时为真
+    property bool hasRuleGraph: false
 
     signal back()
 
@@ -186,6 +188,39 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: Metrics.spacing2xl
                 spacing: Metrics.spacingMd
+
+                // 规则入口：口径与插件卡一致（未启用不显示；无规则图文件为「创建规则」，有则「编辑规则」），
+                // 点击由 C++（UiConnector）按 objectName 连接并直达该插件图
+                AppButton {
+                    id: ruleEntryButton
+
+                    objectName: "pluginDetailRuleEntryButton"
+                    visible: root.enabledState
+                    text: root.hasRuleGraph ? qsTr("编辑规则") : qsTr("创建规则")
+
+                    // 下面两个属性由 C++ 侧点击时读取（sender 的属性），用于定位插件图并写日志
+                    property string pluginModule: root.moduleName
+                    property bool ruleGraphExists: root.hasRuleGraph
+
+                    // 图标 + 文案：创建用加号（f067），编辑用钢笔（f304），颜色只取令牌
+                    contentItem: RowLayout {
+                        spacing: Metrics.spacingXs
+
+                        AppIcon {
+                            icon: ruleEntryButton.ruleGraphExists ? "f304" : "f067"
+                            size: Typography.fontBody
+                            color: Theme.textPrimary
+                        }
+
+                        Text {
+                            text: ruleEntryButton.text
+                            color: Theme.textPrimary
+                            font.pixelSize: Typography.fontBody
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
 
                 AppButton {
                     text: root.enabledState ? qsTr("停用插件") : qsTr("启用插件")

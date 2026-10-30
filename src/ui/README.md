@@ -40,7 +40,7 @@ src/ui/
 │   ├── pages/
 │   │   ├── HomePage.qml        # 主页看板：设备 / 通道 / 插件 / 触发流水（导航第 1 项）
 │   │   ├── home/              # 看板卡片：设备状态、通道行与通道卡、已启用插件、触发流水
-│   │   ├── PluginCenterPage.qml # 插件中心（导航第 2 项，当前为骨架）
+│   │   ├── PluginCenterPage.qml # 插件中心：搜索 / 分类 / 网格与列表、已启用栏、同页插件详情（导航第 2 项）
 │   │   ├── WavePage.qml        # 波形设置：目标通道、A/B 波形预览、波形库与编辑器入口（导航第 3 项）
 │   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
 │   │   ├── LogPage.qml         # 日志：列表、级别过滤与手动导出选项（导航第 5 项）
@@ -95,7 +95,7 @@ src/ui/
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整；默认设备口径另见 `outputDevices`（在线输出设备列表）/ `defaultDevice`（当前默认设备 MAC）/ `defaultDeviceIndex`（默认设备在列表中的下标，无默认设备为 -1）与写入口 `setDefaultDeviceIndex(index)`；上限取默认设备的 `min(limit, safety)`，切换默认设备后立即跟随；另带波形下发状态 `waveSending{A,B}`（是否正在下发）、`waveFrame{A,B}`（当前帧序号，1 起）、`waveFrames{A,B}`（总帧数，未下发时为 0），三者同随 `waveStateChanged` 广播 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
 | `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）；标签库分两层（内置标签是代码常量、不可删，自定义标签存 `config/waves/tags.json`），`tagLibrary` / `builtinTags` / `customTags` / `tagTargetName` / `tagMaxLength` 供波形页与标签选择器使用，删除自定义标签时把该标签从使用中的波形上一并移除；官方 16 个波形的标签是用户侧叠加数据（存同一文件的 `official_wave_tags` 段，重新加载官方资源后恢复），其帧与名称仍只读（波形数据结构与标签规则见 [docs/wave-data.md](../../docs/wave-data.md)） |
-| `ble` | `CoyoteBleController` | 蓝牙扫描/连接入口（郊狼 V3 与负鼠 V1 共用一份扫描列表）：电量、强度、波形播放；已连接设备的蓝牙 MAC 与型号经 `deviceAddress` / `deviceModel` 暴露，作为默认设备配置键（`app.devices.<MAC>`、`app.output.default_device`）；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务）。电量特征（0x1500）订阅通知并主动读取一次，两者回包都解析成百分比写入 `battery`，连接期间每 60 秒再读一次；重连后按最近一次绝对强度重发。扫描结果先按该 MAC 记忆的型号（`app.devices.<MAC>.model`）识别、再按蓝牙名 `47L1xxxx` 前缀分类（`kModelTable`），行上给出驱动支持程度三态（`support` / `supportText`，见下节）：郊狼 V3（`47L121`）为「已支持」；负鼠（`47L127`）、爪印（`47L120`）、灵猫（`47L124`）为「实验性」但驱动已实现、可点选连接（行内提示「实验性驱动已实现，未经实机验证」）；爪印 V1.0（`47L120100`）为「暂不支持」，提示需先升级固件；未登记的 `47L1` 前缀与非 `47L1` 设备（手机、耳机、手环等）一律「暂不支持」，行不可点击且 `connectDevice()` 同样拒绝并说明原因（「未登记的 DG-LAB 型号」/「非 DG-LAB 设备」），避免误连后写入不匹配的指令；记忆命中时按记忆型号的状态处理，因此广播名变成系统占位名的郊狼仍以「已支持」可连接。扫描与链路分离：本类只负责发现与型号识别（按 MAC 去重），驱动实例由 `BleDeviceManager` 按型号创建并以 MAC 登记，郊狼 / 负鼠可同时在线且互不打断；`connected` / `deviceName` / `battery` / `strengthA` / `strengthB` / `status` / `deviceAddress` / `deviceModel` 都是**默认设备**（用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者）的只读快照，`connectedLinks` 给出全部已连接设备（MAC / 型号 / 电量 / 连接序号）；`screenSyncAvailable` 取默认设备的屏幕同步回执；扫描列表的每行带 `address` / `model` / `type` / `connected` 与三态 `support` / `supportText`，已连接行在名称后追加「· 已连接」；爪印 / 灵猫本阶段仍是各一个固定实例，第二台同型号连接会被拒绝并说明原因 |
+| `ble` | `CoyoteBleController` | 蓝牙扫描/连接入口（郊狼 V3 与负鼠 V1 共用一份扫描列表）：电量、强度、波形播放；已连接设备的蓝牙 MAC 与型号经 `deviceAddress` / `deviceModel` 暴露，作为默认设备配置键（`app.devices.<MAC>`、`app.output.default_device`）；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务）。电量特征（0x1500）订阅通知并主动读取一次，两者回包都解析成百分比写入 `battery`，连接期间每 60 秒再读一次；重连后按最近一次绝对强度重发。扫描结果先按该 MAC 记忆的型号（`app.devices.<MAC>.model`）识别、再按蓝牙名 `47L1xxxx` 前缀分类（`kModelTable`），行上给出驱动支持程度三态（`support` / `supportText`，见下节）：郊狼 V3（`47L121`）为「已支持」；负鼠（`47L127`）、爪印（`47L120`）、灵猫（`47L124`）为「实验性」但驱动已实现、可点选连接（行内提示「实验性驱动已实现，未经实机验证」）；爪印 V1.0（`47L120100`）为「暂不支持」，提示需先升级固件；未登记的 `47L1` 前缀与非 `47L1` 设备（手机、耳机、手环等）一律「暂不支持」，行不可点击且 `connectDevice()` 同样拒绝并说明原因（「未登记的 DG-LAB 型号」/「非 DG-LAB 设备」），避免误连后写入不匹配的指令；记忆命中时按记忆型号的状态处理，因此广播名变成系统占位名的郊狼仍以「已支持」可连接。扫描与链路分离：本类只负责发现与型号识别（按 MAC 去重），驱动实例由 `BleDeviceManager` 按型号创建并以 MAC 登记，郊狼 / 负鼠可同时在线且互不打断；`connected` / `deviceName` / `battery` / `strengthA` / `strengthB` / `status` / `deviceAddress` / `deviceModel` 都是**默认设备**（用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者）的只读快照，`connectedLinks` 给出全部已连接设备（MAC / 型号 / 电量 / 连接序号）；`screenSyncAvailable` 取默认设备的屏幕同步回执；扫描列表的每行带 `address` / `model` / `type` / `connected` 与三态 `support` / `supportText`，已连接行在名称后追加「· 已连接」；爪印 / 灵猫按 MAC 各建实例，多台同型号可同时在线（每台一份 `paw_<后四位>` / `civet_<后四位>` 模块，后四位撞车追加 `_2` / `_3`） |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
 | `Theme` | `ThemeManager`（QML 单例） | 主题令牌（17 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
@@ -141,7 +141,9 @@ src/ui/
 
 主页已改为看板：按三行排列——设备状态卡与「已启用插件 + 近期触发」同行、通道 A 卡与通道 A 波形卡同行、通道 B 卡与通道 B 波形卡同行；页头只保留「规则编辑器」一个快捷入口（插件中心经左侧导航进入，原「插件管理」按钮已移除；模块页入口与波形设置入口同样已移除）。强度调节不在本页（后续由迷你窗提供），波形选择在波形设置页。
 
-`homePage` / `homeScrollView` / `homeDashboardGrid` 为页面根项、滚动视图与两列看板栅格（`columns` 随 `page.singleColumn` 在 2 / 1 之间切换，单列时六张卡按「设备状态 → 插件+触发 → 通道 A → A 波形 → 通道 B → B 波形」顺序排列）；`homeDashboardRightStack` 是「已启用插件 + 近期触发」的纵向滚动容器（`Flickable`，两列时高度由同行的设备状态卡决定，`contentHeight` 取自内部 `ColumnLayout` 位置器，内容超出时在该区域内部滚动；单列时没有同行伙伴，按内容自然高度交给页面滚动）。原 `homeDashboardLeftColumn` / `homeDashboardRightColumn` 两个列容器已随三行重排移除。
+`homePage` / `homeScrollView` / `homeDashboardGrid` 为页面根项、滚动视图与两列看板栅格（`columns` 随 `page.singleColumn` 在 2 / 1 之间切换，单列时六张卡按「设备状态 → 插件+触发 → 通道 A → A 波形 → 通道 B → B 波形」顺序排列）；`homeDashboardRightStack` 是「已启用插件 + 近期触发」的纵向滚动容器（`Flickable`，两列时高度由同行的设备状态卡决定，`contentHeight` 取内部 `ColumnLayout` 位置器的 `max(隐式高度, 可视高度)`，内容超出时在该区域内部滚动；单列时没有同行伙伴，按内容自然高度交给页面滚动）。原 `homeDashboardLeftColumn` / `homeDashboardRightColumn` 两个列容器已随三行重排移除。
+
+看板逐行等高靠 `Layout.fillHeight`：`GridLayout` 的行高取该行两个孩子期望高度中的较大者，两个孩子都设 `Layout.fillHeight: true` 拉满格高，因此通道卡与波形卡、设备状态卡与右列组合逐行等高（此前只有右列设了 `fillHeight`，波形卡停在自身期望高度，看起来比通道卡矮一截）。右列内部同样用 `fillHeight`：`ColumnLayout` 高度撑到可视高度后，多出来的空间由「近期触发」卡吸收，组合高度正好等于设备状态卡。单列时每行只有一个孩子，行高即它的期望高度，等高约束自然不生效。
 
 | objectName | 行为 |
 | --- | --- |
@@ -149,13 +151,13 @@ src/ui/
 | `dashboardDeviceDot` / `dashboardDeviceState` / `dashboardDeviceAppState` | 状态点、蓝牙状态行（`蓝牙链路 N 条` / `蓝牙未连接`，N 取 `ble.connectedLinkCount`，与左下角面板、状态栏同一句文案）、App 状态行（`App 已连接 ×N` / `App 未连接`）：只读 |
 | `dashboardDeviceBleName` / `dashboardOutputBadge` / `dashboardRelayState` | 蓝牙设备名、输出可用性徽标（`device.outputReady`）、中转摘要（`中转 已连接 · ip:port`）：只读 |
 | `homeDefaultDeviceCombo` / `homeDefaultDeviceEmpty` | 默认设备下拉（`AppComboBox`，`model: home.outputDevices`、`textRole: "name"`、`currentIndex: home.defaultDeviceIndex`）：只列**在线输出设备**（爪印、灵猫是纯输入设备，不进列表），切换由 `UiConnector::on_home_default_device_activated(int)` → `HomeBridge::setDefaultDeviceIndex()` → `DeviceController::setDefaultDeviceByIndex()` 落到 `app.output.default_device`，随后强度、波形与事件波形的下发目标与上下限一起改用该设备；列表为空时下拉隐藏、显示 `homeDefaultDeviceEmpty` 的「无在线输出设备」 |
-| `dashboardChannel{A,B}Card` | 通道卡根节点（`GlassCard`）：只读展示该通道已挂载模块与直连规则 |
+| `dashboardChannel{A,B}Card` | 通道卡根节点（`GlassCard`）：只读展示该通道已挂载模块与直连规则；卡根项带 `Accessible.role: Pane` + 通道标题，UIA / 读屏可读到整卡范围 |
 | `dashboardChannel{A,B}Hint` | 通道卡脚注「强度调节与波形选择将在迷你窗与波形设置页提供」：只读 |
 | `dashboardChannel{A,B}Name` / `dashboardChannel{A,B}Badge` | 通道状态行（`pages/home/DashboardChannelRow.qml`）的通道名与状态徽标（未运行 / 运行中 / 无输出）：只展示不给交互 |
 | `channel{A,B}StartButton` | 切换通道启用状态（同步规则引擎通道变量）；位置已移到设备状态卡的通道行，沿用旧 `objectName`，运行态为 `danger` + `outline` |
 | `dashboardPluginCard` / `dashboardPluginCount` | 已启用插件卡与其中的计数（`moduleBridge.modules` 中 `kind` 为 plugin 且已启用的项）；行热区点击经 `app.openPluginDetail(fileName)` 直达该插件详情（插件文件名缺失时退化为 `app.navigate(pluginCenterPage)` 只切页），该处理器尚未迁到 C++ |
 | `dashboardTriggerCard` / `dashboardTriggerEmpty` | 近期触发流水卡（最近 8 条）与无记录时的空态文案：只读 |
-| `dashboardWaveCardA` / `dashboardWaveCardB` | 单通道波形卡（`pages/home/DashboardWaveCard.qml`，由 `channel` 属性决定渲染哪一路，`objectName` 按 `"dashboardWaveCard" + channel` 派生）。原 `dashboardWaveCard`（A/B 并排一张卡）已拆分，旧名不再存在；`UiConnector` 未引用这批名字，拆分不需要 C++ 改动 |
+| `dashboardWaveCardA` / `dashboardWaveCardB` | 单通道波形卡（`pages/home/DashboardWaveCard.qml`，由 `channel` 属性决定渲染哪一路，`objectName` 按 `"dashboardWaveCard" + channel` 派生）。原 `dashboardWaveCard`（A/B 并排一张卡）已拆分，旧名不再存在；`UiConnector` 未引用这批名字，拆分不需要 C++ 改动；卡根项带 `Accessible.role: Pane` + 通道标题（同上） |
 | `dashboardWaveName{A,B}` | 该通道当前波形名（`waveBridge.currentA/currentB`）：未绑定波形时隐藏 |
 | `dashboardWaveSparkline{A,B}` | 该通道强度曲线：取 `waveBridge.amplitudeA/amplitudeB`（每帧 4 个强度字节取均值，0~100），静态绘制 |
 | `dashboardWaveStrength{A,B}` | 该通道「强度 / 上限」数字行（`home.strength{A,B}` / `home.limit{A,B}`）：只读 |
@@ -302,14 +304,15 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `modulePeriodCombo` | 统一查询周期下拉（`periodOptions`，文案为毫秒数值）；`currentIndex` 绑定 `moduleBridge.uniformPeriodIndex` 回显实际周期（全部数值一致时为该周期下标，不一致为 -1、无选中项，未注册数值时按 `basePeriodMs` 回显）；`activated` 与「应用」共用同一槽 |
 | `modulePeriodMismatchHint` | 「各数值周期不一致」提示，仅 `uniformPeriodIndex < 0` 时可见：只读 |
 | `modulePeriodApplyButton` | 把所选周期应用到全部数值 |
-| `pluginCardGrid` | 插件卡片网格（`GridLayout`，`columns` 随网格 / 列表视图在 2 / 1 之间切换）：`UiConnector::watch_items()` 沿它扫描每张卡上的规则入口按钮 |
+| `pluginCardGrid` | 插件卡片网格（`GridLayout`，`columns` 随网格 / 列表视图在 2 / 1 之间切换）：`UiConnector::watch_items()` 沿它扫描每张卡上的规则入口按钮；每张卡高度取统一令牌 `ComponentStyle.pluginCardHeight`，有无头图、头图是否加载失败都一样高（无图时 `AppCard` 的内容整块垂直居中，不留空白头图槽也不变成矮卡）；卡根项带 `Accessible.role: Pane` + 插件名，UIA / 读屏可读到整卡范围与标题 |
 | `pluginRuleEntryButton` | 已启用插件卡片上的规则入口（`AppButton`，`visible: item.enabled`）：没有 `config/rules/plugin_<插件标识>.json` 时文案「创建规则」+`f067` 加号图标，有则「编辑规则」+`f304` 钢笔图标；点击由 `watch_items` 连到 `UiConnector::on_plugin_rule_entry_clicked()`，读 sender 的 `pluginModule` / `ruleGraphExists` 后 `loadPluginGraph()` 切到该插件图，再打开 `ruleEditorDialog`（不是先开总图）。未启用插件不显示该按钮 |
+| `pluginDetailRuleEntryButton` | 插件详情页头部的同名规则入口（「停用插件 / 启用插件」左侧，同一槽 `UiConnector::on_plugin_rule_entry_clicked()`，静态单实例由 `connect_clicked` 直连）：文案与显隐口径和卡片完全一致——未启用不显示，无 `config/rules/plugin_<插件标识>.json` 为「创建规则」+`f067`，有则「编辑规则」+`f304`；状态取自 `pluginCenterPage.ruleGraphPlugins`（详情通过 `PluginDetail.hasRuleGraph` 绑定），刷新触发点与卡片同一份 |
 
 规则入口的两种文案由 `pluginCenterPage.ruleGraphPlugins` 驱动（C++ 写入：已有规则图文件的插件标识列表），刷新触发点三处——`attach()` 首次连接后、`ModuleBridge::dataChanged`（加载插件列表、启用 / 停用插件）、`RuleGraphBridge::pluginGraphsChanged`（保存规则图）；每次刷新同时重扫一遍 `pluginCardGrid`，让搜索 / 分类重建出的新卡片也连上 C++（已连接项由 `connected_items_` 去重）。
 
 已启用栏条目没有新增 objectName：「配置 →」热区同样调用 `app.openPluginDetail(fileName)`，走与首页看板相同的解析与降级路径；网格卡片的热区仍走页面内的 `openDetail()`（已在本页，无需再切页）。
 
-插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 两个页签（触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。原「模式与输出」页签已整页移除，其中的通道级面板迁到设备管理页「通道级回退值」卡（仍读 `eventBridge.channels`，即 `app.channels.<A|B>` 的 `limit` / `safety`，仍是每设备上下限未设置时的回退层，不存在第二套「全局上限」）：通道上限与安全上限不再在详情里编辑，改到设备管理页的「通道级回退值」卡（同一份 `app.channels.<A|B>`），界面上不再有模块级的 `channel` 下拉；该键（`app.plugins.<模块>.channel`）只剩兼容读取，事件落到哪个通道由事件映射的子选项与规则图通道节点决定。
+插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 两个页签（触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页头操作区右侧依次是规则入口（`pluginDetailRuleEntryButton`，在启停按钮**左侧**，占位固定）与「停用插件 / 启用插件」；规则入口与插件卡同一口径（未启用不显示、按 `config/rules/plugin_<插件标识>.json` 是否存在切换「创建规则 / 编辑规则」 ），点击走与卡片相同的槽并在编辑器中直达该插件图。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。原「模式与输出」页签已整页移除，其中的通道级面板迁到设备管理页「通道级回退值」卡（仍读 `eventBridge.channels`，即 `app.channels.<A|B>` 的 `limit` / `safety`，仍是每设备上下限未设置时的回退层，不存在第二套「全局上限」）：通道上限与安全上限不再在详情里编辑，改到设备管理页的「通道级回退值」卡（同一份 `app.channels.<A|B>`），界面上不再有模块级的 `channel` 下拉；该键（`app.plugins.<模块>.channel`）只剩兼容读取，事件落到哪个通道由事件映射的子选项与规则图通道节点决定。
 
 | objectName | 行为 |
 | --- | --- |

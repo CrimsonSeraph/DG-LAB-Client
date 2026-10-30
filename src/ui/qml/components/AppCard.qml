@@ -6,6 +6,8 @@ import QtQuick.Effects
 // 卡片容器：深色表面 + 细描边；头图解码完成时图片铺满卡片、标题叠在图片底部，并在图片上
 // 叠加自卡片高度约 55% 起由透明过渡到 90% 深底的渐变遮罩；banner 为空或图片加载失败时
 // 退回无图的居中态（与从来没有 banner 的卡片一致，不留空白头图槽）。
+// 高度由使用方决定：插件中心给统一高度令牌（ComponentStyle.pluginCardHeight），
+// 卡片自身只按内容给 implicitHeight，不再因有无头图给出两档高度。
 // 用法：AppCard { title: "礼物"; banner: "qrc:/img/gift.png"; status: "进行中" }
 
 Rectangle {
@@ -22,13 +24,10 @@ Rectangle {
     readonly property bool hasBanner: root.banner.toString().length > 0
     // 头图只有真正解码完成才占槽：坏图停在 Error 状态，卡片与无图时同一套居中布局
     readonly property bool bannerReady: root.hasBanner && bannerImage.status === Image.Ready
-    readonly property int bannerMinHeight: 140
     readonly property real scrimOpacity: 0.9
 
     implicitWidth: 240
-    implicitHeight: root.bannerReady
-        ? Math.max(root.bannerMinHeight, content.implicitHeight + Metrics.cardPadding * 2)
-        : content.implicitHeight + Metrics.cardPadding * 2
+    implicitHeight: content.implicitHeight + Metrics.cardPadding * 2
     radius: Metrics.cardRadius
     color: Theme.surface
     border.width: Metrics.borderWidth
@@ -92,7 +91,9 @@ Rectangle {
 
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
+        // 有头图时贴底（标题压在图片上）；无图时整块垂直居中，卡片被统一高度拉高后内容不自上悬空
+        anchors.bottom: root.bannerReady ? parent.bottom : undefined
+        anchors.verticalCenter: root.bannerReady ? undefined : parent.verticalCenter
         anchors.margins: Metrics.cardPadding
         spacing: Metrics.spacingMd
 
