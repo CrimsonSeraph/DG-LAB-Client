@@ -28,7 +28,7 @@ src/ui/
 │   ├── MainWindow.qml          # 左侧导航 + 内容区页栈 + 左下常驻面板 + 状态栏（原生标题栏；自绘标题栏与窗口控制按钮为后续任务）
 │   ├── MiniWindow.qml         # 迷你窗：无边框置顶小窗，A/B 强度大数字与占比、强度增减、通道启停、透明度与大小档位、近 5 条触发流水与 A/B 滚动波形
 │   ├── dialogs/
-│   │   ├── RuleEditorDialog.qml # 规则可视化编辑器（可调整大小；画布与调整手柄的手势例外见下）
+│   │   ├── RuleEditorDialog.qml # 规则可视化编辑器（独立窗口：原生边框可拖边缩放 / 最大化；画布手势例外见下）
 │   │   ├── RuleDiscardDialog.qml # 规则图未保存改动的三选确认（保存并关闭 / 放弃改动 / 取消）
 │   │   ├── UpdateDialog.qml     # 软件更新：版本 / 完整更新说明 / 进度 / 更新动作（左下角面板入口打开）
 │   │   ├── IpSelectDialog.qml   # 网卡 IP 选择：黑/白名单维护 + 过滤后的候选地址（配置页入口打开）
@@ -346,13 +346,12 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 
 对话框：
 
-下列对话框（`dialogs/` 下 9 个、`ConfirmDialog`、`ConfigPage` 内的预设主题与自定义主题、两个自绘取色对话框）全部继承 `components/AppDialog.qml`，底色 / 描边 / 遮罩 / 标题行 / 尺寸钳制由基类统一提供；`title` 即标题行文本。
+下列对话框（`dialogs/` 下 8 个、`ConfirmDialog`、`ConfigPage` 内的预设主题与自定义主题、两个自绘取色对话框）全部继承 `components/AppDialog.qml`，底色 / 描边 / 遮罩 / 标题行 / 尺寸钳制由基类统一提供；`title` 即标题行文本。例外是规则编辑器：`RuleEditorDialog.qml` 的根是独立顶层 `Window`（原生边框提供拖边缩放与最大化），不使用 `AppDialog`，它把三选确认 `RuleDiscardDialog` 作为弹层声明在自己内部。
 
 | objectName | 行为 |
 | --- | --- |
-| `ruleEditorDialog` | 规则编辑器（可调整大小的窗口）：初始尺寸取 `ComponentStyle.dialogRuleEditorWidth/Height`，拖动右下角手柄改 `requestedWidth` / `requestedHeight`，实际尺寸夹在最小 900×600 与视口可用尺寸之间（空间够时最小尺寸生效，视口更小时跟随视口不裁切）；`ruleEditorCloseButton` 的关闭经 C++ 判断未保存改动后先弹三选确认 |
-| `ruleResizeHandle` | 编辑器右下角自绘调整手柄的鼠标热区（`MouseArea` + `cursorShape: Qt.SizeFDiagCursor`）：拖动改 `requestedWidth` / `requestedHeight`，手势例外见「信号处理器例外」 |
-| `ruleDiscardDialog` / `ruleDiscardSaveButton` / `ruleDiscardDiscardButton` / `ruleDiscardCancelButton` | 规则图未保存改动的三选确认（`dialogs/RuleDiscardDialog.qml`，继承 `AppDialog`，`closePolicy: NoAutoClose`）：正文由 `UiConnector` 打开前写入（列出有改动的图），「保存并关闭」= `RuleGraphBridge::save()` 全部写盘成功才关闭、某张失败时编辑器留在原地并由 `statusMessage` 弹 danger Toast；「放弃改动」= `RuleGraphBridge::discardChanges()` 丢掉全部草稿与脏标记后关闭；「取消」= 只收起弹层。键位由 `UiConnector::eventFilter` 接管（Esc 取消、Enter 保存并关闭） |
+| `ruleEditorDialog` | 规则编辑器：**独立顶层窗口**（根对象是 `Window`，原生标题栏提供拖四边缩放、最大化、最小化与 ×），默认尺寸取 `ComponentStyle.dialogRuleEditorWidth/Height`，最小尺寸取 `dialogRuleEditorMinWidth/MinHeight`（900×600）并由 `Window.minimumWidth/minimumHeight` 生效；打开经 `UiConnector::open_dialog()` 调 `show()`（最小化时先 `showNormal()`），不做 `ApplicationModal`，主窗口保持可用。关闭统一走窗口关闭事件：标题栏 × 与 `ruleEditorCloseButton` 都落到 `UiConnector::eventFilter` 的 `QEvent::Close` 分支，有未保存改动时否决本次关闭并在编辑器窗口内弹三选确认，无改动直接关闭 |
+| `ruleDiscardDialog` / `ruleDiscardSaveButton` / `ruleDiscardDiscardButton` / `ruleDiscardCancelButton` | 规则图未保存改动的三选确认（`dialogs/RuleDiscardDialog.qml`，继承 `AppDialog`，`closePolicy: NoAutoClose`；声明在编辑器窗口内部，弹层附着在编辑器窗口的 Overlay 上，所以浮在编辑器之上而不是主窗口里）：正文由 `UiConnector` 打开前写入（列出有改动的图），「保存并关闭」= `RuleGraphBridge::save()` 全部写盘成功才关闭、某张失败时编辑器留在原地并由 `statusMessage` 弹 danger Toast；「放弃改动」= `RuleGraphBridge::discardChanges()` 丢掉全部草稿与脏标记后关闭；「取消」= 只收起弹层。键位由 `UiConnector::eventFilter` 接管（Esc 取消、Enter 保存并关闭） |
 | `ruleGraphTitle` / `ruleBackToTopButton` | 标题栏图名（总图「总规则图」、插件图「<插件> 规则图」）与「返回总图」按钮（仅插件图下可见，点击 `ruleGraph.loadPluginGraph("")`，处理器尚未迁到 C++） |
 | `ruleCanvas` / `ruleZoomLabel` | 画布根项（C++ 通过它读写 `panX`/`panY`/`zoom`）与左下缩放百分比标签（纯绑定 `zoom`） |
 | `ruleFitViewButton` | 适配视图：点击由 C++ 连接，按节点包围盒重置缩放与平移；无节点时回到 1.0 居中 |
@@ -450,7 +449,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 - 上述组件均无 `onXxx` / `Connections`，交互统一由 `UiConnector` 按 `objectName` 建立。
 - 新增展示组件优先放入 `components/`，专属组件放页面目录；样式一律引用令牌。
-- **对话框一律继承 `components/AppDialog.qml`**：不要在对话框里各写一份 `background` / `Overlay.modal` / `width` 钳制。Basic 样式的 Dialog 默认底色不随主题变化（浅灰），只有走 `AppDialog` 才会取 `Theme.surface` / `Theme.border` 并随主题切换；`ConfigPage` 内的预设主题与自定义主题两个对话框同样继承它。
+- **对话框一律继承 `components/AppDialog.qml`**：不要在对话框里各写一份 `background` / `Overlay.modal` / `width` 钳制。Basic 样式的 Dialog 默认底色不随主题变化（浅灰），只有走 `AppDialog` 才会取 `Theme.surface` / `Theme.border` 并随主题切换；`ConfigPage` 内的预设主题与自定义主题两个对话框同样继承它。规则编辑器是唯一例外：它是独立顶层 `Window`（原生边框、`minimumWidth` / `minimumHeight` 由 `ComponentStyle` 令牌给定），底色仍取 `Theme.surface`，窗口内的确认弹层继续用 `AppDialog`。
 
 ### 组件库补充（骨架批次新增）
 
@@ -499,7 +498,6 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `dialogs/RuleEditorDialog.qml` 画布 `MouseArea` 的 `onPressed` / `onPositionChanged` / `onReleased` / `onWheel` / `Keys.onPressed` | 拖动节点、拉线、缩放、平移与快捷键都是指针/键盘手势，命中测试无法通过 `objectName` + C++ 连接表达 | 处理器只改画布自身的视图属性（`panX` / `panY` / `zoom` / 拖动增量）或调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型（拖动期间只更新增量，松手时才调一次 `moveNode`） |
 | 同文件画布右键菜单的 6 个 `MenuItem.onTriggered`（含 `ruleDeleteEdgeMenu` 删除连线） | 菜单由手势弹出，且需要读画布当前缩放/平移换算世界坐标；删除连线依赖右键命中测试得到的连线 id | 同上，只调用 `ruleGraph` |
 | 同文件 14 个 `onClicked`：调色板 11 个 `AppButton`（`ruleAddAdd` / `ruleAddSub` / `ruleAddMul` / `ruleAddDiv` / `ruleAddAbs` / `ruleAddSquare` / `ruleAddSqrt` / `ruleAddExpr` / `ruleAddRule` / `ruleAddChannelA` / `ruleAddChannelB`）、插件输出与数值源两个列表委托的 `MouseArea`、标题栏 `ruleBackToTopButton` | 遗留：这些点击都能用 `objectName` + `connect_clicked` 迁到 C++，目前尚未迁移 | 只调用 `ruleGraph`（`addOperatorNode` / `addAdvancedNode` / `addRuleNode` / `addChannelNode` / `addPluginOutputNode` / `addModuleNode` / `loadPluginGraph`）；新增控件不得照抄此写法 |
-| 同文件右下角调整手柄 `MouseArea` 的 `onPressed` / `onPositionChanged` | 拉伸对话框只能由指针按下与位移驱动；尺寸必须按场景坐标计算——对话框居中，自身随尺寸向两侧生长，用本地坐标会跟手漂移，无法用 `objectName` + C++ 连接表达 | `onPressed` 只记拖动起点与起始尺寸，`onPositionChanged` 只按位移改 `requestedWidth` / `requestedHeight`（尺寸夹紧在最小尺寸与视口之间），不读写模型、不写盘 |
 | 同文件检查器 6 个：`onEditingFinished`（规则名 `nameField` / 表达式 `expressionArea`）、`onActivated`（值模式 `modeCombo`、通道节点的目标设备 `ruleChannelDeviceCombo`）、`onClicked`（启用勾选、「应用表达式」按钮） | 遗留：输入回灌与表达式应用沿用 QML 处理器；`ruleSaveButton` 已迁到 C++。检查器控件按节点类型由 `Loader` 动态创建（属性面板只构建适用项），创建发生在选中节点之后，`UiConnector::attach()` 的执行时刻拿不到这些对象，目标设备下拉因此沿用同一处处理器而非 C++ 连接 | 只调用 `ruleGraph`；不得扩大 |
 | `MiniWindow.qml` 标题条 `MouseArea` 的 `onPressed` / `onPositionChanged` | 无边框窗口的拖动只能由指针按下与位移驱动，指针轨迹无法用 `objectName` + C++ 连接表达 | 处理器只改 `Window.x/y`：按下时优先交给系统窗口管理器拖动（`Window.startSystemMove()`），系统不支持时按「窗口坐标 + 窗口内相对坐标」反推指针屏幕坐标算位移，两条路径落点一致，都不依赖会随窗口移动而变化的窗口内坐标；锁定态由 `dragArea.enabled` 断掉拖动，位置写回配置全部在 C++（`UiConnector` 的 400 ms 合并计时器） |
 | `MainWindow.qml` 的 `onClosing` | 窗口关闭是窗口事件，`close.accepted` 与「隐藏而不是销毁」必须在事件回调内决定 | 只调 `tray.handleMainWindowClose()`；隐藏 / 退出 / 降级判定全在 `TrayController` |
@@ -507,13 +505,13 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | 同文件 `onPressed` | 拖动必须先记住指针起点与被按下时的偏移，按下事件同样只能由指针驱动 | 只记录 `pressX` / `pressOffset` 两个本地量，不改其它状态 |
 | 同文件 `onPositionChanged` | 按住左右拖动查看标签，位移必须逐帧跟随指针；与 `onPressed` 一起构成一处拖动交互（两处处理器一条手势） | 只在 `mouse.pressed` 为真时按水平位移改 `root.requestedOffset` 并夹紧两端，不写模型、不导航 |
 
-已迁出：规则编辑器关闭按钮（`ruleEditorCloseButton`）原先写 `onClicked: dialog.close()`，现由 `UiConnector::on_rule_editor_close_clicked()` 连接：无未保存改动直接关闭，有改动则打开三选弹层 `ruleDiscardDialog`（保存并关闭 / 放弃改动 / 取消），Esc 与关闭按钮走同一判定。
+已迁出：规则编辑器关闭按钮（`ruleEditorCloseButton`）原先写 `onClicked: dialog.close()`，现由 `UiConnector::on_rule_editor_close_clicked()` 连接，该槽只调窗口的 `close()`——有无未保存改动的判定集中在 `UiConnector::eventFilter` 的 `QEvent::Close` 分支（`ignore()` 否决本次关闭，并在编辑器窗口内打开三选弹层 `ruleDiscardDialog`：保存并关闭 / 放弃改动 / 取消），因此标题栏 ×、Esc 与关闭按钮走同一条判定，QML 不为编辑器窗口写 `onClosing`。
 
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
-复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 64 处（插件详情移除「模式与输出」页签时连带删掉 5 处，本批没有新增处理器；规则图编辑器调整窗口那一批的 2 处：右下角调整手柄的 `onPressed` / `onPositionChanged` 仍登记在「同文件右下角调整手柄」一行；其余交互仍全部由 C++ 按 `objectName` 连接），按文件分组：
+复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 62 处（插件详情移除「模式与输出」页签时连带删掉 5 处；规则编辑器改为独立窗口这一批删掉右下角调整手柄的 2 处 `onPressed` / `onPositionChanged`，未新增任何处理器，其余交互仍全部由 C++ 按 `objectName` 连接），按文件分组：
 
-- `dialogs/RuleEditorDialog.qml` 33 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 6（含通道节点目标设备下拉）、右下角调整手柄 2，即上表五行，逐处已登记。
+- `dialogs/RuleEditorDialog.qml` 31 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 6（含通道节点目标设备下拉），即上表四行，逐处已登记。
 - `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 3 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
 - `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击（行委托由 `Repeater` 动态生成，本次仍保留处理器）只调 `app.openPluginDetail(fileName)`，导航与定位全在 C++（`AppBridge` + `UiConnector::on_plugin_detail_requested()`），QML 不再自己决定导航目标；处理器本身仍属待迁移项。
 - `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表新增两行，逐处已登记。

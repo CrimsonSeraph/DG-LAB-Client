@@ -19,6 +19,7 @@
 #include "UpdateBridge.h"
 #include "WaveBridge.h"
 
+#include <QCloseEvent>
 #include <QColor>
 #include <QGuiApplication>
 #include <QHash>
@@ -76,6 +77,11 @@ namespace {
             }
         }
         return false;
+    }
+
+    /// @brief 是否为规则编辑器窗口：它是独立顶层窗口，关闭事件与键位按 objectName 识别
+    bool is_rule_editor_window(QObject* watched) {
+        return watched != nullptr && watched->objectName() == QLatin1String("ruleEditorDialog");
     }
 
     /// @brief 读取 QML 样式单例的令牌值，避免在 C++ 里复制度量数字
@@ -325,6 +331,13 @@ void UiConnector::attach(QObject* root_object) {
     connect_clicked(root_object, "ruleDiscardCancelButton", SLOT(on_rule_discard_cancel_clicked()));
     connect_clicked(root_object, "ruleSaveButton", SLOT(on_rule_save_clicked()));
     connect_clicked(root_object, "ruleFitViewButton", SLOT(on_rule_fit_view_clicked()));
+    // 规则编辑器是独立顶层窗口：关闭事件与键位都要经本类的过滤器
+    if (auto* editor_window = root_object->findChild<QQuickWindow*>(QStringLiteral("ruleEditorDialog"))) {
+        editor_window->installEventFilter(this);
+    }
+    else {
+        LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到规则编辑器窗口: ruleEditorDialog");
+    }
 
     // 通用确认弹层：弹层缺失只告警，ask_confirm 会退化为不执行待确认动作
     confirm_dialog_ = root_object->findChild<QObject*>(QStringLiteral("confirmDialog"));
@@ -718,6 +731,18 @@ void UiConnector::open_dialog(const char* object_name) {
         LOG_MODULE("UiConnector", "open_dialog", LOG_WARN, std::string("未找到对话框: ") + object_name);
         return;
     }
+    // 顶层窗口（规则编辑器）没有 Popup 的 open()：显示窗口，最小化时先还原
+    if (auto* window = qobject_cast<QQuickWindow*>(dialog)) {
+        if ((window->windowState() & Qt::WindowMinimized) != 0) {
+            window->showNormal();
+        }
+        else {
+            window->show();
+        }
+        window->raise();
+        window->requestActivate();
+        return;
+    }
     QMetaObject::invokeMethod(dialog, "open");
 }
 
@@ -748,7 +773,42 @@ bool UiConnector::dialog_visible(const char* object_name) const {
 }
 
 bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
-    if (event->type() != QEvent::KeyPress || root_.isNull() || watched != root_.data()) {
+    // 规则编辑器是顶层窗口：标题栏 × 与界面「关闭」按钮都落到窗口关闭事件上。
+    // 有未保存改动时否决本次关闭（ignore 后 closeEvent() 按否决状态收尾，与 QML 里
+    // close.accepted = false 等价），并在编辑器窗口内弹三选确认；没有改动照常关闭
+    if (event->type() == QEvent::Close && is_rule_editor_window(watched)) {
+        const bool dirty = rule_graph_ != nullptr && rule_graph_->property("dirty").toBool();
+        if (!dirty) {
+            return QObject::eventFilter(watched, event);
+        }
+        static_cast<QCloseEvent*>(event)->ignore();
+        // 三选已经显示时（例如弹层打开着又点了标题栏 ×）不重复弹
+        if (dialog_visible("ruleDiscardDialog")) {
+            return false;
+        }
+        auto* discard = find("ruleDiscardDialog");
+        if (discard == nullptr) {
+            // 三选弹层缺失：退化为「放弃 / 取消」两选确认，不静默丢弃改动
+            LOG_MODULE("UiConnector", "eventFilter", LOG_WARN,
+                "未找到控件: ruleDiscardDialog，退化为放弃确认");
+            ask_confirm(tr("放弃未保存的改动？"), tr("规则图有未保存的修改，关闭后将丢失。"), true,
+                [this]() {
+                    if (rule_graph_ != nullptr) {
+                        rule_graph_->discardChanges();
+                    }
+                    close_dialog("ruleEditorDialog");
+                });
+            return false;
+        }
+        const QStringList dirty_graphs = rule_graph_->dirty_graphs();
+        discard->setProperty("messageText",
+            tr("%1 有未保存的改动。保存并关闭会把它们写回磁盘；放弃改动只关闭编辑器，磁盘文件保持不变。")
+                .arg(dirty_graphs.join(tr("、"))));
+        open_dialog("ruleDiscardDialog");
+        return false;
+    }
+    if (event->type() != QEvent::KeyPress || root_.isNull()
+        || (watched != root_.data() && !is_rule_editor_window(watched))) {
         return QObject::eventFilter(watched, event);
     }
     auto* key_event = static_cast<QKeyEvent*>(event);
@@ -1141,40 +1201,15 @@ void UiConnector::on_rule_editor_clicked() {
 }
 
 void UiConnector::on_rule_editor_close_clicked() {
-    auto* dialog = find("ruleEditorDialog");
-    if (dialog == nullptr) {
+    auto* window = qobject_cast<QQuickWindow*>(find("ruleEditorDialog"));
+    if (window == nullptr) {
         LOG_MODULE("UiConnector", "on_rule_editor_close_clicked", LOG_WARN,
             "未找到对话框: ruleEditorDialog");
         return;
     }
-    const bool dirty = rule_graph_ != nullptr && rule_graph_->property("dirty").toBool();
-    if (!dirty) {
-        // 无未保存改动：直接关闭，草稿与磁盘一致，不需要二次确认
-        QMetaObject::invokeMethod(dialog, "close");
-        return;
-    }
-    auto* discard = find("ruleDiscardDialog");
-    if (discard == nullptr) {
-        // 三选弹层缺失：退化为「放弃 / 取消」两选确认，不静默丢弃改动
-        LOG_MODULE("UiConnector", "on_rule_editor_close_clicked", LOG_WARN,
-            "未找到控件: ruleDiscardDialog，退化为放弃确认");
-        ask_confirm(tr("放弃未保存的改动？"), tr("规则图有未保存的修改，关闭后将丢失。"), true,
-            [this]() {
-                auto* editor = find("ruleEditorDialog");
-                if (editor != nullptr) {
-                    QMetaObject::invokeMethod(editor, "close");
-                }
-                if (rule_graph_ != nullptr) {
-                    rule_graph_->discardChanges();
-                }
-            });
-        return;
-    }
-    const QStringList dirty_graphs = rule_graph_ == nullptr ? QStringList() : rule_graph_->dirty_graphs();
-    discard->setProperty("messageText",
-        tr("%1 有未保存的改动。保存并关闭会把它们写回磁盘；放弃改动只关闭编辑器，磁盘文件保持不变。")
-            .arg(dirty_graphs.join(tr("、"))));
-    open_dialog("ruleDiscardDialog");
+    // 关闭统一走窗口关闭事件：有无未保存改动的判定在 eventFilter 里，
+    // 因此标题栏 ×、Esc 与本按钮落在同一条路径上
+    window->close();
 }
 
 void UiConnector::on_rule_discard_save_clicked() {

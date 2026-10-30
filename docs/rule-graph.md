@@ -159,6 +159,7 @@
 - 切图（`loadPluginGraph(plugin_id)`，空字符串 = 总规则图）：把当前图存进草稿 → 目标图命中草稿就直接取出 → 未命中（首次进入）才从磁盘载入；全过程不写盘。返回同一张图时直接返回，不重载。
 - 保存（`save()`）：一次写全部脏图。顺序固定为**总规则图在前、插件图按标识排序**——插件图写盘时会重建默认输出节点的引用列表，需要读到最新的总图。写成功的图清脏；失败的图保留脏标记与草稿，界面汇总提示「哪几张失败、其余几张已保存」，不中断其余写入。
 - 丢弃（`discardChanges()`）：关闭编辑器时选「放弃改动」→ 清空草稿表与脏标记，当前图按磁盘内容重新载入。换规则文件（`loadRuleFile`）同样作废全部草稿。
+- 关闭路径：编辑器是独立顶层窗口，标题栏 × 与界面「关闭」按钮都落到窗口关闭事件，由 `UiConnector::eventFilter` 读聚合脏标记 `dirty`——没有未保存改动直接关闭；有改动则否决本次关闭，在编辑器窗口内弹三选确认（`ruleDiscardDialog`）。因此不存在「关掉窗口才发现改动丢了」的路径。
 - 保存成功后，未脏的草稿会按磁盘内容重新载入一次，让默认输出节点的「被谁引用」立即反映新拓扑。
 
 批量写盘由 `RuleManager::save_rule_graphs(top_file, top_graph, plugin_graphs, failures)` 承担：总图经 `write_rule_graph_json` + `modify_rule_file` 写入规则文件的 `graph` 与 `rules` 字段，插件图经 `write_plugin_rule_graph` 写入 `plugin_<插件标识>.json`，全部写完只调用一次 `sync_output_references()`；`failures` 按写入顺序给出失败条目（空字符串表示总图）。

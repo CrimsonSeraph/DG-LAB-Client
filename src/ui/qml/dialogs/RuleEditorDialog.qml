@@ -5,32 +5,23 @@ import QtQuick.Shapes
 
 // 规则可视化编辑器（ComfyUI / UE 蓝图风格）。
 //
-// 信号处理器例外：本对话框的画布与节点手势（拖动、滚轮缩放、右键菜单、快捷键）
+// 信号处理器例外：本编辑器的画布与节点手势（拖动、滚轮缩放、右键菜单、快捷键）
 // 属于 src/ui/README.md 中登记的"必须使用手势的视图"，允许写处理器；处理器只改画布自身的
 // 视图属性（平移、缩放、拖动增量）或调用 ruleGraph（C++）的方法，图的增删改/复制粘贴/写回
 // 全部在 C++ 完成。
-AppDialog {
+Window {
     id: dialog
 
     objectName: "ruleEditorDialog"
     title: qsTr("规则编辑器")
-    // 关闭只能由关闭按钮（C++ 侧 UiConnector 连接，未保存改动先确认）或代码触发，
-    // Esc / 点击遮罩不关闭，避免绕过未保存改动拦截
-    closePolicy: Popup.NoAutoClose
-
-    // 可调整大小：初始尺寸取令牌，右下角手柄拖动后改用 requestedWidth / requestedHeight；
-    // 两者都夹在 [最小尺寸, 视口内可用尺寸] 之间——空间够时最小尺寸生效，视口更小时跟随视口不裁切
-    property real requestedWidth: ComponentStyle.dialogRuleEditorWidth
-    property real requestedHeight: ComponentStyle.dialogRuleEditorHeight
-    // 手柄拖动的起点（场景坐标）与起始尺寸
-    property real resizePressX: 0
-    property real resizePressY: 0
-    property real resizeStartWidth: 0
-    property real resizeStartHeight: 0
-    width: Math.min(Math.max(ComponentStyle.dialogRuleEditorMinWidth, requestedWidth),
-        Overlay.overlay.width - Metrics.spacingXl * 2)
-    height: Math.min(Math.max(ComponentStyle.dialogRuleEditorMinHeight, requestedHeight),
-        Overlay.overlay.height - Metrics.spacingXl * 2)
+    // 独立窗口：原生标题栏提供拖四边缩放、最大化、最小化与关闭；
+    // 尺寸下限取令牌，默认尺寸取令牌，用户拉伸后的尺寸由窗口自己保存
+    width: ComponentStyle.dialogRuleEditorWidth
+    height: ComponentStyle.dialogRuleEditorHeight
+    minimumWidth: ComponentStyle.dialogRuleEditorMinWidth
+    minimumHeight: ComponentStyle.dialogRuleEditorMinHeight
+    color: Theme.surface
+    visible: false
 
     // 当前图标题：无插件 = 总规则图，否则取插件显示名
     function currentGraphTitle() {
@@ -59,15 +50,19 @@ AppDialog {
         return count;
     }
 
-    header: Item {
-        implicitHeight: ruleHeader.implicitHeight + Metrics.spacingMd
+    // 标题行：当前图标题 + 返回总图
+    Item {
+        id: ruleHeaderRow
+
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: Metrics.spacingMd
+        height: ruleHeader.implicitHeight
 
         RowLayout {
             id: ruleHeader
             anchors.fill: parent
-            anchors.leftMargin: Metrics.spacingMd
-            anchors.rightMargin: Metrics.spacingMd
-            anchors.topMargin: Metrics.spacingMd
             spacing: Metrics.spacingMd
 
             Text {
@@ -91,9 +86,15 @@ AppDialog {
         }
     }
 
+    // 主体三栏：左栏（模块 / 添加节点）、画布、检查器
     SplitView {
         id: rootRow
-        anchors.fill: parent
+
+        anchors.top: ruleHeaderRow.bottom
+        anchors.bottom: ruleFooterRow.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: Metrics.spacingMd
         orientation: Qt.Horizontal
 
         // 模块 / 节点面板
@@ -975,55 +976,6 @@ AppDialog {
         }
     }
 
-    // 右下角调整手柄：Dialog 是窗口内的弹层，系统窗口管理器不参与拉伸，因此自绘一块热区。
-    // 手势例外已登记 src/ui/README.md（onPressed 记住起点、onPositionChanged 跟手改尺寸两项）。
-    Item {
-        id: resizeGrip
-
-        // 盖在内容区之上，靠右下角（检查器底部为活动留白，不遮挡控件）
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        width: ComponentStyle.dialogResizeHandleSize
-        height: width
-        z: 1
-
-        // 三条斜向短划作为可拉伸提示
-        Repeater {
-            model: 3
-
-            delegate: Rectangle {
-                width: Metrics.spacing2xs
-                height: Metrics.spacing2xs
-                color: Theme.textMuted
-                x: parent.width - Metrics.spacingSm - index * Metrics.spacingXs
-                y: parent.height - Metrics.spacingSm - (3 - index) * Metrics.spacingXs
-            }
-        }
-
-        MouseArea {
-            objectName: "ruleResizeHandle"
-
-            anchors.fill: parent
-            cursorShape: Qt.SizeFDiagCursor
-            // 尺寸计算用场景坐标：对话框居中，自身随尺寸向两侧生长，本地坐标会跟着漂移
-            onPressed: function (mouse) {
-                var point = mapToItem(null, mouse.x, mouse.y);
-                dialog.resizePressX = point.x;
-                dialog.resizePressY = point.y;
-                dialog.resizeStartWidth = dialog.width;
-                dialog.resizeStartHeight = dialog.height;
-            }
-            onPositionChanged: function (mouse) {
-                if (!mouse.pressed) {
-                    return;
-                }
-                var point = mapToItem(null, mouse.x, mouse.y);
-                dialog.requestedWidth = dialog.resizeStartWidth + (point.x - dialog.resizePressX);
-                dialog.requestedHeight = dialog.resizeStartHeight + (point.y - dialog.resizePressY);
-            }
-        }
-    }
-
     // 规则节点专用：规则名 / 值模式 / 启用
     Component {
         id: ruleFields
@@ -1124,38 +1076,38 @@ AppDialog {
         }
     }
 
-    // 底部按钮区：左次要（关闭）、右主操作（保存规则图）；
-    // 间距与上边距由令牌给定，不再纵向堆叠、也不再贴着内容区下沿
-    footer: Item {
-        // 上边距 = spacingLg（与内容区留白），左右与下边距 = spacingMd（与内容区内缩对齐）
-        implicitHeight: ruleFooter.implicitHeight + Metrics.spacingLg + Metrics.spacingMd
+    // 底部按钮区：左次要（关闭）、右主操作（保存规则图）
+    RowLayout {
+        id: ruleFooterRow
 
-        RowLayout {
-            id: ruleFooter
-            anchors.fill: parent
-            anchors.topMargin: Metrics.spacingLg
-            anchors.leftMargin: Metrics.spacingMd
-            anchors.rightMargin: Metrics.spacingMd
-            anchors.bottomMargin: Metrics.spacingMd
-            spacing: Metrics.spacingMd
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: Metrics.spacingMd
+        spacing: Metrics.spacingMd
 
-            AppButton {
-                objectName: "ruleEditorCloseButton"
-                text: qsTr("关闭")
-            }
-
-            Item {
-                Layout.fillWidth: true
-            }
-
-            // 一次保存写全部有改动的图（总图 + 插件图），按钮上给出待写入的张数
-            AppButton {
-                objectName: "ruleSaveButton"
-                text: ruleGraph.dirty
-                    ? qsTr("保存全部（%1 张图） *").arg(ruleGraph.dirtyGraphs.length)
-                    : qsTr("保存规则图")
-                primary: true
-            }
+        AppButton {
+            objectName: "ruleEditorCloseButton"
+            text: qsTr("关闭")
         }
+
+        Item {
+            Layout.fillWidth: true
+        }
+
+        // 一次保存写全部有改动的图（总图 + 插件图），按钮上给出待写入的张数
+        AppButton {
+            objectName: "ruleSaveButton"
+            text: ruleGraph.dirty
+                ? qsTr("保存全部（%1 张图） *").arg(ruleGraph.dirtyGraphs.length)
+                : qsTr("保存规则图")
+            primary: true
+        }
+    }
+
+    // 未保存改动的三选确认：声明在编辑器窗口内部，弹层因此附着在编辑器的 Overlay 上，
+    // 显示在编辑器之上（主窗口保持可用，编辑器不做 ApplicationModal）
+    RuleDiscardDialog {
+        id: ruleDiscardDialog
     }
 }

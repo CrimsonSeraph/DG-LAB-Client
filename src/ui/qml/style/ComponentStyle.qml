@@ -69,11 +69,9 @@ QtObject {
     // 对话框尺寸
     readonly property int dialogRuleEditorWidth: 1100
     readonly property int dialogRuleEditorHeight: 700
-    // 规则编辑器的初始尺寸之外，另给最小尺寸：三栏（左栏 210 + 画布 300 + 检查器 250）与底部按钮行的下限
+    // 规则编辑器窗口的最小尺寸：三栏（左栏 210 + 画布 300 + 检查器 250）与底部按钮行的下限
     readonly property int dialogRuleEditorMinWidth: 900
     readonly property int dialogRuleEditorMinHeight: 600
-    // 自绘调整手柄的热区边长（右下角）
-    readonly property int dialogResizeHandleSize: 20
     readonly property int dialogWaveEditorWidth: 900
     readonly property int dialogWaveEditorHeight: 640
     readonly property int dialogWaveSelectWidth: 540

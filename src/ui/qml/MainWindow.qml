@@ -437,14 +437,10 @@ ApplicationWindow {
         nameFilters: [qsTr("波形文件 (*.json *.pulse *.zip)"), qsTr("JSON (*.json)"), qsTr(".pulse (*.pulse)"), qsTr("波形归档 (*.zip)")]
     }
 
-    // 规则可视化编辑器（首页 / 配置页入口打开）
+    // 规则可视化编辑器：独立顶层窗口（首页 / 配置页入口打开），
+    // 未保存改动的三选确认声明在编辑器窗口内部，跟着它一起显示
     RuleEditorDialog {
         id: ruleEditorDialog
-    }
-
-    // 规则图未保存改动的三选确认（关闭编辑器时由 C++ 打开，盖在编辑器之上）
-    RuleDiscardDialog {
-        id: ruleDiscardDialog
     }
 
     // 软件更新对话框（左下角面板「检查更新」打开，C++ 侧按 objectName 驱动）
