@@ -159,7 +159,7 @@ dgl_add_plugin(dgl_my_plugin
 
 ### 扫描与加载
 
-- 主程序扫描 `*.dll`/`*.so`/`*.dylib` 文件作为插件候选，**默认只扫描不加载**（模块页显示“暂未加载”，右侧“启用”按钮加载）。
+- 主程序扫描 `*.dll`/`*.so`/`*.dylib` 文件作为插件候选，**默认只扫描不加载**（插件中心卡片显示「未启用」，点「启用」加载）。
 - `app.module.scan_load=true` 时扫描即加载（调试用）。
 - 加载流程: `QLibrary` → API 版本校验 → 依赖校验 → `create_plugin` → `attach_host` + `set_log_callback` → `initialize()`。
 - 卸载流程: `can_unload()` → `uninitialize()` → `cleanup()` → `destroy_plugin()` → `QLibrary::unload`。

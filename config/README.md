@@ -40,7 +40,7 @@
 | `app.log.file_level` | int | 文件日志写入等级（同 console_level 枚举），低于该等级的日志不落盘 |
 | `app.log.file_max_mb` | int | 单个日志文件大小上限（MB，默认 5）；写满后滚动为 `*.1`，只保留一份备份 |
 | `app.module.path` | string | 插件扫描目录（默认 `./module`，相对路径按可执行文件所在目录解析） |
-| `app.module.scan_load` | bool | 是否“扫描即加载”：扫描到插件后立即加载（默认 `false`，仅扫描并在界面显示“暂未加载”；开启用于调试或特定场景） |
+| `app.module.scan_load` | bool | 是否“扫描即加载”：扫描到插件后立即加载（默认 `false`，仅扫描并在插件中心显示「未启用」；开启用于调试或特定场景） |
 | `python.path` | string | Python 解释器路径或可执行文件名 |
 
 ### 2. `system.json` —— 系统级配置（WebSocket 通信）
