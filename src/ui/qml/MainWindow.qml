@@ -33,9 +33,9 @@ ApplicationWindow {
     readonly property int connectionCount: bleCount + appCount
 
     // 处理器例外：主窗口关闭是窗口事件，点 × 只隐藏到托盘，退出只走托盘菜单
-    onClosing: (close) => {
-        close.accepted = false
-        tray.handleMainWindowClose()
+    onClosing: close => {
+        close.accepted = false;
+        tray.handleMainWindowClose();
     }
 
     // 导航项内容：图标 + 文字。NavButton 默认只渲染文字，这里统一覆盖 contentItem。
@@ -157,6 +157,20 @@ ApplicationWindow {
                 }
 
                 NavButton {
+                    id: navDeviceButton
+
+                    objectName: "navDeviceButton"
+                    text: qsTr("设备管理")
+                    selected: app.currentPage === root.pageDevice
+                    width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f2db" // microchip
+                        label: navDeviceButton.text
+                        highlighted: navDeviceButton.selected
+                    }
+                }
+
+                NavButton {
                     id: navPluginCenterButton
 
                     objectName: "navPluginCenterButton"
@@ -209,20 +223,6 @@ ApplicationWindow {
                         glyph: "f15c" // file-lines
                         label: navLogButton.text
                         highlighted: navLogButton.selected
-                    }
-                }
-
-                NavButton {
-                    id: navDeviceButton
-
-                    objectName: "navDeviceButton"
-                    text: qsTr("设备管理")
-                    selected: app.currentPage === root.pageDevice
-                    width: parent.width
-                    contentItem: NavItemContent {
-                        glyph: "f2db" // microchip
-                        label: navDeviceButton.text
-                        highlighted: navDeviceButton.selected
                     }
                 }
             }
@@ -279,9 +279,7 @@ ApplicationWindow {
                             objectName: "deviceStatusName"
 
                             Layout.fillWidth: true
-                            text: root.connectionCount > 0
-                                ? qsTr("已连接设备 ×%1").arg(root.connectionCount)
-                                : qsTr("未连接设备")
+                            text: root.connectionCount > 0 ? qsTr("已连接设备 ×%1").arg(root.connectionCount) : qsTr("未连接设备")
                             color: Theme.textPrimary
                             font.pixelSize: Typography.fontBody
                             elide: Text.ElideRight
@@ -428,22 +426,15 @@ ApplicationWindow {
         objectName: "waveExportFileDialog"
         title: qsTr("导出波形")
         fileMode: FileDialog.SaveFile
-        defaultSuffix: waveBridge.exportFormatIndex === 1
-            ? "pulse"
-            : (waveBridge.exportFormatIndex === 2 ? "zip" : "json")
-        nameFilters: waveBridge.exportFormatIndex === 1
-            ? [qsTr("DG-LAB 波形 (*.pulse)")]
-            : (waveBridge.exportFormatIndex === 2
-                ? [qsTr("波形归档 (*.zip)")]
-                : [qsTr("JSON 波形数组 (*.json)")])
+        defaultSuffix: waveBridge.exportFormatIndex === 1 ? "pulse" : (waveBridge.exportFormatIndex === 2 ? "zip" : "json")
+        nameFilters: waveBridge.exportFormatIndex === 1 ? [qsTr("DG-LAB 波形 (*.pulse)")] : (waveBridge.exportFormatIndex === 2 ? [qsTr("波形归档 (*.zip)")] : [qsTr("JSON 波形数组 (*.json)")])
     }
 
     FileDialog {
         objectName: "waveImportFileDialog"
         title: qsTr("导入波形")
         fileMode: FileDialog.OpenFile
-        nameFilters: [qsTr("波形文件 (*.json *.pulse *.zip)"), qsTr("JSON (*.json)"), qsTr(".pulse (*.pulse)"),
-            qsTr("波形归档 (*.zip)")]
+        nameFilters: [qsTr("波形文件 (*.json *.pulse *.zip)"), qsTr("JSON (*.json)"), qsTr(".pulse (*.pulse)"), qsTr("波形归档 (*.zip)")]
     }
 
     // 规则可视化编辑器（首页 / 配置页入口打开）
@@ -471,7 +462,6 @@ ApplicationWindow {
         id: confirmDialog
     }
 
-
     // 迷你窗：跟随主窗口生命周期，显示 / 锁定 / 关闭由 C++（UiConnector）驱动
     MiniWindow {
         id: miniWindow
@@ -497,11 +487,7 @@ ApplicationWindow {
             anchors.left: parent.left
             anchors.leftMargin: Metrics.spacingLg
             anchors.verticalCenter: parent.verticalCenter
-            text: (root.connectionCount > 0
-                    ? qsTr("已连接设备 ×%1").arg(root.connectionCount)
-                    : qsTr("未连接设备")) + qsTr(" · 蓝牙链路 %1 条 · 通道：%2")
-                .arg(root.bleCount)
-                .arg(home.channelAState === "idle" && home.channelBState === "idle" ? qsTr("空闲") : qsTr("运行中"))
+            text: (root.connectionCount > 0 ? qsTr("已连接设备 ×%1").arg(root.connectionCount) : qsTr("未连接设备")) + qsTr(" · 蓝牙链路 %1 条 · 通道：%2").arg(root.bleCount).arg(home.channelAState === "idle" && home.channelBState === "idle" ? qsTr("空闲") : qsTr("运行中"))
             color: Theme.textSecondary
             font.pixelSize: Typography.fontBody
             elide: Text.ElideRight
