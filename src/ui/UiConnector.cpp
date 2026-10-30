@@ -554,6 +554,7 @@ void UiConnector::attach(QObject* root_object) {
     // 日志
     connect_clicked(root_object, "logExportButton", SLOT(on_log_export_clicked()));
     connect_clicked(root_object, "logClearButton", SLOT(on_log_clear_clicked()));
+    connect_clicked(root_object, "logRefreshButton", SLOT(on_log_refresh_clicked()));
     if (auto* combo = root_object->findChild<QObject*>(QStringLiteral("logLevelCombo"))) {
         QObject::connect(combo, SIGNAL(activated(int)), this, SLOT(on_log_level_changed()));
     }
@@ -834,8 +835,7 @@ bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
         open_dialog("ruleDiscardDialog");
         return false;
     }
-    if (event->type() != QEvent::KeyPress || root_.isNull()
-        || (watched != root_.data() && !is_rule_editor_window(watched))) {
+    if (event->type() != QEvent::KeyPress || root_.isNull() || (watched != root_.data() && !is_rule_editor_window(watched))) {
         return QObject::eventFilter(watched, event);
     }
     auto* key_event = static_cast<QKeyEvent*>(event);
@@ -938,8 +938,7 @@ void UiConnector::ask_confirm(const QString& title, const QString& message, bool
     }
     // 主窗口隐藏到托盘或最小化时先拉起：弹层是主窗口内的 Popup，主窗口不可见时弹层也看不见
     auto* host_window = qobject_cast<QQuickWindow*>(root_.data());
-    if (host_window != nullptr && (!host_window->isVisible()
-        || (host_window->windowState() & Qt::WindowMinimized) != 0)) {
+    if (host_window != nullptr && (!host_window->isVisible() || (host_window->windowState() & Qt::WindowMinimized) != 0)) {
         if (!host_window->isVisible()) {
             host_window->show();
         }
@@ -1180,8 +1179,7 @@ void UiConnector::on_plugin_detail_requested(const QString& plugin_key) {
             if (candidate.isEmpty()) {
                 continue;
             }
-            if (candidate == plugin_key
-                || item.value(QStringLiteral("moduleName")).toString() == plugin_key) {
+            if (candidate == plugin_key || item.value(QStringLiteral("moduleName")).toString() == plugin_key) {
                 file_name = candidate;
                 break;
             }
@@ -1816,7 +1814,7 @@ void UiConnector::on_device_channel_fallback_modified() {
         Q_ARG(int, limit), Q_ARG(int, safety_value));
     LOG_MODULE("UiConnector", "on_device_channel_fallback_modified", LOG_INFO,
         "通道级回退值已提交: 通道=" << channel.toStdString() << " 上限=" << limit
-            << " 安全上限=" << safety_value);
+                                    << " 安全上限=" << safety_value);
 }
 
 QVariantList UiConnector::limit_targets() const {
@@ -1870,8 +1868,8 @@ void UiConnector::refresh_device_limits_fields() {
         index = 0;
     }
     limits_device_ = (index >= 0 && index < devices.size())
-        ? devices.at(index).toMap().value(QStringLiteral("address")).toString()
-        : QString();
+                         ? devices.at(index).toMap().value(QStringLiteral("address")).toString()
+                         : QString();
     if (combo != nullptr) {
         combo->setProperty("currentIndex", index);
     }
@@ -1889,8 +1887,7 @@ void UiConnector::refresh_device_limits_fields() {
             safety_spin->setProperty("value", limits.value(QStringLiteral("safety"), 0));
         }
         // 两个键都还没落盘时才标「默认」：部分落盘时已不是纯回退值
-        const bool fallback = !limits.value(QStringLiteral("device_limit")).toBool()
-            && !limits.value(QStringLiteral("device_safety")).toBool();
+        const bool fallback = !limits.value(QStringLiteral("device_limit")).toBool() && !limits.value(QStringLiteral("device_safety")).toBool();
         if (page != nullptr) {
             page->setProperty(channel == QStringLiteral("A") ? "limitsFallbackA" : "limitsFallbackB", fallback);
         }
@@ -1940,12 +1937,20 @@ void UiConnector::on_log_messages_changed() {
         } }, Qt::QueuedConnection);
 }
 
+void UiConnector::on_log_refresh_clicked() {
+    if (log_ != nullptr) {
+        QMetaObject::invokeMethod(log_, "refresh");
+    }
+}
+
 void UiConnector::on_log_level_changed() {
     if (log_ == nullptr) {
         return;
     }
     auto* combo = find("logLevelCombo");
     log_->setLevelFilter(combo == nullptr ? 0 : combo->property("currentIndex").toInt());
+
+    on_log_refresh_clicked();
 }
 
 void UiConnector::on_log_export_level_changed() {
@@ -1981,9 +1986,11 @@ void UiConnector::on_ble_strength_clicked() {
     }
     const QString name = button->objectName();
     const int channel = name.contains(QStringLiteral("StrengthA"))
-        ? kStrengthChannelA : kStrengthChannelB;
+                            ? kStrengthChannelA
+                            : kStrengthChannelB;
     const int mode = name.contains(QStringLiteral("Increase"))
-        ? kStrengthModeIncrease : kStrengthModeDecrease;
+                         ? kStrengthModeIncrease
+                         : kStrengthModeDecrease;
     ble_->setStrength(channel, mode, kStrengthStep);
 }
 
@@ -2163,8 +2170,7 @@ void UiConnector::bind_color_dialog(QObject* dialog) {
     auto* value_slider = dialog->findChild<QObject*>(QStringLiteral("colorDialogValueSlider"));
     auto* confirm_button = dialog->findChild<QObject*>(QStringLiteral("colorDialogConfirmButton"));
     auto* cancel_button = dialog->findChild<QObject*>(QStringLiteral("colorDialogCancelButton"));
-    if (hex_field == nullptr || hue_slider == nullptr || saturation_slider == nullptr
-        || value_slider == nullptr || confirm_button == nullptr || cancel_button == nullptr) {
+    if (hex_field == nullptr || hue_slider == nullptr || saturation_slider == nullptr || value_slider == nullptr || confirm_button == nullptr || cancel_button == nullptr) {
         LOG_MODULE("UiConnector", "bind_color_dialog", LOG_WARN, "取色对话框缺少控件，取色交互不可用");
         return;
     }

@@ -172,6 +172,7 @@ private slots:
     void on_log_export_dir_applied();
     void on_log_list_movement_ended();
     void on_log_messages_changed();
+    void on_log_refresh_clicked();
     // 动态内容变化后重扫热区
     void on_tracked_children_changed();
     // 软件更新
@@ -279,7 +280,7 @@ private:
     QTimer mini_window_save_timer_;          ///< 迷你窗状态保存的延迟合并计时器
     QTimer mini_window_wave_timer_;          ///< 迷你窗波形滚动计时器（100 ms，与波形帧同拍）
     qint64 mini_window_wave_cursor_ = 0;     ///< 波形滚动游标（帧序号，循环播放）
-    QString limits_device_;                   ///< 设备管理页正在编辑上下限的设备 MAC（空串表示通道回退值）
+    QString limits_device_;                  ///< 设备管理页正在编辑上下限的设备 MAC（空串表示通道回退值）
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
     UpdateBridge* update_ = nullptr;

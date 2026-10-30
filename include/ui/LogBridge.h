@@ -49,6 +49,8 @@ public:
 
     Q_INVOKABLE void clear();
     Q_INVOKABLE bool exportLogs();
+    /// @brief 重新根据当前级别过滤 all_messages_ 并刷新 UI（用于手动刷新或清空后恢复）
+    Q_INVOKABLE void refresh();
     /// @brief 设置界面日志级别（0 DEBUG / 1 INFO / 2 WARN / 3 ERROR）
     Q_INVOKABLE void setLevelFilter(int level);
     /// @brief 设置手动导出级别（0 DEBUG / 1 INFO / 2 WARN / 3 ERROR）
@@ -76,7 +78,8 @@ private:
     /// @brief 把手动导出设置写入 user.json 并通知界面
     void save_export_settings();
 
-    QVariantList messages_;
+    QVariantList all_messages_; ///< 全量日志缓存（不受 UI 级别过滤影响）
+    QVariantList messages_;     ///< 当前过滤后供 UI 显示的日志列表
     bool dirty_ = false;
     QTimer* flush_timer_ = nullptr;
     int level_filter_ = 0;

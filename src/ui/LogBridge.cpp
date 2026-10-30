@@ -59,11 +59,13 @@ void LogBridge::initialize() {
     level_filter_ = AppConfig::instance().get_value<int>("app.log.ui_log_level", 0);
 
     LogSink sink;
-    sink.min_level = LOG_DEBUG;
+    sink.min_level = LOG_DEBUG; // 固定为 DEBUG，拦截所有日志，交由 refresh 过滤
     sink.callback = [this](const std::string& module, const std::string& method, LogLevel level,
                         const std::string& message) { on_log(module, method, level, message); };
     DebugLog::instance().register_log_sink("qt_ui", sink);
-    DebugLog::instance().set_log_sink_level("qt_ui", static_cast<LogLevel>(level_filter_));
+    // 不再根据 level_filter_ 限制底层通道级别，否则切回 DEBUG 时历史日志找不回来
+    DebugLog::instance().set_log_sink_level("qt_ui", LOG_DEBUG);
+
     emit levelFilterChanged();
 }
 
@@ -88,7 +90,18 @@ QString LogBridge::export_dir_config() const {
 }
 
 void LogBridge::clear() {
+    all_messages_.clear();
     messages_.clear();
+    emit messagesChanged();
+}
+
+void LogBridge::refresh() {
+    messages_.clear();
+    for (const QVariant& v : all_messages_) {
+        if (v.toMap().value(QStringLiteral("level")).toInt() >= level_filter_) {
+            messages_.append(v);
+        }
+    }
     emit messagesChanged();
 }
 
@@ -110,12 +123,19 @@ bool LogBridge::exportLogs() {
 }
 
 void LogBridge::setLevelFilter(int level) {
-    level_filter_ = std::clamp(level, 0, 4);
-    DebugLog::instance().set_log_sink_level("qt_ui", static_cast<LogLevel>(level_filter_));
+    const int new_level = std::clamp(level, 0, 4);
+    if (level_filter_ == new_level) {
+        return;
+    }
+    level_filter_ = new_level;
+
     auto& config = AppConfig::instance();
     config.set_value<int>("app.log.ui_log_level", level_filter_);
     config.save_all();
     emit levelFilterChanged();
+
+    // 切换级别后，立即重新过滤并刷新显示
+    refresh();
 }
 
 void LogBridge::setExportLevel(int level) {
@@ -171,7 +191,7 @@ void LogBridge::on_log(const std::string& module, const std::string& method, Log
             item.insert(QStringLiteral("level"), level_value);
             item.insert(QStringLiteral("levelText"), level_name);
             item.insert(QStringLiteral("text"), line);
-            messages_.append(item);
+            all_messages_.append(item);
             dirty_ = true;
         },
         Qt::QueuedConnection);
@@ -182,10 +202,11 @@ void LogBridge::flush_pending() {
         return;
     }
     dirty_ = false;
-    if (messages_.size() > kMaxMessages) {
-        messages_ = messages_.mid(messages_.size() - kMaxMessages);
+    if (all_messages_.size() > kMaxMessages) {
+        all_messages_ = all_messages_.mid(all_messages_.size() - kMaxMessages);
     }
-    emit messagesChanged();
+    // 数据变动后，重新按当前级别过滤并刷新 UI 列表
+    refresh();
 }
 
 void LogBridge::save_export_settings() {
