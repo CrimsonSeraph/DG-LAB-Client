@@ -139,7 +139,7 @@ src/ui/
 
 主页看板（`pages/HomePage.qml` 与 `pages/home/`）：
 
-主页已改为看板：按三行排列——设备状态卡与「已启用插件 + 近期触发」同行、通道 A 卡与通道 A 波形卡同行、通道 B 卡与通道 B 波形卡同行；页头只保留「规则编辑器」一个快捷入口（插件中心经左侧导航进入，原「插件管理」按钮已移除；模块页入口与波形设置入口同样已移除）。强度调节不在本页（后续由迷你窗提供），波形选择在波形设置页。
+主页已改为看板：按三行排列——设备状态卡与「已启用插件 + 近期触发」同行、通道 A 卡与通道 A 波形卡同行、通道 B 卡与通道 B 波形卡同行；页头操作区从左到右为「迷你窗」与「规则编辑器」（插件中心经左侧导航进入，原「插件管理」按钮已移除；模块页入口与波形设置入口同样已移除）。强度调节不在本页（由迷你窗提供），波形选择在波形设置页。
 
 `homePage` / `homeScrollView` / `homeDashboardGrid` 为页面根项、滚动视图与两列看板栅格（`columns` 随 `page.singleColumn` 在 2 / 1 之间切换，单列时六张卡按「设备状态 → 插件+触发 → 通道 A → A 波形 → 通道 B → B 波形」顺序排列）；`homeDashboardRightStack` 是「已启用插件 + 近期触发」的纵向滚动容器（`Flickable`，两列时高度由同行的设备状态卡决定，`contentHeight` 取内部 `ColumnLayout` 位置器的 `max(隐式高度, 可视高度)`，内容超出时在该区域内部滚动；单列时没有同行伙伴，按内容自然高度交给页面滚动）。原 `homeDashboardLeftColumn` / `homeDashboardRightColumn` 两个列容器已随三行重排移除。
 
@@ -269,6 +269,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `waveChannelCard` | 通道波形卡根节点（`GlassCard`）：目标通道、A/B 预览与波形库入口 |
 | `waveChannelAButton` / `waveChannelBButton` | 选择波形目标通道（对应 `waveBridge.targetChannel`） |
 | `waveSelectButton` / `waveCreateButton` | 打开波形库 / 直接新建波形（打开 `waveEditorDialog`） |
+| `waveClearButton` | 「清除波形」→ `UiConnector::on_wave_clear_clicked()` → `WaveBridge::clearWave(targetChannel)`：解除当前目标通道（A 或 B）的波形指派，只解除指派，不删波形库条目；目标通道未绑定波形时用 `enabled: false` 表达不可用（不隐藏）。清除后 `WaveLibrary::current_changed` 经 `WaveBridge::dataChanged` 让 `currentA` / `currentB`、两条 `WavePreview` 与本按钮的可用性一起刷新 |
 | `waveImportButton` | 导入波形 → `on_wave_import_clicked()`：打开 `waveImportFileDialog`（`.json` / `.pulse` / `.zip` 按扩展名自动判格式，zip 解压后逐个 `.pulse` 复用同一套冲突三选与汇总） |
 | `waveExportButton` | 导出波形 → `on_wave_export_clicked()`：打开 `waveExportDialog` 先选格式与范围 |
 | `waveTagCard` | 波形标签卡根节点（`GlassCard`）：标签库（内置标签带锁标识、自定义标签用语义色，均为只读展示）与波形列表 |
@@ -320,6 +321,9 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `pluginValuesPanel` | 「数值」页签的滚动容器，`activeTab === 1` 时可见；`contentHeight` 取自 `valueColumn` 位置器，只读 |
 | `pluginValuesScrollBar` | 数值列表竖向滚动条（`ScrollBar` 附属在 `pluginValuesPanel` 上，`policy: AsNeeded`），句柄取 `Theme` 令牌且常驻可见（默认 Basic 样式句柄静止时透明），无交互 |
 | `pluginValuesEmpty` | 数值空态面板（「该插件尚未注册数值」），`selectedValues` 为空时可见，只读 |
+| `eventWaveSparkline` / `eventWavePreviewEmpty` | 触发事件表单（`pages/plugin/EventMappingPanel.qml`）的「强度预览」：曲线点取 `waveBridge.wavePoints(<选中波形名>)` 的 `strength` 序列（每帧 4 个 25ms 子单元，强度 0~100，`maxValue: 100`），hint 显示波形名与帧数；未绑定波形（波形名为空串）时隐藏曲线、由 `eventWavePreviewEmpty` 显示一行说明。两者都只读，无交互 |
+
+「触发事件」表单的三个可写控件都经 `EventBridge::setEventConfig(module, eventId, wave, merge, weight, frames, dataType)` 写入，回显读 `EventBridge` 刷新后的 `events[]`：波形下拉第 0 项「默认（按当前设备）」写空串（该事件不附加波形），其余项写波形库里的波形名原文；「激活窗口（秒）」写入前乘 10 换算成 `frames`（1 秒 = 10 帧，1 帧 = 100ms）；「输出数据类型」按分段下标写 `strength` / `percent` / `wave`。
 
 关于页（`pages/AboutPage.qml`）：只保留软件介绍与许可证说明；「软件更新」卡片已整张移除，更新入口与更新状态全部移到左下角面板与 `dialogs/UpdateDialog.qml`，本页不再有更新按钮、进度条与说明文本。
 
@@ -492,7 +496,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 
 | 例外位置 | 原因 | 约束 |
 | --- | --- | --- |
-| `dialogs/RuleEditorDialog.qml` 画布 `MouseArea` 的 `onPressed` / `onPositionChanged` / `onReleased` / `onWheel` / `Keys.onPressed` | 拖动节点、拉线、缩放、平移与快捷键都是指针/键盘手势，命中测试无法通过 `objectName` + C++ 连接表达 | 处理器只调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型 |
+| `dialogs/RuleEditorDialog.qml` 画布 `MouseArea` 的 `onPressed` / `onPositionChanged` / `onReleased` / `onWheel` / `Keys.onPressed` | 拖动节点、拉线、缩放、平移与快捷键都是指针/键盘手势，命中测试无法通过 `objectName` + C++ 连接表达 | 处理器只改画布自身的视图属性（`panX` / `panY` / `zoom` / 拖动增量）或调用 `ruleGraph`（C++）的方法；节点与连线的增删改、复制粘贴、写回全部在 C++，QML 不直接改模型（拖动期间只更新增量，松手时才调一次 `moveNode`） |
 | 同文件画布右键菜单的 6 个 `MenuItem.onTriggered`（含 `ruleDeleteEdgeMenu` 删除连线） | 菜单由手势弹出，且需要读画布当前缩放/平移换算世界坐标；删除连线依赖右键命中测试得到的连线 id | 同上，只调用 `ruleGraph` |
 | 同文件 14 个 `onClicked`：调色板 11 个 `AppButton`（`ruleAddAdd` / `ruleAddSub` / `ruleAddMul` / `ruleAddDiv` / `ruleAddAbs` / `ruleAddSquare` / `ruleAddSqrt` / `ruleAddExpr` / `ruleAddRule` / `ruleAddChannelA` / `ruleAddChannelB`）、插件输出与数值源两个列表委托的 `MouseArea`、标题栏 `ruleBackToTopButton` | 遗留：这些点击都能用 `objectName` + `connect_clicked` 迁到 C++，目前尚未迁移 | 只调用 `ruleGraph`（`addOperatorNode` / `addAdvancedNode` / `addRuleNode` / `addChannelNode` / `addPluginOutputNode` / `addModuleNode` / `loadPluginGraph`）；新增控件不得照抄此写法 |
 | 同文件右下角调整手柄 `MouseArea` 的 `onPressed` / `onPositionChanged` | 拉伸对话框只能由指针按下与位移驱动；尺寸必须按场景坐标计算——对话框居中，自身随尺寸向两侧生长，用本地坐标会跟手漂移，无法用 `objectName` + C++ 连接表达 | `onPressed` 只记拖动起点与起始尺寸，`onPositionChanged` 只按位移改 `requestedWidth` / `requestedHeight`（尺寸夹紧在最小尺寸与视口之间），不读写模型、不写盘 |
