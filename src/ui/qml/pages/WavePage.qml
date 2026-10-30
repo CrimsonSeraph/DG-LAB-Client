@@ -10,6 +10,12 @@ Item {
 
     objectName: "wavePage"
 
+    // 目标通道当前是否绑定了波形：清除入口按它表达可用性
+    readonly property bool targetWaveBound: {
+        const current = waveBridge.targetChannel === "A" ? waveBridge.currentA : waveBridge.currentB;
+        return current.length > 0;
+    }
+
     ScrollView {
         id: scrollView
 
@@ -123,7 +129,7 @@ Item {
                         }
                     }
 
-                    // 卡片底部行：导入 / 导出在左，选择 / 创建波形在右
+                    // 卡片底部行：导入 / 导出在左，选择 / 清除 / 创建波形在右
                     RowLayout {
                         width: parent.width
                         spacing: Metrics.spacingMd
@@ -145,6 +151,12 @@ Item {
                         AppButton {
                             objectName: "waveSelectButton"
                             text: qsTr("选择波形")
+                        }
+
+                        AppButton {
+                            objectName: "waveClearButton"
+                            text: qsTr("清除波形")
+                            enabled: page.targetWaveBound
                         }
 
                         AppButton {

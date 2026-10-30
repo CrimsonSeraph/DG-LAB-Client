@@ -128,6 +128,11 @@ public:
     Q_INVOKABLE void setTargetChannel(const QString& channel);
     /// @brief 将库中波形指派给目标通道
     Q_INVOKABLE void assignWave(const QString& name);
+    /// @brief 解除指定通道的波形指派（只解除指派，不删除波形库条目）
+    Q_INVOKABLE void clearWave(const QString& channel);
+    /// @brief 指定波形的逐子单元预览点（t / freq / strength，按 V3 帧解析）
+    /// @return 点集；名字为空或波形不存在时为空
+    Q_INVOKABLE QVariantList wavePoints(const QString& name) const;
     /// @brief 删除库中波形（内置官方波形不可删除）
     Q_INVOKABLE void deleteWave(const QString& name);
     /// @brief 发送库中波形到指定通道

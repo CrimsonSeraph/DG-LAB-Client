@@ -433,6 +433,7 @@ void UiConnector::attach(QObject* root_object) {
     // 波形库与编辑器
     connect_clicked(root_object, "waveChannelAButton", SLOT(on_wave_channel_clicked()));
     connect_clicked(root_object, "waveChannelBButton", SLOT(on_wave_channel_clicked()));
+    connect_clicked(root_object, "waveClearButton", SLOT(on_wave_clear_clicked()));
     connect_clicked(root_object, "waveSelectButton", SLOT(on_wave_select_clicked()));
     connect_clicked(root_object, "waveCreateButton", SLOT(on_wave_create_clicked()));
     connect_clicked(root_object, "waveSelectCreateButton", SLOT(on_wave_create_clicked()));
@@ -1302,6 +1303,13 @@ void UiConnector::on_wave_channel_clicked() {
     }
     const QString name = button->objectName();
     wave_->setTargetChannel(name.endsWith(QStringLiteral("AButton")) ? QStringLiteral("A") : QStringLiteral("B"));
+}
+
+void UiConnector::on_wave_clear_clicked() {
+    if (wave_ == nullptr) {
+        return;
+    }
+    wave_->clearWave(wave_->target_channel());
 }
 
 void UiConnector::on_wave_select_clicked() {

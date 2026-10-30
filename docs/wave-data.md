@@ -97,6 +97,19 @@
 - 条目里没有任何合规帧时整条跳过并记 `LOG_WARN`；部分帧不合规只丢那些帧。
 - 每条波形条目还带 `tags` 数组（标签名列表，无标签写空数组）；官方内置波形的标签在重新加载时由 `tags.json` 的 `official_wave_tags` 段恢复，这里的同名字段不参与读回，见「八、标签」。
 
+### 通道当前波形：指派与清除
+
+`waves.json` 的 `current` 段（`{"A": "呼吸", "B": ""}`）记录 A/B 两个通道各自当前绑定的波形名，空串表示该通道不叠加任何波形。它只是指派记录，不是波形数据的副本：名字解析不到波形时 `frames_for()` 直接返回空。
+
+| 操作 | 界面入口 | 写入 | 波形库条目 |
+| --- | --- | --- | --- |
+| 指派 | 波形库对话框选中某条（`WaveBridge::assignWave`）或「发送到通道 A / B」（`sendWave`） | `current.<通道>` = 波形名，经 `WaveLibrary::set_current()` 落盘 | 不变 |
+| 清除 | 波形设置页「清除波形」（`waveClearButton`，作用于当前目标通道，`WaveBridge::clearWave(channel)`） | `current.<通道>` = 空串 | 不变：不删波形库条目，也不删波形本身与标签 |
+| 删除波形 | 波形库对话框行内删除 | 该波形正被 A 或 B 使用时同步清空对应名字（`WaveLibrary::remove()`） | 条目移除 |
+
+- 清除只解除指派，重新指派即恢复，所以界面不做二次确认；清除后该通道的 `pointsA` / `pointsB` 变空（空串名字取不到帧），通道波形卡的预览显示「无波形」、摘要行显示「未选择」，`waveClearButton` 因没有可清除的波形而置灰。
+- 清除后 `WaveLibrary` 发 `current_changed`，`WaveBridge` 转发为 `dataChanged`，绑 `currentA` / `currentB` / `pointsA` / `pointsB` 的控件一起刷新，不需要额外的刷新入口。
+
 ## 五、发送协议与缺帧提示
 
 发送协议写在 `user.json` 的 `app.wave.protocol`，取值 `v2` / `v3`，缺省 `v3`；非法取值忽略并按 `v3` 生效。
@@ -104,7 +117,7 @@
 - 发送路径按协议取对应帧：`WaveLibrary::frames_of(name, protocol)`，`v2` 取 `frames_v2`、`v3` 取 `frames_v3`。
 - 目标版本缺帧时**不回落另一版本**、也不发送空数据：`WaveBridge` 写 `lastError`（`波形《X》缺少 V2 帧，未发送` / `当前发送协议为 V2，草稿缺少 V2 帧，未发送`）并记 `LOG_WARN`，界面经既有的「`lastError` 由空转非空 → Toast（danger）」路由提示用户。
 - `WaveBridge::waves` 的列表项带 `sendable`（当前协议是否具备帧）、`official`、`frameCountV2` / `frameCountV3`，供界面禁用发送入口。
-- 波形预览（`pointsA` / `pointsB` / `amplitudeA` / `amplitudeB`）与事件包络始终取 V3 帧：预览按 V3 的 4×25ms 子单元解析强度与频率。
+- 波形预览（`pointsA` / `pointsB` / `amplitudeA` / `amplitudeB` 与事件映射的 `wavePoints`）与事件包络始终取 V3 帧：预览按 V3 的 4×25ms 子单元解析强度与频率。
 - 事件波形下发（`dataType=wave`）同样按协议取帧：`WaveLibrary::frames_of()` 返回空时不下发、也不回落另一版本，记 `LOG_WARN` 并经既有的 `lastError` / Toast 路由提示用户，详见 [event-mapping.md](event-mapping.md) 的「事件波形下发」。
 
 ## 六、测试覆盖

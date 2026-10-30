@@ -52,8 +52,31 @@ Item {
         return names;
     }
     readonly property var waveModel: [qsTr("默认（按当前设备）")].concat(root.waveNames)
-    // 波形帧预览暂无接口，先给固定示例点
-    readonly property var previewPoints: [8, 22, 35, 28, 46, 38, 58, 44, 62, 51, 70, 60, 74, 66, 55, 48, 36, 30, 22, 14]
+    readonly property string currentWaveName: root.currentEvent === null
+        ? ""
+        : String(root.currentEvent.wave)
+    // 预览点由 C++ 按 V3 帧解析；这里读 root.waveNames，让波形库内容变化时一并重算
+    readonly property var wavePreviewPoints: {
+        const name = root.currentWaveName;
+        if (name.length === 0 || root.waveNames.indexOf(name) < 0) {
+            return [];
+        }
+        return waveBridge.wavePoints(name);
+    }
+    // AppSparkline 只吃数值序列：取每个 25ms 子单元的强度（0~100），
+    // 子单元在时间轴上等距（t 每次 +25），因此按下标绘制即为时间顺序
+    readonly property var previewStrengths: {
+        const points = root.wavePreviewPoints;
+        const values = [];
+        for (let i = 0; i < points.length; ++i) {
+            values.push(Number(points[i].strength));
+        }
+        return values;
+    }
+    readonly property int previewFrameCount: Math.round(root.wavePreviewPoints.length / 4)
+    readonly property string previewEmptyText: root.currentWaveName.length === 0
+        ? qsTr("默认波形：该事件不附加波形，因此没有可预览的曲线")
+        : qsTr("波形《%1》没有可预览的帧，可能缺少 V3 帧或已不在波形库中").arg(root.currentWaveName)
     // 输出数据类型：strength 直接给强度值，percent 把强度值按数值上下限映射到 0-100，wave 让绑定波形参与叠加
     readonly property var dataTypeValues: ["strength", "percent", "wave"]
     readonly property var dataTypeModel: [qsTr("强度"), qsTr("百分比"), qsTr("波形")]
@@ -199,6 +222,7 @@ Item {
                         AppComboBox {
                             id: waveCombo
 
+                            objectName: "eventWaveCombo"
                             width: parent.width
                             model: root.waveModel
                             Binding on currentIndex {
@@ -206,7 +230,8 @@ Item {
                                 restoreMode: Binding.RestoreNone
                             }
                             onActivated: function (index) {
-                                root.writeEvent(undefined, index === 0 ? "" : root.waveNames[index - 1], undefined);
+                                root.writeEvent(index === 0 ? "" : root.waveNames[index - 1],
+                                    undefined, undefined);
                             }
                         }
                     }
@@ -339,13 +364,32 @@ Item {
                 AppField {
                     width: parent.width
                     label: qsTr("强度预览")
-                    hint: qsTr("示例曲线")
+                    hint: root.currentWaveName.length === 0
+                        ? qsTr("该事件不附加波形，按当前设备播放")
+                        : qsTr("%1 · %2 帧").arg(root.currentWaveName).arg(root.previewFrameCount)
 
-                    AppSparkline {
+                    Column {
                         width: parent.width
-                        height: ComponentStyle.wavePreviewHeight
-                        points: root.previewPoints
-                        maxValue: 100
+                        spacing: Metrics.spacingXs
+
+                        AppSparkline {
+                            objectName: "eventWaveSparkline"
+                            width: parent.width
+                            height: ComponentStyle.wavePreviewHeight
+                            visible: root.previewStrengths.length > 0
+                            points: root.previewStrengths
+                            maxValue: 100
+                        }
+
+                        Text {
+                            objectName: "eventWavePreviewEmpty"
+                            width: parent.width
+                            visible: root.previewStrengths.length === 0
+                            text: root.previewEmptyText
+                            color: Theme.textMuted
+                            font.pixelSize: Typography.fontBody
+                            wrapMode: Text.WordWrap
+                        }
                     }
                 }
             }

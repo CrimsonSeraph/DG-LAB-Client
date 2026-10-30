@@ -296,6 +296,31 @@ void WaveBridge::assignWave(const QString& name) {
     emit dataChanged();
 }
 
+void WaveBridge::clearWave(const QString& channel) {
+    if (channel != QStringLiteral("A") && channel != QStringLiteral("B")) {
+        return;
+    }
+    if (WaveLibrary::instance().current(channel.toStdString()).isEmpty()) {
+        return;
+    }
+    WaveLibrary::instance().set_current(channel.toStdString(), std::string());
+    LOG_MODULE("WaveBridge", "clearWave", LOG_INFO,
+        "通道 " + channel.toStdString() + " 已解除波形指派");
+    emit dataChanged();
+}
+
+QVariantList WaveBridge::wavePoints(const QString& name) const {
+    if (name.isEmpty()) {
+        return QVariantList();
+    }
+    const Wave* wave = WaveLibrary::instance().get(name.toStdString());
+    if (wave == nullptr) {
+        return QVariantList();
+    }
+    // points_from_frames 按 V3 的 4×25ms 子单元解析，与 pointsA / pointsB 同源
+    return points_from_frames(wave->frames_v3);
+}
+
 void WaveBridge::deleteWave(const QString& name) {
     if (name.isEmpty()) {
         return;

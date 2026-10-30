@@ -113,6 +113,7 @@ private slots:
     // 波形库与编辑器
     void on_wave_select_clicked();
     void on_wave_channel_clicked();
+    void on_wave_clear_clicked();
     void on_wave_create_clicked();
     void on_wave_library_item_clicked();
     void on_wave_delete_clicked();
