@@ -385,3 +385,9 @@ doc/
 # 打包
 install_root/
 package/
+
+# 本地构建与取证目录
+build-agent/
+build-tests/
+out/
+tmp/
