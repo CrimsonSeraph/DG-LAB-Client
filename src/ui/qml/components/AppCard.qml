@@ -80,112 +80,157 @@ Rectangle {
         visible: root.bannerReady
         opacity: root.scrimOpacity
         gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.transparentFill }
-            GradientStop { position: 0.55; color: Theme.transparentFill }
-            GradientStop { position: 1.0; color: Theme.windowBg }
+            GradientStop {
+                position: 0.0
+                color: Theme.transparentFill
+            }
+            GradientStop {
+                position: 0.55
+                color: Theme.transparentFill
+            }
+            GradientStop {
+                position: 1.0
+                color: Theme.windowBg
+            }
         }
     }
 
-    Column {
+    Item {
         id: content
 
         anchors.left: parent.left
         anchors.right: parent.right
-        // 有头图时贴底（标题压在图片上）；无图时整块垂直居中，卡片被统一高度拉高后内容不自上悬空
-        anchors.bottom: root.bannerReady ? parent.bottom : undefined
-        anchors.verticalCenter: root.bannerReady ? undefined : parent.verticalCenter
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         anchors.margins: Metrics.cardPadding
-        spacing: Metrics.spacingMd
-
-        Text {
-            width: parent.width
-            visible: root.title.length > 0
-            text: root.title
-            color: Theme.textPrimary
-            font.pixelSize: Typography.fontSubtitle
-            font.bold: true
-            horizontalAlignment: root.bannerReady ? Text.AlignLeft : Text.AlignHCenter
-            elide: Text.ElideRight
-        }
-
-        Text {
-            width: parent.width
-            visible: root.subtitle.length > 0
-            text: root.subtitle
-            color: Theme.textSecondary
-            font.pixelSize: Typography.fontBody
-            horizontalAlignment: root.bannerReady ? Text.AlignLeft : Text.AlignHCenter
-            elide: Text.ElideRight
-        }
-
-        Flow {
-            width: parent.width
-            visible: root.tags && root.tags.length > 0
-            spacing: Metrics.spacingXs
-
-            Repeater {
-                model: root.tags
-
-                delegate: Rectangle {
-                    id: tag
-
-                    required property int index
-                    required property var modelData
-
-                    implicitWidth: tagLabel.implicitWidth + Metrics.spacingMd * 2
-                    implicitHeight: ComponentStyle.statusBadgeHeight
-                    radius: height / 2
-                    color: Theme.surfaceAlt
-                    border.width: Metrics.borderWidth
-                    border.color: Theme.border
-
-                    Text {
-                        id: tagLabel
-
-                        anchors.centerIn: parent
-                        text: tag.modelData
-                        color: Theme.textSecondary
-                        font.pixelSize: Typography.fontBody
-                    }
-                }
-            }
-        }
 
         Item {
+            id: innerContainer
+
             width: parent.width
-            height: statusText.implicitHeight
-            visible: root.status.length > 0
+            // 有头图时（贴底），撑满整个高度；无头图时，高度由内部内容决定（整体居中）
+            height: root.bannerReady ? parent.height : implicitHeight
 
-            Rectangle {
-                id: statusDot
+            anchors.verticalCenter: root.bannerReady ? undefined : parent.verticalCenter
+            anchors.top: root.bannerReady ? parent.top : undefined
 
-                width: 6
-                height: 6
-                radius: width / 2
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                color: Theme.accent
-            }
-
+            // 顶部：标题（固定位置）
             Text {
-                id: statusText
-
-                anchors.left: statusDot.right
-                anchors.leftMargin: Metrics.spacingSm
+                id: titleText
+                anchors.top: parent.top
+                anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.status
-                color: Theme.textSecondary
-                font.pixelSize: Typography.fontBody
+                visible: root.title.length > 0
+                text: root.title
+                color: Theme.textPrimary
+                font.pixelSize: Typography.fontSubtitle
+                font.bold: true
+                horizontalAlignment: root.bannerReady ? Text.AlignLeft : Text.AlignHCenter
                 elide: Text.ElideRight
             }
-        }
 
-        Row {
-            id: actionsRow
+            // 底部：标签、状态、操作（固定贴底）
+            Column {
+                id: bottomContainer
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                spacing: Metrics.spacingMd
 
-            width: parent.width
-            spacing: Metrics.spacingMd
+                Flow {
+                    width: parent.width
+                    visible: root.tags && root.tags.length > 0
+                    spacing: Metrics.spacingXs
+
+                    Repeater {
+                        model: root.tags
+
+                        delegate: Rectangle {
+                            id: tag
+
+                            required property int index
+                            required property var modelData
+
+                            implicitWidth: tagLabel.implicitWidth + Metrics.spacingMd * 2
+                            implicitHeight: ComponentStyle.statusBadgeHeight
+                            radius: height / 2
+                            color: Theme.surfaceAlt
+                            border.width: Metrics.borderWidth
+                            border.color: Theme.border
+
+                            Text {
+                                id: tagLabel
+
+                                anchors.centerIn: parent
+                                text: tag.modelData
+                                color: Theme.textSecondary
+                                font.pixelSize: Typography.fontBody
+                            }
+                        }
+                    }
+                }
+
+                Item {
+                    width: parent.width
+                    height: statusText.implicitHeight
+                    visible: root.status.length > 0
+
+                    Rectangle {
+                        id: statusDot
+
+                        width: 6
+                        height: 6
+                        radius: width / 2
+                        anchors.left: parent.left
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: Theme.accent
+                    }
+
+                    Text {
+                        id: statusText
+
+                        anchors.left: statusDot.right
+                        anchors.leftMargin: Metrics.spacingSm
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: root.status
+                        color: Theme.textSecondary
+                        font.pixelSize: Typography.fontBody
+                        elide: Text.ElideRight
+                    }
+                }
+
+                Row {
+                    id: actionsRow
+
+                    width: parent.width
+                    spacing: Metrics.spacingMd
+                }
+            }
+
+            // 中间：描述（自适应填充，支持多行截断）
+            Text {
+                id: subtitleText
+                anchors.top: titleText.visible ? titleText.bottom : parent.top
+                anchors.bottom: bottomContainer.visible ? bottomContainer.top : parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+
+                anchors.topMargin: root.title.length > 0 ? Metrics.spacingMd : 0
+                anchors.bottomMargin: bottomContainer.visible ? Metrics.spacingMd : 0
+
+                visible: root.subtitle.length > 0
+                text: root.subtitle
+                color: Theme.textSecondary
+                font.pixelSize: Typography.fontBody
+                horizontalAlignment: root.bannerReady ? Text.AlignLeft : Text.AlignHCenter
+
+                // 【多行截断配置
+                wrapMode: Text.WordWrap
+                maximumLineCount: 3    // 最多显示 3 行
+                elide: Text.ElideRight // 达到最大行数时，末尾显示 ...
+                clip: true             // 裁剪掉超出范围的文本
+            }
         }
     }
 }

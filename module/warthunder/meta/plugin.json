@@ -1,10 +1,10 @@
 {
     "id": "warthunder",
-    "name": "战争雷霆",
+    "name": "WarThunder | 战争雷霆",
     "version": "0.2.0",
     "author": "CrimsonSeraph",
-    "description": "读取 127.0.0.1:8111 空战遥测，输出速度、高度、姿态、动力与构型等数值",
-    "banner": "",
+    "description": "读取 127.0.0.1:8111 空战遥测，输出速度、高度、姿态、动力与构型等数值(实验性)",
+    "banner": "banner.jpg",
     "tags": ["游戏遥测", "HTTP"],
     "events": [
         {
