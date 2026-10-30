@@ -9,7 +9,7 @@
 
 一个 C++20 + Qt6/QML 的 DG-LAB 桌面客户端：外部数据（游戏遥测、传感器、无线按钮）经插件接入，由可视化规则图与事件映射换算成强度与波形，再通过应用自托管的中转服务或蓝牙直连下发给设备。
 
-> 当前版本 `v2.4.0`（唯一来源为 `config/main.json` 的 `app.version`）· 变更见 [CHANGELOG.md](CHANGELOG.md)。
+> 当前版本 `v2.5.0`（唯一来源为 `config/main.json` 的 `app.version`）· 变更见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 核心特性
 
