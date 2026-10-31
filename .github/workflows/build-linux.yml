@@ -182,7 +182,7 @@ jobs:
             ls -l "$MODULE_DIR"
             exit 1
           fi
-          for n in libdgl_example_plugin.so libdgl_gsi_plugin.so; do
+          for n in dgl_warthunder_plugin.so dgl_gsi_plugin.so; do
             test -f "$MODULE_DIR/$n" \
               || { echo "::error title=插件缺失::缺少 $n"; exit 1; }
           done

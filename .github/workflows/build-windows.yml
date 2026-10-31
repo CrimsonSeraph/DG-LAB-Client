@@ -166,11 +166,11 @@ jobs:
               Write-Host "::error title=插件缺失::module 下没有 .dll"
               exit 1
           }
-          foreach ($n in @('dgl_example_plugin.dll','dgl_gsi_plugin.dll')) {
-              if (-not (Test-Path (Join-Path $moduleDir $n))) {
-                  Write-Host "::error title=插件缺失::缺少 $n"
-                  exit 1
-              }
+          foreach ($n in @('dgl_warthunder_plugin.dll','dgl_gsi_plugin.dll')) {
+            if (-not (Test-Path (Join-Path $moduleDir $n))) {
+                Write-Host "::error title=插件缺失::缺少 $n"
+                exit 1
+            }
           }
           $dlls | ForEach-Object { Write-Host $_.FullName }
 
@@ -283,7 +283,7 @@ jobs:
             $entries.Dispose()
           }
 
-          $expected = @('bin/module/dgl_example_plugin.dll', 'bin/module/dgl_gsi_plugin.dll')
+          $expected = @('bin/module/dgl_warthunder_plugin.dll', 'bin/module/dgl_gsi_plugin.dll')
           $missing = $expected | Where-Object { $names -notcontains $_ }
           if ($missing) {
             Write-Host "::error title=发布包缺少插件::zip 内缺少：$($missing -join ', ')"
