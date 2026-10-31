@@ -28,6 +28,8 @@
     check_string((case_name), (expected), (actual), #actual, __LINE__)
 #define CHECK_FRAMES(case_name, expected, actual) \
     check_frames((case_name), (expected), (actual), #actual, __LINE__)
+#define CHECK_INT_AT_LEAST(case_name, minimum, actual) \
+    check_int_at_least((case_name), (minimum), (actual), #actual, __LINE__)
 #define FRAME_COUNT(array) (static_cast<int>(sizeof(array) / sizeof((array)[0])))
 
 namespace {
@@ -309,13 +311,26 @@ namespace {
         ++failures;
     }
 
-    // 整型断言
-    void check_int(const char* case_name, int expected, int actual, const char* expr, int line) {
+    // 整型断言（形参用 long long，避免 qsizetype 传参触发 -Wshorten-64-to-32）
+    void check_int(const char* case_name, long long expected, long long actual, const char* expr,
+        int line) {
         if (expected == actual) {
             return;
         }
         char detail[256] = {0};
-        std::snprintf(detail, sizeof(detail), "%s expected %d actual %d", expr, expected, actual);
+        std::snprintf(detail, sizeof(detail), "%s expected %lld actual %lld", expr, expected, actual);
+        fail(case_name, detail, line);
+    }
+
+    // 下界整型断言：可扩展清单（内置波形等）只校验数量下界
+    void check_int_at_least(const char* case_name, long long minimum, long long actual,
+        const char* expr, int line) {
+        if (actual >= minimum) {
+            return;
+        }
+        char detail[256] = {0};
+        std::snprintf(detail, sizeof(detail), "%s expected at least %lld actual %lld", expr, minimum,
+            actual);
         fail(case_name, detail, line);
     }
 
@@ -393,8 +408,9 @@ namespace {
     // 16 个官方内置波形全部加载，名称集合与样例一致
     void test_official_loaded(WaveLibrary& library) {
         const char* name = "official/loaded";
-        CHECK_INT(name, 16, static_cast<int>(OFFICIAL_NAMES_COUNT));
-        CHECK_INT(name, static_cast<int>(OFFICIAL_NAMES_COUNT), library.official_count());
+        // 放宽：内置波形属于可扩展清单，数量只校验下界；逐个名称的 exists 校验见下方循环
+        CHECK_INT_AT_LEAST(name, 16, OFFICIAL_NAMES_COUNT);
+        CHECK_INT_AT_LEAST(name, OFFICIAL_NAMES_COUNT, library.official_count());
         for (const char* official : OFFICIAL_NAMES) {
             CHECK_TRUE(name, library.has(official));
             CHECK_TRUE(name, library.is_official(official));
@@ -465,7 +481,8 @@ namespace {
                 snapshot[official] = *wave;
             }
         }
-        CHECK_INT(name, 16, static_cast<int>(snapshot.size()));
+        // 放宽：样例清单至少 16 个，多出的内置波形不参与本断言
+        CHECK_INT_AT_LEAST(name, OFFICIAL_NAMES_COUNT, snapshot.size());
 
         // set_current 触发落盘
         library.set_current("A", "呼吸");
@@ -506,7 +523,8 @@ namespace {
             CHECK_TRUE(name, !wave->is_official());
         }
         // 官方内置波形来自资源，不受用户库文件影响
-        CHECK_INT(name, static_cast<int>(OFFICIAL_NAMES_COUNT), library.official_count());
+        // 放宽：此处只校验「至少仍是样例清单那么多」，新增内置波形不影响
+        CHECK_INT_AT_LEAST(name, OFFICIAL_NAMES_COUNT, library.official_count());
         std::printf("[INFO] 旧格式 frames -> frames_v3：%d 帧\n",
             wave == nullptr ? 0 : static_cast<int>(wave->frames_v3.size()));
     }

@@ -82,7 +82,8 @@ public:
     SupportState support_state() const override { return support_state_; }
     bool wave_sending(int channel) const override { return (channel == 1 ? frames_a_ : frames_b_) > 0; }
     int wave_frame(int channel) const override { return (channel == 1 ? frame_a_ : frame_b_); }
-    int wave_frames(int channel) const override { return (channel == 1 ? frames_a_ : frames_b_); }
+    // 帧数内部按 qsizetype 记账（与 QStringList::size() 同宽），对外接口保持 IOutputDevice 的 int
+    int wave_frames(int channel) const override { return static_cast<int>(channel == 1 ? frames_a_ : frames_b_); }
 
     /// @brief 记录强度指令（合成设备不下发）
     void set_strength(int channel, int mode, int value) override {
@@ -142,8 +143,8 @@ private:
     int battery_ = -1;
     int strength_a_ = 0;
     int strength_b_ = 0;
-    int frames_a_ = 0; ///< A 通道下发帧数（0 表示未下发）
-    int frames_b_ = 0; ///< B 通道下发帧数
+    qsizetype frames_a_ = 0; ///< A 通道下发帧数（0 表示未下发）
+    qsizetype frames_b_ = 0; ///< B 通道下发帧数
     int frame_a_ = 0;  ///< A 通道当前帧
     int frame_b_ = 0;  ///< B 通道当前帧
     int limit_a_ = 200;

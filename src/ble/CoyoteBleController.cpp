@@ -780,11 +780,13 @@ int CoyoteBleDevice::wave_frame(int channel) const {
         return 0;
     }
     // frame_index 指向下一帧，已下发的那一帧是它的前一格（1 起计数）
-    return (state.frame_index + state.frames.size() - 1) % state.frames.size() + 1;
+    // 收窄依据：取模结果必小于帧数，编辑器限制单通道帧数 600（时长 60000ms / 每帧 100ms），库文件超出该上限也仍远小于 INT_MAX；返回值上游是 QML 的 int 属性
+    return static_cast<int>((state.frame_index + state.frames.size() - 1) % state.frames.size() + 1);
 }
 
 int CoyoteBleDevice::wave_frames(int channel) const {
-    return state_of(channel).frames.size();
+    // 收窄依据：编辑器限制单通道帧数 600（时长 60000ms / 每帧 100ms），库文件超出该上限也仍远小于 INT_MAX；返回值上游是 QML 的 int 属性
+    return static_cast<int>(state_of(channel).frames.size());
 }
 
 QByteArray CoyoteBleDevice::frame_for_channel(const QStringList& frames, int index) const {

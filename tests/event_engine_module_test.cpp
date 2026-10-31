@@ -33,13 +33,13 @@ namespace {
         ++failures;
     }
 
-    // 整型断言
-    void check_int(const char* case_name, int expected, int actual, const char* expr, int line) {
+    // 整型断言：形参用 long long 与 %lld 直配，避免 qsizetype / size_t 传入时的收窄告警
+    void check_int(const char* case_name, long long expected, long long actual, const char* expr, int line) {
         if (expected == actual) {
             return;
         }
         char detail[256] = {0};
-        std::snprintf(detail, sizeof(detail), "%s expected %d actual %d", expr, expected, actual);
+        std::snprintf(detail, sizeof(detail), "%s expected %lld actual %lld", expr, expected, actual);
         fail(case_name, detail, line);
     }
 
@@ -152,13 +152,13 @@ int main(int argc, char** argv) {
     CHECK_INT("channel-b-kept-after-remove", 50, engine.channel_output("B"));
 
     // 4) 移除后再发生数值变化：不触发、不重建任何状态
-    const int triggers_before = static_cast<int>(engine.recent_triggers(200).size());
+    const long long triggers_before = static_cast<long long>(engine.recent_triggers(200).size());
     CHECK_INT("trigger-count-before-value-change", 2, triggers_before);
     engine.on_value_changed("probe", "hp", 12);
     engine.on_value_changed("probe", "hp", 13);
     engine.advance_frame(1400);
     CHECK_INT("no-trigger-after-remove", triggers_before,
-        static_cast<int>(engine.recent_triggers(200).size()));
+        static_cast<long long>(engine.recent_triggers(200).size()));
     CHECK_INT("channel-a-still-zero", 0, engine.channel_output("A"));
     CHECK_TRUE("probe-state-not-rebuilt", !engine.has_module("probe"));
     CHECK_INT("channel-b-unaffected", 50, engine.channel_output("B"));

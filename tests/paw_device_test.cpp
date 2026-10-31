@@ -39,12 +39,22 @@ namespace {
     }
 
     // 整型断言
-    void check_int(const char* case_name, int expected, int actual, const char* expr, int line) {
+    void check_int(const char* case_name, long long expected, long long actual, const char* expr, int line) {
         if (expected == actual) {
             return;
         }
         char detail[256] = {0};
-        std::snprintf(detail, sizeof(detail), "%s expected %d actual %d", expr, expected, actual);
+        std::snprintf(detail, sizeof(detail), "%s expected %lld actual %lld", expr, expected, actual);
+        fail(case_name, detail, line);
+    }
+
+    // 下界断言：用于会随新增数值/事件增长的清单，失败时同时打印下界与实际值
+    void check_int_at_least(const char* case_name, long long minimum, long long actual, const char* expr, int line) {
+        if (actual >= minimum) {
+            return;
+        }
+        char detail[256] = {0};
+        std::snprintf(detail, sizeof(detail), "%s at least %lld actual %lld", expr, minimum, actual);
         fail(case_name, detail, line);
     }
 
@@ -240,9 +250,17 @@ namespace {
             __LINE__);
     }
 
+    // 爪印数值清单的必须包含项（清单可增长，新增数值时只补这里，不需要改下界）
+    const char* const kExpectedValueIds[] = {
+        "button", "param", "event_id", "accel", "angle_x", "angle_y", "angle_z", "voltage", "battery"};
+
     // 数值桥钳制：按登记范围钳制，未登记 id 原样返回，注册列表范围与定义表一致
     void test_value_clamp() {
-        check_int("clamp-count", 9, paw_values::kValueCount, "kValueCount", __LINE__);
+        // 登记表是可扩展清单：只要求不少于下界，且下列登记项都还在
+        check_int_at_least("clamp-count-min", 9, paw_values::kValueCount, "kValueCount", __LINE__);
+        for (const char* id : kExpectedValueIds) {
+            check_true("clamp-count-member", paw_values::find(id) != nullptr, id, __LINE__);
+        }
         check_int("clamp-button-high", 1, paw_values::clamp("button", 5), "clamp button 5", __LINE__);
         check_int("clamp-button-low", 0, paw_values::clamp("button", -1), "clamp button -1", __LINE__);
         check_int("clamp-param-high", 255, paw_values::clamp("param", 300), "clamp param 300", __LINE__);
@@ -254,7 +272,9 @@ namespace {
         check_true("clamp-unknown-absent", paw_values::find("ghost") == nullptr, "find ghost == nullptr", __LINE__);
 
         const std::vector<ModuleValue> values = paw_values::build();
-        check_int("build-count", paw_values::kValueCount, static_cast<int>(values.size()), "build().size()", __LINE__);
+        // 两侧都取自同一张登记表（kValueCount 随表增长），保持精确相等以捕获 build() 漏项或重复项
+        check_int("build-count", paw_values::kValueCount, static_cast<long long>(values.size()), "build().size()",
+            __LINE__);
         for (const ModuleValue& value : values) {
             const paw_values::ValueSpec* spec = paw_values::find(value.get_id());
             if (spec == nullptr) {
@@ -291,11 +311,11 @@ namespace {
 
         EventRuntime runtime;
         runtime.register_builtin_events(DeviceValueBridge::kModuleName, DeviceValueBridge::builtin_events());
-        check_int("builtin-source-count", 1, static_cast<int>(runtime.builtin_events().size()),
+        check_int("builtin-source-count", 1, static_cast<long long>(runtime.builtin_events().size()),
             "builtin_events().size()", __LINE__);
         // 重复注册同一模块标识整体替换，不累积出第二份声明
         runtime.register_builtin_events(DeviceValueBridge::kModuleName, DeviceValueBridge::builtin_events());
-        check_int("builtin-source-no-dup", 1, static_cast<int>(runtime.builtin_events().size()),
+        check_int("builtin-source-no-dup", 1, static_cast<long long>(runtime.builtin_events().size()),
             "builtin_events().size() after re-register", __LINE__);
 
         // initialize() 建立 ModuleManager::value_changed → 引擎的连接，并载入插件声明与内置声明
@@ -310,12 +330,12 @@ namespace {
 
         ModuleManager::instance().set_value("paw", "button", 0);
         check_int("builtin-first-value-no-trigger", 0,
-            static_cast<int>(runtime.engine().recent_triggers(200).size()), "triggers after first write", __LINE__);
+            static_cast<long long>(runtime.engine().recent_triggers(200).size()), "triggers after first write", __LINE__);
         ModuleManager::instance().set_value("paw", "button", 1);
-        check_int("builtin-pressed-trigger", 1, static_cast<int>(runtime.engine().recent_triggers(200).size()),
+        check_int("builtin-pressed-trigger", 1, static_cast<long long>(runtime.engine().recent_triggers(200).size()),
             "triggers after press", __LINE__);
         ModuleManager::instance().set_value("paw", "button", 0);
-        check_int("builtin-released-disabled", 1, static_cast<int>(runtime.engine().recent_triggers(200).size()),
+        check_int("builtin-released-disabled", 1, static_cast<long long>(runtime.engine().recent_triggers(200).size()),
             "triggers after release (not enabled)", __LINE__);
 
         // 空声明清除该模块的内置来源

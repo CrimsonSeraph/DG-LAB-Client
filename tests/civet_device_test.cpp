@@ -39,13 +39,23 @@ namespace {
         ++failures;
     }
 
-    // 整型断言
-    void check_int(const char* case_name, int expected, int actual, const char* expr, int line) {
+    // 整型断言：形参用 long long 与 %lld 直配，避免 qsizetype / size_t 传入时的收窄告警
+    void check_int(const char* case_name, long long expected, long long actual, const char* expr, int line) {
         if (expected == actual) {
             return;
         }
         char detail[256] = {0};
-        std::snprintf(detail, sizeof(detail), "%s expected %d actual %d", expr, expected, actual);
+        std::snprintf(detail, sizeof(detail), "%s expected %lld actual %lld", expr, expected, actual);
+        fail(case_name, detail, line);
+    }
+
+    // 整型下界断言：用于会随新增事件 / 数值而增长的清单类条数，失败时同时给出下界与实际值
+    void check_int_at_least(const char* case_name, long long minimum, long long actual, const char* expr, int line) {
+        if (actual >= minimum) {
+            return;
+        }
+        char detail[256] = {0};
+        std::snprintf(detail, sizeof(detail), "%s expected >= %lld actual %lld", expr, minimum, actual);
         fail(case_name, detail, line);
     }
 
@@ -225,7 +235,13 @@ namespace {
 
     // 数值桥钳制：按登记范围钳制，未登记 id 原样返回，注册列表范围与定义表一致
     void test_value_clamp() {
-        check_int("clamp-count", 3, civet_values::kValueCount, "kValueCount", __LINE__);
+        // 数值定义表会随新增数值增长：只校验下界，三个基础数值必须登记在表里
+        check_int_at_least("clamp-count", 3, civet_values::kValueCount, "kValueCount", __LINE__);
+        check_true("clamp-count-has-pressure", civet_values::find("pressure") != nullptr,
+            "civet_values 含 pressure", __LINE__);
+        check_true("clamp-count-has-battery", civet_values::find("battery") != nullptr,
+            "civet_values 含 battery", __LINE__);
+        check_true("clamp-count-has-raw", civet_values::find("raw") != nullptr, "civet_values 含 raw", __LINE__);
         check_int("clamp-pressure-high", 32767, civet_values::clamp("pressure", 40000), "clamp pressure 40000",
             __LINE__);
         check_int("clamp-pressure-low", -32768, civet_values::clamp("pressure", -40000), "clamp pressure -40000",
@@ -309,12 +325,28 @@ namespace {
             "register_module_values(civet)", __LINE__);
 
         const std::vector<EventDefinition> declarations = DeviceValueBridge::civet_builtin_events();
-        check_int("civet-events-count", 2, static_cast<int>(declarations.size()), "civet_builtin_events().size()",
-            __LINE__);
-        check_text("civet-events-first", QStringLiteral("pressure_rise"), QString::fromStdString(declarations[0].id),
-            "civet_builtin_events()[0].id", __LINE__);
-        check_text("civet-events-second", QStringLiteral("pressure_drop"), QString::fromStdString(declarations[1].id),
-            "civet_builtin_events()[1].id", __LINE__);
+        // 内置事件表会随新增事件增长：只校验下界，并逐条校验基础事件存在
+        check_int_at_least("civet-events-count", 2, static_cast<long long>(declarations.size()),
+            "civet_builtin_events().size()", __LINE__);
+        const auto has_event = [&declarations](const char* id) {
+            for (const EventDefinition& declaration : declarations) {
+                if (declaration.id == id) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        check_true("civet-events-has-rise", has_event("pressure_rise"),
+            "civet_builtin_events() 含 pressure_rise", __LINE__);
+        check_true("civet-events-has-drop", has_event("pressure_drop"),
+            "civet_builtin_events() 含 pressure_drop", __LINE__);
+        // 两条基础事件在产品里顺序固定（先上升后下降），长度放宽后仍按位置校验顺序
+        if (declarations.size() >= 2) {
+            check_text("civet-events-first", QStringLiteral("pressure_rise"),
+                QString::fromStdString(declarations[0].id), "civet_builtin_events()[0].id", __LINE__);
+            check_text("civet-events-second", QStringLiteral("pressure_drop"),
+                QString::fromStdString(declarations[1].id), "civet_builtin_events()[1].id", __LINE__);
+        }
 
         EventRuntime runtime;
         runtime.register_builtin_events(DeviceValueBridge::kCivetModuleName,

@@ -33,7 +33,7 @@ bool ProcessChecker::isRunning(const QString& processName, bool caseSensitive) {
     for (const QString& line : lines) {
         // 简单CSV解析：取第一个字段，去掉首尾引号
         if (line.startsWith('"')) {
-            int firstQuote = line.indexOf('"', 1);
+            const qsizetype firstQuote = line.indexOf('"', 1);
             if (firstQuote > 0) {
                 QString name = line.mid(1, firstQuote - 1);
                 if (caseSensitive) {

@@ -47,13 +47,14 @@ namespace {
         ++failures;
     }
 
-    // 整型断言
-    void check_int(const char* case_name, int expected, int actual, const char* expr, int line) {
+    // 整型断言（形参用 long long，避免 qsizetype 传参触发 -Wshorten-64-to-32）
+    void check_int(const char* case_name, long long expected, long long actual, const char* expr,
+        int line) {
         if (expected == actual) {
             return;
         }
         char detail[256] = {0};
-        std::snprintf(detail, sizeof(detail), "%s expected %d actual %d", expr, expected, actual);
+        std::snprintf(detail, sizeof(detail), "%s expected %lld actual %lld", expr, expected, actual);
         fail(case_name, detail, line);
     }
 

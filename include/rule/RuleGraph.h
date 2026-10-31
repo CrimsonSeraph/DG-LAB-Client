@@ -217,7 +217,8 @@ public:
     bool disconnect_port(int to, int port);
     bool has_edge(int from, int to, int port) const;
     int edge_at_port(int to, int port) const;
-    int source_at_port(int to, int port) const;
+    /// @param port 目标端口序号（占位符下标，取自 qsizetype 循环变量，故用 qsizetype 避免 64->32 收窄）
+    int source_at_port(int to, qsizetype port) const;
 
     // 导入 / 写回
     /// @brief 从当前 RuleManager 规则集导入（无侧车文件时使用）
@@ -253,7 +254,8 @@ private:
     static std::optional<int> evaluate_number(const QString& expression);
 
     QString formula_of(int node_id, int depth) const;
-    QString source_formula(int node_id, int port, int depth) const;
+    /// @param port 端口序号（占位符下标，取自 qsizetype 循环变量，故用 qsizetype 避免 64->32 收窄）
+    QString source_formula(int node_id, qsizetype port, int depth) const;
     QString placeholder_text(int node_id, int port) const;
     bool would_create_cycle(int from, int to) const;
     int rule_index_of(const QString& rule_name) const;

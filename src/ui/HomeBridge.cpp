@@ -264,7 +264,7 @@ void HomeBridge::toggleMiniWindowLock() {
     config.save_all();
     emit miniWindowLockedChanged();
     LOG_MODULE("HomeBridge", "toggleMiniWindowLock", LOG_INFO,
-        mini_window_locked_ ? "迷你窗已锁定" : "迷你窗已解锁");
+        (mini_window_locked_ ? "迷你窗已锁定" : "迷你窗已解锁"));
 }
 
 void HomeBridge::setDefaultDeviceIndex(int index) {

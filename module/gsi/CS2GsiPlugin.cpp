@@ -261,7 +261,7 @@ QString CS2GsiPlugin::find_cs_directory() {
     QString output = run_path_finder(args);
     QString result = output.trimmed();
     // PathFinder 结果输出为完整路径（可能含换行，取第一行）
-    int newline = result.indexOf('\n');
+    const qsizetype newline = result.indexOf('\n');
     if (newline > 0) {
         result = result.left(newline);
     }
@@ -455,7 +455,7 @@ bool CS2GsiPlugin::is_process_running(const QString& process_name) {
 #ifdef Q_OS_WIN
         // 简单 CSV 解析：取第一个字段（进程名），去掉首尾引号
         if (line.startsWith('"')) {
-            int end = line.indexOf('"', 1);
+            const qsizetype end = line.indexOf('"', 1);
             if (end > 0) {
                 name = line.mid(1, end - 1);
             }

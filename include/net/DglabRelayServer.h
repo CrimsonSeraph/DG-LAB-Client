@@ -32,7 +32,7 @@ public:
     void stop();
     bool running() const { return running_; }
     /// @brief 在线 WebSocket 客户端数（V3 控制端 + V4 被控方）
-    int client_count() const { return v3_connections_.size() + v4_connections_.size(); }
+    qsizetype client_count() const { return v3_connections_.size() + v4_connections_.size(); }
 
     QString controller_id() const { return controller_id_; }
     int v3_port() const { return v3_port_; }

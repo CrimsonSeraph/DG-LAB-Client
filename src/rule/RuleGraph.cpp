@@ -376,7 +376,7 @@ int RuleGraph::edge_at_port(int to, int port) const {
     return -1;
 }
 
-int RuleGraph::source_at_port(int to, int port) const {
+int RuleGraph::source_at_port(int to, qsizetype port) const {
     for (const auto& edge : edges_) {
         if (edge.to == to && edge.port == port) {
             return edge.from;
@@ -1120,7 +1120,7 @@ QString RuleGraph::formula_of(int node_id, int depth) const {
     }
 }
 
-QString RuleGraph::source_formula(int node_id, int port, int depth) const {
+QString RuleGraph::source_formula(int node_id, qsizetype port, int depth) const {
     const int source = source_at_port(node_id, port);
     if (source <= 0) {
         return QStringLiteral("{}");

@@ -32,12 +32,12 @@ namespace {
     }
 
     // 整型断言
-    void check_int(const char* case_name, int expected, int actual, const char* expr, int line) {
+    void check_int(const char* case_name, long long expected, long long actual, const char* expr, int line) {
         if (expected == actual) {
             return;
         }
         char detail[256] = {0};
-        std::snprintf(detail, sizeof(detail), "%s expected %d actual %d", expr, expected, actual);
+        std::snprintf(detail, sizeof(detail), "%s expected %lld actual %lld", expr, expected, actual);
         fail(case_name, detail, line);
     }
 
@@ -166,14 +166,14 @@ namespace {
         registry.add(&opossum);
 
         QVariantList before = registry.snapshot();
-        CHECK_INT("两台都在快照里", 2, static_cast<int>(before.size()));
+        CHECK_INT("两台都在快照里", 2, static_cast<long long>(before.size()));
 
         // 郊狼断开：模拟驱动掉线后从登记表移除
         coyote.set_connected(false);
         registry.remove(QStringLiteral("AA:BB:CC:DD:EE:11"));
 
         QVariantList after = registry.snapshot();
-        CHECK_INT("断开后快照只剩一台", 1, static_cast<int>(after.size()));
+        CHECK_INT("断开后快照只剩一台", 1, static_cast<long long>(after.size()));
         const QVariantMap kept = after.value(0).toMap();
         CHECK_TEXT("留下的是负鼠", QStringLiteral("AA:BB:CC:DD:EE:12"),
             kept.value(QStringLiteral("address")).toString());
@@ -190,7 +190,7 @@ namespace {
         CHECK_INT("负鼠 B 通道帧数", 2, opossum.wave_frames(2));
         opossum.set_connected(false);
         registry.remove(QStringLiteral("AA:BB:CC:DD:EE:12"));
-        CHECK_INT("全部断开后快照为空", 0, static_cast<int>(registry.snapshot().size()));
+        CHECK_INT("全部断开后快照为空", 0, static_cast<long long>(registry.snapshot().size()));
         CHECK_INT("郊狼电量保持原值", 80, coyote.battery());
     }
 
@@ -203,7 +203,7 @@ namespace {
         registry.add(&paw);
         CHECK_INT("非输出设备仍可登记", 1, registry.count());
         // 快照按「已连接」列出，输出能力的过滤由上层（DeviceController / 快照评选）负责
-        CHECK_INT("快照列出已连接设备", 1, static_cast<int>(registry.snapshot().size()));
+        CHECK_INT("快照列出已连接设备", 1, static_cast<long long>(registry.snapshot().size()));
         CHECK_FALSE("非输出设备不具备输出能力", paw.output_capable());
     }
 

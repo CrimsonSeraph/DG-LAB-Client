@@ -42,13 +42,13 @@ namespace {
         ++failures;
     }
 
-    // 整型断言
-    void check_int(const char* case_name, int expected, int actual, const char* expr, int line) {
+    // 整型断言：形参用 long long 与 %lld 直配，避免 qsizetype / size_t 传入时的收窄告警
+    void check_int(const char* case_name, long long expected, long long actual, const char* expr, int line) {
         if (expected == actual) {
             return;
         }
         char detail[256] = {0};
-        std::snprintf(detail, sizeof(detail), "%s expected %d actual %d", expr, expected, actual);
+        std::snprintf(detail, sizeof(detail), "%s expected %lld actual %lld", expr, expected, actual);
         fail(case_name, detail, line);
     }
 
@@ -480,7 +480,7 @@ int main(int argc, char** argv) {
     //     一次调用写完并统一重建引用列表；某一张失败不中断其余
     RuleGraph batch_top;
     batch_top.load(QStringLiteral("rules.json"));
-    const int top_nodes_before = static_cast<int>(batch_top.nodes().size());
+    const long long top_nodes_before = static_cast<long long>(batch_top.nodes().size());
     GraphNode batch_channel;
     batch_channel.type = GraphNodeType::Channel;
     batch_channel.channel = QStringLiteral("B");
@@ -490,7 +490,7 @@ int main(int argc, char** argv) {
     CHECK_TRUE("batch-add-top-node", batch_top.add_node(batch_channel) > 0);
 
     RuleGraph batch_plugin = RuleManager::instance().get_plugin_rule_graph("probe");
-    const int plugin_nodes_before = static_cast<int>(batch_plugin.nodes().size());
+    const long long plugin_nodes_before = static_cast<long long>(batch_plugin.nodes().size());
     GraphNode batch_source;
     batch_source.type = GraphNodeType::Module;
     batch_source.value_id = QStringLiteral("hp");
@@ -510,10 +510,10 @@ int main(int argc, char** argv) {
     RuleGraph reloaded_top;
     reloaded_top.load(QStringLiteral("rules.json"));
     CHECK_INT("batch-save-top-written", top_nodes_before + 1,
-        static_cast<int>(reloaded_top.nodes().size()));
+        static_cast<long long>(reloaded_top.nodes().size()));
     RuleGraph reloaded_plugin = RuleManager::instance().get_plugin_rule_graph("probe");
     CHECK_INT("batch-save-plugin-written", plugin_nodes_before + 1,
-        static_cast<int>(reloaded_plugin.nodes().size()));
+        static_cast<long long>(reloaded_plugin.nodes().size()));
 
     // 引用列表在批量保存末尾统一重建：插件图默认输出节点重新指向总规则图
     const int reloaded_output_id = reloaded_plugin.default_output_node();

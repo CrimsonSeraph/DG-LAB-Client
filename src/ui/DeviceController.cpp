@@ -550,7 +550,7 @@ bool DeviceController::v3_paired() const {
 }
 
 int DeviceController::app_client_count() const {
-    return relay_ != nullptr ? relay_->client_count() : 0;
+    return relay_ != nullptr ? static_cast<int>(relay_->client_count()) : 0;  ///< QML appClientCount 为 int，客户端数远小于 INT_MAX
 }
 
 bool DeviceController::v4_attached() const {

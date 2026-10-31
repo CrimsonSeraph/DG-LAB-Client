@@ -127,7 +127,7 @@ public:
     }
 
     /// @brief 已登记设备数量
-    int count() const {
+    qsizetype count() const {
         return links_.size();
     }
 
@@ -266,7 +266,7 @@ public:
     }
 
     /// @brief 当前已分配的模块名数量
-    int count() const { return names_.size(); }
+    qsizetype count() const { return names_.size(); }
 
 private:
     QStringList names_; ///< 已分配的模块名（防同名后四位互相覆盖）
@@ -301,7 +301,7 @@ public:
     IOutputDevice* link_for(const QString& mac) const { return registry_.find(mac); }
 
     /// @brief 已登记链路数量
-    int link_count() const { return registry_.count(); }
+    qsizetype link_count() const { return registry_.count(); }
 
     /// @brief 已登记设备的 MAC 列表（按连接先后）
     QStringList link_addresses() const { return registry_.addresses(); }
