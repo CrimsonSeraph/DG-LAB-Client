@@ -18,6 +18,10 @@
     - **Linux**: 新增标准 `.desktop` 桌面入口文件，并在安装时自动将 16px 至 1024px 的多尺寸图标部署至 `hicolor` 主题目录。
 - **AppImage 构建复用统一资源**: 更新 Linux CI 工作流，在打包 AppImage 时直接复用 `packaging/dg-lab-client.desktop` 与 `assets/icon/` 下的图标，避免在脚本中硬编码生成临时文件。
 
+### Changed
+
+- **用户更新摘要**: 添加 [docs/release-notes.md](docs/release-notes.md) 作为提供用户查看的更新摘要，同时工作流中发布时截取的 **Release 正文**与 **`manifest.json` 中 `release_notes`** 来源更换为此文件。
+
 ## [v2.5.0] - 2026-10-31
 
 > **变动**: [v2.4.0...v2.5.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.4.0...v2.5.0)
