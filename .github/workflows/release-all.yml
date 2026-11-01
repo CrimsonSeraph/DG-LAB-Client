@@ -206,11 +206,8 @@ jobs:
 
           BODY="$NOTES"
           if [ "$SOURCE" = "release-notes.md" ]; then
-            BODY="${NOTES}
-
-            ---
-
-            完整技术变更见 [CHANGELOG.md](https://github.com/${REPO}/blob/${TAG}/CHANGELOG.md)。"
+            BODY=$(printf '%s\n\n---\n\n完整技术变更见 [CHANGELOG.md](https://github.com/%s/blob/%s/CHANGELOG.md)。' \
+              "$NOTES" "$REPO" "$TAG")
           fi
 
           echo "found=true" >> "$GITHUB_OUTPUT"
