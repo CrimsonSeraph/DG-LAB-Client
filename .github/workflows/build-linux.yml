@@ -201,6 +201,7 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "DG_LAB_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "版本号：$VERSION"
+
       - name: 缓存 AppImage runtime
         uses: actions/cache@v4
         with:
@@ -225,23 +226,13 @@ jobs:
           set -euo pipefail
           mkdir -p "$SCHEDULE_TMP" package
 
-          # linuxdeployqt / appimagetool 要求 AppDir 根目录存在与 .desktop 中 Icon= 同名的 256x256 PNG，
-          # 否则会以 "<name>{.png,.svg,.xpm} defined in desktop file but not found" 退出（exit 1）。
-          ICON_SRC="assets/icon/dglab-client-1024.png"
-          convert "$ICON_SRC" -resize 256x256^ -gravity center -extent 256x256 \
-            install_root/DG-LAB-Client.png
-          file install_root/DG-LAB-Client.png
+          # linuxdeployqt / appimagetool 要求 AppDir (install_root) 根目录存在与 .desktop 中 Icon= 同名的 PNG
+          # 为了统一资源，直接使用 packaging/ 下的 .desktop 和 assets/ 下的 256x256 图标
+          cp packaging/dg-lab-client.desktop install_root/
+          cp assets/icon/dglab-client-256.png install_root/dg-lab-client.png
 
-          cat > install_root/DG-LAB-Client.desktop <<'EOF'
-          [Desktop Entry]
-          Type=Application
-          Name=DG-LAB-Client
-          Comment=DG-LAB Client
-          Exec=DG-LAB-Client
-          Icon=DG-LAB-Client
-          Categories=Utility;
-          Terminal=false
-          EOF
+          file install_root/dg-lab-client.png
+          cat install_root/dg-lab-client.desktop
 
           cd "$SCHEDULE_TMP"
           curl -fsSL -o linuxdeployqt \
@@ -251,8 +242,8 @@ jobs:
           export APPIMAGE_EXTRACT_AND_RUN=1
           cd "$GITHUB_WORKSPACE"
 
-          # 仅部署，得到完整 AppDir
-          ( cd install_root && linuxdeployqt DG-LAB-Client -verbose=2 -no-translations )
+          # 直接传入 dg-lab-client.desktop 作为入口，确保它读取正确的图标名称
+          ( cd install_root && linuxdeployqt dg-lab-client.desktop -verbose=2 -no-translations )
 
           # 剔除 qmltooling（QML 调试插件，运行时用不到）
           find install_root -type d -name qmltooling -print -exec rm -rf {} + 2>/dev/null || true

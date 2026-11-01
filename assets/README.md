@@ -6,10 +6,13 @@
 
 | 文件夹名称 | 描述 |
 | --- | --- |
-| `icon` | 存放应用图标资源：源矢量 SVG、多尺寸 PNG 与 Windows 多尺寸 ICO，供窗口图标与可执行文件图标使用。 |
+| `dmg` | macOS DMG 背景 |
 | `font` | 存放界面图标字体（Font Awesome Free）与其许可文本，供 QML 组件 `AppIcon` 渲染导航等处的图标。 |
+| `icon` | 存放应用图标资源：源矢量 SVG、多尺寸 PNG 与 Windows 多尺寸 ICO，供窗口图标与可执行文件图标使用。 |
+| `nsis` | Windows 向导左侧背景（164×314 BMP） |
+| `waves` | 存放官方示例波形 |
 
-> 旧界面的常规图片目录（`main_image.png` 等第三方壁纸素材）已整体移除，其在 QML 与 C++ 中均无消费者。导航栏左上角的 logo 直接复用应用图标的 128px 版本（`icon/dglab-client-128.png`），由 `DGLABClient.qrc` 的 `/icon` 前缀打进资源，因此本目录只需 `icon/`。
+> 导航栏左上角的 logo 直接复用应用图标的 128px 版本（`icon/dglab-client-128.png`），由 `DGLABClient.qrc` 的 `/icon` 前缀打进资源，因此本目录只需 `icon/`。
 
 ## 应用图标
 

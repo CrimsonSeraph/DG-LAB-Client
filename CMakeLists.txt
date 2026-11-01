@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.19)
 # project() 的 VERSION 只接受字面量，故此处不写版本；版本号在下方从配置读取后注入
 project(DG-LAB-Client LANGUAGES CXX)
 
-# -------------------- 版本号单一来源 --------------------
+# 版本号单一来源
 # config/main.json 的 app.version 是唯一真相来源：运行期由 AppConfig 读取该字段，
 # 构建期由 CMake 读同一个字段并生成 AppVersion.h，源码与 README 内不再写死版本号。
 set(DGLAB_VERSION_JSON "${CMAKE_CURRENT_SOURCE_DIR}/config/main.json")
@@ -62,15 +62,15 @@ enable_language(C)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-# -------------------- 构建开关 --------------------
+# 构建开关
 # 单元测试默认不构建（OFF）：普通构建与发布构建都不编 14 个测试目标，测试产物也不进
 # 应用输出目录；需要跑测试时显式传 -DDGLAB_BUILD_TESTS=ON（见 docs/build.md）。
 option(DGLAB_BUILD_TESTS "构建单元测试" OFF)
 
-# -------------------- 第三方库自动获取（FetchContent）--------------------
+# 第三方库自动获取（FetchContent）
 include(FetchContent)
 
-# -------------------- 手动获取 nlohmann/json 单头文件 --------------------
+# 手动获取 nlohmann/json 单头文件
 set(NLOHMANN_JSON_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
 set(NLOHMANN_JSON_HEADER "${NLOHMANN_JSON_INCLUDE_DIR}/nlohmann/json.hpp")
 
@@ -110,7 +110,7 @@ target_include_directories(nlohmann_json
 	INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}"
 )
 
-# -------------------- 第三方库：miniz（zip 归档读写，MIT）--------------------
+# 第三方库：miniz（zip 归档读写，MIT）
 # 单文件 amalgamation（3.0.2），来源与生成方式见 third_party/miniz/README.md
 add_library(miniz STATIC
 	third_party/miniz/miniz.c
@@ -120,7 +120,7 @@ target_include_directories(miniz
 	PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniz
 )
 
-# -------------------- 查找 Qt --------------------
+# 查找 Qt
 # 项目使用的 Qt 模块清单：find_package 与"构建后 Qt 运行时部署"检查共用，
 # 新增模块时只需在此处添加，无需改动其它位置。
 set(DGLAB_QT_MODULES
@@ -404,7 +404,7 @@ if(WIN32)
 	)
 endif()
 
-# -------------------- 创建可执行文件 --------------------
+# 创建可执行文件
 if(QT_VERSION_MAJOR EQUAL 6)
 	qt_add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
 else()
@@ -421,7 +421,7 @@ if(WIN32)
 	)
 endif()
 
-# -------------------- QML 模块（界面层）--------------------
+# QML 模块（界面层）
 # 采用 /qt/qml 作为模块默认资源前缀（qrc:/qt/qml/Dglab/...），并为子目录生成 qmldir。
 if(QT_VERSION_MAJOR EQUAL 6)
 	qt_policy(SET QTP0001 NEW)
@@ -498,7 +498,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/components/AppStatusButton.qml
 		src/ui/qml/components/AppSegment.qml
 		src/ui/qml/components/AppDialog.qml
-	src/ui/qml/components/AppColorDialog.qml
+		src/ui/qml/components/AppColorDialog.qml
 		src/ui/qml/components/AppMenu.qml
 		src/ui/qml/components/ConfirmDialog.qml
 		src/ui/qml/components/WavePreview.qml
@@ -512,7 +512,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 	)
 endif()
 
-# -------------------- 构建后部署 Qt 运行时（Windows）--------------------
+# 构建后部署 Qt 运行时（Windows）
 # 直接运行构建输出目录中的可执行文件需要 Qt DLL / 平台插件 / QML 模块；
 # 这里在构建后调用 windeployqt 部署到可执行文件目录（已部署则跳过）。
 if(WIN32)
@@ -578,10 +578,10 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 		COMMENT "Copying assets to output directory"
 	)
 endif()
-# -------------------- 查找 Python --------------------
+# 查找 Python
 find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 
-# ----- macOS：移除 Qt 链接参数中对已废弃 AGL.framework 的引用 -----
+# macOS：移除 Qt 链接参数中对已废弃 AGL.framework 的引用
 # Qt 6.5.x 及更早版本的官方 macOS 二进制在其 .prl 文件中带有 "-framework AGL"，
 # 而新版 macOS（15+/26+）SDK 已移除 AGL.framework，链接时会报：
 #   ld: framework 'AGL' not found
@@ -733,7 +733,7 @@ if(APPLE)
 	endif()
 endif()
 
-# -------------------- 链接库 --------------------
+# 链接库
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		Qt::Core
@@ -770,7 +770,6 @@ target_include_directories(${PROJECT_NAME}
 		# 第三方库（QR 码生成）
 		${CMAKE_CURRENT_SOURCE_DIR}/third_party/qrcodegen
 )
-# （无额外编译宏）
 
 # 插件
 
@@ -794,7 +793,7 @@ dgl_add_plugin(dgl_gsi_plugin
 	META_DIR module/gsi/meta
 )
 
-# -------------------- 单元测试 --------------------
+# 单元测试
 # 纯函数测试只链接 Qt::Core，不含 ModuleManager / AppConfig / WaveLibrary
 # 由 option(DGLAB_BUILD_TESTS) 控制，默认 OFF：普通构建与发布构建都不编译测试目标
 if(DGLAB_BUILD_TESTS)
@@ -1344,11 +1343,13 @@ if(DGLAB_BUILD_TESTS)
 
 	# 测试名与目标名一一对应（add_test(NAME x COMMAND x)），才能按目标名批量设属性
 	foreach(_dglab_test IN LISTS DGLAB_TEST_TARGETS)
-		set_target_properties(${_dglab_test} PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
+		set_target_properties(${_dglab_test}
+			PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests"
 		)
 		if(DGLAB_TEST_ENVIRONMENT)
-			set_tests_properties(${_dglab_test} PROPERTIES ENVIRONMENT "${DGLAB_TEST_ENVIRONMENT}")
+			set_tests_properties(${_dglab_test}
+				PROPERTIES ENVIRONMENT "${DGLAB_TEST_ENVIRONMENT}"
+			)
 		endif()
 	endforeach()
 else()
@@ -1358,7 +1359,7 @@ else()
 	file(REMOVE "${CMAKE_BINARY_DIR}/CTestTestfile.cmake")
 endif()
 
-# -------------------- 安装规则（供 CPack 使用）--------------------
+# 安装规则（供 CPack 使用）
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；
 # 因此 Windows 把可执行文件连同它运行所需的数据（config / python / assets 等）
 # 一起装进 bin/。部署脚本会在 exe 旁写 qt.conf，其中的 Prefix = .. 指回安装根，
@@ -1390,7 +1391,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 	install(DIRECTORY assets/ DESTINATION "${DGLAB_APP_DIR}/assets")
 endif()
 
-# -------------------- Qt 部署工具 --------------------
+# Qt 部署工具
 if(WIN32)
 	# 生成 CPack 兼容的 Qt 部署脚本。QML 应用必须用 qml 变体：普通的
 	# qt_generate_deploy_app_script 不做 QML 导入扫描，QtQuick.Controls 等
@@ -1411,7 +1412,7 @@ else()
 	message(STATUS "Linux: Qt deployment will be done by linuxdeployqt in CI")
 endif()
 
-# -------------------- Python 运行时和第三方包安装 --------------------
+# Python 运行时和第三方包安装
 if(WIN32)
 	# 复制 Python 核心 DLL
 	set(PYTHON_DLL_NAMES
@@ -1587,7 +1588,7 @@ if(PYTHON_PACKAGES_DIR AND EXISTS "${PYTHON_PACKAGES_DIR}")
 	message(STATUS "Third-party packages installed to python/Lib/site-packages/")
 endif()
 
-# -------------------- CPack 打包配置 --------------------
+# CPack 打包配置
 include(InstallRequiredSystemLibraries)
 
 set(CPACK_PACKAGE_NAME "DG-LAB-Client")
@@ -1604,12 +1605,64 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
 
 if(WIN32)
 	set(CPACK_GENERATOR "NSIS;ZIP")
+
+	# Windows NSIS 安装包视觉定制
+	# 安装程序、卸载程序的图标
+	set(CPACK_NSIS_MUI_ICON
+		"${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/dglab-client.ico"
+	)
+	set(CPACK_NSIS_MUI_UNIICON
+		"${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/dglab-client.ico"
+	)
+	set(CPACK_PACKAGE_ICON
+		"${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/dglab-client.ico"
+	)
+
+	# 安装向导左侧背景图（严格 164x314 像素，24位 BMP）
+	set(CPACK_NSIS_MUI_WELCOMEFINISHPAGE_BITMAP
+		"${CMAKE_CURRENT_SOURCE_DIR}/assets/nsis/welcome.bmp"
+	)
+
+	# 创建与删除桌面快捷方式
+	# 本项目在 Windows 下可执行文件通过 DGLAB_APP_DIR (即 bin) 安装在 $INSTDIR/bin/ 目录
+	set(CPACK_NSIS_CREATE_ICONS_EXTRA
+		"CreateShortCut \\\"$DESKTOP\\\\DG-LAB Client.lnk\\\" \\\"$INSTDIR\\\\bin\\\\DG-LAB-Client.exe\\\""
+	)
+	set(CPACK_NSIS_DELETE_ICONS_EXTRA
+		"Delete \\\"$DESKTOP\\\\DG-LAB Client.lnk\\\""
+	)
 elseif(APPLE)
 	set(CPACK_GENERATOR "DragNDrop;TGZ")
+
+	# macOS DMG 视觉定制
+	set(CPACK_DMG_VOLUME_NAME "DG-LAB Client")
+	set(CPACK_DMG_BACKGROUND_IMAGE
+		"${CMAKE_CURRENT_SOURCE_DIR}/assets/dmg/background.png"
+	)
+	set(CPACK_DMG_DS_STORE_SETUP_SCRIPT
+		"${CMAKE_CURRENT_SOURCE_DIR}/packaging/dmg_setup.applescript"
+	)
 else()
 	set(CPACK_GENERATOR "DEB;RPM;TGZ")
 	set(CPACK_RPM_PACKAGE_REQUIRES "libc.so.6, libstdc++.so.6")
 	set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.17), libstdc++6 (>= 5)")
+
+	# Linux 桌面入口与多尺寸图标安装
+	install(
+		FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/dg-lab-client.desktop"
+		DESTINATION share/applications
+	)
+
+	# 遍历安装各尺寸图标到 hicolor 主题目录
+	foreach(size 16 24 32 48 64 128 256 512 1024)
+		if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/dglab-client-${size}.png")
+			install(
+				FILES "${CMAKE_CURRENT_SOURCE_DIR}/assets/icon/dglab-client-${size}.png"
+				DESTINATION share/icons/hicolor/${size}x${size}/apps
+				RENAME dg-lab-client.png
+			)
+		endif()
+	endforeach()
 endif()
 
 set(CPACK_NSIS_DISPLAY_NAME "DG-LAB Client")

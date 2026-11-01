@@ -33,6 +33,7 @@ DG-LAB-Client/
 ├── include/                    # C++ 公共头文件，按 core / rule / module / wave / ble / net / plugin / ui 分层（见 include/README.md）
 ├── licenses/                   # 第三方许可证文本（GPLv2 / LGPLv3 / MIT）
 ├── module/                     # 动态库插件源码：example、gsi（见 module/README.md）
+├── packaging/                  # Linux/macOS 桌面快捷
 ├── python/                     # PathFinder.py：供 CS2 GSI 插件查找游戏目录
 ├── screenshot/                 # 文档用截图（pages：当前界面四页）
 ├── src/                        # C++ 源文件，与 include/ 一一对应（见 src/README.md）

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=DG-LAB Client
+GenericName=DG-LAB Client
+Comment=DG-LAB Client
+Exec=DG-LAB-Client
+Icon=dg-lab-client
+Terminal=false
+Categories=Utility;
+StartupNotify=true

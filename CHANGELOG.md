@@ -10,6 +10,14 @@
 
 > **变动**: [v2.5.0...HEAD](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.5.0...HEAD)
 
+### Added
+
+- **跨平台安装包视觉定制**: 统一规划 `assets/` 与 `packaging/` 目录，为三平台提供规范的安装向导背景、应用图标与桌面入口资源。
+    - **Windows (NSIS)**: 安装程序支持自定义左侧边栏背景图（`welcome.bmp`）、安装/卸载图标（`dglab-client.ico`），并在安装时默认创建桌面快捷方式。
+    - **macOS (DMG)**: 新增 DMG 背景图（含 1x / 2x Retina 适配及 SVG 源文件）与 AppleScript 布局脚本（`dmg_setup.applescript`），优化打开磁盘映像后的窗口尺寸、图标坐标与视觉体验。
+    - **Linux**: 新增标准 `.desktop` 桌面入口文件，并在安装时自动将 16px 至 1024px 的多尺寸图标部署至 `hicolor` 主题目录。
+- **AppImage 构建复用统一资源**: 更新 Linux CI 工作流，在打包 AppImage 时直接复用 `packaging/dg-lab-client.desktop` 与 `assets/icon/` 下的图标，避免在脚本中硬编码生成临时文件。
+
 ## [v2.5.0] - 2026-10-31
 
 > **变动**: [v2.4.0...v2.5.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.4.0...v2.5.0)
