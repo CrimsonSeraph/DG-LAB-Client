@@ -6,7 +6,7 @@ DG-LAB-Client 是单体桌面应用，按层划分目录、依赖单向向下。
 
 一个基于 Qt/QML 的 DG-LAB 桌面客户端。项目采用 C++20 编写，**应用自身托管 WebSocket 中转服务**（V3/V4）供 DG-LAB APP 扫码配对，无需 Node 或 Python 进程；同时支持郊狼 V3 蓝牙直连。实现了多级配置管理、模块化日志、波形库与可视化规则图（ComfyUI / UE 蓝图风格）等功能。版本号以 `config/main.json` 的 `app.version` 为唯一来源，构建时由 CMake 注入。
 
-DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客户端工具，核心目标是从外部程序（如游戏、传感器等）获取数据，经过可配置的规则引擎计算后，向 DG-LAB 的 WebSocket 服务发送强度调节、波形输出等指令。
+DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客户端工具，核心目标是从外部程序（如游戏、传感器等）获取数据，经过可配置的规则引擎计算后，向 DG-LAB 的 WebSocket 服务或蓝牙设备发送强度调节、波形输出等指令。
 
 项目采用 **C++20 + Qt6/QML** 实现，分为 `core`（配置/日志）、`module`（数值与插件）、`rule`（规则与规则图）、`wave`（波形）、`ble`（蓝牙）、`net`（WebSocket 中转）与 `ui`（界面桥接 + QML）七层，依赖单向。整体架构如下:
 
@@ -14,8 +14,6 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 - **内置 WebSocket 中转服务**: 应用自身托管 DG-LAB 中转服务（V3 端口 9999 / V4 端口 9998），由 DG-LAB APP 扫码配对，应用直接下发强度/波形/清除指令并接收回传；配对二维码由内嵌 `qrcodegen` 生成，载荷按官方终端二维码协议拼成 `https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<局域网 IP>:<V3 端口>/<终端 ID>`（恰好两个 `#`，SOCKET 地址后不带额外路径），缺少官网下载地址或 `DGLAB-SOCKET` 标签时 APP 无法识别。`Bridge.py` / `WebSocketCore.py` 已退出 WebSocket 链路（Python 仅保留给插件工具 `PathFinder.py`）。
 - **规则引擎**: 支持加载带占位符 `{}` 的 JSON 规则文件，动态填入参数（例如从外部数据模块接收的数值），生成最终命令。规则可指定通道（A/B）、模式（0~4）和值计算表达式（支持四则运算、括号）。
 - **数据扩展机制（插件化）**: 通过动态库插件（`module/`）从不同外部源获取数据——现已内置 CS2 GSI 插件（从 CS2 游戏读取状态数据），未来可扩展更多插件；主程序仅负责接收数值序列并按规则处理，不关心数据具体含义，实现灵活的社区扩展。
-
-> **当前状态**: 界面已整体迁移到 QML；具备配置管理、可视化规则图、波形库与编辑器、内置 V3/V4 中转服务与配对二维码、郊狼 V3 蓝牙直连、数值模块与插件化数据接入（如 CS2 GSI）等能力。
 
 ## 界面层与配置层
 
@@ -72,7 +70,7 @@ DG-LAB-Client/
 - `system.json`: 系统配置，优先级 1
 - `user.json`: 用户配置，优先级 2
 
-高优先级的配置项会覆盖低优先级的同路径配置。 **注意: ** 即使有覆盖逻辑，仍不建议在不同配置文件中定义相同属性配置文件中 `__priority` 字段用于定义优先级，不可删除。
+高优先级的配置项会覆盖低优先级的同路径配置。 **注意: 即使有覆盖逻辑，仍不建议在不同配置文件中定义相同属性**。配置文件中 `__priority` 字段用于定义优先级，**不可删除**。
 
 > 若配置文件丢失将从默认配置（`DefaultConfigs.cpp`）加载，并在程序运行时自动生成缺失的配置文件。👉 配置文件相关问题请查看 [常见问题 - 配置问题](faq.md#配置问题)
 
@@ -84,7 +82,7 @@ DG-LAB-Client/
     "__priority": 0,
     "app": {
         "name": "DG-LAB-Client",
-        "version": "2.4.0",
+        "version": "1.0.0",
         "debug": false,
         "log": {
             "console_level": 0,
@@ -109,7 +107,7 @@ DG-LAB-Client/
 
 </details>
 
-**注意: ** 其中 `"version"` 与 `"DGLABClient"` 为检查字段，内容随意，但 **请勿删除或修改** 此字段。`app.ui.theme` 存储当前选中的主题模式。
+**注意**: 其中 `"version"` 与 `"DGLABClient"` 为检查字段，内容随意，但 **请勿删除或修改** 此字段。`app.ui.theme` 存储当前选中的主题模式。
 
 配置热更是「重读 + 通知」：三个配置文件各自用 `QFileSystemWatcher` 监听文件与其所在目录，外部写入后去抖 300 ms，由同一个 `ConfigManager` 实例调用 `reload()` 整体替换内存数据，再沿既有 listener 链下发（`ConfigManager::notify_listeners` → `AppConfig` 的 `invalidate_caches` + `notify_config_changed("main"/"system"/"user"/"all")`）。`app.devices.<MAC>.*` 与 `app.channels.<A|B>.*` 都是普通配置键，外部手改后约 0.4 s 生效，界面与下发随之跟随；`DeviceController` 不再自带 mtime 快照与轮询定时器，`limits_for()` 直接读配置，订阅「all」变更后再比对并广播通道上限。`load()` 仍是幂等的首次加载，`AppConfig::reload_all()` 走 `reload()` 这条真重读链路。
 
@@ -145,17 +143,14 @@ DG-LAB-Client/
 
 ## 开发常见陷阱
 
-以下每一条都踩过，改动相关代码前先读一遍:
-
 1. 位置器/布局（Column/Row/Grid/ColumnLayout…）的 `implicitWidth/implicitHeight` 是**只读**的；只有 Item/Rectangle 可写。写错会让整个页面类型不可用、主界面加载失败，而 qmllint 不报。
 2. 用位置器作 `Flickable.contentHeight` 的来源时才可靠；读布局的 implicit 尺寸会得到 0 或时序不确定值。
 3. 布局内子项用 `Layout.*` 附加属性，位置器内子项必须用 `width: parent.width` —— 换容器时要逐个核对。
 4. 导航是 C++ 驱动的：`AppBridge::Page` + `UiConnector::nav_bindings()` 的 objectName 映射；QML 导航按钮不写 onClicked。页内按钮可以写。
 5. 侧车 `banner` 只是文件名（QML 不要自己拼路径）：头图统一走 `image://modulebanner/<插件文件名>/<banner>`，由 `ModuleBannerImageProvider` 按 `<插件扫描目录>/<dll 主干名>/<banner>` 解析；带路径分隔符或文件不可读时返回空图，卡片与详情页保持空态。
 6. 启用 CS2 插件会往本机 Steam 的 CS2 cfg 目录写 `gamestate_integration_dglab.cfg`（插件既有副作用，需提示用户）。
-7. 用户自己的提交曾整段删掉 `is_newer_version` 函数体导致 LNK2019；接手大改动后先构建一次确认 HEAD 可编译。
-8. 两个子代理同时构建同一 `build-agent` 会互相抢 exe（LNK1104）。同一产物只允许一个代理构建。
-9. 截图脚本坐标要用**屏幕绝对坐标**（`SetCursorPos` 不收窗口相对偏移），且必须 DPI 感知。
+7. 使用 **agent** 时，两个子代理同时构建同一 `build` 会互相抢 exe（LNK1104）。同一产物只允许一个代理构建。
+8. 截图脚本坐标要用**屏幕绝对坐标**（`SetCursorPos` 不收窗口相对偏移），且必须 DPI 感知。
 
 ## 相关文档
 

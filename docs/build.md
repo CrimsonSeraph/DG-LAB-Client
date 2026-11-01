@@ -6,7 +6,7 @@
 
 - **C++ 编译器**: 支持 C++20 标准（如 GCC 10+、Clang 12+、MSVC 2022）
 - **Qt 6**: Core、Gui、Network、Qml、Quick、QuickControls2、QuickDialogs2、WebSockets、Bluetooth、Widgets（系统托盘菜单）、Concurrent
-- **Python**（可选）: 仅 GSI 插件的 `PathFinder.py`（查找 CS 游戏目录）需要，不再用于 WebSocket 通信
+- **Python**（可选）: 仅 GSI 插件的 `PathFinder.py`（查找 CS 游戏目录）需要
 
 > 推荐使用 VS2022/2026（MSVC）进行 Windows 开发，Linux/macOS 可使用 GCC 或 Clang。👉 遇到依赖问题？请查看 [常见问题 - 编译与运行](faq.md#编译与运行)
 
@@ -98,41 +98,6 @@ ctest -C Release --output-on-failure --test-dir build
 ```
 
 当前 16 个目标：`event_engine` / `rule_graph_eval` / `event_engine_module` / `event_merge` / `event_wave` / `opossum_frames` / `device_link` / `paw_device` / `civet_device` / `input_link` / `model_recognition` / `wave_library` / `wave_import_export` / `wave_zip` / `wave_tag` / `config_reload`。`input_link` 覆盖输入设备多实例的实例模块名生成与同后四位消歧、连接注册 / 断开注销（数值模块、内置事件声明与引擎运行期状态三者同步）与旧配置迁移。测试程序不与 windeployqt 部署过的输出目录同处一地，Windows 上加载 Qt DLL 所需的环境变量由 CMake 从 `Qt6::Core` 的导入位置推导后写进 `ctest` 环境，不需要手工配 PATH；三个平台的 CI 工作流都带 `-DDGLAB_BUILD_TESTS=ON` 构建并执行 `ctest`，测试失败即工作流失败。
-
-## 开发环境事实
-
-Windows 本机实测口径，换环境时逐条重新确认:
-
-- Qt 6.9.3 `msvc2022_64`，Visual Studio 18 2026 生成器，MSVC。
-- 构建目录是 `build-agent`（临时构建树，未入库）。构建命令必须带 TMP 覆盖，否则 MSBuild 因临时目录受限失败:
-
-```bash
-cd /f/Projects/DG-LAB-Client && export TMP="$PWD/build-agent/tmp" TEMP="$PWD/build-agent/tmp" TMPDIR="$PWD/build-agent/tmp" && cmake --build build-agent --config Release --parallel 8
-```
-
-- 前台调用有 300 s 上限；长构建用 `run_in_background: true` + `job_output(wait: true)`。
-- **构建前必须清实例**，否则链接阶段占用 exe:
-
-```bash
-powershell -NoProfile -Command "Get-Process -Name `DG-LAB-Client` -ErrorAction SilentlyContinue | Stop-Process -Force"
-```
-
-- 本机 125% 缩放：截图脚本**必须 DPI 感知**（`SetProcessDpiAwarenessContext(-4)`），否则 `GetWindowRect` 给出 ×0.8 的假尺寸，会把正确布局误报成裁切；截图坐标要用**屏幕绝对坐标**（`SetCursorPos` 不收窗口相对偏移）。
-- QML 运行期错误的唯一可靠抓法:
-
-```bash
-cd build-agent/Release && (QT_FORCE_STDERR_LOGGING=1 QT_ASSUME_STDERR_HAS_CONSOLE=1 ./DG-LAB-Client.exe > out.txt 2> err.txt &) ; sleep 8
-```
-
-验收要求 `err.txt` 0 字节。日志文件开关：config 里 `app.log.file_enabled=true` 会写 `<exe>/log/dglab-YYYYMMDD.log`。
-
-- **Windows 11 托盘图标默认进折叠区**：`QSystemTrayIcon` 无法程序化把图标移出折叠区（该位置归系统与用户所有），应用只能用一次 Toast 引导用户自己拖出来，状态记在 `user.json` 的 `app.ui.tray_hint_shown`。不要试图用 `Shell_NotifyIcon` 的附加标志绕过，Win11 不提供该能力。
-- **退出耗时基线（本机实测，中位数）**：`app.exec()` 返回后到进程结束约 **320 ms**（空闲，6 次）/ **459 ms**（郊狼蓝牙在线，6 次）/ **338 ms**（连接后再断开，3 次）；其中 QML 引擎析构只占 **11–15 ms**、窗口销毁约 50 ms、`QApplication` 析构约 40 ms，剩下的主要是静态析构期的配置保存与 CRT 退出。 **原先记录的「退出约 5.6 s」（含历史 4811 ms 引擎析构）在本机无法复现**：实测引擎析构始终在 20 ms 以内。当时的退出路径其实会段错误（`DeviceController::online_outputs()` 踩到已销毁设备、`LogBridge` 的 sink 回调在静态析构期被触发），崩溃收尾（WER 之类）很可能把「进程消失」的整体计时拖长了。**后续不要按 5.6 s 去优化**，要改就按上表逐段量。
-- **重新测退出需要临时打点**：用环境变量门控的 `QCoreApplication::quit()` 触发（不要用鼠标注入点托盘菜单），打点代码标 `// TEMP-EXIT-PROBE` / `// TEMP-VERIFY-PROBE`，交付前必须删除并重建。
-- **换行策略**：仓库 `.gitattributes` 是 `* text=auto eol=crlf`，索引（Git 对象）内统一存 LF，工作区应该是 CRLF。`git ls-files --eol` 若出现 `w/lf`，用「删文件 + `git checkout -- <文件>`」按属性重写即可——git 对「内容等价但只差换行」的文件不会主动重写，必须删掉再检出；重写后 `git diff` 仍为空（零内容变更），提交里不会出现任何行。
-- **界面取证禁用 PostMessage 注入**：本机 PostMessage 注入的鼠标与键盘消息对该 Qt 进程无效（返回成功但界面无反应），历史上曾据此得出「已点击验证」的假结论。界面取证一律改用 **UI Automation**（InvokePattern / ValuePattern），或直接函数级单测 + PrintWindow 静态截图，并在报告里区分「界面验证」与「函数级验证」。
-- **波形写入没有回执**：郊狼的 B0 采用 WriteWithoutResponse，不回报 `characteristicWritten`，不能用写入回调取证下发成功；波形进度只能按设备实际写入的帧数推进（`advance_event_wave()` 即按此实现）。
-- 两个构建者不要共用一个构建目录：同一 `build-agent` 被两个进程构建会互相抢 exe（LNK1104）。
 
 ## 验收清单
 

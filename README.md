@@ -59,7 +59,6 @@
 本项目源代码采用 **GPL-3.0-only**，详见 [LICENSE](LICENSE)。第三方组件各自适用不同许可证：Qt（LGPLv3）、nlohmann/json（MIT）、Nayuki qrcodegen（MIT）、miniz 3.0.2（MIT）、Font Awesome Free 7.3.1（图标字体，FONT LICENSE / CC BY 4.0 / MIT）。完整声明见 [NOTICE](NOTICE) 与 `licenses/` 目录。
 
 - 作者：CrimsonSeraph
-- BiliBili：[浪天幽影（UID: 1741002917）](https://space.bilibili.com/1741002917)
 - X：[@CrimSeraph_QwQ](https://x.com/CrimSeraph_QwQ)
 - 项目主页：<https://github.com/CrimsonSeraph/DG-LAB-Client>
 - 遇到问题请先看 [docs/faq.md](docs/faq.md)，仍未解决再提 [Issue](https://github.com/CrimsonSeraph/DG-LAB-Client/issues)。

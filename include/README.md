@@ -119,7 +119,7 @@ include/
 | V3 | 9999 | 单控制方 ↔ 单被控方 | `bind` / `heartbeat` / `break` / `msg`（`strength-通道+模式+值`、`pulse-通道:[...]`、`clear-通道`） |
 | V4 | 9998 | 控制方（clientId）+ 多个被控方（tid） | `hello` / `client_attached` / `controller_attached` / `message`（RPC，如 `device.op`） |
 
-服务由应用自身托管，取代原先「Python Bridge + Node 官方 V2 后端」的链路：DG-LAB APP 扫码接入后，应用直接与 APP 配对并下发强度/波形指令。外部协议参考 `DG-LAB-OPENSOURCE/socket/v2/README.md` 与 `dglab-kit/README.md`。
+服务由应用自身托管，取代原先「Python Bridge + Node 官方 V2 后端」的链路：DG-LAB APP 扫码接入后，应用直接与 APP 配对并下发强度/波形指令。外部协议参考 [dungeonlab-open/dglab-websocket-server/README_CN.md](https://github.com/dungeonlab-open/dglab-websocket-server/blob/main/README_CN.md) 。
 
 二维码载荷由 `DglabRelayServer::pairing_url()` 按官方「终端二维码协议」拼成：`https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<局域网 IP>:<V3 端口>/<终端 ID>`，恰好两个 `#`、SOCKET 地址后不带额外路径，缺少官网下载地址或 `DGLAB-SOCKET` 标签时 APP 无法识别。`pairing_url_display()` 返回同一条连接去掉前缀后的短地址供界面展示；`v4_pairing_url()` 保留（V4 端口仍在监听），但不出现在二维码里。
 
@@ -133,7 +133,7 @@ include/
 - 扫描入口：扫描仍由本类统一做（结果按 MAC 去重），输出设备的驱动实例由 `BleDeviceManager` 按识别出的型号创建并以 MAC 登记（郊狼 `CoyoteBleDevice` / 负鼠 `OpossumBleController`），爪印型号转交 `PawPrintsBleController`，灵猫型号转交 `CivetBleController`；任意数量的输出设备可同时在线，连接一台不会断开任何其它设备。界面上的连接状态、电量、强度与状态文案读的是默认设备（用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者）的一份只读快照，每台设备各自维护自己的状态。
 - 输出设备接口：`IOutputDevice` 是上层唯一的设备依赖（连接状态、电量、`strength_a/b`、`wave_sending/frame/frames`、`set_strength` / `play_wave` / `stop_wave` / `apply_limits`，以及 `outputStateChanged` / `outputStrengthChanged` / `outputWaveChanged` 三个信号）。`CoyoteBleController` 以上述既有信号转发接口信号，发射时机与次数不变。
 
-外部协议参考 `DG-LAB-OPENSOURCE/coyote/v3/README_V3.md`。
+外部协议参考 [coyote/v3/README_CN.md](https://github.com/dungeonlab-open/dglab-bluetooth-protocol/blob/main/coyote/v3/README_CN.md)。
 
 ### 负鼠振动控制器 V1（`ble/OpossumBleController.h`）
 
@@ -156,7 +156,7 @@ include/
 - 数值桥（`device/DeviceValueBridge.h`）：把上述通知写成 `paw` 模块的数值，全部经 `ModuleManager::set_value`（自动钳制并触发 `value_changed`）。
 - 文档矛盾的处理：外部电压触发（`0x0F`）的参数映射公式与示例 HEX 互相矛盾，本版**不实现该模式的参数换算**，只把原始参数原样上报（映射公式待上游确认）；`F1` 阈值 `/2` 后的取整规则未定，只做展示与数值上报，不做阈值判定逻辑；`5A/5B/5C` 无时序约束，按到达即处理。
 - 实验性：驱动已实现但**没有实机验证**，型号行按「实验性」展示且可连接，首次连接成功按 `app.devices.<MAC>.experimental_notice_shown` 弹一次性提示。
-- 外部协议参考 `DG-LAB-OPENSOURCE/paw-prints/README_CN.md`。
+- 外部协议参考 [paw-prints/README_CN.md](https://github.com/dungeonlab-open/dglab-bluetooth-protocol/blob/main/paw-prints/README_CN.md)。
 
 ### 灵猫边缘控制传感器 V1（`ble/CivetBleController.h`）
 
@@ -168,7 +168,7 @@ include/
 - 数值桥（`device/DeviceValueBridge.h`）：`pressure`（单位 0.01 kPa）、`battery`（0~100）、`raw`（原始 int16，便于排查），全部经 `ModuleManager::set_value`。气压 10Hz 上报只在变化达到 `app.devices.civet.pressure_epsilon`（缺省 10，即 0.1 kPa）时才写 `pressure` / `raw`，其余丢弃并计数，避免以 10Hz 触发规则求值。内置事件只有 `pressure_rise` / `pressure_drop`（`compare` 为 increase / decrease，阈值 1），阈值判定交给规则配置。
 - 未验证项：采样率、量程与温补文档未给，**不做量程假设与温补**，只做线性换算并原样上报（量程与温补待上游确认）。
 - 实验性：驱动已实现但**没有实机验证**，型号行按「实验性」展示且可连接，首次连接成功按 `app.devices.<MAC>.experimental_notice_shown` 弹一次性提示。
-- 外部协议参考 `DG-LAB-OPENSOURCE/civet-edging-sensor/README_CN.md`。
+- 外部协议参考 [civet-edging-sensor/README_CN.md](https://github.com/dungeonlab-open/dglab-bluetooth-protocol/blob/main/civet-edging-sensor/README_CN.md)。
 
 ### V3 波形帧（`wave/Wave.h`）
 

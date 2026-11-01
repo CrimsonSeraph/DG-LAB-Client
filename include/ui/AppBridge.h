@@ -32,13 +32,12 @@ public:
     enum Page {
         HomePage = 0,
         ConfigPage = 1,
-        ModulePage = 2,
-        AboutPage = 3,
-        PluginCenterPage = 4,
-        WavePage = 5,
-        MiniGamePage = 6,
-        LogPage = 7,
-        DevicePage = 8
+        AboutPage = 2,
+        PluginCenterPage = 3,
+        WavePage = 4,
+        MiniGamePage = 5,
+        LogPage = 6,
+        DevicePage = 7
     };
     Q_ENUM(Page)
 

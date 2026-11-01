@@ -34,9 +34,3 @@ screenshot/
 3. 逐页截图，并按 `pages/main_page.png`、`config_page.png`、`about_page.png` 原名覆盖。
 4. 三张图应来自同一次构建、同一主题、同一窗口尺寸，否则页面之间的间距与徽章配色会对不上。
 5. 重新生成后同步更新本文件与主 [README](../README.md) 的截图章节。
-
-## 已移除的历史截图
-
-- `others/`（`Console`、`IpSelector`、`ThemeSelectorDialog`、`ValueModeDelegate`）与 `themes/`（14 套主题预览）已在 v2.3.0 一并移除。
-- 原因：这些截图拍的是已废弃的 Widgets 界面（QSS 样式表、旧对话框与旧主题选择器），与当前 QML 界面（`Theme` 单例 + 设计令牌）不是同一套渲染结果，留着会误导使用者。
-- 旧的 `pages/rule_page.png` 也一并删除：规则编辑已并入配置页，不再存在独立的规则文件管理页。

@@ -21,11 +21,11 @@ ApplicationWindow {
 
     // 页面索引与 AppBridge::Page 的枚举值逐项对应，同时决定 pageStack 的条目顺序
     readonly property int pageHome: 0
-    readonly property int pagePluginCenter: 4
-    readonly property int pageWave: 5
-    readonly property int pageMiniGame: 6
-    readonly property int pageLog: 7
-    readonly property int pageDevice: 8
+    readonly property int pagePluginCenter: 3
+    readonly property int pageWave: 4
+    readonly property int pageMiniGame: 5
+    readonly property int pageLog: 6
+    readonly property int pageDevice: 7
 
     // 连接状态统一口径：蓝牙已连接链路数（多台累加）+ APP 在线客户端数（来源 device.appClientCount）
     readonly property int bleCount: ble.connectedLinkCount
@@ -360,12 +360,6 @@ ApplicationWindow {
             id: configPage
         }
 
-        // 模块页已移除，此处保留空占位：pageStack 的条目顺序必须与 AppBridge::Page 逐项对应，
-        // 直接删条目会让其后所有页面索引前移，与枚举值错位（ModulePage = 2 仅为兼容保留）。
-        Item {
-            objectName: "retiredModulePageSlot"
-        }
-
         AboutPage {
             id: aboutPage
         }
@@ -386,7 +380,6 @@ ApplicationWindow {
             id: logPage
         }
 
-        // 设备管理页（AppBridge::Page::DevicePage = 8）：页栈条目顺序必须与枚举逐项对应
         DevicePage {
             id: devicePage
         }

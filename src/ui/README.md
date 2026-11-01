@@ -115,16 +115,16 @@ src/ui/
 
 导航与左下角面板：
 
-左侧导航按「主页 / 插件中心 / 波形设置 / 小游戏 / 日志 / 设备管理」排列（新页追加在末尾，既有导航项顺序与文案不变）；模块页已从代码移除（首页的「插件管理」快捷入口亦已移除，插件中心只经左侧导航进入），`AboutPage` 仅经左下角面板入口可达。导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
+左侧导航按「主页 / 设备管理 / 插件中心 / 波形设置 / 小游戏 / 日志」排列（新页追加在末尾，既有导航项顺序与文案不变）；导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
 
 | objectName | 行为 |
 | --- | --- |
 | `navHomeButton` | 主页（`AppBridge::HomePage`） |
+| `navDeviceButton` | 设备管理（`DevicePage`，图标 `f2db` microchip）：`AppBridge::Page::DevicePage = 8` 追加在枚举末尾，`ModulePage = 2` 的占位槽与既有页索引均未改动，`pageStack` 末尾追加 `DevicePage` 条目 |
 | `navPluginCenterButton` | 插件中心（`PluginCenterPage`） |
 | `navWaveButton` | 波形设置（`WavePage`） |
 | `navMiniGameButton` | 小游戏（`MiniGamePage`） |
 | `navLogButton` | 日志（`LogPage`） |
-| `navDeviceButton` | 设备管理（`DevicePage`，图标 `f2db` microchip）：`AppBridge::Page::DevicePage = 8` 追加在枚举末尾，`ModulePage = 2` 的占位槽与既有页索引均未改动，`pageStack` 末尾追加 `DevicePage` 条目 |
 | `panelSettingsButton` / `panelAboutButton` | 左下角面板「设置」→ `ConfigPage`、「关于」→ `AboutPage` |
 | `panelCheckUpdateButton` | 左下角面板「检查更新」→ `UiConnector::on_panel_check_update_clicked()`：先打开 `updateDialog`，再调用既有的 `UpdateBridge::on_check_update_clicked()`（同一入口，不复制检查逻辑）；`checking` / `downloading` 期间置灰，结果由 Toast 与对话框内状态回执 |
 | `mainWindow` / `pageStack` / `statusBar` / `panelFooter` | 窗口根项、内容区页栈、底部状态栏、左下常驻面板容器 |
@@ -139,11 +139,11 @@ src/ui/
 
 主页看板（`pages/HomePage.qml` 与 `pages/home/`）：
 
-主页已改为看板：按三行排列——设备状态卡与「已启用插件 + 近期触发」同行、通道 A 卡与通道 A 波形卡同行、通道 B 卡与通道 B 波形卡同行；页头操作区从左到右为「迷你窗」与「规则编辑器」（插件中心经左侧导航进入，原「插件管理」按钮已移除；模块页入口与波形设置入口同样已移除）。强度调节不在本页（由迷你窗提供），波形选择在波形设置页。
+主页为看板：按三行排列——设备状态卡与「已启用插件 + 近期触发」同行、通道 A 卡与通道 A 波形卡同行、通道 B 卡与通道 B 波形卡同行；页头操作区从左到右为「迷你窗」与「规则编辑器」。强度调节不在本页（由迷你窗提供），波形选择在波形设置页。
 
 `homePage` / `homeScrollView` / `homeDashboardGrid` 为页面根项、滚动视图与两列看板栅格（`columns` 随 `page.singleColumn` 在 2 / 1 之间切换，单列时六张卡按「设备状态 → 插件+触发 → 通道 A → A 波形 → 通道 B → B 波形」顺序排列）；`homeDashboardRightStack` 是「已启用插件 + 近期触发」的纵向滚动容器（`Flickable`，两列时高度由同行的设备状态卡决定，`contentHeight` 取内部 `ColumnLayout` 位置器的 `max(隐式高度, 可视高度)`，内容超出时在该区域内部滚动；单列时没有同行伙伴，按内容自然高度交给页面滚动）。原 `homeDashboardLeftColumn` / `homeDashboardRightColumn` 两个列容器已随三行重排移除。
 
-看板逐行等高靠 `Layout.fillHeight`：`GridLayout` 的行高取该行两个孩子期望高度中的较大者，两个孩子都设 `Layout.fillHeight: true` 拉满格高，因此通道卡与波形卡、设备状态卡与右列组合逐行等高（此前只有右列设了 `fillHeight`，波形卡停在自身期望高度，看起来比通道卡矮一截）。右列内部同样用 `fillHeight`：`ColumnLayout` 高度撑到可视高度后，多出来的空间由「近期触发」卡吸收，组合高度正好等于设备状态卡。单列时每行只有一个孩子，行高即它的期望高度，等高约束自然不生效。
+看板逐行等高靠 `Layout.fillHeight`：`GridLayout` 的行高取该行两个孩子期望高度中的较大者，两个孩子都设 `Layout.fillHeight: true` 拉满格高，因此通道卡与波形卡、设备状态卡与右列组合逐行等高。右列内部同样用 `fillHeight`：`ColumnLayout` 高度撑到可视高度后，多出来的空间由「近期触发」卡吸收，组合高度正好等于设备状态卡。单列时每行只有一个孩子，行高即它的期望高度，等高约束自然不生效。
 
 | objectName | 行为 |
 | --- | --- |
@@ -208,8 +208,6 @@ src/ui/
 | `colorDialogPreview` / `colorDialogHexField` / `colorDialogHexError` | 取色对话框内的颜色预览块、HEX 输入框与格式错误行；两个实例同名，`UiConnector` 从各自的对话框对象里查找。HEX 接受 `#RRGGBB` / `#RGB`（可省 `#`），非法时显示错误行并禁用「确定」 |
 | `colorDialogHueSlider` / `colorDialogSaturationSlider` / `colorDialogValueSlider` | 色相（0-359 度）/ 饱和度（0-100%）/ 明度（0-100%）三条滑杆，`moved()` 由 C++ 连接后按 HSV 重算颜色与 HEX 回显 |
 | `colorDialogConfirmButton` / `colorDialogCancelButton` | 确定（走 `Dialog::accept()`，由既有 accepted 槽写回主题）与取消（只关闭） |
-
-蓝牙直连（扫描 / 断开 / 设备列表 / 强度增减）已整体移到设备管理页，上表不再有对应条目：旧 objectName `configBleColumn` / `configBleStatusText` / `configBleStatusDetail` / `configBleScreenSyncText` / `bleScanButton` / `bleDisconnectButton` / `bleDeviceList` / `bleDeviceClick` / `bleDeviceSupportBadge` / `bleStrength{A,B}{Increase,Decrease}` 已全部删除，`ConfigPage.qml` 里不再出现任何 `ble.` 绑定；`UiConnector` 对上述旧名字的连接一并移除，没有悬空连接或空壳卡片。
 
 设备管理页（`pages/DevicePage.qml`，导航第 6 项，`AppBridge::Page::DevicePage = 8`）：五张卡——扫描结果、已连接链路、默认设备、通道上限与安全上限、通道级回退值。
 
@@ -308,7 +306,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `homePage` / `pluginCenterPage` / `wavePage` / `miniGamePage` / `logPage` / `configPage` / `aboutPage` | 各页面根项标记，不承载交互 |
 | `miniGamePagePlaceholder` | 小游戏骨架页的占位文案（该页尚未实现）：只读 |
 
-插件中心（`pages/PluginCenterPage.qml`）：模块页已从代码移除——`pages/ModulePage.qml` 删除，`AppBridge::Page::ModulePage = 2` 与 `pageStack` 里的空占位 `retiredModulePageSlot` 只为保持页面索引与枚举对应。原来的统一查询周期控件随之迁到插件中心，其余模块页条目已随该页删除。
+插件中心（`pages/PluginCenterPage.qml`）：
 
 | objectName | 行为 |
 | --- | --- |
@@ -323,7 +321,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 
 已启用栏条目没有新增 objectName：「配置 →」热区同样调用 `app.openPluginDetail(fileName)`，走与首页看板相同的解析与降级路径；网格卡片的热区仍走页面内的 `openDetail()`（已在本页，无需再切页）。
 
-插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 两个页签（触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页头操作区右侧依次是规则入口（`pluginDetailRuleEntryButton`，在启停按钮**左侧**，占位固定）与「停用插件 / 启用插件」；规则入口与插件卡同一口径（未启用不显示、按 `config/rules/plugin_<插件标识>.json` 是否存在切换「创建规则 / 编辑规则」 ），点击走与卡片相同的槽并在编辑器中直达该插件图。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。原「模式与输出」页签已整页移除，其中的通道级面板迁到设备管理页「通道级回退值」卡（仍读 `eventBridge.channels`，即 `app.channels.<A|B>` 的 `limit` / `safety`，仍是每设备上下限未设置时的回退层，不存在第二套「全局上限」）：通道上限与安全上限不再在详情里编辑，改到设备管理页的「通道级回退值」卡（同一份 `app.channels.<A|B>`），界面上不再有模块级的 `channel` 下拉；该键（`app.plugins.<模块>.channel`）只剩兼容读取，事件落到哪个通道由事件映射的子选项与规则图通道节点决定。
+插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 两个页签（触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页头操作区右侧依次是规则入口（`pluginDetailRuleEntryButton`，在启停按钮**左侧**，占位固定）与「停用插件 / 启用插件」；规则入口与插件卡同一口径（未启用不显示、按 `config/rules/plugin_<插件标识>.json` 是否存在切换「创建规则 / 编辑规则」 ），点击走与卡片相同的槽并在编辑器中直达该插件图。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。通道上限与安全上限不再在详情里编辑，改到设备管理页的「通道级回退值」卡（同一份 `app.channels.<A|B>`），界面上不再有模块级的 `channel` 下拉；该键（`app.plugins.<模块>.channel`）只剩兼容读取，事件落到哪个通道由事件映射的子选项与规则图通道节点决定。
 
 | objectName | 行为 |
 | --- | --- |
@@ -335,7 +333,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 
 「触发事件」表单的三个可写控件都经 `EventBridge::setEventConfig(module, eventId, wave, merge, weight, frames, dataType)` 写入，回显读 `EventBridge` 刷新后的 `events[]`：波形下拉第 0 项「默认（按当前设备）」写空串（该事件不附加波形），其余项写波形库里的波形名原文；「激活窗口（秒）」写入前乘 10 换算成 `frames`（1 秒 = 10 帧，1 帧 = 100ms）；「输出数据类型」按分段下标写 `strength` / `percent` / `wave`。
 
-关于页（`pages/AboutPage.qml`）：只保留软件介绍与许可证说明；「软件更新」卡片已整张移除，更新入口与更新状态全部移到左下角面板与 `dialogs/UpdateDialog.qml`，本页不再有更新按钮、进度条与说明文本。
+关于页（`pages/AboutPage.qml`）：软件介绍与许可证说明。
 
 | objectName | 行为 |
 | --- | --- |
@@ -461,7 +459,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 - 新增展示组件优先放入 `components/`，专属组件放页面目录；样式一律引用令牌。
 - **对话框一律继承 `components/AppDialog.qml`**：不要在对话框里各写一份 `background` / `Overlay.modal` / `width` 钳制。Basic 样式的 Dialog 默认底色不随主题变化（浅灰），只有走 `AppDialog` 才会取 `Theme.surface` / `Theme.border` 并随主题切换；`ConfigPage` 内的预设主题与自定义主题两个对话框同样继承它。规则编辑器是唯一例外：它是独立顶层 `Window`（原生边框、`minimumWidth` / `minimumHeight` 由 `ComponentStyle` 令牌给定），底色仍取 `Theme.surface`，窗口内的确认弹层继续用 `AppDialog`。
 
-### 组件库补充（骨架批次新增）
+### 组件库补充
 
 | 控件 | 用途 | 关键属性 / 信号 |
 | --- | --- | --- |
@@ -516,8 +514,6 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | 同文件 `onPositionChanged` | 按住左右拖动查看标签，位移必须逐帧跟随指针；与 `onPressed` 一起构成一处拖动交互（两处处理器一条手势） | 只在 `mouse.pressed` 为真时按水平位移改 `root.requestedOffset` 并夹紧两端，不写模型、不导航 |
 | `pages/WavePage.qml` 的 4 个处理器：分类标题行 `MouseArea` 的 `onDoubleClicked`（自建分类就地改名）、改名输入框 `AppTextField` 的 `onEditingFinished`（提交新名字）、调序手柄 `DragHandler` 的 `onActiveChanged` / `onActiveTranslationChanged`（拖动开始 / 结束与逐帧位移） | 双击改名与按住拖动都是指针手势，命中判定与位移增量无法用 `objectName` + C++ 连接表达；改名的新名字还只能取自输入框失焦或回车的那一刻 | 处理器只改页面上的视图状态（`expandedCategories` / `expandedWaves` / `renamingCategory` / `categoryDrag`）或调用 `waveBridge`（`renameTagCategory` / `moveTagCategory`）；点击展开、分类内新建标签、删除标签 / 分类、新建分类仍全部由 C++ 按 `objectName` 连接。拖动期间不碰模型，松手经 `Qt.callLater` 提交一次 `moveTagCategory` |
 
-已迁出：规则编辑器关闭按钮（`ruleEditorCloseButton`）原先写 `onClicked: dialog.close()`，现由 `UiConnector::on_rule_editor_close_clicked()` 连接，该槽只调窗口的 `close()`——有无未保存改动的判定集中在 `UiConnector::eventFilter` 的 `QEvent::Close` 分支（`ignore()` 否决本次关闭，并在编辑器窗口内打开三选弹层 `ruleDiscardDialog`：保存并关闭 / 放弃改动 / 取消），因此标题栏 ×、Esc 与关闭按钮走同一条判定，QML 不为编辑器窗口写 `onClosing`。
-
 新增例外时必须同时更新本表，并在代码注释中写明"为何不能用 objectName + C++ 连接实现"。
 
 复核口径：对 `src/ui/qml` 全量扫描 `\b(on[A-Z][A-Za-z]*|Connections)\s*:`，命中 66 处（标签分类批次在 `pages/WavePage.qml` 新增 4 处指针手势处理器，`dialogs/WaveTagDialog.qml` 仍为 0 处；此前的插件详情移除「模式与输出」页签连带删掉 5 处、规则编辑器改为独立窗口删掉右下角调整手柄的 2 处，其余交互仍全部由 C++ 按 `objectName` 连接），按文件分组：
@@ -525,9 +521,9 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 - `dialogs/RuleEditorDialog.qml` 31 处：画布手势 5、右键菜单 6、左栏添加类 14、检查器 6（含通道节点目标设备下拉），即上表四行，逐处已登记。
 - `pages/PluginCenterPage.qml` 9 处、`pages/plugin/PluginDetail.qml` 3 处、`pages/plugin/EventMappingPanel.qml` 5 处、`pages/plugin/PluginCard.qml` 3 处：插件中心批次留下的页面级处理器（搜索框 `onTextChanged`、下拉 `onActivated` / 分段 `onSelected`、`SpinBox.onValueModified`、列表与卡片热区 `onClicked`、组件自定义信号 `onOpenDetail` / `onToggleEnabled` / `onBack`），尚未逐条登记，属待迁移项。
 - `pages/home/DashboardPluginCard.qml` 1 处：插件卡行热区点击（行委托由 `Repeater` 动态生成，本次仍保留处理器）只调 `app.openPluginDetail(fileName)`，导航与定位全在 C++（`AppBridge` + `UiConnector::on_plugin_detail_requested()`），QML 不再自己决定导航目标；处理器本身仍属待迁移项。
-- `pages/WavePage.qml` 4 处：分类标题双击改名 `onDoubleClicked` 1、改名输入框 `onEditingFinished` 1、调序手柄 `DragHandler` 的 `onActiveChanged` / `onActiveTranslationChanged` 2，即上表新增一行，逐处已登记。
-- `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表新增两行，逐处已登记。
-- `components/` 7 处：`AppTabs` / `AppSlider` / `AppSegment` / `AppChip` 各 1，把自身鼠标事件转发成自己的信号（`tabClicked` / `moved` / `selected` / `clicked`），属组件内部实现，不是页面交互；`AppTagStrip` 3 处（`onWheel` / `onPressed` / `onPositionChanged`），即上表新增三行，逐处已登记。
+- `pages/WavePage.qml` 4 处：分类标题双击改名 `onDoubleClicked` 1、改名输入框 `onEditingFinished` 1、调序手柄 `DragHandler` 的 `onActiveChanged` / `onActiveTranslationChanged` 2，即上表一行，逐处已登记。
+- `MiniWindow.qml` 2 处（标题条拖动 `onPressed` / `onPositionChanged`）与 `MainWindow.qml` 1 处（`onClosing`）：即上表两行，逐处已登记。
+- `components/` 7 处：`AppTabs` / `AppSlider` / `AppSegment` / `AppChip` 各 1，把自身鼠标事件转发成自己的信号（`tabClicked` / `moved` / `selected` / `clicked`），属组件内部实现，不是页面交互；`AppTagStrip` 3 处（`onWheel` / `onPressed` / `onPositionChanged`），即上表三行，逐处已登记。
 
 `Connections {` 与 `Behavior {` 全量为 0。
 

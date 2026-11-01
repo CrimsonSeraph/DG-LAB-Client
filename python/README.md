@@ -1,6 +1,6 @@
 # Python 模块目录（python）
 
-> **注意**：本目录只保留路径查找工具 `PathFinder.py`，供 CS2 GSI 插件定位游戏安装目录。原先的 Python 通信层（`Bridge.py`、`WebSocketCore.py` 与宿主侧 `PythonSubprocessManager`）已随内置中转服务上线而移除，见 [CHANGELOG.md](../CHANGELOG.md)。
+> **注意**：本目录只保留路径查找工具 `PathFinder.py`，供 CS2 GSI 插件定位游戏安装目录。
 
 ## 文件说明
 
@@ -78,7 +78,6 @@ else:
 
 #### 注意事项
 
-- 该模块不涉及任何网络或 WebSocket 通信，纯本地文件系统操作。
 - 在非交互模式下，不会弹出任何窗口，适合在后台或自动化脚本中使用。
 - 日志默认输出到控制台，可通过 `set_log_level` 调整级别。
 - `PathFinder.py` 在交互模式下会尝试使用 `tkinter`，若环境不支持 `tkinter` 会自动回退到控制台交互。

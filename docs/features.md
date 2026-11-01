@@ -30,7 +30,7 @@
 
 ## 插件中心与数值模块
 
-- **CS2 GSI 插件 (CS2GsiPlugin)** `CS2GsiPlugin`（`module/gsi/`）将原静态 `CS2GSIModule` 改造为符合 `IPlugin` 接口的动态库插件：通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取监听端口，按模块最小查询周期计算 `buffer`/`throttle` 并生成 `gamestate_integration_dglab.cfg`（路径记录到 `user.json` 的 `app.gsi` 下，经宿主配置接口读写）。插件经宿主共享 `DataListener` 接收 GSI 数据（HTTP POST），注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项，参照官方 GSI 规范），并实现**自身/队友数据归属区分**：首次收到有效数据时记录 `player.steamid` 为本地玩家基准，之后比较——一致为自身（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），不一致为队友（个人数值**不更新**，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。周期变化时自动更新配置；若 `cs2.exe` 运行中，经宿主 `notify` 弹出重启游戏提示。
+- **CS2 GSI 插件 (CS2GsiPlugin)** `CS2GsiPlugin`（`module/gsi/`）: 通过 Python 工具 `PathFinder.py` 跨平台查找 CS 游戏目录，随机选取监听端口，按模块最小查询周期计算 `buffer`/`throttle` 并生成 `gamestate_integration_dglab.cfg`（路径记录到 `user.json` 的 `app.gsi` 下，经宿主配置接口读写）。插件经宿主共享 `DataListener` 接收 GSI 数据（HTTP POST），注册完整数值列表（个人状态类 17 项 + 团队/地图类 6 项，参照官方 GSI 规范），并实现**自身/队友数据归属区分**：首次收到有效数据时记录 `player.steamid` 为本地玩家基准，之后比较——一致为自身（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），不一致为队友（个人数值**不更新**，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。周期变化时自动更新配置；若 `cs2.exe` 运行中，经宿主 `notify` 弹出重启游戏提示。
 
 - **进程检查 (ProcessChecker)** 提供 `ProcessChecker` 静态工具类，跨平台查询指定名称的进程是否在运行（Windows 使用 `tasklist`，macOS/Linux 使用 `ps`），支持大小写敏感开关。用于 CS2 GSI 配置更新时判断游戏是否运行（配置仅游戏启动时加载，运行中更新需提示重启游戏）。
 
@@ -55,7 +55,6 @@
 ### Python 脚本（可选）
 
 - `python/PathFinder.py`: 跨平台查找 CS 游戏目录的工具，供 CS2 GSI 插件调用。
-- 原 `Bridge.py` / `WebSocketCore.py` 已随内置中转服务上线而移除。
 
 ### 已知局限
 
