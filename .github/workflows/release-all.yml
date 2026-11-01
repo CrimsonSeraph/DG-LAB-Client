@@ -104,7 +104,7 @@ jobs:
       contents: write
     steps:
       # release job 需要读 CHANGELOG.md
-      - name: 拉取源码（读取 CHANGELOG.md）
+      - name: 拉取源码（读取 release-notes.md / CHANGELOG.md）
         uses: actions/checkout@v4
 
       - name: 下载全部构建产物
@@ -155,45 +155,75 @@ jobs:
           echo "将发布标签：$TAG"
 
       # 从 CHANGELOG.md 抽取目标 tag 的章节
-      - name: 从 CHANGELOG.md 提取发布说明
+      # 从 release-notes.md 抽取目标 tag 的用户向说明；找不到时回退 CHANGELOG.md
+      - name: 从 release-notes.md 提取发布说明
         id: notes
         shell: bash
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          FALLBACK='发布包由 CI 构建详见 [CHANGELOG.md](./CHANGELOG.md)'
-          if [ ! -f CHANGELOG.md ]; then
-            echo "::warning title=缺少 CHANGELOG.md::回退到默认说明"
-            { echo 'found=false'; echo "body=$FALLBACK"; } >> "$GITHUB_OUTPUT"
+          FALLBACK="发布包由 CI 构建，详见 [更新摘要](https://github.com/${REPO}/blob/${TAG}/release-notes.md) 与 [CHANGELOG.md](https://github.com/${REPO}/blob/${TAG}/CHANGELOG.md)。"
+          NOTES=""
+          SOURCE=""
+
+          for f in release-notes.md CHANGELOG.md; do
+            [ -f "$f" ] || continue
+            NOTES="$(awk -v tag="$TAG" '
+              BEGIN { bracket = "[" tag "]" }
+              /^## / {
+                line = $0
+                sub(/^##[[:space:]]+/, "", line)
+                target = 0
+                if (substr(line, 1, length(bracket)) == bracket) {
+                  target = 1
+                } else if (substr(line, 1, length(tag)) == tag) {
+                  nextch = substr(line, length(tag) + 1, 1)
+                  if (nextch == "" || nextch == " " || nextch == "\t") target = 1
+                }
+                if (target) printing = 1
+                else if (printing) printing = 0
+              }
+              printing { print }
+            ' "$f")"
+            if [ -n "$NOTES" ]; then
+              SOURCE="$f"
+              break
+            fi
+          done
+
+          if [ -z "$NOTES" ]; then
+            echo "::warning title=未找到 $TAG 的发布说明::release-notes.md 与 CHANGELOG.md 均未命中，回退到默认说明"
+            {
+              echo 'found=false'
+              echo 'source='
+              echo "notes=$FALLBACK"
+              echo "body=$FALLBACK"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          NOTES="$(awk -v tag="$TAG" '
-            # 命中目标版本标题 -> 开始打印；遇到下一个 ## 标题 -> 停止
-            /^## / {
-              if (index($0, "[" tag "]") > 0) {
-                printing = 1
-              } else if (printing) {
-                printing = 0
-              }
-            }
-            printing { print }
-          ' CHANGELOG.md)"
+          BODY="$NOTES"
+          if [ "$SOURCE" = "release-notes.md" ]; then
+            BODY="${NOTES}
 
-          if [ -z "$NOTES" ]; then
-            echo "::warning title=未在 CHANGELOG.md 找到 $TAG::回退到默认说明"
-            { echo 'found=false'; echo "body=$FALLBACK"; } >> "$GITHUB_OUTPUT"
-            exit 0
+            ---
+
+            完整技术变更见 [CHANGELOG.md](https://github.com/${REPO}/blob/${TAG}/CHANGELOG.md)。"
           fi
 
           echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "source=$SOURCE" >> "$GITHUB_OUTPUT"
           {
-            echo 'body<<EOF'
+            echo 'notes<<EOF'
             printf '%s\n' "$NOTES"
             echo 'EOF'
+            echo 'body<<EOF'
+            printf '%s\n' "$BODY"
+            echo 'EOF'
           } >> "$GITHUB_OUTPUT"
-          echo "---- 提取到的发布说明预览 ----"
+          echo "---- 来源：$SOURCE ----"
           printf '%s\n' "$NOTES"
 
       - name: 解析版本号（统一来自 config/main.json）
@@ -220,7 +250,7 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
           REPO: ${{ github.repository }}
           VER: ${{ steps.ver.outputs.version }}
-          NOTES_BODY: ${{ steps.notes.outputs.body }}
+          NOTES_BODY: ${{ steps.notes.outputs.notes }}
         run: |
           set -euo pipefail
           cd dist
@@ -330,7 +360,8 @@ jobs:
             echo ""
             echo "- 触发方式：\`${{ github.event_name }}\`"
             echo "- 发布标签：\`${{ steps.tag.outputs.tag }}\`"
-            echo "- CHANGELOG 命中：\`${{ steps.notes.outputs.found }}\`"
+            echo "- 发布说明来源：\`${{ steps.notes.outputs.source }}\`"
+            echo "- 发布说明命中：\`${{ steps.notes.outputs.found }}\`"
             echo "- 各平台结果："
             echo "  - Linux：\`${{ needs.linux.result }}\`"
             echo "  - Windows：\`${{ needs.windows.result }}\`"
