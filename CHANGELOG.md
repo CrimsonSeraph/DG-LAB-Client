@@ -21,6 +21,7 @@
 ### Changed
 
 - **用户更新摘要**: 添加 [docs/release-notes.md](docs/release-notes.md) 作为提供用户查看的更新摘要，同时工作流中发布时截取的 **Release 正文**与 **`manifest.json` 中 `release_notes`** 来源更换为此文件。
+- **更新日志显示优化**: 更新日志启用 Markdown 语法显示，同时调整更新日志窗口尺寸。
 
 ## [v2.5.0] - 2026-10-31
 

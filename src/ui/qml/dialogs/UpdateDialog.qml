@@ -11,8 +11,8 @@ AppDialog {
     objectName: "updateDialog"
     title: qsTr("软件更新")
     // 尺寸由令牌推导，由 AppDialog 钳制到视口内：说明再长也只滚动，不撑高对话框
-    preferredWidth: Metrics.navWidth * 2 + Metrics.spacing3xl * 2
-    preferredHeight: Metrics.navWidth * 3 + Metrics.spacing3xl * 2
+    preferredWidth: Metrics.navWidth * 3 + Metrics.spacing3xl * 2
+    preferredHeight: Metrics.navWidth * 4 + Metrics.spacing3xl * 2
 
     contentItem: ColumnLayout {
         spacing: Metrics.spacingMd
@@ -86,7 +86,7 @@ AppDialog {
                         width: parent.width
                         visible: updateBridge.release_notes !== ""
                         text: updateBridge.release_notes
-                        textFormat: Text.PlainText
+                        textFormat: TextEdit.MarkdownText
                         color: Theme.textSecondary
                         font.pixelSize: Typography.fontBody
                         wrapMode: Text.WordWrap
