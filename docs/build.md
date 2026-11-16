@@ -12,7 +12,11 @@
 
 ## 第三方库
 
-- **[nlohmann/json](https://github.com/nlohmann/json)** (版本 3.12.0) 用于 JSON 解析。CMake 会在配置时自动从 GitHub 下载单头文件到构建目录 `/include/nlohmann/`
+- **[nlohmann/json](https://github.com/nlohmann/json)** (版本 3.12.0) —— JSON 解析。单头文件留存于 `third_party/nlohmann/include/nlohmann/json.hpp`；CMake 配置期会断言其版本为 3.12.0，版本漂移会在配置阶段直接报错。详见 [third_party/nlohmann/README.md](../third_party/nlohmann/README.md)。
+- **[miniz](https://github.com/richgel999/miniz)** (版本 3.0.2) —— zip 归档读写（波形库批量导入 / 导出）。单文件 amalgamation 留存于 `third_party/miniz/`，以 `add_library(miniz STATIC ...)` 单独编译。详见 [third_party/miniz/README.md](../third_party/miniz/README.md)。
+- **[qrcodegen](https://github.com/nayuki/QR-Code-generator)** (master 分支) —— 应用内生成 DG-LAB APP 配对二维码。C++ 实现留存于 `third_party/qrcodegen/`，许可声明内嵌于源文件头部。
+
+许可证与版权声明：nlohmann/json、miniz、qrcodegen 均为 MIT，许可文本分别随源码存放于各自目录（`third_party/nlohmann/LICENSE.MIT`、`third_party/miniz/LICENSE`；qrcodegen 内嵌在源文件头部）；Qt 的 LGPLv3 许可文本位于 `licenses/LICENSE.LGPLv3`。完整的第三方组件与许可清单见仓库根目录 [NOTICE.md](../NOTICE.md)。
 
 ## Python 包依赖
 

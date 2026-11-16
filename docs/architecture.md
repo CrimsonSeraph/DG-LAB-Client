@@ -31,7 +31,7 @@ DG-LAB-Client/
 ├── config/                     # 默认配置：main / system / user 与 rules/（见 config/README.md）
 ├── docs/                       # 开发文档（主题令牌、预设配色与对比度）
 ├── include/                    # C++ 公共头文件，按 core / rule / module / wave / ble / net / plugin / ui 分层（见 include/README.md）
-├── licenses/                   # 第三方许可证文本（GPLv2 / LGPLv3 / MIT）
+├── licenses/                   # 第三方许可证文本（LGPLv3）
 ├── module/                     # 动态库插件源码：example、gsi（见 module/README.md）
 ├── packaging/                  # Linux/macOS 桌面快捷
 ├── python/                     # PathFinder.py：供 CS2 GSI 插件查找游戏目录

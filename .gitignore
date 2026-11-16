@@ -370,7 +370,6 @@ DG-LAB-Client.vcxproj
 DG-LAB-Client.vcxproj.filters
 DG-LAB-Client.vcxproj.user
 *.slnx
-json.hpp
 build/
 build_log*.txt
 venv/

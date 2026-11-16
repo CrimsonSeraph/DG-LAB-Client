@@ -1,11 +1,11 @@
-# 要求 CMake 最低版本 3.19（string(JSON) 自 3.19 起可用）
+# 要求 CMake 最低版本 3.19
 cmake_minimum_required(VERSION 3.19)
-# project() 的 VERSION 只接受字面量，故此处不写版本；版本号在下方从配置读取后注入
+# project() 的 VERSION 只接受字面量；版本号在下方从配置读取后注入
 project(DG-LAB-Client LANGUAGES CXX)
 
 # 版本号单一来源
-# config/main.json 的 app.version 是唯一真相来源：运行期由 AppConfig 读取该字段，
-# 构建期由 CMake 读同一个字段并生成 AppVersion.h，源码与 README 内不再写死版本号。
+# config/main.json 的 app.version 是唯一来源：运行期由 AppConfig 读取该字段，
+# 构建期由 CMake 读同一个字段并生成 AppVersion.h，源码与 README 内不再写死版本号
 set(DGLAB_VERSION_JSON "${CMAKE_CURRENT_SOURCE_DIR}/config/main.json")
 file(READ "${DGLAB_VERSION_JSON}" _dglab_main_json)
 string(JSON APP_VERSION GET "${_dglab_main_json}" app version)
@@ -67,47 +67,43 @@ set(CMAKE_AUTORCC ON)
 # 应用输出目录；需要跑测试时显式传 -DDGLAB_BUILD_TESTS=ON（见 docs/build.md）。
 option(DGLAB_BUILD_TESTS "构建单元测试" OFF)
 
-# 第三方库自动获取（FetchContent）
-include(FetchContent)
-
-# 手动获取 nlohmann/json 单头文件
-set(NLOHMANN_JSON_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
+# 第三方库：nlohmann/json 单头文件（MIT）
+# 单文件 release（v3.12.0），来源与许可见 third_party/nlohmann/README.md。
+set(NLOHMANN_JSON_INCLUDE_DIR
+	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann/include"
+)
 set(NLOHMANN_JSON_HEADER "${NLOHMANN_JSON_INCLUDE_DIR}/nlohmann/json.hpp")
 
-# 若文件不存在，或上次下载失败留下了 0 字节的空文件，则视为缺失并重新下载
-set(_NLOHMANN_JSON_NEED_DOWNLOAD TRUE)
-if(EXISTS "${NLOHMANN_JSON_HEADER}")
-	file(SIZE "${NLOHMANN_JSON_HEADER}" _NLOHMANN_JSON_SIZE)
-	if(_NLOHMANN_JSON_SIZE GREATER 0)
-		set(_NLOHMANN_JSON_NEED_DOWNLOAD FALSE)
-		message(STATUS "json.hpp already exists, skipping download")
-	else()
-		message(STATUS
-			"json.hpp exists but is empty (previous download failed), re-downloading..."
-		)
-	endif()
-endif()
-
-if(_NLOHMANN_JSON_NEED_DOWNLOAD)
-	message(STATUS "Downloading json.hpp from GitHub...")
-	file(MAKE_DIRECTORY "${NLOHMANN_JSON_INCLUDE_DIR}/nlohmann")
-	file(DOWNLOAD "https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp"
-		"${NLOHMANN_JSON_HEADER}"
-		STATUS DOWNLOAD_STATUS
-		SHOW_PROGRESS
+# 头文件缺失或版本漂移都在配置期直接报错，不留运行期隐患
+if(NOT EXISTS "${NLOHMANN_JSON_HEADER}")
+	message(FATAL_ERROR
+		"nlohmann/json 单头文件缺失: ${NLOHMANN_JSON_HEADER}\n"
+		"请从 https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp 下载后放入该路径。"
 	)
-	list(GET DOWNLOAD_STATUS 0 STATUS_CODE)
-	if(STATUS_CODE EQUAL 0)
-		message(STATUS "Downloaded json.hpp successfully")
-	else()
-		list(GET DOWNLOAD_STATUS 1 ERROR_MSG)
-		message(FATAL_ERROR "Failed to download json.hpp: ${ERROR_MSG}")
-	endif()
+endif()
+file(READ "${NLOHMANN_JSON_HEADER}" _nlohmann_json_head LIMIT 8192)
+if(NOT _nlohmann_json_head MATCHES "#define NLOHMANN_JSON_VERSION_MAJOR +3")
+	message(FATAL_ERROR
+		"nlohmann/json 版本断言失败：期望 NLOHMANN_JSON_VERSION_MAJOR 3（见 ${NLOHMANN_JSON_HEADER}）"
+	)
+endif()
+if(NOT _nlohmann_json_head MATCHES "#define NLOHMANN_JSON_VERSION_MINOR +12")
+	message(FATAL_ERROR
+		"nlohmann/json 版本断言失败：期望 NLOHMANN_JSON_VERSION_MINOR 12（见 ${NLOHMANN_JSON_HEADER}）"
+	)
+endif()
+if(NOT _nlohmann_json_head MATCHES "#define NLOHMANN_JSON_VERSION_PATCH +0")
+	message(FATAL_ERROR
+		"nlohmann/json 版本断言失败：期望 NLOHMANN_JSON_VERSION_PATCH 0（见 ${NLOHMANN_JSON_HEADER}）"
+	)
 endif()
 
 add_library(nlohmann_json INTERFACE)
 target_include_directories(nlohmann_json
 	INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}"
+)
+message(STATUS
+	"nlohmann/json = 3.12.0 (来源: third_party/nlohmann/include/nlohmann/json.hpp)"
 )
 
 # 第三方库：miniz（zip 归档读写，MIT）
@@ -134,6 +130,7 @@ set(DGLAB_QT_MODULES
 	WebSockets
 	Bluetooth
 	Widgets
+	Concurrent
 )
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
