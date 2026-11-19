@@ -8,6 +8,7 @@
 #include "AppConfig.h"
 #include "DebugLog.h"
 #include "TagCatalog.h"
+#include "TagRule.h"
 #include "WaveImportExport.h"
 
 #include <QDir>
@@ -24,7 +25,7 @@ namespace {
     const char* const OFFICIAL_RESOURCE = ":/waves/assets/waves/official_waves.json";
 
     /// @brief 旧版内置占位波形名：加载时移除
-    const char* const REMOVED_PLACEHOLDERS[] = { "渐强脉冲", "低频涌动" };
+    const char* const REMOVED_PLACEHOLDERS[] = {"渐强脉冲", "低频涌动"};
 
     /// @brief 发送协议配置键
     const char* const PROTOCOL_KEY = "app.wave.protocol";
@@ -83,8 +84,7 @@ namespace {
             if (!item.is_string()) {
                 return false;
             }
-            const QString frame
-                = Wave::normalize_hex_frame(QString::fromStdString(item.get<std::string>()), byte_count);
+            const QString frame = Wave::normalize_hex_frame(QString::fromStdString(item.get<std::string>()), byte_count);
             if (frame.isEmpty()) {
                 return false;
             }
@@ -284,6 +284,7 @@ bool WaveLibrary::save(const Wave& wave) {
     stored.source = WaveSource::User;
     stored.tags = Wave::normalize_tags(stored.tags);
     waves_[stored.name] = stored;
+    apply_builtin_tags_to(stored.name);
     persist();
     emit library_changed();
     LOG_MODULE("WaveLibrary", "save", LOG_INFO, "已保存波形: " << wave.name);
@@ -313,8 +314,7 @@ bool WaveLibrary::remove(const std::string& name) {
 }
 
 QString WaveLibrary::protocol() const {
-    const QString stored
-        = QString::fromStdString(AppConfig::instance().get_value<std::string>(PROTOCOL_KEY, "v3"));
+    const QString stored = QString::fromStdString(AppConfig::instance().get_value<std::string>(PROTOCOL_KEY, "v3"));
     const QString normalized = normalize_protocol(stored);
     return normalized.isEmpty() ? QStringLiteral("v3") : normalized;
 }
@@ -508,7 +508,7 @@ QStringList WaveLibrary::tags_in_display_order(const std::string& wave_name) con
 
 bool WaveLibrary::is_tag_builtin_mounted(const std::string& wave_name, const QString& tag) const {
     const QString normalized = Wave::normalize_tag(tag);
-    if (normalized.isEmpty() || !is_official(wave_name)) {
+    if (normalized.isEmpty()) {
         return false;
     }
     return index_of_tag(builtin_tags_of_wave(wave_name), normalized) >= 0;
@@ -775,6 +775,13 @@ bool WaveLibrary::attach_tag(const std::string& wave_name, const QString& tag, Q
     if (it->second.has_tag(normalized)) {
         return true;
     }
+    if (TagRule::is_auto_tag(normalized) && index_of_tag(builtin_tags_of_wave(wave_name), normalized) < 0) {
+        if (error != nullptr) {
+            *error = QStringLiteral("「%1」由内置规则自动判定，不能手动挂载")
+                         .arg(canonical_tag(normalized));
+        }
+        return false;
+    }
     it->second.tags.append(canonical_tag(normalized));
     // 官方波形的帧与名称只读，标签是用户侧叠加数据：另存进 tags.json，资源重建后能恢复
     if (it->second.is_official()) {
@@ -804,9 +811,12 @@ bool WaveLibrary::detach_tag(const std::string& wave_name, const QString& tag, Q
     }
     // 内置表挂上的标签不属于用户叠加数据：界面锁定，数据层同样拒绝移除
     if (is_tag_builtin_mounted(wave_name, normalized)) {
+        const bool auto_rule = TagRule::is_auto_tag(normalized);
         if (error != nullptr) {
-            *error = QStringLiteral("「%1」由内置标签表挂在波形《%2》上，不可移除")
-                         .arg(canonical_tag(normalized), QString::fromStdString(wave_name));
+            *error = auto_rule
+                         ? QStringLiteral("「%1」由内置规则自动判定，不可移除").arg(canonical_tag(normalized))
+                         : QStringLiteral("「%1」由内置标签表挂在波形《%2》上，不可移除")
+                               .arg(canonical_tag(normalized), QString::fromStdString(wave_name));
         }
         LOG_MODULE("WaveLibrary", "detach_tag", LOG_WARN,
             "内置挂载的标签不可移除: " << wave_name << " / " << normalized.toStdString());
@@ -880,7 +890,7 @@ void WaveLibrary::add_builtin_wave_tags_for_test(const std::string& wave_name, c
             stored.append(tag);
         }
     }
-    apply_builtin_official_tags();
+    apply_builtin_tags();
     emit tags_changed();
 }
 
@@ -997,19 +1007,20 @@ WaveImportResult WaveLibrary::apply_import(const WaveImportPlan& plan, WaveConfl
 
         if (!has(wave.name)) {
             waves_[wave.name] = wave;
+            apply_builtin_tags_to(wave.name);
             ++result.added;
             changed = true;
         }
         else if (policy == WaveConflictPolicy::Overwrite) {
             if (is_official(wave.name)) {
                 ++result.skipped;
-                const QString reason
-                    = QStringLiteral("《%1》是内置官方波形，不可覆盖，已跳过").arg(original);
+                const QString reason = QStringLiteral("《%1》是内置官方波形，不可覆盖，已跳过").arg(original);
                 result.notes.append(reason);
                 result.warnings.append(reason);
                 continue;
             }
             waves_[wave.name] = wave;
+            apply_builtin_tags_to(wave.name);
             ++result.overwritten;
             result.notes.append(QStringLiteral("《%1》已覆盖库中同名波形").arg(original));
             changed = true;
@@ -1022,17 +1033,17 @@ WaveImportResult WaveLibrary::apply_import(const WaveImportPlan& plan, WaveConfl
             }
             if (has(target) || is_official(target)) {
                 ++result.skipped;
-                const QString reason
-                    = QStringLiteral("《%1》没有可用的新名称，已跳过").arg(original);
+                const QString reason = QStringLiteral("《%1》没有可用的新名称，已跳过").arg(original);
                 result.notes.append(reason);
                 result.warnings.append(reason);
                 continue;
             }
             wave.name = target;
             waves_[target] = wave;
+            apply_builtin_tags_to(wave.name);
             ++result.renamed;
             result.notes.append(QStringLiteral("《%1》已重命名为《%2》")
-                                    .arg(original, QString::fromStdString(target)));
+                    .arg(original, QString::fromStdString(target)));
             changed = true;
         }
         else {
@@ -1174,11 +1185,11 @@ bool WaveLibrary::export_zip(const QString& path, const std::vector<std::string>
         entry.name = stem + QStringLiteral(".pulse");
         entry.data = QString::fromStdString(wave.raw).toUtf8();
         entries.push_back(entry);
-        manifest["waves"].push_back({ { "name", wave.name },
-            { "file", entry.name.toStdString() },
-            { "durationMs", wave.duration_ms() },
-            { "frameCountV2", static_cast<int>(wave.frames_v2.size()) },
-            { "frameCountV3", static_cast<int>(wave.frames_v3.size()) } });
+        manifest["waves"].push_back({{"name", wave.name},
+            {"file", entry.name.toStdString()},
+            {"durationMs", wave.duration_ms()},
+            {"frameCountV2", static_cast<int>(wave.frames_v2.size())},
+            {"frameCountV3", static_cast<int>(wave.frames_v3.size())}});
     }
     if (entries.empty()) {
         error = QStringLiteral("没有可写入 zip 的波形（原始串均为空）");
@@ -1264,7 +1275,7 @@ void WaveLibrary::load() {
     load_official();
 
     // 官方波形的标签 = 内置表自动挂载的内置标签 + tags.json 里的用户叠加标签
-    apply_builtin_official_tags();
+    apply_builtin_tags();
     load_official_tags();
 
     // 标签库读成 version 1 时按 version 2 重写一次：扁平标签已整体归入「用户自定义」分类
@@ -1321,10 +1332,8 @@ void WaveLibrary::load_official() {
 
         QStringList frames_v2;
         QStringList frames_v3;
-        const bool v2_ok = item.contains("expectedV2")
-            && read_frames_strict(item["expectedV2"], 0, frames_v2);
-        const bool v3_ok = item.contains("expectedV3")
-            && read_frames_strict(item["expectedV3"], 8, frames_v3);
+        const bool v2_ok = item.contains("expectedV2") && read_frames_strict(item["expectedV2"], 0, frames_v2);
+        const bool v3_ok = item.contains("expectedV3") && read_frames_strict(item["expectedV3"], 8, frames_v3);
         if (!v2_ok || !v3_ok) {
             ++skipped;
             LOG_MODULE("WaveLibrary", "load_official", LOG_ERROR,
@@ -1346,29 +1355,45 @@ void WaveLibrary::load_official() {
         "官方内置波形加载完成: " << loaded << " 个，跳过 " << skipped << " 个");
 }
 
-void WaveLibrary::apply_builtin_official_tags() {
+void WaveLibrary::apply_builtin_tags() {
     int applied = 0;
     for (auto& [name, wave] : waves_) {
-        if (!wave.is_official()) {
-            continue;
+        const QStringList before = wave.tags;
+        apply_builtin_tags_to(name);
+        if (wave.tags != before) {
+            ++applied;
         }
-        // 内置表挂载的标签排在前面，用户叠加标签按原顺序保留
-        QStringList mounted = builtin_tags_of_wave(name);
-        for (const QString& tag : wave.tags) {
-            if (index_of_tag(mounted, tag) < 0) {
-                mounted.append(tag);
-            }
-        }
-        if (mounted == wave.tags) {
-            continue;
-        }
-        wave.tags = mounted;
-        ++applied;
     }
     if (applied > 0) {
-        LOG_MODULE("WaveLibrary", "apply_builtin_official_tags", LOG_INFO,
-            "官方波形内置标签已挂载: " << applied << " 个波形");
+        LOG_MODULE("WaveLibrary", "apply_builtin_tags", LOG_INFO,
+            "内置/规则标签已挂载: " << applied << " 个波形");
     }
+}
+
+void WaveLibrary::apply_builtin_tags_to(const std::string& wave_name) {
+    auto it = waves_.find(wave_name);
+    if (it == waves_.end()) {
+        return;
+    }
+    Wave& wave = it->second;
+
+    // 剥离旧规则标签：帧变化后旧规则可能不再满足，由下面的规则重新判定
+    QStringList remaining;
+    for (const QString& tag : wave.tags) {
+        if (TagRule::is_auto_tag(tag)) {
+            continue;
+        }
+        remaining.append(tag);
+    }
+
+    // 内置表（官方语义标签 + 测试注入）+ 规则重新挂载，用户标签保留在后
+    QStringList mounted = builtin_tags_of_wave(wave_name);
+    for (const QString& tag : remaining) {
+        if (index_of_tag(mounted, tag) < 0) {
+            mounted.append(tag);
+        }
+    }
+    wave.tags = mounted;
 }
 
 void WaveLibrary::load_official_tags() {
@@ -1429,7 +1454,7 @@ void WaveLibrary::load_official_tags() {
 void WaveLibrary::persist() const {
     nlohmann::json json;
     json["version"] = "1.1";
-    json["current"] = { { "A", current_a_ }, { "B", current_b_ } };
+    json["current"] = {{"A", current_a_}, {"B", current_b_}};
 
     nlohmann::json waves = nlohmann::json::object();
     for (const auto& [name, wave] : waves_) {
@@ -1551,9 +1576,14 @@ void WaveLibrary::persist_tags() const {
         if (!wave.is_official()) {
             continue;
         }
+        // 每个波形只算一次内置挂载集合（TagCatalog 内置表 + TagRule 规则判定），
+        // 避免对波形的每个标签重复调用 builtin_tags_of_wave()
+        const QStringList builtin = builtin_tags_of_wave(name);
+
         nlohmann::json tags_of_wave = nlohmann::json::array();
         for (const QString& tag : wave.tags) {
-            if (is_tag_builtin_mounted(name, tag)) {
+            const QString normalized = Wave::normalize_tag(tag);
+            if (normalized.isEmpty() || index_of_tag(builtin, normalized) >= 0) {
                 continue;
             }
             tags_of_wave.push_back(tag.toStdString());
@@ -1649,8 +1679,25 @@ int WaveLibrary::category_index_of_tag(const QString& tag) const {
 }
 
 QStringList WaveLibrary::builtin_tags_of_wave(const std::string& wave_name) const {
-    QStringList result
-        = TagCatalog::builtin_tags_of_official_wave(QString::fromStdString(wave_name));
+    QStringList result;
+    const Wave* wave = get(wave_name);
+    if (wave == nullptr) {
+        return result;
+    }
+
+    // 官方波形：内置表手动挂载的语义标签（使用部位、使用场景等）
+    if (wave->is_official()) {
+        result = TagCatalog::builtin_tags_of_official_wave(QString::fromStdString(wave_name));
+    }
+
+    // 所有波形（官方 + 用户）：规则自动判定的标签
+    for (const QString& tag : TagRule::auto_tags_for(*wave)) {
+        if (index_of_tag(result, tag) < 0) {
+            result.append(tag);
+        }
+    }
+
+    // 测试用额外内置标签（保持原样）
     const QString name = QString::fromStdString(wave_name);
     for (const auto& [extra_name, extra_tags] : builtin_extra_wave_tags_) {
         if (QString::fromStdString(extra_name).compare(name, Qt::CaseInsensitive) != 0) {

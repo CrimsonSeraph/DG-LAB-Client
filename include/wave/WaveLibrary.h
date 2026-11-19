@@ -46,9 +46,9 @@ struct WaveImportResult {
 
 /// @brief 标签分类：名称 + 是否内置分类 + 该分类下的标签（内置分类下内置标签在前、用户新增标签在后）
 struct WaveTagCategory {
-    QString name;     ///< 分类名（内置分类名不可改）
+    QString name;         ///< 分类名（内置分类名不可改）
     bool builtin = false; ///< 是否内置分类（名称与顺序固定，排在最前）
-    QStringList tags; ///< 该分类下的标签名（顺序即分类内展示顺序）
+    QStringList tags;     ///< 该分类下的标签名（顺序即分类内展示顺序）
 };
 
 // WaveLibrary - 波形库（单例）
@@ -206,8 +206,11 @@ private:
 
     void load();
     void load_official();
-    /// @brief 按内置表给官方波形挂上内置标签（资源重建后调用，排在用户叠加标签之前）
-    void apply_builtin_official_tags();
+    /// @brief 按内置表、规则给所有波形挂上标签
+    void apply_builtin_tags();
+    /// @brief 按内置表、规则给所有波形挂上标签（只处理指定名称）
+    /// @param wave_name 指定波形名称
+    void apply_builtin_tags_to(const std::string& wave_name);
     /// @brief 应用官方波形的标签叠加数据（tags.json 的 official_wave_tags 段，资源重建后调用）
     void load_official_tags();
     void persist() const;
@@ -224,14 +227,14 @@ private:
     void merge_category_groups(const std::vector<std::pair<QString, QStringList>>& groups);
     /// @brief 标签所在分类的下标（大小写不敏感），不在标签库中返回 -1
     int category_index_of_tag(const QString& tag) const;
-    /// @brief 官方波形按内置表（含测试注入）应挂上的内置标签
+    /// @brief 该波形按内置表（官方语义标签 + 测试注入）与 TagRule 规则应挂上的标签
     QStringList builtin_tags_of_wave(const std::string& wave_name) const;
 
     std::map<std::string, Wave> waves_;
-    std::vector<WaveTagCategory> categories_; ///< 分类与标签（内置七类在前，自建分类在后）
-    std::map<QString, QStringList> builtin_extra_tags_; ///< 仅测试：注入到内置分类的内置标签
+    std::vector<WaveTagCategory> categories_;                    ///< 分类与标签（内置七类在前，自建分类在后）
+    std::map<QString, QStringList> builtin_extra_tags_;          ///< 仅测试：注入到内置分类的内置标签
     std::map<std::string, QStringList> builtin_extra_wave_tags_; ///< 仅测试：注入到官方波形的内置标签
-    bool tags_need_migrate_ = false; ///< 标签库读成 version 1，加载完成后按 version 2 重写一次
+    bool tags_need_migrate_ = false;                             ///< 标签库读成 version 1，加载完成后按 version 2 重写一次
     std::string dir_;
     std::string current_a_;
     std::string current_b_;

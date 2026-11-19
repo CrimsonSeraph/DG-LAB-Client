@@ -64,11 +64,11 @@ set(CMAKE_AUTORCC ON)
 
 # 构建开关
 # 单元测试默认不构建（OFF）：普通构建与发布构建都不编 14 个测试目标，测试产物也不进
-# 应用输出目录；需要跑测试时显式传 -DDGLAB_BUILD_TESTS=ON（见 docs/build.md）。
+# 应用输出目录；需要跑测试时显式传 -DDGLAB_BUILD_TESTS=ON（见 docs/build.md）
 option(DGLAB_BUILD_TESTS "构建单元测试" OFF)
 
 # 第三方库：nlohmann/json 单头文件（MIT）
-# 单文件 release（v3.12.0），来源与许可见 third_party/nlohmann/README.md。
+# 单文件 release（v3.12.0），来源与许可见 third_party/nlohmann/README.md
 set(NLOHMANN_JSON_INCLUDE_DIR
 	"${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann/include"
 )
@@ -78,7 +78,7 @@ set(NLOHMANN_JSON_HEADER "${NLOHMANN_JSON_INCLUDE_DIR}/nlohmann/json.hpp")
 if(NOT EXISTS "${NLOHMANN_JSON_HEADER}")
 	message(FATAL_ERROR
 		"nlohmann/json 单头文件缺失: ${NLOHMANN_JSON_HEADER}\n"
-		"请从 https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp 下载后放入该路径。"
+		"请从 https://github.com/nlohmann/json/releases/download/v3.12.0/json.hpp 下载后放入该路径"
 	)
 endif()
 file(READ "${NLOHMANN_JSON_HEADER}" _nlohmann_json_head LIMIT 8192)
@@ -118,7 +118,7 @@ target_include_directories(miniz
 
 # 查找 Qt
 # 项目使用的 Qt 模块清单：find_package 与"构建后 Qt 运行时部署"检查共用，
-# 新增模块时只需在此处添加，无需改动其它位置。
+# 新增模块时只需在此处添加，无需改动其它位置
 set(DGLAB_QT_MODULES
 	Core
 	Gui
@@ -144,7 +144,7 @@ endif()
 #  约定：
 #    - 按模块分组为独立变量，末尾统一汇总到 PROJECT_SOURCES；
 #    - 每个模块内先列源文件(.cpp)，再列头文件(.h/.hpp)；
-#    - 资源(.qrc) 与配置(.json) 单独分组。
+#    - 资源(.qrc) 与配置(.json) 单独分组
 
 # 程序入口
 set(ENTRY_SOURCES
@@ -153,7 +153,7 @@ set(ENTRY_SOURCES
 
 # 核心基础设施（core）
 
-# --- 配置系统 ---
+# 配置系统
 set(CORE_CONFIG
 	# 源文件
 	src/core/AppConfig.cpp
@@ -292,11 +292,13 @@ set(NET
 set(WAVE
 	# 源文件
 	src/wave/TagCatalog.cpp
+	src/wave/TagRule.cpp
 	src/wave/Wave.cpp
 	src/wave/WaveImportExport.cpp
 	src/wave/WaveLibrary.cpp
 	# 头文件
 	include/wave/TagCatalog.h
+	include/wave/TagRule.h
 	include/wave/Wave.h
 	include/wave/WaveImportExport.h
 	include/wave/WaveLibrary.h
@@ -394,7 +396,7 @@ set(PROJECT_SOURCES
 )
 
 # Windows 可执行文件图标：app.rc 只描述 exe 的图标资源（资源管理器里显示的那个），
-# 仅在 Windows 下加入目标源，Linux / macOS（CI 的 linux、macos 工作流）不受影响。
+# 仅在 Windows 下加入目标源，Linux / macOS（CI 的 linux、macos 工作流）不受影响
 if(WIN32)
 	list(APPEND PROJECT_SOURCES
 		app.rc
@@ -419,13 +421,13 @@ if(WIN32)
 endif()
 
 # QML 模块（界面层）
-# 采用 /qt/qml 作为模块默认资源前缀（qrc:/qt/qml/Dglab/...），并为子目录生成 qmldir。
+# 采用 /qt/qml 作为模块默认资源前缀（qrc:/qt/qml/Dglab/...），并为子目录生成 qmldir
 if(QT_VERSION_MAJOR EQUAL 6)
 	qt_policy(SET QTP0001 NEW)
 	qt_policy(SET QTP0004 NEW)
 
 	# style/ 下全部是 QML 单例（设计令牌）：QT_QML_SINGLETON_TYPE 是逐文件属性，
-	# 一次 set_source_files_properties 写多组同名属性只有最后一组生效，故一个文件一条。
+	# 一次 set_source_files_properties 写多组同名属性只有最后一组生效，故一个文件一条
 	set_source_files_properties(src/ui/qml/style/Metrics.qml
 		PROPERTIES QT_QML_SINGLETON_TYPE TRUE
 	)
@@ -511,7 +513,7 @@ endif()
 
 # 构建后部署 Qt 运行时（Windows）
 # 直接运行构建输出目录中的可执行文件需要 Qt DLL / 平台插件 / QML 模块；
-# 这里在构建后调用 windeployqt 部署到可执行文件目录（已部署则跳过）。
+# 这里在构建后调用 windeployqt 部署到可执行文件目录（已部署则跳过）
 if(WIN32)
 	get_target_property(_qt_qmake_location
 		Qt${QT_VERSION_MAJOR}::qmake
@@ -589,9 +591,9 @@ find_package(Python 3.9 COMPONENTS Interpreter Development REQUIRED)
 #   - IMPORTED_LINK_INTERFACE_LIBRARIES / IMPORTED_LINK_INTERFACE_LIBRARIES_<CONFIG>
 # 这里对项目用到的所有 Qt 导入目标的上述属性统一剥离 AGL 引用，兼容
 # "-framework AGL" 单条目、"-framework" 与 "AGL" 分列两个条目、"-lAGL"、
-# "-Wl,-framework,AGL"、AGL.framework / AGL.dylib 路径等多种写法。
+# "-Wl,-framework,AGL"、AGL.framework / AGL.dylib 路径等多种写法
 # 注意：必须使用带版本号的 Qt${QT_VERSION_MAJOR}::Xxx 目标；
-# 无版本号目标（Qt::Xxx）只是 ALIAS，不允许被 set_target_properties 修改。
+# 无版本号目标（Qt::Xxx）只是 ALIAS，不允许被 set_target_properties 修改
 
 # 从列表变量中移除 AGL 相关条目（结果写回父作用域同名变量）
 function(dgl_strip_agl_list _var_name)
@@ -1305,7 +1307,7 @@ if(DGLAB_BUILD_TESTS)
 
 	# 测试产物统一落在 ${CMAKE_BINARY_DIR}/tests，不与应用 / 插件共用输出目录：
 	# Visual Studio / Xcode 这类多配置生成器会再追加配置子目录（tests/Release、tests/Debug），
-	# 单配置生成器（Ninja / Makefile）直接用 tests/。新增测试目标时请加进下面的列表。
+	# 单配置生成器（Ninja / Makefile）直接用 tests/新增测试目标时请加进下面的列表
 	set(DGLAB_TEST_TARGETS
 		event_engine_test
 		rule_graph_eval_test
@@ -1326,7 +1328,7 @@ if(DGLAB_BUILD_TESTS)
 
 	# Windows 上测试程序不再与 windeployqt 部署过的输出目录同处一地，加载 Qt DLL 只能靠 PATH：
 	# 从 Qt6::Core 的导入位置反推 Qt 的 bin 目录，写进每个测试的 ENVIRONMENT；其余平台靠
-	# 构建树里的 rpath 找 Qt，不需要这一步。
+	# 构建树里的 rpath 找 Qt，不需要这一步
 	if(WIN32)
 		get_target_property(_dglab_qt_core_dll Qt6::Core IMPORTED_LOCATION_RELEASE)
 		if(NOT _dglab_qt_core_dll)
@@ -1351,17 +1353,17 @@ if(DGLAB_BUILD_TESTS)
 	endforeach()
 else()
 	# 复用同一个构建目录时，上一次开启测试留下的 CTestTestfile.cmake 不会自动清掉：
-	# 它还指向已被移除的测试程序，ctest 会逐个报 Not Run。这里显式删除，让默认构建的
-	# ctest 回到「No tests were found」。
+	# 它还指向已被移除的测试程序，ctest 会逐个报 Not Run这里显式删除，让默认构建的
+	# ctest 回到「No tests were found」
 	file(REMOVE "${CMAKE_BINARY_DIR}/CTestTestfile.cmake")
 endif()
 
 # 安装规则（供 CPack 使用）
 # Qt 的部署脚本把 Qt 运行时写进 CMAKE_INSTALL_BINDIR，并假定可执行文件也在那里；
 # 因此 Windows 把可执行文件连同它运行所需的数据（config / python / assets 等）
-# 一起装进 bin/。部署脚本会在 exe 旁写 qt.conf，其中的 Prefix = .. 指回安装根，
-# plugins / qml / translations 仍留在安装根。Linux/macOS 的安装布局由
-# linuxdeployqt / macdeployqt 决定，保持在安装根不动。
+# 一起装进 bin/部署脚本会在 exe 旁写 qt.conf，其中的 Prefix = .. 指回安装根，
+# plugins / qml / translations 仍留在安装根Linux/macOS 的安装布局由
+# linuxdeployqt / macdeployqt 决定，保持在安装根不动
 if(WIN32)
 	set(DGLAB_APP_DIR "${CMAKE_INSTALL_BINDIR}")
 else()
@@ -1390,10 +1392,10 @@ endif()
 
 # Qt 部署工具
 if(WIN32)
-	# 生成 CPack 兼容的 Qt 部署脚本。QML 应用必须用 qml 变体：普通的
+	# 生成 CPack 兼容的 Qt 部署脚本QML 应用必须用 qml 变体：普通的
 	# qt_generate_deploy_app_script 不做 QML 导入扫描，QtQuick.Controls 等
-	# Qt 自带的 QML 模块不会被复制到安装目录，安装版加载界面会直接失败。
-	# 该脚本同时负责运行 windeployqt 部署 Qt 库与平台插件。
+	# Qt 自带的 QML 模块不会被复制到安装目录，安装版加载界面会直接失败
+	# 该脚本同时负责运行 windeployqt 部署 Qt 库与平台插件
 	qt_generate_deploy_qml_app_script(
 		TARGET
 		${PROJECT_NAME}
