@@ -17,11 +17,15 @@
     - **macOS (DMG)**: 新增 DMG 背景图（含 1x / 2x Retina 适配及 SVG 源文件）与 AppleScript 布局脚本（`dmg_setup.applescript`），优化打开磁盘映像后的窗口尺寸、图标坐标与视觉体验。
     - **Linux**: 新增标准 `.desktop` 桌面入口文件，并在安装时自动将 16px 至 1024px 的多尺寸图标部署至 `hicolor` 主题目录。
 - **AppImage 构建复用统一资源**: 更新 Linux CI 工作流，在打包 AppImage 时直接复用 `packaging/dg-lab-client.desktop` 与 `assets/icon/` 下的图标，避免在脚本中硬编码生成临时文件。
+- **插件市场**: 左侧导航新增「插件市场」，从在线 `registry.json` 拉取插件清单，按本地已装版本显示「安装 / 更新 / 已安装」；安装链路依次做地址与 SHA256 校验、受限解压（拒绝绝对路径与 `..`、限制单文件与总量）与目录原子替换，失败保留原目录，缺少依赖时返回错误而不是崩溃。
+- **跨仓库插件分发**: 打 `<插件>-v<版本>` 标签即只构建该插件并产出三平台压缩包，发布到独立插件仓库，同时生成 `registry.json` 与既有更新清单一起直传 Cloudflare Workers 静态资源（直传不消耗 Cloudflare 构建次数）。
 
 ### Changed
 
 - **用户更新摘要**: 添加 [docs/release-notes.md](docs/release-notes.md) 作为提供用户查看的更新摘要，同时工作流中发布时截取的 **Release 正文**与 **`manifest.json` 中 `release_notes`** 来源更换为此文件。
 - **更新日志显示优化**: 更新日志启用 Markdown 语法显示，同时调整更新日志窗口尺寸。
+- **第三方封面移出主仓库**: 插件头图不再随仓库分发，改由插件仓库 `banners/` 提供、`plugin.json` 写绝对链接，`assets/banners/NOTICE.md` 声明图片版权归原权利人且不适用 GPL-3.0-only。
+- **注释与代码规范统一**: 文件头协议声明统一为 `//`，注释去掉句号与列表序号，`.cpp` 内误用的 Doxygen 标记收敛为普通注释，18 个源文件的函数定义顺序与头文件声明对齐。
 
 ## [v2.5.0] - 2026-10-31
 
