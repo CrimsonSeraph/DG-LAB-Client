@@ -331,6 +331,7 @@ set(UI_QML
 	src/ui/DeviceController.cpp
 	src/ui/HomeBridge.cpp
 	src/ui/ModuleBridge.cpp
+	src/ui/MarketBridge.cpp
 	src/ui/ModuleBannerImageProvider.cpp
 	src/ui/WaveBridge.cpp
 	src/ui/QrImageProvider.cpp
@@ -345,6 +346,7 @@ set(UI_QML
 	include/ui/DeviceController.h
 	include/ui/HomeBridge.h
 	include/ui/ModuleBridge.h
+	include/ui/MarketBridge.h
 	include/ui/ModuleBannerImageProvider.h
 	include/ui/WaveBridge.h
 	include/ui/QrImageProvider.h
@@ -458,6 +460,7 @@ if(QT_VERSION_MAJOR EQUAL 6)
 		src/ui/qml/pages/MiniGamePage.qml
 		src/ui/qml/pages/LogPage.qml
 		src/ui/qml/pages/DevicePage.qml
+		src/ui/qml/pages/MarketPage.qml
 		src/ui/qml/pages/plugin/PluginCard.qml
 		src/ui/qml/pages/plugin/PluginDetail.qml
 		src/ui/qml/pages/plugin/EventMappingPanel.qml

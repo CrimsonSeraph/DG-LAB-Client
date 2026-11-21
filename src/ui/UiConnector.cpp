@@ -13,6 +13,7 @@
 #include "HomeBridge.h"
 #include "IpSelector.h"
 #include "LogBridge.h"
+#include "MarketBridge.h"
 #include "ModuleBridge.h"
 #include "RuleGraphBridge.h"
 #include "ThemeManager.h"
@@ -51,6 +52,7 @@ namespace {
             {QStringLiteral("navMiniGameButton"), AppBridge::MiniGamePage},
             {QStringLiteral("navLogButton"), AppBridge::LogPage},
             {QStringLiteral("navDeviceButton"), AppBridge::DevicePage},
+            {QStringLiteral("navMarketButton"), AppBridge::MarketPage},
             {QStringLiteral("panelSettingsButton"), AppBridge::ConfigPage},
             {QStringLiteral("panelAboutButton"), AppBridge::AboutPage}};
         return bindings;
@@ -169,7 +171,8 @@ namespace {
 
 UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     DeviceController* device, ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble,
-    RuleGraphBridge* rule_graph, LogBridge* log, UpdateBridge* update, QObject* parent)
+    RuleGraphBridge* rule_graph, LogBridge* log, UpdateBridge* update, MarketBridge* market,
+    QObject* parent)
     : QObject(parent)
     , app_(app)
     , home_(home)
@@ -180,7 +183,8 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
     , ble_(ble)
     , rule_graph_(rule_graph)
     , log_(log)
-    , update_(update) {
+    , update_(update)
+    , market_(market) {
     if (log_ != nullptr) {
         // statusMessage 现在只在导出失败时发出，走 danger；成功走 exportChanged 带路径
         QObject::connect(log_, &LogBridge::statusMessage, this,
@@ -297,6 +301,25 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
                 }
             });
     }
+    if (market_ != nullptr) {
+        // 清单刷新成功时列表与更新时间已变，只有失败需要补一次 danger 回执
+        QObject::connect(market_, &MarketBridge::refreshFinished, this,
+            [this](bool ok, const QString& error) {
+                if (ok || app_ == nullptr) {
+                    return;
+                }
+                app_->showToast(error, AppBridge::StatusDanger);
+            });
+        // 安装成功由卡片的三态与按钮文案回执，失败一律弹 danger（依赖缺失、校验失败、解压失败）
+        QObject::connect(market_, &MarketBridge::installFinished, this,
+            [this](const QString& id, bool ok, const QString& error) {
+                Q_UNUSED(id)
+                if (ok || app_ == nullptr) {
+                    return;
+                }
+                app_->showToast(error, AppBridge::StatusDanger);
+            });
+    }
 }
 
 void UiConnector::attach(QObject* root_object) {
@@ -379,6 +402,10 @@ void UiConnector::attach(QObject* root_object) {
     }
 
     connect_clicked(root_object, "configConnectButton", SLOT(on_config_connect_clicked()));
+    // 插件市场：刷新按钮静态单实例；卡片由 Repeater 生成，沿列表可视化子树扫描操作按钮
+    connect_clicked(root_object, "marketRefreshButton", SLOT(on_market_refresh_clicked()));
+    watch_items(root_object, "marketList", QStringLiteral("marketActionButton"),
+        SLOT(on_market_action_clicked()));
     // 网卡 IP 选择：入口在连接卡表单下方，对话框与候选列表全部按 objectName 连接
     ip_selector_ = (device_ != nullptr) ? qobject_cast<IpSelector*>(device_->ip_selector()) : nullptr;
     connect_clicked(root_object, "configSelectIpButton", SLOT(on_config_select_ip_clicked()));
@@ -2344,4 +2371,23 @@ void UiConnector::on_plugin_detail_item_changed() {
         module_name = item.value(QStringLiteral("moduleName")).toString();
     }
     module_->selectModule(module_name);
+}
+
+void UiConnector::on_market_refresh_clicked() {
+    if (market_ != nullptr) {
+        market_->refresh();
+    }
+}
+
+void UiConnector::on_market_action_clicked() {
+    // 卡片由 Repeater 生成：插件标识写在按钮的 pluginId 属性上，不按下标回调
+    auto* button = sender();
+    if (button == nullptr || market_ == nullptr) {
+        return;
+    }
+    const QString plugin_id = button->property("pluginId").toString();
+    if (plugin_id.isEmpty()) {
+        return;
+    }
+    market_->install(plugin_id);
 }

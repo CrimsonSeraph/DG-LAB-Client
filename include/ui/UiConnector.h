@@ -22,6 +22,7 @@ class DeviceController;
 class HomeBridge;
 class IpSelector;
 class LogBridge;
+class MarketBridge;
 class ModuleBridge;
 class RuleGraphBridge;
 class ThemeManager;
@@ -39,7 +40,7 @@ class UiConnector : public QObject {
 public:
     UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme, DeviceController* device,
         ModuleBridge* module, WaveBridge* wave, CoyoteBleController* ble, RuleGraphBridge* rule_graph,
-        LogBridge* log, UpdateBridge* update, QObject* parent = nullptr);
+        LogBridge* log, UpdateBridge* update, MarketBridge* market, QObject* parent = nullptr);
 
     /// @brief 在 engine.load 之后调用，连接根对象下的全部交互控件
     void attach(QObject* root_object);
@@ -192,6 +193,9 @@ private slots:
     void on_mini_window_visibility_changed();
     void on_mini_window_wave_reset();
     void on_mini_window_wave_advanced();
+    // 插件市场
+    void on_market_refresh_clicked();
+    void on_market_action_clicked();
 
 private:
     void connect_clicked(QObject* root_object, const char* object_name, const char* slot);
@@ -284,4 +288,5 @@ private:
     QList<ItemWatch> watches_;
     QSet<QObject*> connected_items_;
     UpdateBridge* update_ = nullptr;
+    MarketBridge* market_ = nullptr;
 };

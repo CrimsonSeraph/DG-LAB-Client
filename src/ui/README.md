@@ -45,6 +45,7 @@ src/ui/
 │   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
 │   │   ├── LogPage.qml         # 日志：列表、级别过滤与手动导出选项（导航第 5 项）
 │   │   ├── DevicePage.qml      # 设备管理：蓝牙扫描、已连接链路、默认设备、按设备通道上下限与通道级回退值（导航第 6 项）
+│   │   ├── MarketPage.qml      # 插件市场：registry 清单、安装 / 更新三态与下载进度（导航第 7 项）
 │   │   ├── ConfigPage.qml      # 设置：连接（中转表单 + 扫码配对）与主题（仅经左下角面板入口可达）
 │   │   ├── plugin/            # 插件中心：插件卡、插件详情、事件映射面板
 │   │   └── AboutPage.qml       # 关于（仅经左下角面板入口可达）
@@ -94,6 +95,7 @@ src/ui/
 | `device` | `DeviceController` | 内置中转服务状态、局域网地址/端口、二维码载荷 `pairingUrl`（官方终端二维码协议格式）、展示用短地址 `pairingUrlText` 与二维码 `qrImageUrl`，强度 / 波形 / 清除指令下发与设备回传转发（强度回执按当前生效链路二选一：蓝牙在线只认 BLE 的 B1 回执，中转回执只记录不外发，链路切换时按新链路重播一次，两条链路不会互相覆盖）；事件输出经 `set_event_output()` 与规则命令合并（取较大值、按通道上限钳制、相同值不重复下发）后下发；事件波形经 `apply_event_wave()` 每帧判定，`dataType=wave` 的波形切换后播放一次、播完恢复接管前的规则波形；`device.ipSelector`（`IpSelector`）暴露候选网卡 `candidates`、`blacklist` / `whitelist`、手动选中 `selectedIp` 与实际使用 `activeIp`，也是地址解析（手动选中优先 → 按名单自动 → 回退 `127.0.0.1`）的唯一来源；输出目标按通道单选，`outputTargets()` / `outputTarget(channel)` / `setOutputTarget(channel, target)` 读写 `app.output.<A | B>.target`（本版只有 `coyote` 一个可选值，界面不显示下拉，切换路径已就位）；默认设备与上下限：`outputDevices` 列出在线输出设备、`defaultDevice`/`defaultDeviceIndex` 给出评选结果、`setDefaultDeviceByIndex(index)`写`app.output.default_device`，上下限读取集中在 `limits_for(mac, channel)`（设备特有值 → `app.channels.<A | B>`→ 内置默认 200/150），下发路径`active_output()` 返回的就是默认设备 |
 | `home` | `HomeBridge` | A/B 通道强度、上限、启用状态、模块摘要、规则摘要，以及启停与强度调整；默认设备口径另见 `outputDevices`（在线输出设备列表）/ `defaultDevice`（当前默认设备 MAC）/ `defaultDeviceIndex`（默认设备在列表中的下标，无默认设备为 -1）与写入口 `setDefaultDeviceIndex(index)`；上限取默认设备的 `min(limit, safety)`，切换默认设备后立即跟随；另带波形下发状态 `waveSending{A,B}`（是否正在下发）、`waveFrame{A,B}`（当前帧序号，1 起）、`waveFrames{A,B}`（总帧数，未下发时为 0），三者同随 `waveStateChanged` 广播 |
 | `moduleBridge` | `ModuleBridge` | 插件/内置模块卡片、统一查询周期（`periodOptions` / `basePeriodMs` / `uniformPeriodIndex`，写入口 `applyAllPeriod`）、选中模块数值 |
+| `market` | `MarketBridge` | 插件市场：清单源 `sourceUrl`（配置 `app.market.registry_url`，缺省占位串）、`loading` / `lastError` / `updatedAt`（取清单的 `generatedAt`，缺失时用本地刷新时间）、`plugins`（每项 `id` / `name` / `version` / `description` / `tags` / `banner` / `localVersion` / `status` / `statusText` / `actionText` / `actionEnabled` / `progress` / `error`）；写入口 `refresh()` 与 `install(id)`，安装经 `ModuleManager::download_plugin()`，进度与结果回写到对应项 |
 | `waveBridge` | `WaveBridge` | 波形库（官方内置 16 个只读 + 用户波形；列表项带 `source` / `official` / `sendable` 与 `frameCountV2` / `frameCountV3`）、A/B 当前波形与预览点、波形编辑器草稿；`protocol` 读写 `app.wave.protocol`（v2 / v3，缺省 v3），发送按协议取 V2 / V3 帧，目标版本缺帧写 `lastError` 并拒发；`draftSendable` 给出当前协议下草稿是否可发送；导入导出支持 JSON / .pulse / zip（zip 只在范围「全部波形」时可选）；标签库按分类组织：七个内置分类（使用部位 / 使用场景 / 频率风格 / 波形时长 / 播放速率 / 波形来源 / 用户自定义）的名称与顺序固定、内置标签不可删，用户可另建分类并改名调序，标签名全库唯一；`tagCategories` 按分类给名称 / 是否内置 / 标签列表（每个标签带 `builtin` / `usage` / `checked` / `locked`），`createTagInCategory` / `createTagCategory` / `renameTagCategory` / `moveTagCategory` / `removeTagCategory` 承担增删改与调序；`tagTargetName` / `tagMaxLength` 供标签选择器与新建输入框使用，`tagLibrary` / `builtinTags` / `customTags` 作为扁平投影保留（波形页与选择器已统一按 `tagCategories` 分组展示）；存储为 `config/waves/tags.json` 的 version 2（只写用户侧分类与用户标签，内置定义来自 `src/wave/TagCatalog.cpp` 的代码表）；官方 16 个波形的内置标签按该代码表在加载时自动挂载、界面上锁定不可移除，用户追加的标签存在同一文件的 `official_wave_tags` 段，帧与名称仍只读（波形数据结构与标签规则见 [docs/wave-data.md](../../docs/wave-data.md)） |
 | `ble` | `CoyoteBleController` | 蓝牙扫描/连接入口（郊狼 V3 与负鼠 V1 共用一份扫描列表）：电量、强度、波形播放；已连接设备的蓝牙 MAC 与型号经 `deviceAddress` / `deviceModel` 暴露，作为默认设备配置键（`app.devices.<MAC>`、`app.output.default_device`）；蓝牙连接后规则输出与波形发送优先经蓝牙直连（否则走内置中转服务）。电量特征（0x1500）订阅通知并主动读取一次，两者回包都解析成百分比写入 `battery`，连接期间每 60 秒再读一次；重连后按最近一次绝对强度重发。扫描结果先按该 MAC 记忆的型号（`app.devices.<MAC>.model`）识别、再按蓝牙名 `47L1xxxx` 前缀分类（`kModelTable`），行上给出驱动支持程度三态（`support` / `supportText`，见下节）：郊狼 V3（`47L121`）为「已支持」；负鼠（`47L127`）、爪印（`47L120`）、灵猫（`47L124`）为「实验性」但驱动已实现、可点选连接（行内提示「实验性驱动已实现，未经实机验证」）；爪印 V1.0（`47L120100`）为「暂不支持」，提示需先升级固件；未登记的 `47L1` 前缀与非 `47L1` 设备（手机、耳机、手环等）一律「暂不支持」，行不可点击且 `connectDevice()` 同样拒绝并说明原因（「未登记的 DG-LAB 型号」/「非 DG-LAB 设备」），避免误连后写入不匹配的指令；记忆命中时按记忆型号的状态处理，因此广播名变成系统占位名的郊狼仍以「已支持」可连接。扫描与链路分离：本类只负责发现与型号识别（按 MAC 去重），驱动实例由 `BleDeviceManager` 按型号创建并以 MAC 登记，郊狼 / 负鼠可同时在线且互不打断；`connected` / `deviceName` / `battery` / `strengthA` / `strengthB` / `status` / `deviceAddress` / `deviceModel` 都是**默认设备**（用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者）的只读快照，`connectedLinks` 给出全部已连接设备（MAC / 型号 / 电量 / 连接序号）；`screenSyncAvailable` 取默认设备的屏幕同步回执；扫描列表的每行带 `address` / `model` / `type` / `connected` 与三态 `support` / `supportText`，已连接行在名称后追加「· 已连接」；爪印 / 灵猫按 MAC 各建实例，多台同型号可同时在线（每台一份 `paw_<后四位>` / `civet_<后四位>` 模块，后四位撞车追加 `_2` / `_3`） |
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
@@ -115,16 +117,17 @@ src/ui/
 
 导航与左下角面板：
 
-左侧导航按「主页 / 设备管理 / 插件中心 / 波形设置 / 小游戏 / 日志」排列（新页追加在末尾，既有导航项顺序与文案不变）；导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
+左侧导航按「主页 / 设备管理 / 插件中心 / 波形设置 / 小游戏 / 日志 / 插件市场」排列（新页追加在末尾，既有导航项顺序与文案不变）；导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
 
 | objectName | 行为 |
 | --- | --- |
 | `navHomeButton` | 主页（`AppBridge::HomePage`） |
-| `navDeviceButton` | 设备管理（`DevicePage`，图标 `f2db` microchip）：`AppBridge::Page::DevicePage = 8` 追加在枚举末尾，`ModulePage = 2` 的占位槽与既有页索引均未改动，`pageStack` 末尾追加 `DevicePage` 条目 |
+| `navDeviceButton` | 设备管理（`DevicePage`，图标 `f2db` microchip）：`AppBridge::Page::DevicePage = 7`，`ModulePage = 2` 的占位槽与既有页索引均未改动，`pageStack` 追加 `DevicePage` 条目 |
 | `navPluginCenterButton` | 插件中心（`PluginCenterPage`） |
 | `navWaveButton` | 波形设置（`WavePage`） |
 | `navMiniGameButton` | 小游戏（`MiniGamePage`） |
 | `navLogButton` | 日志（`LogPage`） |
+| `navMarketButton` | 插件市场（`MarketPage`，图标 `f54e` store）：`AppBridge::Page::MarketPage = 8` 追加在枚举末尾，既有页索引（含 `DevicePage = 7`）与上面六项导航的顺序、文案不变，`pageStack` 末尾追加 `MarketPage` 条目 |
 | `panelSettingsButton` / `panelAboutButton` | 左下角面板「设置」→ `ConfigPage`、「关于」→ `AboutPage` |
 | `panelCheckUpdateButton` | 左下角面板「检查更新」→ `UiConnector::on_panel_check_update_clicked()`：先打开 `updateDialog`，再调用既有的 `UpdateBridge::on_check_update_clicked()`（同一入口，不复制检查逻辑）；`checking` / `downloading` 期间置灰，结果由 Toast 与对话框内状态回执 |
 | `mainWindow` / `pageStack` / `statusBar` / `panelFooter` | 窗口根项、内容区页栈、底部状态栏、左下常驻面板容器 |
@@ -209,7 +212,7 @@ src/ui/
 | `colorDialogHueSlider` / `colorDialogSaturationSlider` / `colorDialogValueSlider` | 色相（0-359 度）/ 饱和度（0-100%）/ 明度（0-100%）三条滑杆，`moved()` 由 C++ 连接后按 HSV 重算颜色与 HEX 回显 |
 | `colorDialogConfirmButton` / `colorDialogCancelButton` | 确定（走 `Dialog::accept()`，由既有 accepted 槽写回主题）与取消（只关闭） |
 
-设备管理页（`pages/DevicePage.qml`，导航第 6 项，`AppBridge::Page::DevicePage = 8`）：五张卡——扫描结果、已连接链路、默认设备、通道上限与安全上限、通道级回退值。
+设备管理页（`pages/DevicePage.qml`，导航第 6 项，`AppBridge::Page::DevicePage = 7`）：五张卡——扫描结果、已连接链路、默认设备、通道上限与安全上限、通道级回退值。
 
 | objectName | 行为 |
 | --- | --- |
@@ -258,6 +261,24 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | 任一 MAC 记忆命中型号表 | 按记忆型号 | 按记忆型号 | 按记忆型号 |
 
 爪印连接成功后状态行显示「爪印已连接（实验性输入设备）」；50 指令未被 `51` 确认时显示「爪印未确认 50 指令」并弹一次 danger Toast。爪印不参与 `ble.connected`（默认设备的输出链路快照，决定通道强度与默认设备评选），但会计入 `ble.connectedLinkCount` 的蓝牙链路数，并出现在设备管理页「已连接设备」列表里（行内多一段「模块 paw_<后四位>」）。灵猫同为一类：连接中显示「正在连接灵猫…（需连按 5 次开机键才可被搜到）」，成功后显示「灵猫已连接（实验性输入设备）」，气压上报（首帧 D0）未确认时显示「灵猫未确认 50 指令」并弹一次 danger Toast；灵猫同样不进 `ble.connected` 与默认设备评选。多台同型号按 MAC 各建一个实例（数值模块 `paw_<后四位>` / `civet_<后四位>`），本批没有新增 QML 信号处理器与提示控件。
+
+插件市场（`pages/MarketPage.qml`，导航第 7 项，`AppBridge::Page::MarketPage = 8`）：清单驱动的插件安装页。条目来自 `registry.json`（`schemaVersion` 1，字段名与共享契约一致），三态由本地已装版本比对得出——没有本地版本为 `install`、远程版本更新为 `update`、其余为 `installed`；安装中的项取 `installing`，此时 `progress` 随下载前进、操作按钮置灰。
+
+| objectName | 行为 |
+| --- | --- |
+| `marketPage` | 页面根项，不承载交互 |
+| `marketScrollView` | 页面滚动容器 |
+| `marketHeader` | 页头（`PageHeader`）：标题「插件市场」+ 副标题（`market.loading` 时为「正在获取插件清单…」，否则为「清单 N 个插件」）；右侧操作区只有刷新按钮 |
+| `marketRefreshButton` | 刷新清单 → `UiConnector::on_market_refresh_clicked()` → `MarketBridge::refresh()`；`loading` 期间置灰，文案「刷新中…」 |
+| `marketSourceText` | 清单源地址（`market.sourceUrl`，只读，过长时中间省略） |
+| `marketUpdatedText` | 清单时间行（`market.updatedAt`，从未获取过时为「尚未获取清单」） |
+| `marketLoadingText` / `marketEmptyText` / `marketErrorText` | 拉取中提示 / 空清单提示（非加载中、无错误、清单为空时可见）/ 最近一次刷新失败原因（`market.lastError`，危险色）：三者互斥，均只读 |
+| `marketList` | 卡片列表容器（`ColumnLayout` 内的 `Repeater`，模型 `market.plugins`）：`UiConnector::watch_items()` 沿它扫描每张卡上的操作按钮 |
+| `marketCard` | 单项卡片（`AppCard`，统一高度 `ComponentStyle.pluginCardHeight`）：头图取 `modelData.banner`，标签取 `modelData.tags`，状态行优先显示 `modelData.error`、否则 `modelData.statusText`。头图判定不在 QML 里做：`MarketBridge` 已按与 `ModuleBridge::bannerSource()` 相同的口径判过 scheme，只把绝对 http(s) 地址透出，其它写法给空串（`AppCard` 退回无图居中态） |
+| `marketActionButton` | 每项一个操作按钮（`AppButton`，带 `pluginId` 属性）：文案取 `modelData.actionText`（安装 / 更新 / 已安装 / 安装中… / 不可用），`enabled` 取 `modelData.actionEnabled`；点击由 `watch_items` 连到 `UiConnector::on_market_action_clicked()`，从 sender 的 `pluginId` 调 `MarketBridge::install(id)` |
+| `marketProgress` | 每项一个下载进度条（`ProgressBar`，值取 `modelData.progress`，`status === "installing"` 时可见），底色与填充分别取 `Theme.surfaceAlt` / `Theme.accent` |
+
+C++ 侧配套：`ModuleManager::download_plugin(url, sha256)` 只接受 http(s) 地址与 64 位小写 SHA256，下载期间按 `plugin_install_progress(target, received, total)` 上报（解压前还不知道顶层目录名，`target` 为空串，由桥接按当前安装项关联），结束后无论成败都发 `plugin_install_finished(target, ok, error)`。安装产物先解压到 `<插件目录>/.staging/<顶层目录>`，结构与依赖校验都通过才用目录改名整体替换到 `<插件目录>/<顶层目录>`（旧版本先进 `.backup`，替换成功再删、替换失败回滚），随后 `scan_plugins()` 重新扫描。`ModuleManager::scan_plugins()` 除插件目录顶层外还扫一层子目录，市场安装的 `<插件目录>/<顶层目录>/<动态库>` 因此与随程序部署的顶层动态库同等成为候选（`.staging` / `.backup` 等点开头目录不参与扫描）。
 
 波形设置页（`pages/WavePage.qml`）：外层 `ScrollView` 撑满窗口，页面只在窗口高度不足时滚动；波形内容全部来自配置页迁移，行为不变。
 
@@ -490,6 +511,8 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `WaveBridge::importFinished(summary, clean)` | Toast（info / warning）：一条汇总文案，含跳过与缺帧原因摘要 |
 | `WaveBridge::exportFinished(summary)` / `WaveBridge::operationFailed(message)` | Toast（info）导出路径与缺帧说明 / Toast（danger）导入导出、标签新建与标签删除的失败原因 |
 | `ModuleBridge::pluginToggled(file, ok, error)` | `ok` 不弹（徽标变化）；失败弹 Toast（danger，含文件名与原因） |
+| `MarketBridge::installFinished(id, ok, error)` | `ok` 不弹（卡片的 `statusText` / `actionText` / 进度已变）；失败弹 Toast（danger）：依赖缺失、平台无包、下载失败、SHA256 不符、解压失败与替换回滚的原因都在这里回执，卡片 `status` 行同时显示同一条原因 |
+| `MarketBridge::refreshFinished(ok, error)` | 失败弹 Toast（danger）且页面 `marketErrorText` 就地显示；成功不弹（列表与更新时间变化） |
 | `LogBridge::exportChanged` | Toast（info）：`日志已导出：<path>`，路径取 `lastExportPath` |
 | `LogBridge::statusMessage` | 仅导出失败时发出 → Toast（danger） |
 | `UpdateBridge::toast_requested(message, level)` | 直接映射为 `app.showToast(message, level)`：发现新版本 / 已是最新 / 下载完成 / 各类错误统一走 Toast，QML 不参与 |

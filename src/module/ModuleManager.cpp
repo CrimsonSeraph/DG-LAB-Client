@@ -11,9 +11,31 @@
 #include "IPlugin.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
 #include <QLibrary>
+#include <QList>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QPair>
+#include <QSet>
+#include <QStandardPaths>
+#include <QStringList>
+#include <QUrl>
+#include <QtConcurrent>
+
+// miniz 3.0.2（MIT，third_party/miniz）：插件包解压只用内存 zip 读 API
+#include <miniz.h>
+
+#include <cstring>
 
 #include <algorithm>
 #include <tuple>
@@ -23,6 +45,339 @@
 using PluginApiVersionFn = int (*)();
 using PluginCreateFn = IPlugin* (*)();
 using PluginDestroyFn = void (*)(IPlugin*);
+
+namespace {
+
+    // 解压防护口径与波形 zip（wave_io::parse_zip）一致：单文件 4 MiB、总量 32 MiB、最多 512 个条目
+    constexpr qint64 kMaxEntryBytes = 4 * 1024 * 1024;
+    constexpr qint64 kMaxTotalBytes = 32 * 1024 * 1024;
+    constexpr int kMaxEntries = 512;
+    // 下载体积上限（压缩后 64 MiB）：超出立即中止，不落无界临时文件
+    constexpr qint64 kMaxDownloadBytes = 64 * 1024 * 1024;
+    // 暂存与备份目录：都放在插件目录内，同一文件系统上目录改名才是原子的
+    const char* const kStagingDirName = ".staging";
+    const char* const kBackupDirName = ".backup";
+    // 插件动态库扩展名（比较时统一转小写）
+    const char* const kLibrarySuffixes[] = { "dll", "so", "dylib" };
+
+    /// @brief SHA256 文本是否为小写十六进制 64 位
+    bool is_sha256_text(const QString& text) {
+        if (text.size() != 64) {
+            return false;
+        }
+        for (const QChar ch : text) {
+            const bool is_digit = ch >= QLatin1Char('0') && ch <= QLatin1Char('9');
+            const bool is_letter = ch >= QLatin1Char('a') && ch <= QLatin1Char('f');
+            if (!is_digit && !is_letter) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// @brief 按 UTF-8 解码 zip 条目名；非法 UTF-8 回退本地 8 位编码（部分压缩工具写 GBK）
+    QString decode_entry_name(const char* raw) {
+        const QByteArray bytes(raw);
+        const QString name = QString::fromUtf8(bytes);
+        if (name.contains(QChar::ReplacementCharacter)) {
+            return QString::fromLocal8Bit(bytes);
+        }
+        return name;
+    }
+
+    /// @brief 条目名是否含绝对路径或 .. 路径段（路径穿越）
+    bool unsafe_entry_name(const QString& name) {
+        if (name.startsWith(QLatin1Char('/')) || name.startsWith(QLatin1Char('\\'))) {
+            return true;
+        }
+        if (name.size() >= 2 && name.at(1) == QLatin1Char(':') && name.at(0).isLetter()) {
+            return true;
+        }
+        const QString normalized = QString(name).replace(QLatin1Char('\\'), QLatin1Char('/'));
+        for (const QString& part : normalized.split(QLatin1Char('/'))) {
+            if (part == QStringLiteral("..")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// @brief 是否为插件动态库文件（.dll / .so / .dylib）
+    bool is_library_file(const QString& name) {
+        const QString suffix = QFileInfo(name).suffix().toLower();
+        for (const char* candidate : kLibrarySuffixes) {
+            if (suffix == QLatin1String(candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// @brief 递归删除目录，目录不存在视为成功
+    bool remove_dir_tree(const QString& path) {
+        QDir dir(path);
+        if (!dir.exists()) {
+            return true;
+        }
+        return dir.removeRecursively();
+    }
+
+    /// @brief 读取 JSON 对象文件；缺失、损坏或顶层非对象返回空对象
+    QJsonObject read_json_object(const QString& path) {
+        QFile file(path);
+        if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+            return QJsonObject();
+        }
+        QJsonParseError parse_error;
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parse_error);
+        file.close();
+        if (parse_error.error != QJsonParseError::NoError || !document.isObject()) {
+            return QJsonObject();
+        }
+        return document.object();
+    }
+
+    /// @brief 读取 JSON 字符串字段（缺失或类型不符返回空串）
+    QString json_string(const QJsonObject& object, const char* key) {
+        const QJsonValue value = object.value(QString::fromUtf8(key));
+        return value.isString() ? value.toString() : QString();
+    }
+
+    /// @brief 读取 JSON 字符串数组字段（跳过非字符串与空串）
+    QStringList json_string_list(const QJsonObject& object, const char* key) {
+        QStringList list;
+        const QJsonValue value = object.value(QString::fromUtf8(key));
+        if (!value.isArray()) {
+            return list;
+        }
+        const QJsonArray array = value.toArray();
+        for (const auto& item : array) {
+            if (!item.isString()) {
+                continue;
+            }
+            const QString text = item.toString().trimmed();
+            if (!text.isEmpty()) {
+                list.append(text);
+            }
+        }
+        return list;
+    }
+
+    /// @brief 本地已装插件标识：<插件目录>/<目录>/plugin.json 的 id 与目录名都算（依赖按插件标识声明）
+    QSet<QString> installed_plugin_ids(const QString& plugin_dir) {
+        QSet<QString> ids;
+        QDir root(plugin_dir);
+        const QStringList subdirs = root.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+        for (const QString& name : subdirs) {
+            // .staging / .backup 是安装过程的临时目录，不算已安装
+            if (name.startsWith(QLatin1Char('.'))) {
+                continue;
+            }
+            ids.insert(name);
+            const QString id = json_string(
+                read_json_object(root.filePath(name + QStringLiteral("/plugin.json"))), "id").trimmed();
+            if (!id.isEmpty()) {
+                ids.insert(id);
+            }
+        }
+        return ids;
+    }
+
+    /// @brief 依赖校验：暂存目录里 plugin.json 声明的依赖必须都已安装在插件目录
+    bool dependencies_satisfied(const QString& staging_top, const QString& plugin_dir, QString& missing) {
+        missing.clear();
+        const QStringList dependencies = json_string_list(
+            read_json_object(QDir(staging_top).filePath(QStringLiteral("plugin.json"))), "dependencies");
+        if (dependencies.isEmpty()) {
+            return true;
+        }
+        const QSet<QString> installed = installed_plugin_ids(plugin_dir);
+        for (const QString& dependency : dependencies) {
+            if (!installed.contains(dependency)) {
+                missing = dependency;
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// @brief 把暂存目录整体替换到插件目录；失败时把旧版本挪回原位，插件目录保持安装前的样子
+    bool replace_plugin_dir(const QString& staging_top, const QString& target_dir, const QString& backup_dir,
+        QString& error) {
+        error.clear();
+        const QString backup_path = QDir(backup_dir).filePath(QFileInfo(target_dir).fileName());
+        // 上一轮残留的备份先清掉，避免把本次旧版本挪进非空目录
+        remove_dir_tree(backup_path);
+        const bool had_old = QFileInfo::exists(target_dir);
+        if (had_old) {
+            if (!QDir().mkpath(backup_dir)) {
+                error = QStringLiteral("无法创建插件备份目录");
+                return false;
+            }
+            if (!QDir().rename(target_dir, backup_path)) {
+                error = QStringLiteral("无法备份已安装的旧版本插件，安装已取消");
+                return false;
+            }
+        }
+        if (!QDir().rename(staging_top, target_dir)) {
+            if (had_old) {
+                QDir().rename(backup_path, target_dir);
+                error = QStringLiteral("无法替换插件目录，已回滚到安装前的版本");
+            }
+            else {
+                error = QStringLiteral("无法把解压结果移入插件目录");
+            }
+            return false;
+        }
+        if (had_old) {
+            remove_dir_tree(backup_path);
+        }
+        return true;
+    }
+
+    /// @brief 解压插件包到暂存目录并校验结构；所有条目必须共享同一个顶层目录
+    bool extract_plugin_archive(const QByteArray& archive, const QString& staging_root, QString& top_dir,
+        QString& error) {
+        top_dir.clear();
+        error.clear();
+        mz_zip_archive zip_archive;
+        std::memset(&zip_archive, 0, sizeof(zip_archive));
+        if (!mz_zip_reader_init_mem(&zip_archive, archive.constData(),
+                static_cast<size_t>(archive.size()), 0)) {
+            error = QStringLiteral("不是有效的插件包：无法读取 zip 中央目录");
+            return false;
+        }
+        const mz_uint file_count = mz_zip_reader_get_num_files(&zip_archive);
+        if (file_count == 0) {
+            mz_zip_reader_end(&zip_archive);
+            error = QStringLiteral("插件包里没有任何文件");
+            return false;
+        }
+        if (file_count > static_cast<mz_uint>(kMaxEntries)) {
+            mz_zip_reader_end(&zip_archive);
+            error = QStringLiteral("插件包条目数 %1 超过上限 %2").arg(file_count).arg(kMaxEntries);
+            return false;
+        }
+        // 第一轮只校验：任一条目不合规就整包拒绝，暂存目录里不留半成品
+        QList<QPair<int, QString>> entries;
+        QString root;
+        qint64 total_bytes = 0;
+        for (mz_uint index = 0; index < file_count; ++index) {
+            mz_zip_archive_file_stat stat;
+            std::memset(&stat, 0, sizeof(stat));
+            if (!mz_zip_reader_file_stat(&zip_archive, index, &stat)) {
+                mz_zip_reader_end(&zip_archive);
+                error = QStringLiteral("插件包第 %1 个条目无法读取头部信息").arg(index + 1);
+                return false;
+            }
+            if (stat.m_is_directory) {
+                continue;
+            }
+            const QString name = decode_entry_name(stat.m_filename);
+            if (name.isEmpty()) {
+                mz_zip_reader_end(&zip_archive);
+                error = QStringLiteral("插件包第 %1 个条目没有名称").arg(index + 1);
+                return false;
+            }
+            if (unsafe_entry_name(name)) {
+                mz_zip_reader_end(&zip_archive);
+                error = QStringLiteral("插件包里「%1」是绝对路径或含 ..，已拒绝解压").arg(name);
+                return false;
+            }
+            const QString normalized = QString(name).replace(QLatin1Char('\\'), QLatin1Char('/'));
+            const qsizetype slash = normalized.indexOf(QLatin1Char('/'));
+            if (slash <= 0 || slash == normalized.size() - 1) {
+                mz_zip_reader_end(&zip_archive);
+                error = QStringLiteral("插件包条目「%1」不在顶层目录下，已拒绝解压").arg(name);
+                return false;
+            }
+            const QString segment = normalized.left(slash);
+            if (root.isEmpty()) {
+                root = segment;
+            }
+            else if (root != segment) {
+                mz_zip_reader_end(&zip_archive);
+                error = QStringLiteral("插件包含多个顶层目录（%1 / %2），已拒绝解压").arg(root, segment);
+                return false;
+            }
+            if (static_cast<qint64>(stat.m_uncomp_size) > kMaxEntryBytes) {
+                mz_zip_reader_end(&zip_archive);
+                error = QStringLiteral("「%1」解压后 %2 字节，超过单文件上限 %3 字节，已拒绝整个插件包")
+                            .arg(name)
+                            .arg(static_cast<qulonglong>(stat.m_uncomp_size))
+                            .arg(kMaxEntryBytes);
+                return false;
+            }
+            total_bytes += static_cast<qint64>(stat.m_uncomp_size);
+            if (total_bytes > kMaxTotalBytes) {
+                mz_zip_reader_end(&zip_archive);
+                error = QStringLiteral("插件包解压后总量超过上限 %1 字节，已拒绝整个插件包").arg(kMaxTotalBytes);
+                return false;
+            }
+            if (!mz_zip_reader_is_file_supported(&zip_archive, index)
+                || mz_zip_reader_is_file_encrypted(&zip_archive, index)) {
+                mz_zip_reader_end(&zip_archive);
+                error = QStringLiteral("插件包里「%1」的压缩方式不支持或已加密").arg(name);
+                return false;
+            }
+            entries.append(qMakePair(static_cast<int>(index), normalized));
+        }
+        if (root.isEmpty() || entries.isEmpty()) {
+            mz_zip_reader_end(&zip_archive);
+            error = QStringLiteral("插件包里没有可解压的文件");
+            return false;
+        }
+        if (root.startsWith(QLatin1Char('.'))) {
+            mz_zip_reader_end(&zip_archive);
+            error = QStringLiteral("插件包顶层目录是隐藏目录（%1），已拒绝解压").arg(root);
+            return false;
+        }
+        // 第二轮解压并落盘：全部写在暂存目录里，插件目录此时还没有任何改动
+        bool has_library = false;
+        QString write_error;
+        for (const QPair<int, QString>& entry : entries) {
+            size_t size = 0;
+            void* raw = mz_zip_reader_extract_to_heap(&zip_archive, static_cast<mz_uint>(entry.first), &size, 0);
+            if (raw == nullptr) {
+                write_error = QStringLiteral("插件包里「%1」解压失败（条目数据损坏）").arg(entry.second);
+                break;
+            }
+            const QString target_path = QDir(staging_root).filePath(entry.second);
+            if (!QDir().mkpath(QFileInfo(target_path).absolutePath())) {
+                mz_free(raw);
+                write_error = QStringLiteral("无法创建插件文件目录：%1").arg(entry.second);
+                break;
+            }
+            QFile out(target_path);
+            const bool opened = out.open(QIODevice::WriteOnly | QIODevice::Truncate);
+            const bool written = opened
+                && out.write(static_cast<const char*>(raw), static_cast<qint64>(size)) == static_cast<qint64>(size);
+            out.close();
+            mz_free(raw);
+            if (!written) {
+                write_error = QStringLiteral("无法写入插件文件：%1").arg(entry.second);
+                break;
+            }
+            if (!has_library && is_library_file(entry.second)) {
+                has_library = true;
+            }
+        }
+        mz_zip_reader_end(&zip_archive);
+        if (!write_error.isEmpty()) {
+            remove_dir_tree(staging_root);
+            error = write_error;
+            return false;
+        }
+        if (!has_library) {
+            remove_dir_tree(staging_root);
+            error = QStringLiteral("插件包里没有动态库文件（.dll / .so / .dylib），已拒绝安装");
+            return false;
+        }
+        top_dir = root;
+        return true;
+    }
+
+} // namespace
 
 // 单例（public）
 
@@ -45,6 +400,11 @@ ModuleManager::~ModuleManager() {
     if (timer_) {
         timer_->stop();
     }
+    // 安装进行中：先等后台校验解压任务收尾，再清掉临时文件
+    if (install_watcher_ != nullptr && install_watcher_->isRunning()) {
+        install_watcher_->future().waitForFinished();
+    }
+    reset_install_state();
     // 卸载所有已加载插件（反初始化并销毁实例）
     for (auto& entry : plugins_) {
         if (entry.state == PluginLoadState::Loaded) {
@@ -368,6 +728,63 @@ bool ModuleManager::is_plugin_loaded(const std::string& file_name) const {
     return entry && entry->state == PluginLoadState::Loaded;
 }
 
+void ModuleManager::download_plugin(const std::string& url, const std::string& sha256) {
+    const QString url_text = QString::fromStdString(url).trimmed();
+    const QString expected_sha256 = QString::fromStdString(sha256).trimmed().toLower();
+    // 只接受 http(s)：file:// 之类会把「下载」变成读本机任意路径
+    const QUrl target_url(url_text);
+    const bool scheme_ok = target_url.isValid()
+        && (target_url.scheme() == QStringLiteral("http") || target_url.scheme() == QStringLiteral("https"));
+    if (!scheme_ok) {
+        finish_install(QString(), false, QStringLiteral("插件包地址无效：只接受 http / https 链接"));
+        return;
+    }
+    if (!is_sha256_text(expected_sha256)) {
+        finish_install(QString(), false, QStringLiteral("插件包校验值无效：需要小写十六进制 64 位 SHA256"));
+        return;
+    }
+    if (install_busy_ || install_reply_ != nullptr) {
+        finish_install(QString(), false, QStringLiteral("已有插件包正在安装，请稍候再试"));
+        return;
+    }
+    reset_install_state();
+    install_expected_sha256_ = expected_sha256;
+    install_busy_ = true;
+    install_error_.clear();
+    // 临时文件落在系统临时目录：文件名带进程号与时间戳，多开实例也不会互相覆盖
+    install_temp_path_ = QDir(QStandardPaths::writableLocation(QStandardPaths::TempLocation))
+        .filePath(QStringLiteral("dglab_plugin_%1_%2.zip")
+            .arg(QCoreApplication::applicationPid())
+            .arg(QDateTime::currentMSecsSinceEpoch()));
+    install_file_ = new QFile(install_temp_path_, this);
+    if (!install_file_->open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        install_error_ = QStringLiteral("无法写入插件包临时文件: ") + install_file_->errorString();
+        install_file_->deleteLater();
+        install_file_ = nullptr;
+        finish_install(QString(), false, install_error_);
+        return;
+    }
+    if (install_network_ == nullptr) {
+        install_network_ = new QNetworkAccessManager(this);
+    }
+    QNetworkRequest request(target_url);
+    // GitHub Releases 会 302 到对象存储，重定向策略必须放开
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    request.setTransferTimeout(60'000);
+#endif
+    install_reply_ = install_network_->get(request);
+    QObject::connect(install_reply_, &QNetworkReply::readyRead, this, &ModuleManager::on_install_ready_read);
+    // 下载阶段还不知道顶层目录名，进度里的 target 先留空，由调用方按当前安装项关联
+    QObject::connect(install_reply_, &QNetworkReply::downloadProgress, this,
+        [this](qint64 received, qint64 total) {
+            emit plugin_install_progress(QString(), received, total);
+        });
+    QObject::connect(install_reply_, &QNetworkReply::finished, this,
+        &ModuleManager::on_install_download_finished);
+    LOG_MODULE("ModuleManager", "download_plugin", LOG_INFO, "开始下载插件包: " << url);
+}
+
 // 宿主能力（public，IPluginHost 实现）
 
 bool ModuleManager::register_module_values(const std::string& module_name,
@@ -531,6 +948,149 @@ void ModuleManager::on_timer_tick() {
     }
 }
 
+void ModuleManager::on_install_ready_read() {
+    if (install_reply_ == nullptr) {
+        return;
+    }
+    if (install_file_ == nullptr || !install_file_->isOpen()) {
+        install_write_error_ = true;
+        install_error_ = QStringLiteral("无法写入插件包临时文件: 文件句柄不可用");
+        install_reply_->abort();
+        return;
+    }
+    const QByteArray chunk = install_reply_->readAll();
+    if (install_file_->size() + chunk.size() > kMaxDownloadBytes) {
+        install_write_error_ = true;
+        install_error_ = QStringLiteral("插件包超过压缩后上限 %1 MiB，已中止下载")
+                             .arg(kMaxDownloadBytes / (1024 * 1024));
+        install_reply_->abort();
+        return;
+    }
+    if (install_file_->write(chunk) != static_cast<qint64>(chunk.size())) {
+        install_write_error_ = true;
+        install_error_ = QStringLiteral("无法写入插件包临时文件: ") + install_file_->errorString();
+        install_reply_->abort();
+    }
+}
+
+void ModuleManager::on_install_download_finished() {
+    QNetworkReply* reply = install_reply_;
+    install_reply_ = nullptr;
+    if (reply == nullptr) {
+        return;
+    }
+    reply->deleteLater();
+    // 尾部残余数据写进同一句柄后再统一落盘：校验读到的是磁盘上的完整文件
+    if (!install_write_error_ && reply->error() == QNetworkReply::NoError
+        && install_file_ != nullptr && install_file_->isOpen()) {
+        const QByteArray tail = reply->readAll();
+        if (!tail.isEmpty() && install_file_->write(tail) != static_cast<qint64>(tail.size())) {
+            install_write_error_ = true;
+            install_error_ = QStringLiteral("无法写入插件包临时文件: ") + install_file_->errorString();
+        }
+    }
+    if (install_file_ != nullptr) {
+        if (!install_file_->flush()) {
+            install_write_error_ = true;
+            install_error_ = QStringLiteral("无法写入插件包临时文件: 刷新到磁盘失败");
+        }
+        install_file_->close();
+        install_file_->deleteLater();
+        install_file_ = nullptr;
+    }
+    if (install_write_error_) {
+        finish_install(QString(), false, install_error_);
+        return;
+    }
+    if (reply->error() != QNetworkReply::NoError) {
+        finish_install(QString(), false, QStringLiteral("插件包下载失败: ") + reply->errorString());
+        return;
+    }
+    // 校验、解压、依赖校验与目录替换都在后台线程完成：这些是文件与 CPU 操作，不占界面线程
+    const QString temp_path = install_temp_path_;
+    const QString expected_sha256 = install_expected_sha256_;
+    const QString plugin_dir = plugin_dir_.empty()
+        ? QString::fromStdString(resolve_plugin_dir())
+        : QString::fromStdString(plugin_dir_);
+    if (install_watcher_ == nullptr) {
+        install_watcher_ = new QFutureWatcher<InstallOutcome>(this);
+        QObject::connect(install_watcher_, &QFutureWatcher<InstallOutcome>::finished, this,
+            &ModuleManager::on_install_task_finished);
+    }
+    install_watcher_->setFuture(QtConcurrent::run([temp_path, expected_sha256, plugin_dir]() {
+        InstallOutcome outcome;
+        QFile archive_file(temp_path);
+        if (!archive_file.open(QIODevice::ReadOnly)) {
+            outcome.error = QStringLiteral("无法读取下载的插件包");
+            return outcome;
+        }
+        const QByteArray archive = archive_file.readAll();
+        archive_file.close();
+        QFile::remove(temp_path);
+        if (archive.isEmpty()) {
+            outcome.error = QStringLiteral("下载的插件包为空");
+            return outcome;
+        }
+        // 摘要不符时插件目录还没有任何改动，直接丢弃下载内容
+        const QString actual_sha256 = QString::fromLatin1(
+            QCryptographicHash::hash(archive, QCryptographicHash::Sha256).toHex());
+        if (actual_sha256 != expected_sha256) {
+            outcome.error = QStringLiteral("插件包校验失败（SHA256 不匹配），已丢弃下载内容");
+            return outcome;
+        }
+        const QString staging_root = QDir(plugin_dir).filePath(QString::fromLatin1(kStagingDirName));
+        // 暂存目录每次安装前清空，避免上一轮半成品混进本次校验
+        if (!remove_dir_tree(staging_root)) {
+            outcome.error = QStringLiteral("无法清理插件暂存目录: ") + staging_root;
+            return outcome;
+        }
+        QString top_dir;
+        QString extract_error;
+        if (!extract_plugin_archive(archive, staging_root, top_dir, extract_error)) {
+            outcome.error = extract_error;
+            return outcome;
+        }
+        outcome.target = top_dir;
+        const QString staging_top = QDir(staging_root).filePath(top_dir);
+        // 依赖校验放在替换之前：缺依赖时插件目录保持原状
+        QString missing;
+        if (!dependencies_satisfied(staging_top, plugin_dir, missing)) {
+            remove_dir_tree(staging_root);
+            outcome.error = QStringLiteral("缺少依赖插件 %1").arg(missing);
+            return outcome;
+        }
+        QString replace_error;
+        if (!replace_plugin_dir(staging_top, QDir(plugin_dir).filePath(top_dir),
+                QDir(plugin_dir).filePath(QString::fromLatin1(kBackupDirName)), replace_error)) {
+            remove_dir_tree(staging_root);
+            outcome.error = replace_error;
+            return outcome;
+        }
+        remove_dir_tree(staging_root);
+        outcome.ok = true;
+        return outcome;
+    }));
+}
+
+void ModuleManager::on_install_task_finished() {
+    if (install_watcher_ == nullptr) {
+        return;
+    }
+    const InstallOutcome outcome = install_watcher_->result();
+    if (!outcome.ok) {
+        LOG_MODULE("ModuleManager", "on_install_task_finished", LOG_WARN,
+            "插件包安装失败: " << outcome.error.toStdString());
+        finish_install(outcome.target, false, outcome.error);
+        return;
+    }
+    // 重新扫描：新装的插件按插件目录里的实际内容重新登记为候选，插件中心与事件层一起刷新
+    scan_plugins();
+    emit plugin_state_changed();
+    LOG_MODULE("ModuleManager", "on_install_task_finished", LOG_INFO,
+        "插件包安装完成: " << outcome.target.toStdString());
+    finish_install(outcome.target, true, QString());
+}
+
 // 私有辅助函数实现（private）
 
 void ModuleManager::rebuild_scheduler() {
@@ -592,16 +1152,44 @@ void ModuleManager::scan_plugins() {
             "插件目录不存在，跳过扫描: " << plugin_dir_);
         return;
     }
-    // 动态库文件即插件候选（*.dll / *.so / *.dylib）
+    // 动态库文件即插件候选（*.dll / *.so / *.dylib）：先扫插件目录顶层（随程序部署的内置插件在这里），
+    // 再扫一层子目录（插件市场安装的包解压为 <插件目录>/<顶层目录>/<动态库>）
     const QStringList filters = {"*.dll", "*.so", "*.dylib"};
-    const QStringList files = dir.entryList(filters, QDir::Files, QDir::Name);
+    QList<QPair<QString, QString>> candidates;
+    const QStringList top_files = dir.entryList(filters, QDir::Files, QDir::Name);
+    for (const QString& file : top_files) {
+        candidates.append(qMakePair(file, dir.filePath(file)));
+    }
+    const QStringList subdirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+    for (const QString& subdir : subdirs) {
+        // .staging / .backup 是安装过程的临时目录，不参与扫描
+        if (subdir.startsWith(QLatin1Char('.'))) {
+            continue;
+        }
+        const QDir sub_dir(dir.filePath(subdir));
+        const QStringList files = sub_dir.entryList(filters, QDir::Files, QDir::Name);
+        for (const QString& file : files) {
+            bool duplicated = false;
+            for (const auto& candidate : candidates) {
+                if (candidate.first == file) {
+                    duplicated = true;
+                    break;
+                }
+            }
+            // 同名动态库以插件目录顶层为准，避免侧车目录解析到另一份
+            if (duplicated) {
+                continue;
+            }
+            candidates.append(qMakePair(file, sub_dir.filePath(file)));
+        }
+    }
     int missing_meta = 0;
-    for (const QString& file : files) {
+    for (const auto& candidate : candidates) {
         PluginEntry entry;
-        entry.file_name = file.toStdString();
-        entry.file_path = dir.filePath(file).toStdString();
+        entry.file_name = candidate.first.toStdString();
+        entry.file_path = candidate.second.toStdString();
         // 侧车目录名与动态库主干名一致，按主干名定位 <插件目录>/<主干名>/plugin.json
-        const QString stem = QFileInfo(file).completeBaseName();
+        const QString stem = QFileInfo(candidate.first).completeBaseName();
         entry.meta = read_plugin_meta(plugin_dir_, stem.toStdString());
         if (!entry.meta.found) {
             ++missing_meta;
@@ -795,4 +1383,35 @@ const ModuleManager::PluginEntry* ModuleManager::find_plugin_entry(const std::st
         }
     }
     return nullptr;
+}
+
+void ModuleManager::reset_install_state() {
+    if (install_reply_ != nullptr) {
+        QObject::disconnect(install_reply_, nullptr, this, nullptr);
+        install_reply_->abort();
+        install_reply_->deleteLater();
+        install_reply_ = nullptr;
+    }
+    if (install_file_ != nullptr) {
+        install_file_->close();
+        install_file_->deleteLater();
+        install_file_ = nullptr;
+    }
+    if (!install_temp_path_.isEmpty()) {
+        QFile::remove(install_temp_path_);
+        install_temp_path_.clear();
+    }
+    install_write_error_ = false;
+    install_error_.clear();
+    install_expected_sha256_.clear();
+}
+
+void ModuleManager::finish_install(const QString& target, bool ok, const QString& error) {
+    install_busy_ = false;
+    // 失败路径也清掉下载的临时文件，系统临时目录里不留半成品
+    if (!install_temp_path_.isEmpty()) {
+        QFile::remove(install_temp_path_);
+        install_temp_path_.clear();
+    }
+    emit plugin_install_finished(target, ok, error);
 }

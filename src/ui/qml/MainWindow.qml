@@ -26,6 +26,7 @@ ApplicationWindow {
     readonly property int pageMiniGame: 5
     readonly property int pageLog: 6
     readonly property int pageDevice: 7
+    readonly property int pageMarket: 8
 
     // 连接状态统一口径：蓝牙已连接链路数（多台累加）+ APP 在线客户端数（来源 device.appClientCount）
     readonly property int bleCount: ble.connectedLinkCount
@@ -225,6 +226,20 @@ ApplicationWindow {
                         highlighted: navLogButton.selected
                     }
                 }
+
+                NavButton {
+                    id: navMarketButton
+
+                    objectName: "navMarketButton"
+                    text: qsTr("插件市场")
+                    selected: app.currentPage === root.pageMarket
+                    width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f54e" // store
+                        label: navMarketButton.text
+                        highlighted: navMarketButton.selected
+                    }
+                }
             }
         }
 
@@ -382,6 +397,10 @@ ApplicationWindow {
 
         DevicePage {
             id: devicePage
+        }
+
+        MarketPage {
+            id: marketPage
         }
     }
 

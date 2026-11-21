@@ -9,6 +9,7 @@
 #include "PluginHost.h"
 #include "PluginMeta.h"
 
+#include <QFutureWatcher>
 #include <QObject>
 #include <QString>
 #include <QTimer>
@@ -20,7 +21,10 @@
 #include <vector>
 
 // 前置声明
+class QFile;
 class QLibrary;
+class QNetworkAccessManager;
+class QNetworkReply;
 class IPlugin;
 class DataListener;
 
@@ -164,6 +168,12 @@ public:
     /// @return 已加载返回 true
     bool is_plugin_loaded(const std::string& file_name) const;
 
+    /// @brief 下载并安装插件包：下载 → 校验 SHA256 → 解压到暂存目录 → 校验结构与依赖 → 原子替换 → 重新扫描
+    /// @param url 插件包下载地址（只接受 http / https）
+    /// @param sha256 插件包期望的 SHA256（小写十六进制 64 位）
+    /// @note 任一环节失败都只发 plugin_install_finished(ok=false)，插件目录保持安装前的样子
+    void download_plugin(const std::string& url, const std::string& sha256);
+
     // 宿主能力（IPluginHost 实现）
     /// @brief 注册插件数值到模块管理器（插件通过 IPluginHost 调用）
     /// @param module_name 模块名称
@@ -242,9 +252,27 @@ signals:
     /// @param message 内容
     void plugin_notification(const QString& title, const QString& message);
 
+    /// @brief 插件包下载进度（解压前每收到一段数据发一次）
+    /// @param target 安装目标目录名（顶层目录要解压后才知道，下载阶段为空串）
+    /// @param received 已接收字节数
+    /// @param total 总字节数（服务端未给出时为 -1）
+    void plugin_install_progress(const QString& target, qint64 received, qint64 total);
+
+    /// @brief 插件包安装结束（成功与失败都发）
+    /// @param target 安装目标目录名（解压前就失败时为空串）
+    /// @param ok 是否成功
+    /// @param error 失败原因（成功为空）
+    void plugin_install_finished(const QString& target, bool ok, const QString& error);
+
 private slots:
     /// @brief 调度定时器触发（按基准周期执行到期数值的查询）
     void on_timer_tick();
+    /// @brief 插件包数据可读：写入临时文件并累计体积
+    void on_install_ready_read();
+    /// @brief 插件包下载结束：把校验与解压交给后台线程
+    void on_install_download_finished();
+    /// @brief 后台校验解压任务完成：重新扫描插件目录并发出安装结果
+    void on_install_task_finished();
 
 private:
     /// @brief 单个插件条目（内部结构）
@@ -258,6 +286,13 @@ private:
         std::string display_name;                           ///< 显示名称（加载后为插件 name()）
         std::string version;                                ///< 插件版本
         PluginMeta meta;                                    ///< 展示元数据（侧车 plugin.json）
+    };
+
+    /// @brief 后台安装任务的结果（校验、解压、依赖校验与替换都在后台线程完成）
+    struct InstallOutcome {
+        bool ok = false;  ///< 安装是否成功
+        QString error;    ///< 失败原因（成功为空）
+        QString target;   ///< 安装目标目录名（zip 顶层目录）
     };
 
     // 构造/析构（单例私有）
@@ -295,6 +330,13 @@ private:
     /// @param file_name 插件文件名
     /// @return 插件条目指针，不存在返回 nullptr
     const PluginEntry* find_plugin_entry(const std::string& file_name) const;
+    /// @brief 关闭并删除插件包临时文件，清空当前下载的错误信息
+    void reset_install_state();
+    /// @brief 结束一次插件包安装并广播结果（失败路径也走这里）
+    /// @param target 安装目标目录名
+    /// @param ok 是否成功
+    /// @param error 失败原因
+    void finish_install(const QString& target, bool ok, const QString& error);
 
     // 成员变量
     std::vector<Module> modules_; ///< 模块列表
@@ -309,4 +351,14 @@ private:
     std::string plugin_dir_;                  ///< 插件扫描目录（绝对路径）
     bool scan_load_ = false;                  ///< 扫描即加载开关
     DataListener* shared_listener_ = nullptr; ///< 宿主共享数据接收器
+
+    QNetworkAccessManager* install_network_ = nullptr; ///< 插件包下载的网络访问管理器（懒创建）
+    QNetworkReply* install_reply_ = nullptr;           ///< 当前插件包下载回复
+    QFile* install_file_ = nullptr;                    ///< 插件包临时文件句柄
+    QFutureWatcher<InstallOutcome>* install_watcher_ = nullptr; ///< 后台校验解压任务
+    QString install_temp_path_;                       ///< 插件包临时文件路径
+    QString install_expected_sha256_;                 ///< 期望 SHA256（已转小写）
+    QString install_error_;                           ///< 当前安装的错误信息
+    bool install_write_error_ = false;                ///< 临时文件写入失败标志
+    bool install_busy_ = false;                       ///< 是否已有安装任务在进行
 };

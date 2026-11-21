@@ -15,6 +15,7 @@
 #include "EventRuntime.h"
 #include "HomeBridge.h"
 #include "LogBridge.h"
+#include "MarketBridge.h"
 #include "ModuleBannerImageProvider.h"
 #include "ModuleBridge.h"
 #include "ModuleManager.h"
@@ -180,6 +181,9 @@ int main(int argc, char* argv[]) {
     home.initialize();
     ModuleBridge module_bridge;
     module_bridge.initialize();
+    // 插件市场桥接（QML 上下文属性 market）：清单拉取与三态判定在桥接内，安装动作交给 ModuleManager
+    MarketBridge market_bridge;
+    market_bridge.initialize();
     // 事件运行时与事件桥接（QML 上下文属性 eventBridge）
     EventRuntime event_runtime;
     event_runtime.initialize();
@@ -263,6 +267,7 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("device"), &device);
     engine.rootContext()->setContextProperty(QStringLiteral("home"), &home);
     engine.rootContext()->setContextProperty(QStringLiteral("moduleBridge"), &module_bridge);
+    engine.rootContext()->setContextProperty(QStringLiteral("market"), &market_bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("eventBridge"), &event_bridge);
     engine.rootContext()->setContextProperty(QStringLiteral("waveBridge"), &wave);
     engine.rootContext()->setContextProperty(QStringLiteral("ble"), &ble);
@@ -273,7 +278,7 @@ int main(int argc, char* argv[]) {
 
     // QML 交互连接集中在 C++ 侧
     UiConnector connector(&bridge, &home, &theme, &device, &module_bridge, &wave, &ble, &rule_graph,
-        &log_bridge, &update_bridge);
+        &log_bridge, &update_bridge, &market_bridge);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app, []() { QCoreApplication::exit(-1); }, Qt::QueuedConnection);
 
     engine.loadFromModule("Dglab", "MainWindow");
