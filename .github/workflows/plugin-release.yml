@@ -1,0 +1,486 @@
+# DG-LAB-Client · 插件发布工作流
+# 触发方式：
+#   * push tag "*-v*"（形如 warthunder-v0.1.0）—— 只构建标签点名的那个插件
+#   * workflow_dispatch —— 手动指定插件与版本，等效于打同名标签
+#
+# 与 release-all.yml 的分工：
+#   app 发布用 v* 标签（release-all.yml），插件发布用 <插件>-v<版本>；
+#   本工作流开头有显式守卫，遇到 v1.2.3 这类 app 标签直接失败，
+#   避免以后有人把插件标签模式改成通配后两头同时触发
+#
+# 产物形态（与宿主端契约一致）：
+#   zip 根就是 <目标名>/ 子目录，内含动态库与 plugin.json，
+#   解压目标为 <程序目录>/module/
+#
+# 需要的 secrets：
+#   PAT_PLUGIN_RELEASE    —— 插件仓库的写权限 token，用于创建 Release 与上传资产
+#   CLOUDFLARE_API_TOKEN  —— Workers 脚本与静态资源编辑权限
+#   CLOUDFLARE_ACCOUNT_ID —— Cloudflare 账号 ID
+name: plugin-release
+
+on:
+  push:
+    tags:
+      - "*-v*"
+  workflow_dispatch:
+    inputs:
+      plugin:
+        description: "插件标识（module/ 下的目录名，如 warthunder）"
+        type: string
+        required: true
+      version:
+        description: "版本号，必须与 module/<插件>/meta/plugin.json 的 version 完全一致"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  QT_VERSION: "6.9.3"
+  PYTHON_VERSION: "3.10"
+  PLUGIN_REPO: CrimsonSeraph/DG-LAB-Client-Plugin
+
+jobs:
+  resolve:
+    name: 解析标签与校验版本
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      plugin: ${{ steps.tag.outputs.plugin }}
+      version: ${{ steps.tag.outputs.version }}
+      tag: ${{ steps.tag.outputs.tag }}
+      target: ${{ steps.verify.outputs.target }}
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 解析标签并守卫归属
+        id: tag
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_PLUGIN: ${{ inputs.plugin }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ]; then
+            TAG="$REF_NAME"
+          else
+            TAG="${INPUT_PLUGIN}-v${INPUT_VERSION}"
+          fi
+          # v1.2.3 这类标签属于应用发布，插件工作流不得接手，防止误触发后重复发布
+          if [[ "$TAG" =~ ^v[0-9] ]]; then
+            echo "::error title=标签归属错误::${TAG} 属于应用发布，不构建插件"
+            exit 1
+          fi
+          if [[ ! "$TAG" =~ ^([A-Za-z0-9][A-Za-z0-9_-]*)-v([0-9]+[.][0-9]+[.][0-9]+)$ ]]; then
+            echo "::error title=标签格式错误::${TAG} 不是 <插件>-v<主>.<次>.<修订> 形式"
+            exit 1
+          fi
+          PLUGIN="${BASH_REMATCH[1]}"
+          VERSION="${BASH_REMATCH[2]}"
+          echo "plugin=$PLUGIN" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "标签解析结果：插件 ${PLUGIN}，版本 ${VERSION}，发布标签 ${TAG}"
+
+      - name: 校验 plugin.json 版本与 CMake 目标
+        id: verify
+        shell: bash
+        env:
+          PLUGIN: ${{ steps.tag.outputs.plugin }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          META="module/${PLUGIN}/meta/plugin.json"
+          if [ ! -f "$META" ]; then
+            echo "::error title=插件不存在::${META} 不存在，标签里的插件名必须是 module/ 下的目录名"
+            exit 1
+          fi
+          META_ID=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8-sig"))["id"])' "$META")
+          META_VERSION=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8-sig"))["version"])' "$META")
+          if [ "$META_ID" != "$PLUGIN" ]; then
+            echo "::error title=标识不一致::${META} 的 id 是 ${META_ID}，标签里的插件名是 ${PLUGIN}"
+            exit 1
+          fi
+          if [ "$META_VERSION" != "$VERSION" ]; then
+            echo "::error title=版本不一致::${META} 的 version 是 ${META_VERSION}，标签里的版本是 ${VERSION}，先把 plugin.json 改到同一版本再打标签"
+            exit 1
+          fi
+          TARGET="dgl_${PLUGIN}_plugin"
+          if ! grep -q "dgl_add_plugin(${TARGET}" CMakeLists.txt; then
+            echo "::error title=插件未注册::CMakeLists.txt 里没有 dgl_add_plugin(${TARGET} ...)"
+            exit 1
+          fi
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "校验通过：${TARGET} 的 plugin.json 版本为 ${META_VERSION}"
+
+  build:
+    name: 构建 ${{ matrix.platform }}
+    needs: resolve
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            os: windows-latest
+            qt_host: windows
+            qt_arch: win64_msvc2022_64
+            osx_arch: ""
+          - platform: linux-x64
+            os: ubuntu-22.04
+            qt_host: linux
+            qt_arch: linux_gcc_64
+            osx_arch: ""
+          - platform: macos-arm64
+            os: macos-latest
+            qt_host: mac
+            qt_arch: clang_64
+            osx_arch: arm64
+          - platform: macos-x64
+            os: macos-latest
+            qt_host: mac
+            qt_arch: clang_64
+            osx_arch: x86_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 检测可用的 Visual Studio 生成器
+        if: runner.os == 'Windows'
+        id: vs
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path $vswhere)) { throw "找不到 vswhere.exe" }
+          $ver = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion | Select-Object -First 1)
+          Write-Host "Visual Studio 版本：$ver"
+          if ($ver -like '18.*') { $gen = 'Visual Studio 18 2026' }
+          elseif ($ver -like '17.*') { $gen = 'Visual Studio 17 2022' }
+          else { throw "不支持的 Visual Studio 版本：$ver" }
+          "generator=$gen" >> $env:GITHUB_OUTPUT
+
+      - name: 安装 Qt ${{ env.QT_VERSION }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: ${{ matrix.qt_host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          dir: ${{ github.workspace }}/Qt
+          modules: qtwebsockets qtconnectivity
+          cache: true
+          cache-key-prefix: qt-plugin-${{ matrix.platform }}
+
+      - name: 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 导出 Qt 环境变量并自检
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "QTDIR=$QT_ROOT_DIR" >> "$GITHUB_ENV"
+          # 整仓配置需要全部 Qt 模块，缺 qtwebsockets 或 qtconnectivity 时提前给出明确错误
+          test -d "$QT_ROOT_DIR/lib/cmake/Qt6WebSockets" || { echo "::error title=缺少 qtwebsockets::Qt6WebSockets 不在 $QT_ROOT_DIR"; exit 1; }
+          test -d "$QT_ROOT_DIR/lib/cmake/Qt6Bluetooth" || { echo "::error title=缺少 qtconnectivity::Qt6Bluetooth 不在 $QT_ROOT_DIR"; exit 1; }
+          echo "Qt 套件目录：$QT_ROOT_DIR"
+
+      - name: 配置 CMake（Windows）
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VS_GENERATOR: ${{ steps.vs.outputs.generator }}
+        run: |
+          $cmakeArgs = @(
+            '-S', '.',
+            '-B', 'build',
+            '-G', $env:VS_GENERATOR,
+            '-A', 'x64',
+            '-DCMAKE_BUILD_TYPE=Release',
+            "-DCMAKE_PREFIX_PATH=$env:QT_ROOT_DIR",
+            "-DPython_ROOT_DIR=$env:pythonLocation",
+            '-DDGLAB_BUILD_TESTS=OFF'
+          )
+          cmake @cmakeArgs
+          if ($LASTEXITCODE -ne 0) { throw "CMake 配置失败" }
+
+      - name: 配置 CMake（Linux / macOS）
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          OSX_ARCH: ${{ matrix.osx_arch }}
+        run: |
+          set -euo pipefail
+          # macOS 两个平台各出一份单架构产物，契约里没有 universal 取值
+          EXTRA=""
+          if [ -n "${OSX_ARCH:-}" ]; then
+            EXTRA="-DCMAKE_OSX_ARCHITECTURES=$OSX_ARCH -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0"
+          fi
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR" \
+            -DPython_ROOT_DIR="$pythonLocation" \
+            -DDGLAB_BUILD_TESTS=OFF \
+            $EXTRA
+
+      - name: 编译单个插件目标
+        shell: bash
+        env:
+          TARGET: ${{ needs.resolve.outputs.target }}
+        run: |
+          set -euo pipefail
+          # 只构建被点名的插件，不编译主程序与其它插件
+          cmake --build build --target "$TARGET" --config Release --parallel 2
+
+      - name: 按契约打包 zip
+        shell: bash
+        env:
+          PLUGIN: ${{ needs.resolve.outputs.plugin }}
+          TARGET: ${{ needs.resolve.outputs.target }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          # 多配置生成器把产物放在 build/Release，单配置生成器放在 build
+          LIB=""
+          for suffix in dll so dylib; do
+            candidate=$(find build -maxdepth 3 -type f -name "${TARGET}.${suffix}" | head -n 1)
+            if [ -n "$candidate" ]; then
+              LIB="$candidate"
+              break
+            fi
+          done
+          if [ -z "$LIB" ]; then
+            echo "::error title=产物缺失::没有找到 ${TARGET} 的动态库"
+            find build -maxdepth 3 -name "${TARGET}*" | head -20
+            exit 1
+          fi
+          export LIB
+          # 侧车由 dgl_add_plugin 的 POST_BUILD 复制到动态库同级目录 module/<目标名>/plugin.json
+          export META_DIR="$(dirname "$LIB")/${TARGET}"
+          if [ ! -f "$META_DIR/plugin.json" ]; then
+            echo "::error title=侧车缺失::${META_DIR}/plugin.json 不存在，检查 dgl_add_plugin 的 META_DIR"
+            exit 1
+          fi
+          mkdir -p dist
+          PYTHONIOENCODING=utf-8 python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import zipfile
+
+          plugin = os.environ["PLUGIN"]
+          target = os.environ["TARGET"]
+          version = os.environ["VERSION"]
+          platform = os.environ["PLATFORM"]
+          lib = pathlib.Path(os.environ["LIB"])
+          meta_dir = pathlib.Path(os.environ["META_DIR"])
+
+          # 封面由插件仓库 banners/ 单独分发，不进 zip
+          image_suffixes = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+          asset = pathlib.Path("dist") / "{}-{}-{}.zip".format(plugin, version, platform)
+
+          with zipfile.ZipFile(asset, "w", zipfile.ZIP_DEFLATED) as bundle:
+              bundle.write(lib, "{}/{}".format(target, lib.name))
+              bundle.write(meta_dir / "plugin.json", target + "/plugin.json")
+              for extra in sorted(meta_dir.rglob("*")):
+                  if not extra.is_file() or extra.name == "plugin.json":
+                      continue
+                  if extra.suffix.lower() in image_suffixes or extra.name.startswith("banner"):
+                      continue
+                  relative = extra.relative_to(meta_dir).as_posix()
+                  bundle.write(extra, target + "/" + relative)
+
+          with zipfile.ZipFile(asset) as bundle:
+              names = bundle.namelist()
+          escaped = [name for name in names if not name.startswith(target + "/")]
+          if escaped or (target + "/plugin.json") not in names:
+              raise SystemExit("::error title=zip 结构错误::根目录必须是 " + target + "/，实际 " + str(names))
+
+          payload = asset.read_bytes()
+          digest = hashlib.sha256(payload).hexdigest()
+          print(json.dumps({"file": asset.name, "entries": names}, ensure_ascii=False, indent=2))
+          print("sha256={} size={}".format(digest, len(payload)))
+          PY
+
+      - name: 记录校验和
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          for f in *.zip; do
+            sha256sum "$f" >> "SHA256SUMS-${{ matrix.platform }}.txt"
+          done
+          cat SHA256SUMS-*.txt
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ matrix.platform }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: 发布插件并刷新注册表
+    needs:
+      - resolve
+      - build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 下载全部产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 校验产物齐全
+        shell: bash
+        env:
+          PLUGIN: ${{ needs.resolve.outputs.plugin }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          for platform in windows-x64 linux-x64 macos-x64 macos-arm64; do
+            asset="dist/${PLUGIN}-${VERSION}-${platform}.zip"
+            if [ ! -f "$asset" ]; then
+              echo "::error title=产物缺失::缺少 ${asset}"
+              ls -l dist || true
+              exit 1
+            fi
+          done
+          ls -lh dist
+
+      - name: 生成发布说明
+        shell: bash
+        env:
+          PLUGIN: ${{ needs.resolve.outputs.plugin }}
+          TARGET: ${{ needs.resolve.outputs.target }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          export META="module/${PLUGIN}/meta/plugin.json"
+          PYTHONIOENCODING=utf-8 python - <<'PY' > "$RUNNER_TEMP/notes.md"
+          import json
+          import os
+
+          meta = json.load(open(os.environ["META"], encoding="utf-8-sig"))
+          target = os.environ["TARGET"]
+          repo = os.environ["REPO"]
+          tag = os.environ["TAG"]
+          print(meta.get("description", "").strip())
+          print()
+          print("- 插件标识：" + str(meta.get("id")))
+          print("- 版本：" + str(meta.get("version")))
+          print("- 作者：" + str(meta.get("author", "")))
+          print("- 源码标签：[" + repo + "@" + tag + "](https://github.com/" + repo + "/tree/" + tag + ")")
+          print()
+          print("安装：把 zip 解压到程序目录的 module/ 下，保持 " + target + "/ 目录名不变")
+          PY
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: 创建或更新插件仓库 Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PAT_PLUGIN_RELEASE }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          PLUGIN: ${{ needs.resolve.outputs.plugin }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          PLUGIN_REPO: ${{ env.PLUGIN_REPO }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error title=缺少 secret::PAT_PLUGIN_RELEASE 未配置，无法写入插件仓库"
+            exit 1
+          fi
+          TITLE="${PLUGIN} ${VERSION}"
+          # 幂等：同名 Release 已存在就只更新说明，资产由 upload --clobber 覆盖
+          if gh release view "$TAG" --repo "$PLUGIN_REPO" >/dev/null 2>&1; then
+            echo "Release 已存在，更新说明：$TAG"
+            gh release edit "$TAG" --repo "$PLUGIN_REPO" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            echo "Release 不存在，创建：$TAG"
+            gh release create "$TAG" --repo "$PLUGIN_REPO" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+
+      - name: 上传资产（覆盖同名文件）
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PAT_PLUGIN_RELEASE }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          PLUGIN_REPO: ${{ env.PLUGIN_REPO }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" dist/*.zip --repo "$PLUGIN_REPO" --clobber
+          gh release view "$TAG" --repo "$PLUGIN_REPO"
+
+      - name: 生成 registry.json
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_PLUGIN_RELEASE }}
+          PLUGIN_REPO: ${{ env.PLUGIN_REPO }}
+        run: |
+          set -euo pipefail
+          PYTHONIOENCODING=utf-8 python scripts/gen_registry.py --repo "$PLUGIN_REPO" --modules-dir module --out deploy/cloudflare/public/registry.json
+          python -m json.tool deploy/cloudflare/public/registry.json > /dev/null
+          {
+            echo "### 插件注册表"
+            echo ""
+            sed "s/^/    /" deploy/cloudflare/public/registry.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 部署静态资源 Worker
+        working-directory: deploy/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "::error title=缺少 secret::CLOUDFLARE_API_TOKEN 或 CLOUDFLARE_ACCOUNT_ID 未配置"
+            exit 1
+          fi
+          # wrangler deploy 直接从本机上传静态资源，Cloudflare 侧不跑构建
+          npx --yes wrangler@4 deploy
+
+      - name: 发布摘要
+        if: ${{ always() }}
+        shell: bash
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+          PLUGIN: ${{ needs.resolve.outputs.plugin }}
+          PLUGIN_REPO: ${{ env.PLUGIN_REPO }}
+        run: |
+          {
+            echo "### 插件发布结果"
+            echo ""
+            echo "- 插件：${PLUGIN}"
+            echo "- 发布标签：${TAG}"
+            echo "- 插件仓库：https://github.com/${PLUGIN_REPO}/releases/tag/${TAG}"
+            echo "- 各平台：windows-x64 / linux-x64 / macos-x64 / macos-arm64"
+          } >> "$GITHUB_STEP_SUMMARY"

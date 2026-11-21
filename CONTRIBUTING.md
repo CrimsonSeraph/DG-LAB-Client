@@ -182,6 +182,46 @@ type 与 scope 用英文，subject 与 body 用中文，body 简述关键变动�
 - 颜色只用 `Theme` 令牌，**禁止任何颜色字面量**（hex / `Qt.rgba` / 命名色）；当前默认主题是 `classic`（近黑底 + 淡黄强调）。
 - 参考截图在设计稿目录中，与文字需求冲突时**以文字需求为准**。
 
+## 插件发布清单
+
+插件走独立的分发链路：`.github/workflows/plugin-release.yml` 只构建标签点名的单个插件，打包后发布到 [DG-LAB-Client-Plugin](https://github.com/CrimsonSeraph/DG-LAB-Client-Plugin) 的 Release，再重新生成 `registry.json` 并部署到 Cloudflare。
+
+### 标签命名
+
+- 格式固定为 `<插件>-v<主>.<次>.<修订>`，例如 `warthunder-v0.1.0`；插件名必须是 `module/` 下的目录名
+- 应用发布用 `v*` 标签（`.github/workflows/release-all.yml`），插件发布用 `<插件>-v*` 标签，两者不要混用
+- 插件工作流对 `^v[0-9]` 开头的标签有显式守卫，误推应用标签会直接失败并提示该标签属于应用发布
+
+### 打标签前
+
+- `module/<插件>/meta/plugin.json` 的 `version` 必须与标签里的版本完全一致，`id` 必须与插件名一致，任何一处不一致都会在构建前中断
+- 同步更新 `CHANGELOG.md` 的对应版本小节与 `docs/release-notes.md` 的对应小节，这两份是发布说明的来源
+- 本地确认插件可编译：`cmake --build build --target dgl_<插件>_plugin --config Release`
+
+### 发布
+
+```bash
+git tag warthunder-v0.1.0
+git push origin warthunder-v0.1.0
+```
+
+- 工作流产出 `windows-x64`、`linux-x64`、`macos-x64`、`macos-arm64` 四个资产，命名为 `<插件>-<版本>-<平台>.zip`
+- zip 根就是 CMake 目标名（`dgl_<插件>_plugin/`），内含动态库与 `plugin.json`，解压到程序目录的 `module/` 即可
+- 发布是幂等的：同名 Release 已存在时只更新说明与资产，不会因为标签重推而失败
+
+### 失败后重建
+
+- 修好问题后先删除远端标签再重推，避免同名标签指向旧提交
+
+```bash
+git push origin :refs/tags/warthunder-v0.1.0
+git tag -d warthunder-v0.1.0
+git tag warthunder-v0.1.0
+git push origin warthunder-v0.1.0
+```
+
+- 插件仓库里已有的同名 Release 与旧资产不需要手动清理，重跑会覆盖；改版本号时把 `plugin.json` 与标签一起改到新版本
+
 ## 获取帮助
 
 如果你不确定如何开始，可以在 Issue 中提问，或通过作者联系方式（见 README）询问。

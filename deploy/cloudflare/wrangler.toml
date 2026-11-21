@@ -1,0 +1,9 @@
+# DG-LAB-Client 插件注册表的静态资源 Worker
+# 只托管 CI 生成的 public/ 目录，Cloudflare 侧不执行任何构建
+# directory 相对本文件所在目录解析，CI 先跑 scripts/gen_registry.py 再执行 wrangler deploy
+name = "dg-lab-plugin-registry"
+compatibility_date = "2025-06-01"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
