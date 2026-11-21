@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -13,7 +11,7 @@ class DeviceController;
 
 // HomeBridge - 首页通道面板桥接（QML 上下文属性 home）
 // 职责：汇总 A/B 通道的强度、上限、启用状态、模块摘要与规则摘要，
-//      并转发通道启停与强度调整操作。界面只读取属性、调用 Q_INVOKABLE。
+//      并转发通道启停与强度调整操作，界面只读取属性、调用 Q_INVOKABLE
 class HomeBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(int strengthA READ strength_a NOTIFY dataChanged)
@@ -117,7 +115,7 @@ public:
     Q_INVOKABLE void setChannelStrength(const QString& channel, int value);
     /// @brief 按增量调整通道强度
     Q_INVOKABLE void adjustChannelStrength(const QString& channel, int delta);
-    /// @brief 请求选择通道波形（阶段 6 接入波形库对话框）
+    /// @brief 请求选择通道波形（发出 channelWaveSelectRequested，由界面打开波形库对话框）
     Q_INVOKABLE void requestWaveSelect(const QString& channel);
     /// @brief 切换迷你窗锁定状态并持久化
     Q_INVOKABLE void toggleMiniWindowLock();

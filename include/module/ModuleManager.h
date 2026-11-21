@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -119,7 +117,7 @@ public:
     /// @brief 数据源回调类型（通过数值 ID 获取最新值）
     using DataSource = std::function<int(const std::string& value_id)>;
 
-    /// @brief 设置数据源（默认使用模拟数据源，后续可替换为真实 GSI 数据）
+    /// @brief 设置数据源（默认使用模拟数据源）
     /// @param source 数据源回调
     void set_data_source(DataSource source);
 

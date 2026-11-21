@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -13,8 +11,8 @@
 
 // ThemeManager - 主题令牌提供者（QML 单例 Theme）
 // 职责：维护当前主题（17 套预设 + 自定义主/副色），向 QML 暴露语义化颜色令牌，
-// 并将用户选择持久化到 user.json 的 app.ui 下。
-// 颜色只在 C++ 定义、QML 只引用令牌；预设配色与 WCAG 对比度校正见 docs/theme.md。
+// 并将用户选择持久化到 user.json 的 app.ui 下
+// 颜色只在 C++ 定义、QML 只引用令牌；预设配色与 WCAG 对比度校正见 docs/theme.md
 class ThemeManager : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString themeName READ theme_name NOTIFY themeChanged)

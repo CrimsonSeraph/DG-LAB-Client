@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -25,10 +23,10 @@ class QBluetoothDeviceDiscoveryAgent;
 class QTimer;
 
 // CoyoteBleController - 蓝牙扫描入口与默认设备的只读快照（QML 上下文属性 ble）
-// 扫描是唯一入口：按 MAC 去重、按「MAC 记忆 → 蓝牙名」识别型号，再交给 BleDeviceManager 建实例。
-// 本类不再持有任何设备状态：连接状态、电量、强度与波形都按设备从链路取，界面读到的是
-// 默认设备（用户覆盖 → 郊狼 > 负鼠 → 先连接者）的一份只读快照，多台设备不会互相覆盖。
-// 输入设备（爪印 / 灵猫）同样按 MAC 由 BleDeviceManager 按需实例化，本类只做入口与只读快照。
+// 扫描是唯一入口：按 MAC 去重、按「MAC 记忆 → 蓝牙名」识别型号，再交给 BleDeviceManager 建实例
+// 本类不持有设备状态：连接状态、电量、强度与波形都按设备从链路取，界面读到的是
+// 默认设备（用户覆盖 → 郊狼 > 负鼠 → 先连接者）的一份只读快照，多台设备不会互相覆盖
+// 输入设备（爪印 / 灵猫）同样按 MAC 由 BleDeviceManager 按需实例化，本类只做入口与只读快照
 class CoyoteBleController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool scanning READ scanning NOTIFY stateChanged)
@@ -183,8 +181,8 @@ private:
 };
 
 // CoyoteBleDevice - 郊狼 V3 蓝牙直连驱动（每台设备一个实例，按 MAC 登记在 BleDeviceManager）
-// GATT 服务与 B0 / BF / B1 指令格式见 include/README.md 的「关键协议与约定」。
-// 连接状态、电量、强度回执与通道波形进度都是本实例自己的状态，多台互不覆盖。
+// GATT 服务与 B0 / BF / B1 指令格式见 include/README.md 的「关键协议与约定」
+// 连接状态、电量、强度回执与通道波形进度都是本实例自己的状态，多台互不覆盖
 class CoyoteBleDevice : public IOutputDevice {
     Q_OBJECT
 

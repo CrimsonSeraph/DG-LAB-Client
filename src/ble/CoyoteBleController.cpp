@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "CoyoteBleController.h"
 
@@ -30,16 +28,16 @@ namespace {
 
     const char* kSilentFrame = "0A0A0A0A00000000";
 
-    // 蓝牙名前缀 → 型号。GATT 与郊狼 V3 相同的设备靠名字区分，未登记的型号一律不可连接
+    // 蓝牙名前缀 → 型号，GATT 与郊狼 V3 相同的设备靠名字区分，未登记的型号一律不可连接
     struct ModelEntry {
-        const char* prefix;  ///< 蓝牙名前缀
-        const char* label;   ///< 型号显示名
-        bool has_driver;     ///< 本版是否已实现驱动（可连接）
-        bool verified;       ///< 驱动是否经实机验证（未验证按实验性展示）
-        bool blocked;        ///< 登记为「暂不支持」：型号已识别但本版不可连接（如固件过旧）
-        bool output;         ///< 是否具备输出能力（纯输入设备不参与默认设备评选）
-        const char* type;    ///< 类型标识（默认设备优先级用）
-        const char* hint;    ///< 型号特定的行内提示（空串表示按三态生成）
+        const char* prefix;  // 蓝牙名前缀
+        const char* label;   // 型号显示名
+        bool has_driver;     // 本版是否已实现驱动（可连接）
+        bool verified;       // 驱动是否经实机验证（未验证按实验性展示）
+        bool blocked;        // 登记为「暂不支持」：型号已识别但本版不可连接（如固件过旧）
+        bool output;         // 是否具备输出能力（纯输入设备不参与默认设备评选）
+        const char* type;    // 类型标识（默认设备优先级用）
+        const char* hint;    // 型号特定的行内提示（空串表示按三态生成）
     };
     // 前缀按「先长后短」排列：47L120100（爪印 V1.0）必须先命中，否则会落到 47L120
     constexpr ModelEntry kModelTable[] = {
@@ -99,7 +97,7 @@ namespace {
         return QStringLiteral("暂不支持");
     }
 
-    const char* kConnectedSuffix = " · 已连接"; ///< 扫描列表里已连接设备的行内标记
+    const char* kConnectedSuffix = " · 已连接"; // 扫描列表里已连接设备的行内标记
 
 } // namespace
 
@@ -119,6 +117,49 @@ void CoyoteBleController::initialize() {
     status_ = QStringLiteral("未连接");
     emit statusChanged();
     LOG_MODULE("CoyoteBleController", "initialize", LOG_INFO, "蓝牙扫描入口已就绪");
+}
+
+void CoyoteBleController::attach_link_manager(BleDeviceManager* manager) {
+    manager_ = manager;
+    if (manager_ == nullptr) {
+        return;
+    }
+    // 新链路的信号在这里接入：界面读到的默认设备快照随任何一台设备的变化刷新
+    connect(manager_, &BleDeviceManager::linkCreated, this, [this](IOutputDevice* device) {
+        watch_link(device);
+        refresh_device_rows();
+        emit stateChanged();
+        emit statusChanged();
+        emit connectedLinksChanged();
+    });
+    // 状态文案由驱动各自维护，快照读取方必须跟着刷新，否则界面会停在上一句
+    connect(manager_, &BleDeviceManager::linkStatusChanged, this, [this](IOutputDevice*) {
+        emit statusChanged();
+    });
+    connect(manager_, &BleDeviceManager::linkDestroyed, this, [this](IOutputDevice*) {
+        refresh_device_rows();
+        emit stateChanged();
+        emit statusChanged();
+        emit connectedLinksChanged();
+    });
+    // 输入设备（爪印 / 灵猫）同样由链路管理器按 MAC 创建与销毁：连接计数、扫描行标记与状态文案都跟着刷新
+    connect(manager_, &BleDeviceManager::inputLinkCreated, this, [this](const InputLink*) {
+        refresh_device_rows();
+        emit stateChanged();
+        emit statusChanged();
+        emit connectedLinksChanged();
+    });
+    connect(manager_, &BleDeviceManager::inputLinkDestroyed, this, [this](const InputLink*) {
+        refresh_device_rows();
+        emit stateChanged();
+        emit statusChanged();
+        emit connectedLinksChanged();
+    });
+    connect(manager_, &BleDeviceManager::inputLinkStatusChanged, this, [this](const InputLink*) {
+        refresh_device_rows();
+        emit statusChanged();
+        emit connectedLinksChanged();
+    });
 }
 
 CoyoteBleController::DeviceProfile CoyoteBleController::identify(const QString& name) {
@@ -192,92 +233,6 @@ void CoyoteBleController::remember_model(const QString& mac, const QString& mode
     config.save_all();
     LOG_MODULE("CoyoteBleController", "remember_model", LOG_INFO,
         "记忆设备型号:" << normalized.toStdString() << " → " << value.toStdString());
-}
-
-void CoyoteBleController::attach_link_manager(BleDeviceManager* manager) {
-    manager_ = manager;
-    if (manager_ == nullptr) {
-        return;
-    }
-    // 新链路的信号在这里接入：界面读到的默认设备快照随任何一台设备的变化刷新
-    connect(manager_, &BleDeviceManager::linkCreated, this, [this](IOutputDevice* device) {
-        watch_link(device);
-        refresh_device_rows();
-        emit stateChanged();
-        emit statusChanged();
-        emit connectedLinksChanged();
-    });
-    // 状态文案由驱动各自维护，快照读取方必须跟着刷新，否则界面会停在上一句
-    connect(manager_, &BleDeviceManager::linkStatusChanged, this, [this](IOutputDevice*) {
-        emit statusChanged();
-    });
-    connect(manager_, &BleDeviceManager::linkDestroyed, this, [this](IOutputDevice*) {
-        refresh_device_rows();
-        emit stateChanged();
-        emit statusChanged();
-        emit connectedLinksChanged();
-    });
-    // 输入设备（爪印 / 灵猫）同样由链路管理器按 MAC 创建与销毁：连接计数、扫描行标记与状态文案都跟着刷新
-    connect(manager_, &BleDeviceManager::inputLinkCreated, this, [this](const InputLink*) {
-        refresh_device_rows();
-        emit stateChanged();
-        emit statusChanged();
-        emit connectedLinksChanged();
-    });
-    connect(manager_, &BleDeviceManager::inputLinkDestroyed, this, [this](const InputLink*) {
-        refresh_device_rows();
-        emit stateChanged();
-        emit statusChanged();
-        emit connectedLinksChanged();
-    });
-    connect(manager_, &BleDeviceManager::inputLinkStatusChanged, this, [this](const InputLink*) {
-        refresh_device_rows();
-        emit statusChanged();
-        emit connectedLinksChanged();
-    });
-}
-
-void CoyoteBleController::watch_link(IOutputDevice* device) {
-    if (device == nullptr) {
-        return;
-    }
-    connect(device, &IOutputDevice::outputStateChanged, this, [this]() {
-        refresh_device_rows();
-        emit stateChanged();
-        emit statusChanged();
-        emit batteryChanged();
-        emit connectedLinksChanged();
-    });
-    connect(device, &IOutputDevice::outputStrengthChanged, this, [this]() {
-        emit strengthChanged();
-        emit batteryChanged();
-    });
-    connect(device, &IOutputDevice::outputWaveChanged, this, &CoyoteBleController::waveStateChanged);
-}
-
-IOutputDevice* CoyoteBleController::snapshot_output() const {
-    if (manager_ == nullptr) {
-        return nullptr;
-    }
-    QList<IOutputDevice*> online;
-    QList<DefaultDeviceCandidate> candidates;
-    for (const QString& address : manager_->link_addresses()) {
-        IOutputDevice* device = manager_->link_for(address);
-        if (device == nullptr || !device->connected() || !device->output_capable()) {
-            continue;
-        }
-        DefaultDeviceCandidate candidate;
-        candidate.address = device->device_address();
-        candidate.type = device->device_type();
-        candidate.order = manager_->connection_order(address);
-        online.append(device);
-        candidates.append(candidate);
-    }
-    // 与 DeviceController 同一份评选实现：用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者
-    const QString configured = QString::fromStdString(AppConfig::instance().get_value<std::string>(
-        "app.output.default_device", std::string()));
-    const int index = pick_default_device(candidates, configured);
-    return index < 0 ? nullptr : online.at(index);
 }
 
 bool CoyoteBleController::connected() const {
@@ -379,20 +334,6 @@ QVariantList CoyoteBleController::connected_links() const {
     return links;
 }
 
-int CoyoteBleController::input_connected_count_of(const QString& type) const {
-    if (manager_ == nullptr) {
-        return 0;
-    }
-    int count = 0;
-    for (const QString& address : manager_->input_link_addresses()) {
-        const InputLink* link = manager_->input_link_for(address);
-        if (link != nullptr && link->connected && link->type == type) {
-            ++count;
-        }
-    }
-    return count;
-}
-
 int CoyoteBleController::connected_link_count() const {
     if (manager_ == nullptr) {
         return 0;
@@ -400,77 +341,6 @@ int CoyoteBleController::connected_link_count() const {
     // 口径：输出链路（郊狼 / 负鼠，逐台累加）+ 已连上的输入设备（爪印 / 灵猫），
     // 直接取 connected_links() 的长度，「已连接设备 ×N」与设备管理页的链路列表始终同源
     return static_cast<int>(connected_links().size());
-}
-
-void CoyoteBleController::set_status(const QString& text) {
-    if (status_ == text) {
-        return;
-    }
-    status_ = text;
-    emit statusChanged();
-}
-
-bool CoyoteBleController::is_connected_address(const QString& address) const {
-    if (manager_ == nullptr) {
-        return false;
-    }
-    if (manager_->link_for(address) != nullptr) {
-        return true;
-    }
-    // 输入设备按 MAC 登记：只有真正连上的那一行才标「已连接」，连接失败留下的空实例不标
-    const InputLink* link = manager_->input_link_for(address);
-    return link != nullptr && link->connected;
-}
-
-void CoyoteBleController::refresh_device_rows() {
-    bool changed = false;
-    for (int index = 0; index < devices_.size(); ++index) {
-        QVariantMap item = devices_.at(index).toMap();
-        const QString address = item.value(QStringLiteral("address")).toString();
-        const bool connected = is_connected_address(address);
-        if (item.value(QStringLiteral("connected")).toBool() == connected) {
-            continue;
-        }
-        const QString base_name = item.value(QStringLiteral("baseName")).toString();
-        item.insert(QStringLiteral("connected"), connected);
-        item.insert(QStringLiteral("name"),
-            connected ? base_name + QString::fromUtf8(kConnectedSuffix) : base_name);
-        devices_[index] = item;
-        changed = true;
-    }
-    if (changed) {
-        emit devicesChanged();
-    }
-}
-
-void CoyoteBleController::do_start_scan() {
-    if (scanning_) return;
-
-    // 清理旧数据
-    devices_.clear();
-    device_cache_.clear();
-    emit devicesChanged();
-
-    // 创建发现代理
-    discovery_ = new QBluetoothDeviceDiscoveryAgent(this);
-    discovery_->setLowEnergyDiscoveryTimeout(15000);
-
-    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::deviceDiscovered,
-        this, &CoyoteBleController::on_device_discovered);
-    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::finished,
-        this, &CoyoteBleController::on_scan_finished);
-    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::errorOccurred, this,
-        [this](QBluetoothDeviceDiscoveryAgent::Error error) {
-            scanning_ = false;
-            emit stateChanged();
-            set_status(QStringLiteral("蓝牙扫描失败，错误码: %1").arg(static_cast<int>(error)));
-            emit errorOccurred(QStringLiteral("蓝牙扫描失败，请检查权限和蓝牙开关"));
-        });
-
-    scanning_ = true;
-    emit stateChanged();
-    set_status(QStringLiteral("正在扫描附近的设备…"));
-    discovery_->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
 }
 
 void CoyoteBleController::startScan() {
@@ -492,62 +362,6 @@ void CoyoteBleController::startScan() {
 #else
     do_start_scan();
 #endif
-}
-
-void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info) {
-    if (!(info.coreConfigurations() & QBluetoothDeviceInfo::LowEnergyCoreConfiguration)) {
-        return;
-    }
-    // 使用地址作为唯一标识去重：同一 MAC 只保留一行，已有实例时行上标「已连接」
-    QString address = info.address().toString();
-    if (device_cache_.contains(address)) {
-        return;
-    }
-
-    // 缓存完整的 QBluetoothDeviceInfo
-    device_cache_.insert(address, info);
-
-    // 加入 UI 列表：行上带「已支持 / 实验性 / 暂不支持」三态标签
-    QVariantMap item;
-    QString displayName = info.name().isEmpty() ? QStringLiteral("未知设备(未知名称)") : info.name();
-    const DeviceProfile profile = identify(info.name(), remembered_model(address));
-    const bool connected = manager_ != nullptr && manager_->link_for(address) != nullptr;
-    item.insert(QStringLiteral("baseName"), displayName);
-    item.insert(QStringLiteral("name"),
-        connected ? displayName + QString::fromUtf8(kConnectedSuffix) : displayName);
-    item.insert(QStringLiteral("address"), address);
-    item.insert(QStringLiteral("model"), profile.model);
-    item.insert(QStringLiteral("type"), profile.type);
-    item.insert(QStringLiteral("connected"), connected);
-    item.insert(QStringLiteral("supported"), profile.supported);
-    item.insert(QStringLiteral("support"), static_cast<int>(profile.state));
-    item.insert(QStringLiteral("supportText"), support_text_of(profile.state));
-    item.insert(QStringLiteral("connectable"), profile.state != SupportState::Unsupported);
-    item.insert(QStringLiteral("output"), profile.output);
-    // 行内提示：型号特定的提示优先（未登记 / 非 DG-LAB 设备 / 需升级固件），实验性型号另有统一文案
-    const QString model_text = profile.model.isEmpty() ? QString() : QStringLiteral("型号 %1，").arg(profile.model);
-    QString hint;
-    if (!profile.hint.isEmpty()) {
-        // 型号特定提示优先（如爪印 V1.0 需先升级固件）
-        hint = profile.hint;
-    }
-    else if (profile.state == SupportState::Experimental) {
-        hint = profile.supported ? QStringLiteral("%1实验性驱动已实现，未经实机验证")
-                                       .arg(model_text)
-                                 : QStringLiteral("暂不可连接（%1驱动尚未实现）").arg(model_text);
-    }
-    else if (profile.state == SupportState::Unsupported) {
-        hint = QStringLiteral("不可连接（%1型号未登记）").arg(model_text);
-    }
-    item.insert(QStringLiteral("hint"), hint);
-    devices_.append(item);
-    emit devicesChanged();
-}
-
-void CoyoteBleController::on_scan_finished() {
-    scanning_ = false;
-    emit stateChanged();
-    set_status(devices_.isEmpty() ? QStringLiteral("未发现设备") : QStringLiteral("扫描完成，请选择设备"));
 }
 
 void CoyoteBleController::connectDevice(const QString& address) {
@@ -717,6 +531,190 @@ void CoyoteBleController::applyLimits(int limitA, int limitB, int freqBalance, i
     }
 }
 
+IOutputDevice* CoyoteBleController::snapshot_output() const {
+    if (manager_ == nullptr) {
+        return nullptr;
+    }
+    QList<IOutputDevice*> online;
+    QList<DefaultDeviceCandidate> candidates;
+    for (const QString& address : manager_->link_addresses()) {
+        IOutputDevice* device = manager_->link_for(address);
+        if (device == nullptr || !device->connected() || !device->output_capable()) {
+            continue;
+        }
+        DefaultDeviceCandidate candidate;
+        candidate.address = device->device_address();
+        candidate.type = device->device_type();
+        candidate.order = manager_->connection_order(address);
+        online.append(device);
+        candidates.append(candidate);
+    }
+    // 与 DeviceController 同一份评选实现：用户覆盖 → 郊狼 > 负鼠 → 同类型先连接者
+    const QString configured = QString::fromStdString(AppConfig::instance().get_value<std::string>(
+        "app.output.default_device", std::string()));
+    const int index = pick_default_device(candidates, configured);
+    return index < 0 ? nullptr : online.at(index);
+}
+
+bool CoyoteBleController::is_connected_address(const QString& address) const {
+    if (manager_ == nullptr) {
+        return false;
+    }
+    if (manager_->link_for(address) != nullptr) {
+        return true;
+    }
+    // 输入设备按 MAC 登记：只有真正连上的那一行才标「已连接」，连接失败留下的空实例不标
+    const InputLink* link = manager_->input_link_for(address);
+    return link != nullptr && link->connected;
+}
+
+int CoyoteBleController::input_connected_count_of(const QString& type) const {
+    if (manager_ == nullptr) {
+        return 0;
+    }
+    int count = 0;
+    for (const QString& address : manager_->input_link_addresses()) {
+        const InputLink* link = manager_->input_link_for(address);
+        if (link != nullptr && link->connected && link->type == type) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+void CoyoteBleController::refresh_device_rows() {
+    bool changed = false;
+    for (int index = 0; index < devices_.size(); ++index) {
+        QVariantMap item = devices_.at(index).toMap();
+        const QString address = item.value(QStringLiteral("address")).toString();
+        const bool connected = is_connected_address(address);
+        if (item.value(QStringLiteral("connected")).toBool() == connected) {
+            continue;
+        }
+        const QString base_name = item.value(QStringLiteral("baseName")).toString();
+        item.insert(QStringLiteral("connected"), connected);
+        item.insert(QStringLiteral("name"),
+            connected ? base_name + QString::fromUtf8(kConnectedSuffix) : base_name);
+        devices_[index] = item;
+        changed = true;
+    }
+    if (changed) {
+        emit devicesChanged();
+    }
+}
+
+void CoyoteBleController::watch_link(IOutputDevice* device) {
+    if (device == nullptr) {
+        return;
+    }
+    connect(device, &IOutputDevice::outputStateChanged, this, [this]() {
+        refresh_device_rows();
+        emit stateChanged();
+        emit statusChanged();
+        emit batteryChanged();
+        emit connectedLinksChanged();
+    });
+    connect(device, &IOutputDevice::outputStrengthChanged, this, [this]() {
+        emit strengthChanged();
+        emit batteryChanged();
+    });
+    connect(device, &IOutputDevice::outputWaveChanged, this, &CoyoteBleController::waveStateChanged);
+}
+
+void CoyoteBleController::on_device_discovered(const QBluetoothDeviceInfo& info) {
+    if (!(info.coreConfigurations() & QBluetoothDeviceInfo::LowEnergyCoreConfiguration)) {
+        return;
+    }
+    // 使用地址作为唯一标识去重：同一 MAC 只保留一行，已有实例时行上标「已连接」
+    QString address = info.address().toString();
+    if (device_cache_.contains(address)) {
+        return;
+    }
+
+    // 缓存完整的 QBluetoothDeviceInfo
+    device_cache_.insert(address, info);
+
+    // 加入 UI 列表：行上带「已支持 / 实验性 / 暂不支持」三态标签
+    QVariantMap item;
+    QString displayName = info.name().isEmpty() ? QStringLiteral("未知设备(未知名称)") : info.name();
+    const DeviceProfile profile = identify(info.name(), remembered_model(address));
+    const bool connected = manager_ != nullptr && manager_->link_for(address) != nullptr;
+    item.insert(QStringLiteral("baseName"), displayName);
+    item.insert(QStringLiteral("name"),
+        connected ? displayName + QString::fromUtf8(kConnectedSuffix) : displayName);
+    item.insert(QStringLiteral("address"), address);
+    item.insert(QStringLiteral("model"), profile.model);
+    item.insert(QStringLiteral("type"), profile.type);
+    item.insert(QStringLiteral("connected"), connected);
+    item.insert(QStringLiteral("supported"), profile.supported);
+    item.insert(QStringLiteral("support"), static_cast<int>(profile.state));
+    item.insert(QStringLiteral("supportText"), support_text_of(profile.state));
+    item.insert(QStringLiteral("connectable"), profile.state != SupportState::Unsupported);
+    item.insert(QStringLiteral("output"), profile.output);
+    // 行内提示：型号特定的提示优先（未登记 / 非 DG-LAB 设备 / 需升级固件），实验性型号另有统一文案
+    const QString model_text = profile.model.isEmpty() ? QString() : QStringLiteral("型号 %1，").arg(profile.model);
+    QString hint;
+    if (!profile.hint.isEmpty()) {
+        // 型号特定提示优先（如爪印 V1.0 需先升级固件）
+        hint = profile.hint;
+    }
+    else if (profile.state == SupportState::Experimental) {
+        hint = profile.supported ? QStringLiteral("%1实验性驱动已实现，未经实机验证")
+                                       .arg(model_text)
+                                 : QStringLiteral("暂不可连接（%1驱动尚未实现）").arg(model_text);
+    }
+    else if (profile.state == SupportState::Unsupported) {
+        hint = QStringLiteral("不可连接（%1型号未登记）").arg(model_text);
+    }
+    item.insert(QStringLiteral("hint"), hint);
+    devices_.append(item);
+    emit devicesChanged();
+}
+
+void CoyoteBleController::on_scan_finished() {
+    scanning_ = false;
+    emit stateChanged();
+    set_status(devices_.isEmpty() ? QStringLiteral("未发现设备") : QStringLiteral("扫描完成，请选择设备"));
+}
+
+void CoyoteBleController::set_status(const QString& text) {
+    if (status_ == text) {
+        return;
+    }
+    status_ = text;
+    emit statusChanged();
+}
+
+void CoyoteBleController::do_start_scan() {
+    if (scanning_) return;
+
+    // 清理旧数据
+    devices_.clear();
+    device_cache_.clear();
+    emit devicesChanged();
+
+    // 创建发现代理
+    discovery_ = new QBluetoothDeviceDiscoveryAgent(this);
+    discovery_->setLowEnergyDiscoveryTimeout(15000);
+
+    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::deviceDiscovered,
+        this, &CoyoteBleController::on_device_discovered);
+    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::finished,
+        this, &CoyoteBleController::on_scan_finished);
+    connect(discovery_, &QBluetoothDeviceDiscoveryAgent::errorOccurred, this,
+        [this](QBluetoothDeviceDiscoveryAgent::Error error) {
+            scanning_ = false;
+            emit stateChanged();
+            set_status(QStringLiteral("蓝牙扫描失败，错误码: %1").arg(static_cast<int>(error)));
+            emit errorOccurred(QStringLiteral("蓝牙扫描失败，请检查权限和蓝牙开关"));
+        });
+
+    scanning_ = true;
+    emit stateChanged();
+    set_status(QStringLiteral("正在扫描附近的设备…"));
+    discovery_->start(QBluetoothDeviceDiscoveryAgent::LowEnergyMethod);
+}
+
 CoyoteBleDevice::CoyoteBleDevice(QObject* parent)
     : IOutputDevice(parent)
     , write_char_uuid_(kWriteCharacteristic)
@@ -739,62 +737,6 @@ CoyoteBleDevice::CoyoteBleDevice(QObject* parent)
 
 CoyoteBleDevice::~CoyoteBleDevice() {
     disconnect_device();
-}
-
-QString CoyoteBleDevice::display_name() const {
-    // 状态文案与界面的设备名同源：型号显示名优先，其次蓝牙名
-    return device_label_.isEmpty() ? device_name_ : device_label_;
-}
-
-void CoyoteBleDevice::adopt_profile(const CoyoteBleController::DeviceProfile& profile) {
-    if (profile.model.isEmpty() || !device_model_.isEmpty()) {
-        return;
-    }
-    device_model_ = profile.model;
-    device_label_ = profile.label;
-    device_type_ = profile.type;
-    device_output_capable_ = profile.output;
-    support_state_ = profile.state;
-    emit stateChanged();
-}
-
-void CoyoteBleDevice::set_status(const QString& text) {
-    if (status_ == text) {
-        return;
-    }
-    status_ = text;
-    emit statusChanged();
-}
-
-const CoyoteBleDevice::ChannelState& CoyoteBleDevice::state_of(int channel) const {
-    return (channel == 1) ? channel_a_ : channel_b_;
-}
-
-bool CoyoteBleDevice::wave_sending(int channel) const {
-    return !state_of(channel).frames.isEmpty();
-}
-
-int CoyoteBleDevice::wave_frame(int channel) const {
-    const ChannelState& state = state_of(channel);
-    if (state.frames.isEmpty()) {
-        return 0;
-    }
-    // frame_index 指向下一帧，已下发的那一帧是它的前一格（1 起计数）
-    // 收窄依据：取模结果必小于帧数，编辑器限制单通道帧数 600（时长 60000ms / 每帧 100ms），库文件超出该上限也仍远小于 INT_MAX；返回值上游是 QML 的 int 属性
-    return static_cast<int>((state.frame_index + state.frames.size() - 1) % state.frames.size() + 1);
-}
-
-int CoyoteBleDevice::wave_frames(int channel) const {
-    // 收窄依据：编辑器限制单通道帧数 600（时长 60000ms / 每帧 100ms），库文件超出该上限也仍远小于 INT_MAX；返回值上游是 QML 的 int 属性
-    return static_cast<int>(state_of(channel).frames.size());
-}
-
-QByteArray CoyoteBleDevice::frame_for_channel(const QStringList& frames, int index) const {
-    if (frames.isEmpty()) {
-        return QByteArray::fromHex(kSilentFrame);
-    }
-    const QByteArray bytes = QByteArray::fromHex(frames.at(index % frames.size()).toLatin1());
-    return bytes.size() == 8 ? bytes : QByteArray::fromHex(kSilentFrame);
 }
 
 void CoyoteBleDevice::connect_device(const QBluetoothDeviceInfo& info, const QString& model, const QString& label) {
@@ -870,6 +812,123 @@ void CoyoteBleDevice::connect_device(const QBluetoothDeviceInfo& info, const QSt
     controller_->connectToDevice();
 }
 
+void CoyoteBleDevice::disconnect_device() {
+    tick_timer_->stop();
+    battery_timer_->stop();
+    if (controller_ != nullptr) {
+        controller_->disconnectFromDevice();
+        controller_->deleteLater();
+        controller_ = nullptr;
+    }
+    coyote_service_ = nullptr;
+    battery_service_ = nullptr;
+    for (auto& channel : {&channel_a_, &channel_b_}) {
+        channel->frames.clear();
+        channel->frame_index = 0;
+    }
+    connected_ = false;
+    ready_ = false;
+    strength_a_ = 0;
+    strength_b_ = 0;
+    battery_ = -1;
+    // 设备标识随连接失效：离线设备不参与默认设备评选，配置键仍在下次连接后继续生效
+    device_address_.clear();
+    device_label_.clear();
+    device_model_.clear();
+    emit stateChanged();
+    emit strengthChanged();
+    emit batteryChanged();
+    emit waveStateChanged();
+    set_status(QStringLiteral("蓝牙已断开"));
+}
+
+bool CoyoteBleDevice::wave_sending(int channel) const {
+    return !state_of(channel).frames.isEmpty();
+}
+
+int CoyoteBleDevice::wave_frame(int channel) const {
+    const ChannelState& state = state_of(channel);
+    if (state.frames.isEmpty()) {
+        return 0;
+    }
+    // frame_index 指向下一帧，已下发的那一帧是它的前一格（1 起计数）
+    // 收窄依据：取模结果必小于帧数，编辑器限制单通道帧数 600（时长 60000ms / 每帧 100ms），库文件超出该上限也仍远小于 INT_MAX；返回值上游是 QML 的 int 属性
+    return static_cast<int>((state.frame_index + state.frames.size() - 1) % state.frames.size() + 1);
+}
+
+int CoyoteBleDevice::wave_frames(int channel) const {
+    // 收窄依据：编辑器限制单通道帧数 600（时长 60000ms / 每帧 100ms），库文件超出该上限也仍远小于 INT_MAX；返回值上游是 QML 的 int 属性
+    return static_cast<int>(state_of(channel).frames.size());
+}
+
+void CoyoteBleDevice::set_strength(int channel, int mode, int value) {
+    ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
+    if (mode == 3 || mode == 4) {
+        // 连续增减：按次数转换为单次增减（沿用规则引擎的 0/1/2 语义）
+        state.pending_mode = (mode == 3) ? 2 : 1;
+        state.pending_value = 1;
+        return;
+    }
+    if (mode == 0) {
+        state.pending_mode = 2;
+        state.pending_value = std::max(1, value);
+    }
+    else if (mode == 1) {
+        state.pending_mode = 1;
+        state.pending_value = std::max(1, value);
+    }
+    else {
+        state.pending_mode = 3;
+        state.pending_value = std::clamp(value, 0, 200);
+        // 记录最后一条绝对强度：重连后按它重发，避免界面值与设备实际强度脱节
+        if (channel == 1) {
+            last_set_a_ = state.pending_value;
+        }
+        else {
+            last_set_b_ = state.pending_value;
+        }
+    }
+}
+
+void CoyoteBleDevice::play_wave(int channel, const QStringList& frames) {
+    ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
+    state.frames = frames;
+    state.frame_index = 0;
+    emit waveStateChanged();
+}
+
+void CoyoteBleDevice::stop_wave(int channel) {
+    ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
+    state.frames.clear();
+    state.frame_index = 0;
+    emit waveStateChanged();
+}
+
+void CoyoteBleDevice::applyLimits(int limitA, int limitB, int freqBalance, int strengthBalance) {
+    limit_a_ = std::clamp(limitA, 0, 200);
+    limit_b_ = std::clamp(limitB, 0, 200);
+    Q_UNUSED(freqBalance);
+    Q_UNUSED(strengthBalance);
+    write_bf();
+}
+
+QString CoyoteBleDevice::display_name() const {
+    // 状态文案与界面的设备名同源：型号显示名优先，其次蓝牙名
+    return device_label_.isEmpty() ? device_name_ : device_label_;
+}
+
+void CoyoteBleDevice::adopt_profile(const CoyoteBleController::DeviceProfile& profile) {
+    if (profile.model.isEmpty() || !device_model_.isEmpty()) {
+        return;
+    }
+    device_model_ = profile.model;
+    device_label_ = profile.label;
+    device_type_ = profile.type;
+    device_output_capable_ = profile.output;
+    support_state_ = profile.state;
+    emit stateChanged();
+}
+
 void CoyoteBleDevice::on_controller_connected() {
     // 重连时旧控制器可能补发信号，只认当前控制器的事件
     if (sender() != controller_) {
@@ -921,83 +980,6 @@ void CoyoteBleDevice::on_service_state_changed(QLowEnergyService::ServiceState s
         return;
     }
     ensure_characteristics();
-}
-
-void CoyoteBleDevice::ensure_characteristics() {
-    if (coyote_service_ == nullptr) {
-        return;
-    }
-    const auto write_char = coyote_service_->characteristic(write_char_uuid_);
-    const auto notify_char = coyote_service_->characteristic(notify_char_uuid_);
-
-    LOG_MODULE("CoyoteBleDevice", "ensure_characteristics", LOG_DEBUG, "写特征是否有效:" << write_char.isValid());
-    LOG_MODULE("CoyoteBleDevice", "ensure_characteristics", LOG_DEBUG, "通知特征是否有效:" << notify_char.isValid());
-
-    if (!write_char.isValid() || !notify_char.isValid()) {
-        set_status(QStringLiteral("未找到郊狼写入/通知特征"));
-        return;
-    }
-    // 写入 CCCD 打开通知（0x0100 小端）
-    const auto cccd = notify_char.descriptor(QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-    if (cccd.isValid()) {
-        coyote_service_->writeDescriptor(cccd, QByteArray::fromHex("0100"));
-    }
-
-    ready_ = true;
-    emit stateChanged();
-    set_status(QStringLiteral("已连接 %1").arg(display_name()));
-    applyLimits(limit_a_, limit_b_, 128, 128);
-    // 重连后重发上次绝对强度：设备不会保留断连前的目标值
-    if (last_set_a_ >= 0) {
-        set_strength(1, 2, last_set_a_);
-    }
-    if (last_set_b_ >= 0) {
-        set_strength(2, 2, last_set_b_);
-    }
-    tick_timer_->start();
-}
-
-void CoyoteBleDevice::subscribe_battery() {
-    if (battery_service_ == nullptr) {
-        return;
-    }
-    const auto characteristic = battery_service_->characteristic(kBatteryCharacteristic);
-    if (!characteristic.isValid()) {
-        LOG_MODULE("CoyoteBleDevice", "subscribe_battery", LOG_WARN, "未找到电量特征");
-        return;
-    }
-    // 支持 Notify 时写入 CCCD 订阅电量变化，让电量能随时间刷新
-    const auto cccd = characteristic.descriptor(QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-    if (cccd.isValid() && (characteristic.properties() & QLowEnergyCharacteristic::Notify)) {
-        battery_service_->writeDescriptor(cccd, QByteArray::fromHex("0100"));
-    }
-    read_battery();
-    battery_timer_->start();
-}
-
-void CoyoteBleDevice::read_battery() {
-    if (battery_service_ == nullptr || !connected_) {
-        return;
-    }
-    const auto characteristic = battery_service_->characteristic(kBatteryCharacteristic);
-    if (!characteristic.isValid()) {
-        return;
-    }
-    battery_service_->readCharacteristic(characteristic);
-}
-
-void CoyoteBleDevice::apply_battery_value(const QByteArray& value) {
-    if (value.isEmpty()) {
-        return;
-    }
-    const int percent = static_cast<quint8>(value.at(0));
-    LOG_MODULE("CoyoteBleDevice", "apply_battery_value", LOG_INFO,
-        "电量回传:" << value.toHex().toStdString() << " → " << percent << "%");
-    if (percent == battery_) {
-        return;
-    }
-    battery_ = percent;
-    emit batteryChanged();
 }
 
 void CoyoteBleDevice::on_characteristic_changed(const QLowEnergyCharacteristic& characteristic,
@@ -1064,48 +1046,6 @@ void CoyoteBleDevice::on_characteristic_changed(const QLowEnergyCharacteristic& 
     }
 }
 
-QByteArray CoyoteBleDevice::build_b0() {
-    int a_mode = 0;
-    int b_mode = 0;
-    int a_value = 0;
-    int b_value = 0;
-    bool has_op = false;
-
-    if (channel_a_.pending_mode != 0 && !channel_a_.waiting_ack) {
-        a_mode = channel_a_.pending_mode;
-        a_value = channel_a_.pending_value;
-        has_op = true;
-    }
-    if (channel_b_.pending_mode != 0 && !channel_b_.waiting_ack) {
-        b_mode = channel_b_.pending_mode;
-        b_value = channel_b_.pending_value;
-        has_op = true;
-    }
-
-    int seq = 0;
-    if (has_op) {
-        seq = ++sequence_;
-        if (seq > 15) {
-            sequence_ = 1;
-            seq = 1;
-        }
-    }
-
-    const QByteArray frame_a = frame_for_channel(channel_a_.frames, channel_a_.frame_index);
-    const QByteArray frame_b = frame_for_channel(channel_b_.frames, channel_b_.frame_index);
-
-    QByteArray data;
-    data.append(static_cast<char>(0xB0));
-    data.append(static_cast<char>(((seq & 0x0F) << 4) | ((a_mode & 0x03) << 2) | (b_mode & 0x03)));
-    data.append(static_cast<char>(a_value & 0xFF));
-    data.append(static_cast<char>(b_value & 0xFF));
-    data.append(frame_a.mid(0, 4));
-    data.append(frame_a.mid(4, 4));
-    data.append(frame_b.mid(0, 4));
-    data.append(frame_b.mid(4, 4));
-    return data;
-}
-
 void CoyoteBleDevice::write_b0() {
     if (coyote_service_ == nullptr) {
         return;
@@ -1163,83 +1103,141 @@ void CoyoteBleDevice::write_bf() {
     coyote_service_->writeCharacteristic(write_char, data, QLowEnergyService::WriteWithResponse);
 }
 
-void CoyoteBleDevice::applyLimits(int limitA, int limitB, int freqBalance, int strengthBalance) {
-    limit_a_ = std::clamp(limitA, 0, 200);
-    limit_b_ = std::clamp(limitB, 0, 200);
-    Q_UNUSED(freqBalance);
-    Q_UNUSED(strengthBalance);
-    write_bf();
-}
-
-void CoyoteBleDevice::set_strength(int channel, int mode, int value) {
-    ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
-    if (mode == 3 || mode == 4) {
-        // 连续增减：按次数转换为单次增减（沿用规则引擎的 0/1/2 语义）
-        state.pending_mode = (mode == 3) ? 2 : 1;
-        state.pending_value = 1;
+void CoyoteBleDevice::ensure_characteristics() {
+    if (coyote_service_ == nullptr) {
         return;
     }
-    if (mode == 0) {
-        state.pending_mode = 2;
-        state.pending_value = std::max(1, value);
-    }
-    else if (mode == 1) {
-        state.pending_mode = 1;
-        state.pending_value = std::max(1, value);
-    }
-    else {
-        state.pending_mode = 3;
-        state.pending_value = std::clamp(value, 0, 200);
-        // 记录最后一条绝对强度：重连后按它重发，避免界面值与设备实际强度脱节
-        if (channel == 1) {
-            last_set_a_ = state.pending_value;
-        }
-        else {
-            last_set_b_ = state.pending_value;
-        }
-    }
-}
+    const auto write_char = coyote_service_->characteristic(write_char_uuid_);
+    const auto notify_char = coyote_service_->characteristic(notify_char_uuid_);
 
-void CoyoteBleDevice::play_wave(int channel, const QStringList& frames) {
-    ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
-    state.frames = frames;
-    state.frame_index = 0;
-    emit waveStateChanged();
-}
+    LOG_MODULE("CoyoteBleDevice", "ensure_characteristics", LOG_DEBUG, "写特征是否有效:" << write_char.isValid());
+    LOG_MODULE("CoyoteBleDevice", "ensure_characteristics", LOG_DEBUG, "通知特征是否有效:" << notify_char.isValid());
 
-void CoyoteBleDevice::stop_wave(int channel) {
-    ChannelState& state = (channel == 1) ? channel_a_ : channel_b_;
-    state.frames.clear();
-    state.frame_index = 0;
-    emit waveStateChanged();
-}
+    if (!write_char.isValid() || !notify_char.isValid()) {
+        set_status(QStringLiteral("未找到郊狼写入/通知特征"));
+        return;
+    }
+    // 写入 CCCD 打开通知（0x0100 小端）
+    const auto cccd = notify_char.descriptor(QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
+    if (cccd.isValid()) {
+        coyote_service_->writeDescriptor(cccd, QByteArray::fromHex("0100"));
+    }
 
-void CoyoteBleDevice::disconnect_device() {
-    tick_timer_->stop();
-    battery_timer_->stop();
-    if (controller_ != nullptr) {
-        controller_->disconnectFromDevice();
-        controller_->deleteLater();
-        controller_ = nullptr;
-    }
-    coyote_service_ = nullptr;
-    battery_service_ = nullptr;
-    for (auto& channel : {&channel_a_, &channel_b_}) {
-        channel->frames.clear();
-        channel->frame_index = 0;
-    }
-    connected_ = false;
-    ready_ = false;
-    strength_a_ = 0;
-    strength_b_ = 0;
-    battery_ = -1;
-    // 设备标识随连接失效：离线设备不参与默认设备评选，配置键仍在下次连接后继续生效
-    device_address_.clear();
-    device_label_.clear();
-    device_model_.clear();
+    ready_ = true;
     emit stateChanged();
-    emit strengthChanged();
+    set_status(QStringLiteral("已连接 %1").arg(display_name()));
+    applyLimits(limit_a_, limit_b_, 128, 128);
+    // 重连后重发上次绝对强度：设备不会保留断连前的目标值
+    if (last_set_a_ >= 0) {
+        set_strength(1, 2, last_set_a_);
+    }
+    if (last_set_b_ >= 0) {
+        set_strength(2, 2, last_set_b_);
+    }
+    tick_timer_->start();
+}
+
+void CoyoteBleDevice::set_status(const QString& text) {
+    if (status_ == text) {
+        return;
+    }
+    status_ = text;
+    emit statusChanged();
+}
+
+QByteArray CoyoteBleDevice::build_b0() {
+    int a_mode = 0;
+    int b_mode = 0;
+    int a_value = 0;
+    int b_value = 0;
+    bool has_op = false;
+
+    if (channel_a_.pending_mode != 0 && !channel_a_.waiting_ack) {
+        a_mode = channel_a_.pending_mode;
+        a_value = channel_a_.pending_value;
+        has_op = true;
+    }
+    if (channel_b_.pending_mode != 0 && !channel_b_.waiting_ack) {
+        b_mode = channel_b_.pending_mode;
+        b_value = channel_b_.pending_value;
+        has_op = true;
+    }
+
+    int seq = 0;
+    if (has_op) {
+        seq = ++sequence_;
+        if (seq > 15) {
+            sequence_ = 1;
+            seq = 1;
+        }
+    }
+
+    const QByteArray frame_a = frame_for_channel(channel_a_.frames, channel_a_.frame_index);
+    const QByteArray frame_b = frame_for_channel(channel_b_.frames, channel_b_.frame_index);
+
+    QByteArray data;
+    data.append(static_cast<char>(0xB0));
+    data.append(static_cast<char>(((seq & 0x0F) << 4) | ((a_mode & 0x03) << 2) | (b_mode & 0x03)));
+    data.append(static_cast<char>(a_value & 0xFF));
+    data.append(static_cast<char>(b_value & 0xFF));
+    data.append(frame_a.mid(0, 4));
+    data.append(frame_a.mid(4, 4));
+    data.append(frame_b.mid(0, 4));
+    data.append(frame_b.mid(4, 4));
+    return data;
+}
+
+QByteArray CoyoteBleDevice::frame_for_channel(const QStringList& frames, int index) const {
+    if (frames.isEmpty()) {
+        return QByteArray::fromHex(kSilentFrame);
+    }
+    const QByteArray bytes = QByteArray::fromHex(frames.at(index % frames.size()).toLatin1());
+    return bytes.size() == 8 ? bytes : QByteArray::fromHex(kSilentFrame);
+}
+
+void CoyoteBleDevice::subscribe_battery() {
+    if (battery_service_ == nullptr) {
+        return;
+    }
+    const auto characteristic = battery_service_->characteristic(kBatteryCharacteristic);
+    if (!characteristic.isValid()) {
+        LOG_MODULE("CoyoteBleDevice", "subscribe_battery", LOG_WARN, "未找到电量特征");
+        return;
+    }
+    // 支持 Notify 时写入 CCCD 订阅电量变化，让电量能随时间刷新
+    const auto cccd = characteristic.descriptor(QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
+    if (cccd.isValid() && (characteristic.properties() & QLowEnergyCharacteristic::Notify)) {
+        battery_service_->writeDescriptor(cccd, QByteArray::fromHex("0100"));
+    }
+    read_battery();
+    battery_timer_->start();
+}
+
+void CoyoteBleDevice::read_battery() {
+    if (battery_service_ == nullptr || !connected_) {
+        return;
+    }
+    const auto characteristic = battery_service_->characteristic(kBatteryCharacteristic);
+    if (!characteristic.isValid()) {
+        return;
+    }
+    battery_service_->readCharacteristic(characteristic);
+}
+
+void CoyoteBleDevice::apply_battery_value(const QByteArray& value) {
+    if (value.isEmpty()) {
+        return;
+    }
+    const int percent = static_cast<quint8>(value.at(0));
+    LOG_MODULE("CoyoteBleDevice", "apply_battery_value", LOG_INFO,
+        "电量回传:" << value.toHex().toStdString() << " → " << percent << "%");
+    if (percent == battery_) {
+        return;
+    }
+    battery_ = percent;
     emit batteryChanged();
-    emit waveStateChanged();
-    set_status(QStringLiteral("蓝牙已断开"));
+}
+
+const CoyoteBleDevice::ChannelState& CoyoteBleDevice::state_of(int channel) const {
+    return (channel == 1) ? channel_a_ : channel_b_;
 }

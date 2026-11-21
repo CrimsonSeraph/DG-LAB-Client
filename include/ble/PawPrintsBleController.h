@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -22,10 +20,10 @@ class QTimer;
 
 // PawPrintsBleController - 爪印无线按钮传感器 V1.1 的输入侧蓝牙直连
 // GATT 与郊狼 V3 相同（服务 0x180C / 写 0x150A / 通知 0x150B），没有 0x180A 电量服务，
-// 电量由 51 消息携带；指令与消息布局见 include/ble/PawFrames.h。
+// 电量由 51 消息携带；指令与消息布局见 include/ble/PawFrames.h
 // 纯输入设备：不继承 IOutputDevice，不参与输出下发与默认设备评选；
-// 连接建立后立即写 50 指令（协议要求，否则设备可能断开），写入失败重试一次并记录。
-// 无实机验证：驱动按实验性上线。
+// 连接建立后立即写 50 指令（协议要求，否则设备可能断开），写入失败重试一次并记录
+// 无实机验证：驱动按实验性上线
 class PawPrintsBleController : public QObject {
     Q_OBJECT
 

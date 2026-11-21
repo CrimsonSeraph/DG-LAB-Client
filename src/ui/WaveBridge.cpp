@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "WaveBridge.h"
 
@@ -75,31 +73,6 @@ QVariantList WaveBridge::points_b() const {
     return points_from_frames(WaveLibrary::instance().frames_for("B"));
 }
 
-QVariantList WaveBridge::points_from_frames(const QStringList& frames) const {
-    QVariantList points;
-    for (int frame_index = 0; frame_index < frames.size(); ++frame_index) {
-        const QString& frame = frames.at(frame_index);
-        if (frame.size() < 16) {
-            continue;
-        }
-        for (int unit = 0; unit < 4; ++unit) {
-            bool ok_freq = false;
-            bool ok_strength = false;
-            const int freq = frame.mid(unit * 2, 2).toInt(&ok_freq, 16);
-            const int strength = frame.mid(8 + unit * 2, 2).toInt(&ok_strength, 16);
-            if (!ok_freq || !ok_strength) {
-                continue;
-            }
-            QVariantMap point;
-            point.insert(QStringLiteral("t"), frame_index * 100 + unit * 25);
-            point.insert(QStringLiteral("freq"), freq);
-            point.insert(QStringLiteral("strength"), strength);
-            points.append(point);
-        }
-    }
-    return points;
-}
-
 QVariantList WaveBridge::amplitude_a() const {
     return amplitudes_from_frames(WaveLibrary::instance().frames_for("A"));
 }
@@ -108,28 +81,59 @@ QVariantList WaveBridge::amplitude_b() const {
     return amplitudes_from_frames(WaveLibrary::instance().frames_for("B"));
 }
 
-QVariantList WaveBridge::amplitudes_from_frames(const QStringList& frames) const {
-    QVariantList amplitudes;
-    for (const QString& frame : frames) {
-        if (frame.size() < 16) {
-            continue;
-        }
-        int total = 0;
-        int count = 0;
-        for (int unit = 0; unit < 4; ++unit) {
-            bool ok = false;
-            const int strength = frame.mid(8 + unit * 2, 2).toInt(&ok, 16);
-            if (!ok) {
-                continue;
-            }
-            total += strength;
-            ++count;
-        }
-        if (count > 0) {
-            amplitudes.append(total / count);
-        }
+QVariantList WaveBridge::draft_sections() const {
+    QVariantList list;
+    for (int index = 0; index < static_cast<int>(draft_sections_.size()); ++index) {
+        const WaveSection& section = draft_sections_[static_cast<size_t>(index)];
+        QVariantMap item;
+        item.insert(QStringLiteral("index"), index);
+        item.insert(QStringLiteral("summary"), section_summary(section));
+        item.insert(QStringLiteral("durationMs"), section.duration_ms);
+        item.insert(QStringLiteral("freqStart"), section.freq_start);
+        item.insert(QStringLiteral("freqEnd"), section.freq_end);
+        item.insert(QStringLiteral("strengthStart"), section.strength_start);
+        item.insert(QStringLiteral("strengthEnd"), section.strength_end);
+        item.insert(QStringLiteral("selected"), index == selected_section_);
+        list.append(item);
     }
-    return amplitudes;
+    return list;
+}
+
+int WaveBridge::section_duration() const {
+    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
+    return section == nullptr ? 1000 : section->duration_ms;
+}
+
+int WaveBridge::section_freq_start() const {
+    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
+    return section == nullptr ? 50 : section->freq_start;
+}
+
+int WaveBridge::section_freq_end() const {
+    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
+    return section == nullptr ? 50 : section->freq_end;
+}
+
+int WaveBridge::section_strength_start() const {
+    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
+    return section == nullptr ? 50 : section->strength_start;
+}
+
+int WaveBridge::section_strength_end() const {
+    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
+    return section == nullptr ? 50 : section->strength_end;
+}
+
+QVariantList WaveBridge::draft_points() const {
+    return points_from_frames(draft_frames_v3_);
+}
+
+QString WaveBridge::draft_frames_text() const {
+    return draft_frames_v3_.join(QStringLiteral("\n"));
+}
+
+bool WaveBridge::draft_dirty() const {
+    return !has_saved_ || draft_fingerprint() != saved_fingerprint_;
 }
 
 QString WaveBridge::protocol() const {
@@ -285,27 +289,6 @@ void WaveBridge::setProtocol(const QString& protocol) {
     emit draftChanged();
 }
 
-QStringList WaveBridge::library_frames_for_send(const Wave& wave, QString& error) const {
-    const QString active_protocol = WaveLibrary::instance().protocol();
-    const QStringList frames = wave.frames_of(active_protocol);
-    if (frames.isEmpty()) {
-        error = QStringLiteral("波形《%1》缺少 %2 帧，未发送")
-                    .arg(QString::fromStdString(wave.name), active_protocol.toUpper());
-    }
-    return frames;
-}
-
-QStringList WaveBridge::draft_frames_for_send(QString& error) const {
-    const QString active_protocol = WaveLibrary::instance().protocol();
-    const QStringList& frames
-        = active_protocol == QStringLiteral("v2") ? draft_frames_v2_ : draft_frames_v3_;
-    if (frames.isEmpty()) {
-        error = QStringLiteral("当前发送协议为 %1，草稿缺少 %1 帧，未发送")
-                    .arg(active_protocol.toUpper());
-    }
-    return frames;
-}
-
 void WaveBridge::setTargetChannel(const QString& channel) {
     if (channel != QStringLiteral("A") && channel != QStringLiteral("B")) {
         return;
@@ -434,13 +417,6 @@ void WaveBridge::selectSection(int index) {
     }
     selected_section_ = index;
     emit draftChanged();
-}
-
-WaveSection* WaveBridge::selected_section() {
-    if (selected_section_ < 0 || selected_section_ >= static_cast<int>(draft_sections_.size())) {
-        return nullptr;
-    }
-    return &draft_sections_[static_cast<size_t>(selected_section_)];
 }
 
 void WaveBridge::applySectionEdits(int duration, int freqStart, int freqEnd, int strengthStart,
@@ -839,25 +815,74 @@ bool WaveBridge::removeTagCategory(const QString& name) {
     return true;
 }
 
-bool WaveBridge::draft_dirty() const {
-    return !has_saved_ || draft_fingerprint() != saved_fingerprint_;
+QVariantList WaveBridge::points_from_frames(const QStringList& frames) const {
+    QVariantList points;
+    for (int frame_index = 0; frame_index < frames.size(); ++frame_index) {
+        const QString& frame = frames.at(frame_index);
+        if (frame.size() < 16) {
+            continue;
+        }
+        for (int unit = 0; unit < 4; ++unit) {
+            bool ok_freq = false;
+            bool ok_strength = false;
+            const int freq = frame.mid(unit * 2, 2).toInt(&ok_freq, 16);
+            const int strength = frame.mid(8 + unit * 2, 2).toInt(&ok_strength, 16);
+            if (!ok_freq || !ok_strength) {
+                continue;
+            }
+            QVariantMap point;
+            point.insert(QStringLiteral("t"), frame_index * 100 + unit * 25);
+            point.insert(QStringLiteral("freq"), freq);
+            point.insert(QStringLiteral("strength"), strength);
+            points.append(point);
+        }
+    }
+    return points;
 }
 
-QString WaveBridge::draft_fingerprint() const {
-    QString fingerprint = draft_name_;
-    for (const auto& section : draft_sections_) {
-        fingerprint += QStringLiteral("|%1,%2,%3,%4,%5")
-                           .arg(section.duration_ms)
-                           .arg(section.freq_start)
-                           .arg(section.freq_end)
-                           .arg(section.strength_start)
-                           .arg(section.strength_end);
+QVariantList WaveBridge::amplitudes_from_frames(const QStringList& frames) const {
+    QVariantList amplitudes;
+    for (const QString& frame : frames) {
+        if (frame.size() < 16) {
+            continue;
+        }
+        int total = 0;
+        int count = 0;
+        for (int unit = 0; unit < 4; ++unit) {
+            bool ok = false;
+            const int strength = frame.mid(8 + unit * 2, 2).toInt(&ok, 16);
+            if (!ok) {
+                continue;
+            }
+            total += strength;
+            ++count;
+        }
+        if (count > 0) {
+            amplitudes.append(total / count);
+        }
     }
-    fingerprint += QLatin1Char('#');
-    fingerprint += draft_frames_v2_.join(QLatin1Char(','));
-    fingerprint += QLatin1Char('#');
-    fingerprint += draft_frames_v3_.join(QLatin1Char(','));
-    return fingerprint;
+    return amplitudes;
+}
+
+QStringList WaveBridge::library_frames_for_send(const Wave& wave, QString& error) const {
+    const QString active_protocol = WaveLibrary::instance().protocol();
+    const QStringList frames = wave.frames_of(active_protocol);
+    if (frames.isEmpty()) {
+        error = QStringLiteral("波形《%1》缺少 %2 帧，未发送")
+                    .arg(QString::fromStdString(wave.name), active_protocol.toUpper());
+    }
+    return frames;
+}
+
+QStringList WaveBridge::draft_frames_for_send(QString& error) const {
+    const QString active_protocol = WaveLibrary::instance().protocol();
+    const QStringList& frames
+        = active_protocol == QStringLiteral("v2") ? draft_frames_v2_ : draft_frames_v3_;
+    if (frames.isEmpty()) {
+        error = QStringLiteral("当前发送协议为 %1，草稿缺少 %1 帧，未发送")
+                    .arg(active_protocol.toUpper());
+    }
+    return frames;
 }
 
 void WaveBridge::regenerate_frames() {
@@ -911,6 +936,23 @@ void WaveBridge::apply_pending_import(const QString& action, const QString& rena
     emit importFinished(result.summary(), result.skipped == 0);
 }
 
+QString WaveBridge::draft_fingerprint() const {
+    QString fingerprint = draft_name_;
+    for (const auto& section : draft_sections_) {
+        fingerprint += QStringLiteral("|%1,%2,%3,%4,%5")
+                           .arg(section.duration_ms)
+                           .arg(section.freq_start)
+                           .arg(section.freq_end)
+                           .arg(section.strength_start)
+                           .arg(section.strength_end);
+    }
+    fingerprint += QLatin1Char('#');
+    fingerprint += draft_frames_v2_.join(QLatin1Char(','));
+    fingerprint += QLatin1Char('#');
+    fingerprint += draft_frames_v3_.join(QLatin1Char(','));
+    return fingerprint;
+}
+
 QString WaveBridge::section_summary(const WaveSection& section) const {
     return QStringLiteral("%1ms  %2->%3Hz  %4->%5")
         .arg(section.duration_ms)
@@ -920,53 +962,9 @@ QString WaveBridge::section_summary(const WaveSection& section) const {
         .arg(section.strength_end);
 }
 
-QVariantList WaveBridge::draft_sections() const {
-    QVariantList list;
-    for (int index = 0; index < static_cast<int>(draft_sections_.size()); ++index) {
-        const WaveSection& section = draft_sections_[static_cast<size_t>(index)];
-        QVariantMap item;
-        item.insert(QStringLiteral("index"), index);
-        item.insert(QStringLiteral("summary"), section_summary(section));
-        item.insert(QStringLiteral("durationMs"), section.duration_ms);
-        item.insert(QStringLiteral("freqStart"), section.freq_start);
-        item.insert(QStringLiteral("freqEnd"), section.freq_end);
-        item.insert(QStringLiteral("strengthStart"), section.strength_start);
-        item.insert(QStringLiteral("strengthEnd"), section.strength_end);
-        item.insert(QStringLiteral("selected"), index == selected_section_);
-        list.append(item);
+WaveSection* WaveBridge::selected_section() {
+    if (selected_section_ < 0 || selected_section_ >= static_cast<int>(draft_sections_.size())) {
+        return nullptr;
     }
-    return list;
-}
-
-int WaveBridge::section_duration() const {
-    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
-    return section == nullptr ? 1000 : section->duration_ms;
-}
-
-int WaveBridge::section_freq_start() const {
-    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
-    return section == nullptr ? 50 : section->freq_start;
-}
-
-int WaveBridge::section_freq_end() const {
-    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
-    return section == nullptr ? 50 : section->freq_end;
-}
-
-int WaveBridge::section_strength_start() const {
-    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
-    return section == nullptr ? 50 : section->strength_start;
-}
-
-int WaveBridge::section_strength_end() const {
-    const WaveSection* section = const_cast<WaveBridge*>(this)->selected_section();
-    return section == nullptr ? 50 : section->strength_end;
-}
-
-QVariantList WaveBridge::draft_points() const {
-    return points_from_frames(draft_frames_v3_);
-}
-
-QString WaveBridge::draft_frames_text() const {
-    return draft_frames_v3_.join(QStringLiteral("\n"));
+    return &draft_sections_[static_cast<size_t>(selected_section_)];
 }

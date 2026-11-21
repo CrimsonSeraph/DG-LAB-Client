@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -13,8 +11,8 @@
 
 // IpSelector - 中转服务的局域网 IPv4 地址选择器（QML 上下文属性 device.ipSelector）
 // 职责：枚举可用网卡的 IPv4、按黑名单过滤与白名单优先排序、维护手动选中地址，
-//      并把名单与选中地址持久化到 config/user.json 的 app.network.*。
-// 依赖：QNetworkInterface 与 AppConfig，不含任何 Widgets 类型。
+//      并把名单与选中地址持久化到 config/user.json 的 app.network.*
+// 依赖：QNetworkInterface 与 AppConfig，不含任何 Widgets 类型
 class IpSelector : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList candidates READ candidates NOTIFY candidatesChanged)

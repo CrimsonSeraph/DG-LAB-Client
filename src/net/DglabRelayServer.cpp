@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "DglabRelayServer.h"
 
@@ -168,39 +166,9 @@ bool DglabRelayServer::v3_paired() const {
     return paired_v3_socket() != nullptr;
 }
 
-QWebSocket* DglabRelayServer::paired_v3_socket() const {
-    if (v3_target_id_.isEmpty()) {
-        return nullptr;
-    }
-    for (const auto& connection : v3_connections_) {
-        if (connection.id == v3_target_id_ && connection.ws != nullptr) {
-            return connection.ws;
-        }
-    }
-    return nullptr;
-}
-
 bool DglabRelayServer::v4_attached() const {
     const auto* connection = first_v4_connection();
     return connection != nullptr && !connection->devices.isEmpty();
-}
-
-DglabRelayServer::V4Connection* DglabRelayServer::first_v4_connection() {
-    for (auto& connection : v4_connections_) {
-        if (connection.ws != nullptr) {
-            return &connection;
-        }
-    }
-    return nullptr;
-}
-
-const DglabRelayServer::V4Connection* DglabRelayServer::first_v4_connection() const {
-    for (const auto& connection : v4_connections_) {
-        if (connection.ws != nullptr) {
-            return &connection;
-        }
-    }
-    return nullptr;
 }
 
 QString DglabRelayServer::v3_pairing_url(const QString& ip) const {
@@ -217,313 +185,6 @@ QString DglabRelayServer::pairing_url(const QString& ip) const {
 
 QString DglabRelayServer::pairing_url_display(const QString& ip) const {
     return v3_pairing_url(ip);
-}
-
-void DglabRelayServer::on_v3_connection() {
-    while (v3_server_ != nullptr && v3_server_->hasPendingConnections()) {
-        QWebSocket* ws = v3_server_->nextPendingConnection();
-        V3Connection connection;
-        connection.ws = ws;
-        connection.id = new_id();
-        v3_connections_.append(connection);
-        emit clientCountChanged();
-
-        QJsonObject bind;
-        bind["type"] = "bind";
-        bind["clientId"] = connection.id;
-        bind["targetId"] = QString();
-        bind["message"] = "targetId";
-        ws->sendTextMessage(to_text(bind));
-
-        connect(ws, &QWebSocket::textMessageReceived, this,
-            [this, ws](const QString& text) { on_v3_message(ws, text); });
-        connect(ws, &QWebSocket::disconnected, this, [this, ws]() {
-            QString removed_id;
-            for (int i = 0; i < v3_connections_.size(); ++i) {
-                if (v3_connections_.at(i).ws == ws) {
-                    removed_id = v3_connections_.at(i).id;
-                    v3_connections_.removeAt(i);
-                    emit clientCountChanged();
-                    break;
-                }
-            }
-            if (!removed_id.isEmpty() && removed_id == v3_target_id_) {
-                v3_target_id_.clear();
-                stop_pulse(1);
-                stop_pulse(2);
-                emit pairingChanged();
-                emit statusMessage(QStringLiteral("APP 已断开配对"));
-            }
-            ws->deleteLater();
-        });
-
-        LOG_MODULE("DglabRelayServer", "on_v3_connection", LOG_INFO, "V3 新连接已接入");
-        emit statusMessage(QStringLiteral("检测到 APP 接入，等待绑定…"));
-    }
-}
-
-void DglabRelayServer::on_v3_message(QWebSocket* ws, const QString& text) {
-    QJsonParseError error;
-    const QJsonDocument document = QJsonDocument::fromJson(text.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        LOG_MODULE("DglabRelayServer", "on_v3_message", LOG_WARN, "V3 消息非 JSON，已忽略");
-        return;
-    }
-    const QJsonObject message = document.object();
-    const QString type = message.value("type").toString();
-
-    if (type == QStringLiteral("bind")) {
-        handle_v3_bind(ws, message);
-    }
-    else if (type == QStringLiteral("heartbeat")) {
-        // 客户端心跳无需处理
-    }
-    else {
-        handle_v3_feedback(message);
-    }
-}
-
-void DglabRelayServer::handle_v3_bind(QWebSocket* ws, const QJsonObject& message) {
-    const QString client_id = message.value("clientId").toString();
-    const QString target_id = message.value("targetId").toString();
-
-    // APP 扫码后会把二维码里的控制方 ID 作为 clientId、自己的 ID 作为 targetId 发回；
-    // 也兼容相反的写法。
-    QString app_id;
-    if (client_id == controller_id_) {
-        app_id = target_id;
-    }
-    else if (target_id == controller_id_) {
-        app_id = client_id;
-    }
-
-    QString app_connection_id;
-    for (const auto& connection : v3_connections_) {
-        if (connection.ws == ws) {
-            app_connection_id = connection.id;
-            break;
-        }
-    }
-
-    // 仅允许当前连接为发起方，或目标连接就是本连接
-    if (app_id.isEmpty() || (app_id != app_connection_id && target_id != app_connection_id
-            && client_id != app_connection_id)) {
-        QJsonObject failed;
-        failed["type"] = "bind";
-        failed["clientId"] = controller_id_;
-        failed["targetId"] = app_id;
-        failed["message"] = "401";
-        ws->sendTextMessage(to_text(failed));
-        LOG_MODULE("DglabRelayServer", "handle_v3_bind", LOG_WARN, "绑定目标无效");
-        return;
-    }
-
-    v3_target_id_ = app_connection_id;
-
-    QJsonObject success;
-    success["type"] = "bind";
-    success["clientId"] = controller_id_;
-    success["targetId"] = app_connection_id;
-    success["message"] = "200";
-    ws->sendTextMessage(to_text(success));
-
-    emit pairingChanged();
-    emit statusMessage(QStringLiteral("APP 配对成功"));
-    LOG_MODULE("DglabRelayServer", "handle_v3_bind", LOG_INFO, "V3 配对成功");
-}
-
-void DglabRelayServer::handle_v3_feedback(const QJsonObject& message) {
-    const QString content = message.value("message").toString();
-    if (content.startsWith(QStringLiteral("strength-"))) {
-        const QStringList parts = content.mid(9).split('+');
-        if (parts.size() >= 4) {
-            bool ok1 = false;
-            bool ok2 = false;
-            bool ok3 = false;
-            bool ok4 = false;
-            const int a_strength = parts.at(0).toInt(&ok1);
-            const int b_strength = parts.at(1).toInt(&ok2);
-            const int a_limit = parts.at(2).toInt(&ok3);
-            const int b_limit = parts.at(3).toInt(&ok4);
-            if (ok1 && ok2 && ok3 && ok4) {
-                emit strengthFeedback(std::clamp(a_strength, 0, 200), std::clamp(b_strength, 0, 200),
-                    std::clamp(a_limit, 0, 200), std::clamp(b_limit, 0, 200));
-            }
-        }
-    }
-    else if (content.startsWith(QStringLiteral("feedback-"))) {
-        bool ok = false;
-        const int index = content.mid(9).toInt(&ok);
-        if (ok) {
-            emit deviceFeedback(index < 5 ? 1 : 2, index % 5);
-        }
-    }
-}
-
-void DglabRelayServer::on_v4_connection() {
-    while (v4_server_ != nullptr && v4_server_->hasPendingConnections()) {
-        QWebSocket* ws = v4_server_->nextPendingConnection();
-        const QUrlQuery query(ws->requestUrl().query());
-        const QString tid = query.queryItemValue(QStringLiteral("tid"));
-
-        if (!tid.isEmpty() && tid != controller_id_) {
-            QJsonObject error;
-            error["type"] = "error";
-            error["message"] = "controller_not_found";
-            ws->sendTextMessage(to_text(error));
-            ws->close(QWebSocketProtocol::CloseCode(4001), QStringLiteral("controller_not_found"));
-            ws->deleteLater();
-            continue;
-        }
-
-        if (tid.isEmpty()) {
-            // 外部控制方接入（协议完整性支持；本应用自身不需要）
-            QJsonObject hello;
-            hello["type"] = "hello";
-            hello["clientId"] = new_id();
-            ws->sendTextMessage(to_text(hello));
-            connect(ws, &QWebSocket::textMessageReceived, this, [](const QString&) {});
-            continue;
-        }
-
-        V4Connection connection;
-        connection.ws = ws;
-        connection.id = new_id();
-        v4_connections_.append(connection);
-        emit clientCountChanged();
-
-        QJsonObject hello;
-        hello["type"] = "hello";
-        hello["clientId"] = connection.id;
-        ws->sendTextMessage(to_text(hello));
-
-        QJsonObject attached;
-        attached["type"] = "controller_attached";
-        attached["clientId"] = controller_id_;
-        ws->sendTextMessage(to_text(attached));
-
-        connect(ws, &QWebSocket::textMessageReceived, this,
-            [this, ws](const QString& text) { on_v4_message(ws, text); });
-        connect(ws, &QWebSocket::disconnected, this, [this, ws]() {
-            for (int i = 0; i < v4_connections_.size(); ++i) {
-                if (v4_connections_.at(i).ws == ws) {
-                    v4_connections_.removeAt(i);
-                    emit clientCountChanged();
-                    break;
-                }
-            }
-            emit devicesChanged();
-            emit pairingChanged();
-            ws->deleteLater();
-        });
-
-        LOG_MODULE("DglabRelayServer", "on_v4_connection", LOG_INFO, "V4 被控方已接入");
-        emit statusMessage(QStringLiteral("V4 APP 已接入"));
-    }
-}
-
-void DglabRelayServer::on_v4_message(QWebSocket* ws, const QString& text) {
-    QJsonParseError error;
-    const QJsonDocument document = QJsonDocument::fromJson(text.toUtf8(), &error);
-    if (error.error != QJsonParseError::NoError || !document.isObject()) {
-        return;
-    }
-    const QJsonObject frame = document.object();
-    const QString type = frame.value("type").toString();
-    if (type == QStringLiteral("message")) {
-        handle_v4_event(frame.value("data").toObject());
-    }
-    else if (type == QStringLiteral("ping")) {
-        QJsonObject pong;
-        pong["type"] = "pong";
-        pong["ts"] = QDateTime::currentMSecsSinceEpoch();
-        ws->sendTextMessage(to_text(pong));
-    }
-}
-
-void DglabRelayServer::handle_v4_event(const QJsonObject& data) {
-    const QString event = data.value("ev").toString();
-    if (event != QStringLiteral("devices.snapshot") && event != QStringLiteral("devices.patch")) {
-        return;
-    }
-    V4Connection* connection = first_v4_connection();
-    if (connection == nullptr) {
-        return;
-    }
-    const QJsonArray devices = data.value("devices").toArray();
-    connection->devices.clear();
-    for (const auto& item : devices) {
-        const QJsonObject device = item.toObject();
-        V4Device entry;
-        entry.slot_id = device.value("slotId").toString();
-        entry.name = device.value("name").toString();
-        entry.type = device.value("type").toString();
-        if (!entry.slot_id.isEmpty()) {
-            connection->devices.append(entry);
-        }
-    }
-    emit devicesChanged();
-    emit pairingChanged();
-    LOG_MODULE("DglabRelayServer", "handle_v4_event", LOG_INFO,
-        "V4 设备列表更新，共 " << connection->devices.size() << " 个");
-}
-
-QVariantList DglabRelayServer::v4_devices() const {
-    QVariantList list;
-    const auto* connection = first_v4_connection();
-    if (connection == nullptr) {
-        return list;
-    }
-    for (const auto& device : connection->devices) {
-        QVariantMap item;
-        item.insert(QStringLiteral("slotId"), device.slot_id);
-        item.insert(QStringLiteral("name"), device.name);
-        item.insert(QStringLiteral("type"), device.type);
-        list.append(item);
-    }
-    return list;
-}
-
-void DglabRelayServer::send_v3_msg(const QString& inner_message) {
-    QWebSocket* ws = paired_v3_socket();
-    if (ws == nullptr) {
-        // 规则命令按次下发，仅首次提示缺少配对目标，避免刷屏
-        if (DebugLogUtil::should_log_once("relay-no-target-v3")) {
-            LOG_MODULE("DglabRelayServer", "send_v3_msg", LOG_WARN, "没有已配对的 APP，V3 指令已丢弃");
-        }
-        return;
-    }
-    QJsonObject message;
-    message["type"] = "msg";
-    message["clientId"] = controller_id_;
-    message["targetId"] = v3_target_id_;
-    message["message"] = inner_message;
-    ws->sendTextMessage(to_text(message));
-}
-
-void DglabRelayServer::send_v3_pulse_frame(int channel, const QStringList& frames) {
-    if (frames.isEmpty()) {
-        return;
-    }
-    QJsonArray array;
-    for (const auto& frame : frames) {
-        array.append(frame);
-    }
-    const QString inner = QStringLiteral("pulse-%1:%2")
-                              .arg(channel_letter(channel))
-                              .arg(QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact)));
-    send_v3_msg(inner);
-}
-
-void DglabRelayServer::stop_pulse(int channel) {
-    if (channel == 1) {
-        pulse_repeat_a_ = 0;
-        pulse_timer_a_->stop();
-    }
-    else {
-        pulse_repeat_b_ = 0;
-        pulse_timer_b_->stop();
-    }
 }
 
 void DglabRelayServer::send_strength(int channel, int mode, int value) {
@@ -615,6 +276,332 @@ void DglabRelayServer::send_pulse(int channel, const QStringList& frames, int du
     }
 }
 
+QVariantList DglabRelayServer::v4_devices() const {
+    QVariantList list;
+    const auto* connection = first_v4_connection();
+    if (connection == nullptr) {
+        return list;
+    }
+    for (const auto& device : connection->devices) {
+        QVariantMap item;
+        item.insert(QStringLiteral("slotId"), device.slot_id);
+        item.insert(QStringLiteral("name"), device.name);
+        item.insert(QStringLiteral("type"), device.type);
+        list.append(item);
+    }
+    return list;
+}
+
+void DglabRelayServer::on_v3_connection() {
+    while (v3_server_ != nullptr && v3_server_->hasPendingConnections()) {
+        QWebSocket* ws = v3_server_->nextPendingConnection();
+        V3Connection connection;
+        connection.ws = ws;
+        connection.id = new_id();
+        v3_connections_.append(connection);
+        emit clientCountChanged();
+
+        QJsonObject bind;
+        bind["type"] = "bind";
+        bind["clientId"] = connection.id;
+        bind["targetId"] = QString();
+        bind["message"] = "targetId";
+        ws->sendTextMessage(to_text(bind));
+
+        connect(ws, &QWebSocket::textMessageReceived, this,
+            [this, ws](const QString& text) { on_v3_message(ws, text); });
+        connect(ws, &QWebSocket::disconnected, this, [this, ws]() {
+            QString removed_id;
+            for (int i = 0; i < v3_connections_.size(); ++i) {
+                if (v3_connections_.at(i).ws == ws) {
+                    removed_id = v3_connections_.at(i).id;
+                    v3_connections_.removeAt(i);
+                    emit clientCountChanged();
+                    break;
+                }
+            }
+            if (!removed_id.isEmpty() && removed_id == v3_target_id_) {
+                v3_target_id_.clear();
+                stop_pulse(1);
+                stop_pulse(2);
+                emit pairingChanged();
+                emit statusMessage(QStringLiteral("APP 已断开配对"));
+            }
+            ws->deleteLater();
+        });
+
+        LOG_MODULE("DglabRelayServer", "on_v3_connection", LOG_INFO, "V3 新连接已接入");
+        emit statusMessage(QStringLiteral("检测到 APP 接入，等待绑定…"));
+    }
+}
+
+void DglabRelayServer::on_v3_message(QWebSocket* ws, const QString& text) {
+    QJsonParseError error;
+    const QJsonDocument document = QJsonDocument::fromJson(text.toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject()) {
+        LOG_MODULE("DglabRelayServer", "on_v3_message", LOG_WARN, "V3 消息非 JSON，已忽略");
+        return;
+    }
+    const QJsonObject message = document.object();
+    const QString type = message.value("type").toString();
+
+    if (type == QStringLiteral("bind")) {
+        handle_v3_bind(ws, message);
+    }
+    else if (type == QStringLiteral("heartbeat")) {
+        // 客户端心跳无需处理
+    }
+    else {
+        handle_v3_feedback(message);
+    }
+}
+
+void DglabRelayServer::on_v4_connection() {
+    while (v4_server_ != nullptr && v4_server_->hasPendingConnections()) {
+        QWebSocket* ws = v4_server_->nextPendingConnection();
+        const QUrlQuery query(ws->requestUrl().query());
+        const QString tid = query.queryItemValue(QStringLiteral("tid"));
+
+        if (!tid.isEmpty() && tid != controller_id_) {
+            QJsonObject error;
+            error["type"] = "error";
+            error["message"] = "controller_not_found";
+            ws->sendTextMessage(to_text(error));
+            ws->close(QWebSocketProtocol::CloseCode(4001), QStringLiteral("controller_not_found"));
+            ws->deleteLater();
+            continue;
+        }
+
+        if (tid.isEmpty()) {
+            // 外部控制方接入（协议完整性支持；本应用自身不需要）
+            QJsonObject hello;
+            hello["type"] = "hello";
+            hello["clientId"] = new_id();
+            ws->sendTextMessage(to_text(hello));
+            connect(ws, &QWebSocket::textMessageReceived, this, [](const QString&) {});
+            continue;
+        }
+
+        V4Connection connection;
+        connection.ws = ws;
+        connection.id = new_id();
+        v4_connections_.append(connection);
+        emit clientCountChanged();
+
+        QJsonObject hello;
+        hello["type"] = "hello";
+        hello["clientId"] = connection.id;
+        ws->sendTextMessage(to_text(hello));
+
+        QJsonObject attached;
+        attached["type"] = "controller_attached";
+        attached["clientId"] = controller_id_;
+        ws->sendTextMessage(to_text(attached));
+
+        connect(ws, &QWebSocket::textMessageReceived, this,
+            [this, ws](const QString& text) { on_v4_message(ws, text); });
+        connect(ws, &QWebSocket::disconnected, this, [this, ws]() {
+            for (int i = 0; i < v4_connections_.size(); ++i) {
+                if (v4_connections_.at(i).ws == ws) {
+                    v4_connections_.removeAt(i);
+                    emit clientCountChanged();
+                    break;
+                }
+            }
+            emit devicesChanged();
+            emit pairingChanged();
+            ws->deleteLater();
+        });
+
+        LOG_MODULE("DglabRelayServer", "on_v4_connection", LOG_INFO, "V4 被控方已接入");
+        emit statusMessage(QStringLiteral("V4 APP 已接入"));
+    }
+}
+
+void DglabRelayServer::on_v4_message(QWebSocket* ws, const QString& text) {
+    QJsonParseError error;
+    const QJsonDocument document = QJsonDocument::fromJson(text.toUtf8(), &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject()) {
+        return;
+    }
+    const QJsonObject frame = document.object();
+    const QString type = frame.value("type").toString();
+    if (type == QStringLiteral("message")) {
+        handle_v4_event(frame.value("data").toObject());
+    }
+    else if (type == QStringLiteral("ping")) {
+        QJsonObject pong;
+        pong["type"] = "pong";
+        pong["ts"] = QDateTime::currentMSecsSinceEpoch();
+        ws->sendTextMessage(to_text(pong));
+    }
+}
+
+void DglabRelayServer::handle_v3_bind(QWebSocket* ws, const QJsonObject& message) {
+    const QString client_id = message.value("clientId").toString();
+    const QString target_id = message.value("targetId").toString();
+
+    // APP 扫码后会把二维码里的控制方 ID 作为 clientId、自己的 ID 作为 targetId 发回；
+    // 也兼容相反的写法
+    QString app_id;
+    if (client_id == controller_id_) {
+        app_id = target_id;
+    }
+    else if (target_id == controller_id_) {
+        app_id = client_id;
+    }
+
+    QString app_connection_id;
+    for (const auto& connection : v3_connections_) {
+        if (connection.ws == ws) {
+            app_connection_id = connection.id;
+            break;
+        }
+    }
+
+    // 仅允许当前连接为发起方，或目标连接就是本连接
+    if (app_id.isEmpty() || (app_id != app_connection_id && target_id != app_connection_id
+            && client_id != app_connection_id)) {
+        QJsonObject failed;
+        failed["type"] = "bind";
+        failed["clientId"] = controller_id_;
+        failed["targetId"] = app_id;
+        failed["message"] = "401";
+        ws->sendTextMessage(to_text(failed));
+        LOG_MODULE("DglabRelayServer", "handle_v3_bind", LOG_WARN, "绑定目标无效");
+        return;
+    }
+
+    v3_target_id_ = app_connection_id;
+
+    QJsonObject success;
+    success["type"] = "bind";
+    success["clientId"] = controller_id_;
+    success["targetId"] = app_connection_id;
+    success["message"] = "200";
+    ws->sendTextMessage(to_text(success));
+
+    emit pairingChanged();
+    emit statusMessage(QStringLiteral("APP 配对成功"));
+    LOG_MODULE("DglabRelayServer", "handle_v3_bind", LOG_INFO, "V3 配对成功");
+}
+
+void DglabRelayServer::handle_v3_feedback(const QJsonObject& message) {
+    const QString content = message.value("message").toString();
+    if (content.startsWith(QStringLiteral("strength-"))) {
+        const QStringList parts = content.mid(9).split('+');
+        if (parts.size() >= 4) {
+            bool ok1 = false;
+            bool ok2 = false;
+            bool ok3 = false;
+            bool ok4 = false;
+            const int a_strength = parts.at(0).toInt(&ok1);
+            const int b_strength = parts.at(1).toInt(&ok2);
+            const int a_limit = parts.at(2).toInt(&ok3);
+            const int b_limit = parts.at(3).toInt(&ok4);
+            if (ok1 && ok2 && ok3 && ok4) {
+                emit strengthFeedback(std::clamp(a_strength, 0, 200), std::clamp(b_strength, 0, 200),
+                    std::clamp(a_limit, 0, 200), std::clamp(b_limit, 0, 200));
+            }
+        }
+    }
+    else if (content.startsWith(QStringLiteral("feedback-"))) {
+        bool ok = false;
+        const int index = content.mid(9).toInt(&ok);
+        if (ok) {
+            emit deviceFeedback(index < 5 ? 1 : 2, index % 5);
+        }
+    }
+}
+
+void DglabRelayServer::handle_v4_event(const QJsonObject& data) {
+    const QString event = data.value("ev").toString();
+    if (event != QStringLiteral("devices.snapshot") && event != QStringLiteral("devices.patch")) {
+        return;
+    }
+    V4Connection* connection = first_v4_connection();
+    if (connection == nullptr) {
+        return;
+    }
+    const QJsonArray devices = data.value("devices").toArray();
+    connection->devices.clear();
+    for (const auto& item : devices) {
+        const QJsonObject device = item.toObject();
+        V4Device entry;
+        entry.slot_id = device.value("slotId").toString();
+        entry.name = device.value("name").toString();
+        entry.type = device.value("type").toString();
+        if (!entry.slot_id.isEmpty()) {
+            connection->devices.append(entry);
+        }
+    }
+    emit devicesChanged();
+    emit pairingChanged();
+    LOG_MODULE("DglabRelayServer", "handle_v4_event", LOG_INFO,
+        "V4 设备列表更新，共 " << connection->devices.size() << " 个");
+}
+
+QWebSocket* DglabRelayServer::paired_v3_socket() const {
+    if (v3_target_id_.isEmpty()) {
+        return nullptr;
+    }
+    for (const auto& connection : v3_connections_) {
+        if (connection.id == v3_target_id_ && connection.ws != nullptr) {
+            return connection.ws;
+        }
+    }
+    return nullptr;
+}
+
+DglabRelayServer::V4Connection* DglabRelayServer::first_v4_connection() {
+    for (auto& connection : v4_connections_) {
+        if (connection.ws != nullptr) {
+            return &connection;
+        }
+    }
+    return nullptr;
+}
+
+const DglabRelayServer::V4Connection* DglabRelayServer::first_v4_connection() const {
+    for (const auto& connection : v4_connections_) {
+        if (connection.ws != nullptr) {
+            return &connection;
+        }
+    }
+    return nullptr;
+}
+
+void DglabRelayServer::send_v3_msg(const QString& inner_message) {
+    QWebSocket* ws = paired_v3_socket();
+    if (ws == nullptr) {
+        // 规则命令按次下发，仅首次提示缺少配对目标，避免刷屏
+        if (DebugLogUtil::should_log_once("relay-no-target-v3")) {
+            LOG_MODULE("DglabRelayServer", "send_v3_msg", LOG_WARN, "没有已配对的 APP，V3 指令已丢弃");
+        }
+        return;
+    }
+    QJsonObject message;
+    message["type"] = "msg";
+    message["clientId"] = controller_id_;
+    message["targetId"] = v3_target_id_;
+    message["message"] = inner_message;
+    ws->sendTextMessage(to_text(message));
+}
+
+void DglabRelayServer::send_v3_pulse_frame(int channel, const QStringList& frames) {
+    if (frames.isEmpty()) {
+        return;
+    }
+    QJsonArray array;
+    for (const auto& frame : frames) {
+        array.append(frame);
+    }
+    const QString inner = QStringLiteral("pulse-%1:%2")
+                              .arg(channel_letter(channel))
+                              .arg(QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact)));
+    send_v3_msg(inner);
+}
+
 bool DglabRelayServer::send_v4_request(const QString& method, const QJsonObject& data) {
     V4Connection* connection = first_v4_connection();
     if (connection == nullptr || connection->ws == nullptr) {
@@ -655,4 +642,15 @@ bool DglabRelayServer::send_v4_request(const QString& method, const QJsonObject&
     frame["data"] = rpc;
     connection->ws->sendTextMessage(to_text(frame));
     return true;
+}
+
+void DglabRelayServer::stop_pulse(int channel) {
+    if (channel == 1) {
+        pulse_repeat_a_ = 0;
+        pulse_timer_a_->stop();
+    }
+    else {
+        pulse_repeat_b_ = 0;
+        pulse_timer_b_->stop();
+    }
 }

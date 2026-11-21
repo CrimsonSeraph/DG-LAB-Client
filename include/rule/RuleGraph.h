@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -17,11 +15,11 @@
 #include <vector>
 
 // 规则图模型（可视化规则编辑器 + 规则数据层）
-// 节点类型与连线规则见 include/README.md 的「关键协议与约定」。
+// 节点类型与连线规则见 include/README.md 的「关键协议与约定」
 // 图分两级：
 //   - 总规则图（plugin_id 为空）：把一个插件的默认输出当作一个插件输出节点使用；
 //   - 插件规则图（plugin_id 为插件/模块标识）：恰好一个默认输出节点作为本图出口，
-//     该节点记录「被哪些图引用」，引用文本通过 rule_graph_ref_display 取得。
+//     该节点记录「被哪些图引用」，引用文本通过 rule_graph_ref_display 取得
 enum class GraphNodeType {
     Rule,         ///< 规则节点：输入端口数量 = 表达式中的 {} 个数
     Module,       ///< 模块源节点：来自某个已启用模块的数值
@@ -217,7 +215,7 @@ public:
     bool disconnect_port(int to, int port);
     bool has_edge(int from, int to, int port) const;
     int edge_at_port(int to, int port) const;
-    /// @param port 目标端口序号（占位符下标，取自 qsizetype 循环变量，故用 qsizetype 避免 64->32 收窄）
+    /// @param port 目标端口序号（占位符下标，类型为 qsizetype）
     int source_at_port(int to, qsizetype port) const;
 
     // 导入 / 写回
@@ -254,7 +252,7 @@ private:
     static std::optional<int> evaluate_number(const QString& expression);
 
     QString formula_of(int node_id, int depth) const;
-    /// @param port 端口序号（占位符下标，取自 qsizetype 循环变量，故用 qsizetype 避免 64->32 收窄）
+    /// @param port 端口序号（占位符下标，类型为 qsizetype）
     QString source_formula(int node_id, qsizetype port, int depth) const;
     QString placeholder_text(int node_id, int port) const;
     bool would_create_cycle(int from, int to) const;

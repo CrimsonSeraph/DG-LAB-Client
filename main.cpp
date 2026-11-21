@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "AppBridge.h"
 #include "AppConfig.h"
@@ -291,7 +289,7 @@ int main(int argc, char* argv[]) {
     LOG_MODULE("main", "main", LOG_DEBUG, "QML 主界面已加载");
 
     // 首次运行的一次性提示：Windows 11 默认把新建的托盘图标收进折叠区，应用无法程序化强制显示，
-    // 只能引导用户自己把它拖到常显区域；提示过一次后写 app.ui.tray_hint_shown 不再重复。
+    // 只能引导用户自己把它拖到常显区域；提示记录写入 app.ui.tray_hint_shown，只提示一次
     if (tray.available() && !config.get_value<bool>("app.ui.tray_hint_shown", false)) {
         config.set_value_with_name<bool>("app.ui.tray_hint_shown", true, "user");
         config.save_all();

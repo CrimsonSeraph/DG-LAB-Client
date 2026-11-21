@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "WaveLibrary.h"
 
@@ -21,16 +19,16 @@
 
 namespace {
 
-    /// @brief 官方内置波形资源路径（qrc，只读）
+    // 官方内置波形资源路径（qrc，只读）
     const char* const OFFICIAL_RESOURCE = ":/waves/assets/waves/official_waves.json";
 
-    /// @brief 旧版内置占位波形名：加载时移除
+    // 旧版内置占位波形名：加载时移除
     const char* const REMOVED_PLACEHOLDERS[] = {"渐强脉冲", "低频涌动"};
 
-    /// @brief 发送协议配置键
+    // 发送协议配置键
     const char* const PROTOCOL_KEY = "app.wave.protocol";
 
-    /// @brief 协议取值规范化：只接受 v2 / v3，其余返回空串
+    // 协议取值规范化：只接受 v2 / v3，其余返回空串
     QString normalize_protocol(const QString& value) {
         const QString lower = value.trimmed().toLower();
         if (lower == QStringLiteral("v2") || lower == QStringLiteral("v3")) {
@@ -39,22 +37,22 @@ namespace {
         return QString();
     }
 
-    /// @brief 标签库文件名
+    // 标签库文件名
     const char* const TAGS_FILE_NAME = "tags.json";
 
-    /// @brief 标签库文件结构版本（2：分类化，只存用户侧数据）
+    // 标签库文件结构版本（2：分类化，只存用户侧数据）
     const int TAGS_FILE_VERSION = 2;
 
-    /// @brief tags.json 里官方波形标签叠加数据的键名（波形名 → 用户叠加的标签数组）
+    // tags.json 里官方波形标签叠加数据的键名（波形名 → 用户叠加的标签数组）
     const char* const OFFICIAL_TAGS_KEY = "official_wave_tags";
 
-    /// @brief 分类化标签库的键名：数组，每项 { name, tags }
+    // 分类化标签库的键名：数组，每项 { name, tags }
     const char* const CATEGORIES_KEY = "categories";
 
-    /// @brief 旧版（version 1）扁平标签数组的键名，读取时整体迁入「用户自定义」分类
+    // 旧版（version 1）扁平标签数组的键名，读取时整体迁入「用户自定义」分类
     const char* const LEGACY_TAGS_KEY = "tags";
 
-    /// @brief 名称在列表中的下标（大小写不敏感），未找到返回 -1
+    // 名称在列表中的下标（大小写不敏感），未找到返回 -1
     int index_of_tag(const QStringList& tags, const QString& tag) {
         for (int index = 0; index < tags.size(); ++index) {
             if (tags.at(index).compare(tag, Qt::CaseInsensitive) == 0) {
@@ -64,7 +62,7 @@ namespace {
         return -1;
     }
 
-    /// @brief 分类在列表中的下标（大小写不敏感），未找到返回 -1
+    // 分类在列表中的下标（大小写不敏感），未找到返回 -1
     int index_of_category(const std::vector<WaveTagCategory>& categories, const QString& name) {
         for (int index = 0; index < static_cast<int>(categories.size()); ++index) {
             if (categories.at(index).name.compare(name.trimmed(), Qt::CaseInsensitive) == 0) {
@@ -74,7 +72,7 @@ namespace {
         return -1;
     }
 
-    /// @brief 逐条规范化 JSON 帧数组；任一帧不合规即判整条失败
+    // 逐条规范化 JSON 帧数组；任一帧不合规即判整条失败
     bool read_frames_strict(const nlohmann::json& array, int byte_count, QStringList& out) {
         out.clear();
         if (!array.is_array() || array.empty()) {
@@ -93,10 +91,10 @@ namespace {
         return true;
     }
 
-    /// @brief zip 归档内的名称清单文件名
+    // zip 归档内的名称清单文件名
     const char* const INDEX_ENTRY_NAME = "index.json";
 
-    /// @brief 以二进制写入文件
+    // 以二进制写入文件
     bool write_bytes_file(const QString& path, const QByteArray& data, QString& error) {
         QFile file(path);
         if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -112,12 +110,12 @@ namespace {
         return true;
     }
 
-    /// @brief 以 UTF-8 无 BOM 写入文本文件
+    // 以 UTF-8 无 BOM 写入文本文件
     bool write_text_file(const QString& path, const QString& text, QString& error) {
         return write_bytes_file(path, text.toUtf8(), error);
     }
 
-    /// @brief 波形名转换为安全的文件名主干：非法字符替换为下划线，去掉结尾的点与空白
+    // 波形名转换为安全的文件名主干：非法字符替换为下划线，去掉结尾的点与空白
     QString sanitize_file_stem(const QString& name) {
         QString stem;
         for (const QChar ch : name) {
@@ -138,7 +136,7 @@ namespace {
         return stem;
     }
 
-    /// @brief 生成归档内不重复的文件名主干（重复时追加 (2)、(3)…，比较忽略大小写）
+    // 生成归档内不重复的文件名主干（重复时追加 (2)、(3)…，比较忽略大小写）
     QString unique_file_stem(const QString& stem, QStringList& used) {
         QString candidate = stem;
         int index = 2;
@@ -150,7 +148,7 @@ namespace {
         return candidate;
     }
 
-    /// @brief 读取 zip 内 index.json 清单：条目名到波形名的映射与清单列出的文件顺序
+    // 读取 zip 内 index.json 清单：条目名到波形名的映射与清单列出的文件顺序
     void read_index_manifest(const QString& text, QHash<QString, QString>& names, QStringList& files) {
         names.clear();
         files.clear();
@@ -999,7 +997,7 @@ WaveImportResult WaveLibrary::apply_import(const WaveImportPlan& plan, WaveConfl
     const bool single = plan.waves.size() == 1;
     const QString requested = rename_to.trimmed();
     bool changed = false;
-    QStringList written_tags; ///< 已写入波形的标签（导入后自动登记进自定义标签库）
+    QStringList written_tags; // 已写入波形的标签（导入后自动登记进自定义标签库）
 
     for (Wave wave : plan.waves) {
         wave.source = WaveSource::User;

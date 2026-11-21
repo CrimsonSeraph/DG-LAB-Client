@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -26,9 +24,9 @@ class QTimer;
 
 // DeviceController - 设备控制桥接（QML 上下文属性 device）
 // 职责：启停应用内中转服务、生成配对二维码、向已配对的 DG-LAB APP 下发
-//      强度 / 波形 / 清除指令，并把 APP 回传（强度、反馈按钮）转成信号。
+//      强度 / 波形 / 清除指令，并把 APP 回传（强度、反馈按钮）转成信号
 // 传输由 DglabRelayServer 实现（V3 优先，V4 作为补充）；蓝牙输出设备（IOutputDevice）
-// 已连接时优先经它直连输出，避免同一台设备被两条链路重复驱动。
+// 已连接时优先经它直连输出，避免同一台设备被两条链路重复驱动
 class DeviceController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)

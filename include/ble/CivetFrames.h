@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -10,11 +8,11 @@
 
 // CivetFrames - 灵猫边缘控制传感器 V1 的指令构造与气压消息解析（纯函数）
 // GATT：服务 0x180C / 写 0x150A / 通知 0x150B，电量 0x180A / 0x1500（广播名 47L124000）；
-// 字节布局取自上游 DG-LAB-OPENSOURCE/civet-edging-sensor/README_CN.md。
+// 字节布局取自上游 DG-LAB-OPENSOURCE/civet-edging-sensor/README_CN.md
 // 文档矛盾处不做推算：D0 标称 17 字节而示例串只有 15 字节，解析按实际长度宽容
 // （长度 >= 10 字节才取第 8、9 字节），不足 10 字节整帧丢弃；
 // 66 指令正文标称 13 字节但示例的 int16 字节序与正文相反，按 13 / 14 字节两形态给出；
-// 采样率、量程与温补文档未给，只做线性换算，不做量程假设。
+// 采样率、量程与温补文档未给，只做线性换算，不做量程假设
 namespace civet_frames {
 
     constexpr quint8 kHeadReportCommand = 0x50; ///< 50 指令：开启 / 停止气压上报

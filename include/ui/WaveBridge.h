@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -19,7 +17,7 @@ class DeviceController;
 
 // WaveBridge - 波形库与波形编辑器桥接（QML 上下文属性 waveBridge）
 // 职责：波形库列表、A/B 通道当前波形与预览、目标通道选择，
-//      以及波形编辑器草稿（段落列表 -> V3 帧生成 -> 原始帧微调 -> 保存/发送）。
+//      以及波形编辑器草稿（段落列表 -> V3 帧生成 -> 原始帧微调 -> 保存/发送）
 class WaveBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList waves READ waves NOTIFY dataChanged)

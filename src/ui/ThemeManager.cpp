@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "ThemeManager.h"
 
@@ -16,7 +14,7 @@
 
 namespace {
 
-    /// @brief 线性混合两个颜色（t=0 取 a，t=1 取 b）
+    // 线性混合两个颜色（t=0 取 a，t=1 取 b）
     QColor mix(const QColor& a, const QColor& b, qreal t) {
         return QColor::fromRgbF(
             a.redF() * (1.0 - t) + b.redF() * t,
@@ -24,29 +22,29 @@ namespace {
             a.blueF() * (1.0 - t) + b.blueF() * t);
     }
 
-    /// @brief 粗略亮度（0~1），用于挑选底色与判断自定义主题明暗
+    // 粗略亮度（0~1），用于挑选底色与判断自定义主题明暗
     qreal luminance(const QColor& c) {
         return (0.2126 * c.redF() + 0.7152 * c.greenF() + 0.0722 * c.blueF());
     }
 
-    /// @brief sRGB 单通道线性化（WCAG 2.x 定义）
+    // sRGB 单通道线性化（WCAG 2.x 定义）
     qreal linear_channel(qreal channel) {
         return channel <= 0.03928 ? channel / 12.92 : std::pow((channel + 0.055) / 1.055, 2.4);
     }
 
-    /// @brief WCAG 相对亮度（0~1）
+    // WCAG 相对亮度（0~1）
     qreal relative_luminance(const QColor& c) {
         return 0.2126 * linear_channel(c.redF()) + 0.7152 * linear_channel(c.greenF()) + 0.0722 * linear_channel(c.blueF());
     }
 
-    /// @brief WCAG 对比度（1~21），与前景/背景顺序无关
+    // WCAG 对比度（1~21），与前景/背景顺序无关
     qreal contrast_ratio(const QColor& a, const QColor& b) {
         const qreal la = relative_luminance(a);
         const qreal lb = relative_luminance(b);
         return (std::max(la, lb) + 0.05) / (std::min(la, lb) + 0.05);
     }
 
-    /// @brief 将前景色朝远离背景色的方向调整，直到对比度达到 target
+    // 将前景色朝远离背景色的方向调整，直到对比度达到 target
     QColor ensure_contrast(QColor foreground, const QColor& background, qreal target) {
         if (contrast_ratio(foreground, background) >= target) {
             return foreground;
@@ -61,7 +59,7 @@ namespace {
         return limit;
     }
 
-    /// @brief 依次对多个背景保证对比度（同一主题内调整方向一致，取最严格结果）
+    // 依次对多个背景保证对比度（同一主题内调整方向一致，取最严格结果）
     QColor ensure_contrast_on(QColor foreground, std::initializer_list<QColor> backgrounds, qreal target) {
         for (const QColor& background : backgrounds) {
             foreground = ensure_contrast(foreground, background, target);
@@ -69,7 +67,7 @@ namespace {
         return foreground;
     }
 
-    /// @brief 将背景色朝远离文字色的方向调整，直到纯黑/纯白文字在其上达到 target
+    // 将背景色朝远离文字色的方向调整，直到纯黑/纯白文字在其上达到 target
     QColor ensure_background(QColor background, const QColor& text, qreal target) {
         if (contrast_ratio(text, background) >= target) {
             return background;
@@ -84,14 +82,14 @@ namespace {
         return limit;
     }
 
-    /// @brief 选择对比色（在给定背景上取黑/白中对比度更高者）
+    // 选择对比色（在给定背景上取黑/白中对比度更高者）
     QColor contrast_text(const QColor& background) {
         const QColor dark(0x1F, 0x2A, 0x44);
         const QColor light(Qt::white);
         return contrast_ratio(light, background) >= contrast_ratio(dark, background) ? light : dark;
     }
 
-    /// @brief 一组背景中的最小对比度（用于「同一前景在多个底色上都要达标」的判断）
+    // 一组背景中的最小对比度（用于「同一前景在多个底色上都要达标」的判断）
     qreal worst_contrast(const QColor& foreground, std::initializer_list<QColor> backgrounds) {
         qreal worst = 21.0;
         for (const QColor& background : backgrounds) {
@@ -100,7 +98,7 @@ namespace {
         return worst;
     }
 
-    /// @brief 在全部背景上都达到 target 的填充文字色：先试项目惯用色，必要时退到纯黑/纯白（任意底色至少有一端可达标）
+    // 在全部背景上都达到 target 的填充文字色：先试项目惯用色，必要时退到纯黑/纯白（任意底色至少有一端可达标）
     QColor fill_text(std::initializer_list<QColor> backgrounds, qreal target) {
         const std::initializer_list<QColor> candidates = { contrast_text(*backgrounds.begin()), QColor(Qt::white), QColor(Qt::black) };
         QColor best = QColor(Qt::white);
@@ -118,8 +116,8 @@ namespace {
         return best;
     }
 
-    /// @brief 选中带：由 surface 与 accent 调出的着色带，需同时「与 surface 可辨」且「承载 text 达 target」
-    /// 先加大 accent 着色系数保证可辨；文字仍不达标时朝背离文字的方向加深/提亮，直到两条同时成立。
+    // 选中带：由 surface 与 accent 调出的着色带，需同时「与 surface 可辨」且「承载 text 达 target」
+    // 先加大 accent 着色系数保证可辨；文字仍不达标时朝背离文字的方向加深/提亮，直到两条同时成立
     QColor selection_band(const QColor& surface, const QColor& accent, const QColor& text, qreal preferred, qreal visibility, qreal target) {
         qreal tint = preferred;
         QColor band = mix(surface, accent, tint);

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "UpdateManager.h"
 
 #include "AppVersion.h"
@@ -75,6 +78,86 @@ void UpdateManager::check_for_updates() {
     });
 }
 
+void UpdateManager::start_download() {
+    download_write_error_ = false;
+    if (download_url_.isEmpty()) return;
+    if (current_download_reply_ != nullptr) return;
+
+    LOG_MODULE("UpdateManager", "start_download", LOG_INFO, "开始下载: " + download_url_);
+
+    QNetworkRequest req{QUrl(download_url_)};
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+
+    // 临时文件路径
+    download_file_path_ = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
+                          "/dglab_update_" +
+                          QString::number(QCoreApplication::applicationPid()) + "_" +
+                          QFileInfo(download_url_).fileName();
+    // 上一轮残留的临时文件会让本次追加写入旧内容，导致 SHA256 必然不匹配
+    if (!QFile::remove(download_file_path_) && QFileInfo::exists(download_file_path_)) {
+        LOG_MODULE("UpdateManager", "start_download", LOG_WARN,
+            "无法删除既有临时文件，继续下载: " + download_file_path_);
+    }
+
+    // 文件只在这里打开一次：readyRead 与 finished 共用同一句柄，不再每条数据块开关一次文件
+    close_download_file();
+    download_file_ = new QFile(download_file_path_, this);
+    if (!download_file_->open(QIODevice::WriteOnly | QIODevice::Append)) {
+        current_error_ = "无法写入临时文件: " + download_file_->errorString();
+        LOG_MODULE("UpdateManager", "start_download", LOG_WARN, "打开下载临时文件失败: " + current_error_);
+        close_download_file();
+        emit download_finished(false, current_error_);
+        return;
+    }
+
+    current_download_reply_ = network_manager_->get(req);
+    connect(current_download_reply_, &QNetworkReply::readyRead, this, &UpdateManager::on_download_ready_read);
+    connect(current_download_reply_, &QNetworkReply::downloadProgress, this, &UpdateManager::download_progress);
+    connect(current_download_reply_, &QNetworkReply::finished, this, &UpdateManager::on_download_finished);
+}
+
+void UpdateManager::apply_update_and_restart() {
+    if (download_file_path_.isEmpty() ||
+        !QFileInfo::exists(download_file_path_)) {
+        current_error_ = "更新包不存在，请重新下载";
+        download_file_path_.clear();
+        emit download_finished(false, current_error_);
+        return;
+    }
+    if (!verify_sha256(download_file_path_, expected_sha256_)) {
+        current_error_ = "更新包已损坏，请重新下载";
+        QFile::remove(download_file_path_);
+        download_file_path_.clear();
+        emit download_finished(false, current_error_);
+        return;
+    }
+
+    QString script_path;
+#ifdef Q_OS_WIN
+    script_path = generate_windows_script(download_file_path_);
+#elif defined(Q_OS_MACOS)
+    script_path = generate_macos_script(download_file_path_);
+#else
+    script_path = generate_linux_script(download_file_path_);
+#endif
+    if (script_path.isEmpty()) {
+        if (current_error_.isEmpty()) current_error_ = "生成更新脚本失败";
+        emit error_occurred(current_error_);
+        return;
+    }
+    execute_script_and_quit(script_path);
+}
+
+bool UpdateManager::has_update() const { return !download_url_.isEmpty(); }
+QString UpdateManager::remote_version() const { return remote_version_; }
+QString UpdateManager::release_notes() const { return release_notes_; }
+QString UpdateManager::error_message() const { return current_error_; }
+QString UpdateManager::release_url() const { return release_url_; }
+
+QString UpdateManager::update_flag_path() {
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/update_ok.tmp";
+}
+
 void UpdateManager::on_manifest_reply(QNetworkReply* reply) {
     reply->deleteLater();
     if (reply->error() != QNetworkReply::NoError) {
@@ -135,44 +218,6 @@ void UpdateManager::on_manifest_reply(QNetworkReply* reply) {
         current_error_ = "当前平台没有可用的更新包";
         emit error_occurred(current_error_);
     }
-}
-
-void UpdateManager::start_download() {
-    download_write_error_ = false;
-    if (download_url_.isEmpty()) return;
-    if (current_download_reply_ != nullptr) return;
-
-    LOG_MODULE("UpdateManager", "start_download", LOG_INFO, "开始下载: " + download_url_);
-
-    QNetworkRequest req{QUrl(download_url_)};
-    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
-
-    // 临时文件路径
-    download_file_path_ = QStandardPaths::writableLocation(QStandardPaths::TempLocation) +
-                          "/dglab_update_" +
-                          QString::number(QCoreApplication::applicationPid()) + "_" +
-                          QFileInfo(download_url_).fileName();
-    // 上一轮残留的临时文件会让本次追加写入旧内容，导致 SHA256 必然不匹配
-    if (!QFile::remove(download_file_path_) && QFileInfo::exists(download_file_path_)) {
-        LOG_MODULE("UpdateManager", "start_download", LOG_WARN,
-            "无法删除既有临时文件，继续下载: " + download_file_path_);
-    }
-
-    // 文件只在这里打开一次：readyRead 与 finished 共用同一句柄，不再每条数据块开关一次文件
-    close_download_file();
-    download_file_ = new QFile(download_file_path_, this);
-    if (!download_file_->open(QIODevice::WriteOnly | QIODevice::Append)) {
-        current_error_ = "无法写入临时文件: " + download_file_->errorString();
-        LOG_MODULE("UpdateManager", "start_download", LOG_WARN, "打开下载临时文件失败: " + current_error_);
-        close_download_file();
-        emit download_finished(false, current_error_);
-        return;
-    }
-
-    current_download_reply_ = network_manager_->get(req);
-    connect(current_download_reply_, &QNetworkReply::readyRead, this, &UpdateManager::on_download_ready_read);
-    connect(current_download_reply_, &QNetworkReply::downloadProgress, this, &UpdateManager::download_progress);
-    connect(current_download_reply_, &QNetworkReply::finished, this, &UpdateManager::on_download_finished);
 }
 
 bool UpdateManager::close_download_file() {
@@ -264,38 +309,6 @@ void UpdateManager::on_download_finished() {
         emit download_finished(true, "");
     });
     watcher->setFuture(QtConcurrent::run(&UpdateManager::verify_sha256, path, expected));
-}
-
-void UpdateManager::apply_update_and_restart() {
-    if (download_file_path_.isEmpty() ||
-        !QFileInfo::exists(download_file_path_)) {
-        current_error_ = "更新包不存在，请重新下载";
-        download_file_path_.clear();
-        emit download_finished(false, current_error_);
-        return;
-    }
-    if (!verify_sha256(download_file_path_, expected_sha256_)) {
-        current_error_ = "更新包已损坏，请重新下载";
-        QFile::remove(download_file_path_);
-        download_file_path_.clear();
-        emit download_finished(false, current_error_);
-        return;
-    }
-
-    QString script_path;
-#ifdef Q_OS_WIN
-    script_path = generate_windows_script(download_file_path_);
-#elif defined(Q_OS_MACOS)
-    script_path = generate_macos_script(download_file_path_);
-#else
-    script_path = generate_linux_script(download_file_path_);
-#endif
-    if (script_path.isEmpty()) {
-        if (current_error_.isEmpty()) current_error_ = "生成更新脚本失败";
-        emit error_occurred(current_error_);
-        return;
-    }
-    execute_script_and_quit(script_path);
 }
 
 bool UpdateManager::is_newer_version(const QString& current, const QString& remote) const {
@@ -601,14 +614,4 @@ QString UpdateManager::unsupported_update_hint() const {
     }
 #endif
     return QString();
-}
-
-bool UpdateManager::has_update() const { return !download_url_.isEmpty(); }
-QString UpdateManager::remote_version() const { return remote_version_; }
-QString UpdateManager::release_notes() const { return release_notes_; }
-QString UpdateManager::error_message() const { return current_error_; }
-QString UpdateManager::release_url() const { return release_url_; }
-
-QString UpdateManager::update_flag_path() {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/update_ok.tmp";
 }

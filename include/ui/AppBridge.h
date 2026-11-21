@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -12,17 +10,17 @@
 #include "AppVersion.h"
 
 // AppBridge - 应用级状态桥接（QML 上下文属性 app）
-// 职责：向 QML 暴露只读应用信息（名称/版本）、页面导航状态与一次性反馈浮层（Toast）。
-//      界面只做属性绑定，交互由 UiConnector 在 C++ 侧连接。
+// 职责：向 QML 暴露只读应用信息（名称/版本）、页面导航状态与一次性反馈浮层（Toast）
+//      界面只做属性绑定，交互由 UiConnector 在 C++ 侧连接
 // 反馈面分工：一次性消息走 Toast（toastText / toastLevel，3 秒自动消失）；
-//      状态栏只显示 QML 侧组合的常驻摘要，不再承载一次性文案。
+//      状态栏只显示 QML 侧组合的常驻摘要，不承载一次性文案
 class AppBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString appName READ app_name NOTIFY appInfoChanged)
     Q_PROPERTY(QString appVersion READ app_version NOTIFY appInfoChanged)
     Q_PROPERTY(int currentPage READ current_page WRITE set_current_page NOTIFY currentPageChanged)
     Q_PROPERTY(int pageCount READ page_count CONSTANT)
-    // 兼容保留：setStatus 已转调 showToast，状态栏不再绑定这两个属性
+    // 兼容保留：setStatus 转调 showToast，状态栏不绑定这两个属性
     Q_PROPERTY(QString statusText READ status_text NOTIFY statusTextChanged)
     Q_PROPERTY(int statusLevel READ status_level NOTIFY statusTextChanged)
     Q_PROPERTY(QString toastText READ toast_text NOTIFY toastChanged)

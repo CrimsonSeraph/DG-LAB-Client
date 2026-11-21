@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -10,8 +8,8 @@
 #include <QStringList>
 
 // IOutputDevice - 输出设备抽象接口（通道下发的唯一依赖）
-// 能力按郊狼 V3 已实现的部分定义：连接状态、电量、强度下发与回显、波形下发与进度、软上限。
-// GATT 服务与指令格式由具体设备实现，上层只依赖本接口。
+// 能力按郊狼 V3 已实现的部分定义：连接状态、电量、强度下发与回显、波形下发与进度、软上限
+// GATT 服务与指令格式由具体设备实现，上层只依赖本接口
 class IOutputDevice : public QObject {
     Q_OBJECT
 

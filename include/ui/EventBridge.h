@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -14,7 +12,7 @@ class EventRuntime;
 
 // EventBridge - 事件页桥接（QML 上下文属性 eventBridge）
 // 职责：汇总各模块的事件声明与用户映射、通道上限/安全上限、触发流水，
-//      并转发写入、重载与「设为」互斥清理操作。
+//      并转发写入、重载与「设为」互斥清理操作
 class EventBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantMap channels READ channels NOTIFY dataChanged)

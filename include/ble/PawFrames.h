@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -12,9 +10,9 @@
 
 // PawFrames - 爪印无线按钮传感器 V1.1 的指令构造与回应消息解析（纯函数）
 // GATT 与郊狼 V3 相同（服务 0x180C / 写 0x150A / 通知 0x150B），没有 0x180A 电量服务，
-// 电量由 51 消息携带；字节布局取自上游 DG-LAB-OPENSOURCE/paw-prints/README_CN.md。
+// 电量由 51 消息携带；字节布局取自上游 DG-LAB-OPENSOURCE/paw-prints/README_CN.md
 // 文档自相矛盾的两处不做推算：0x0F 外部电压模式的参数映射公式只原样保留原始参数，
-// F1 角度阈值除以 2 后的取整规则未定，只按有符号整数截断给出展示值。
+// F1 角度阈值除以 2 后的取整规则未定，只按有符号整数截断给出展示值
 namespace paw_frames {
 
     constexpr quint8 kHeadConfig = 0x50;         ///< 50 指令：主指示灯颜色 + 触发模式设置

@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "DeviceValueBridge.h"
 
@@ -14,9 +12,9 @@
 
 namespace {
 
-    constexpr const char* kUserConfigName = "user"; ///< 写入的配置层（映射与迁移都落 user.json）
-    constexpr const char* kPluginsKeyPrefix = "app.plugins."; ///< 模块映射键前缀
-    constexpr const char* kMigratedMarker = "module_migrated_to"; ///< 旧映射迁移标记（写在旧模块名下）
+    constexpr const char* kUserConfigName = "user"; // 写入的配置层（映射与迁移都落 user.json）
+    constexpr const char* kPluginsKeyPrefix = "app.plugins."; // 模块映射键前缀
+    constexpr const char* kMigratedMarker = "module_migrated_to"; // 旧映射迁移标记（写在旧模块名下）
 
     // 读取配置子树（缺失或非对象返回空对象）
     nlohmann::json read_subtree(const std::string& key) {

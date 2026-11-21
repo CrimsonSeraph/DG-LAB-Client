@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -50,8 +48,8 @@ public:
 };
 
 // DataListener - 通用数据接收器
-// 单实例监听单个端口（TCP HTTP POST 或 UDP 数据报），解析为 JSON 后按来源标识分发。
-// 信封格式与线程约束见 include/README.md 的「关键协议与约定」。
+// 单实例监听单个端口（TCP HTTP POST 或 UDP 数据报），解析为 JSON 后按来源标识分发
+// 信封格式与线程约束见 include/README.md 的「关键协议与约定」
 class DataListener : public QTcpServer {
     Q_OBJECT
 

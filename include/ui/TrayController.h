@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -16,7 +14,7 @@ class QQuickWindow;
 
 // TrayController - 系统托盘常驻（QML 上下文属性 tray）
 // 职责：托盘图标与三项菜单（显示主窗口 / 显示迷你窗 / 退出）、双击图标恢复主窗口，
-//      以及主窗口关闭时的落点：托盘可用则隐藏窗口，不可用则退出应用。
+//      以及主窗口关闭时的落点：托盘可用则隐藏窗口，不可用则退出应用
 class TrayController : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool available READ available CONSTANT)

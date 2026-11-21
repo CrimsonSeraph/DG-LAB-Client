@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "DataListener.h"
 
@@ -212,18 +210,6 @@ void DataListener::incomingConnection(qintptr socketDescriptor) {
     connect(socket, &QTcpSocket::disconnected, socket, &QTcpSocket::deleteLater);
 }
 
-void DataListener::finish_http_request(QTcpSocket* socket, const QByteArray& request) {
-    // 交给解析器与分发逻辑（HTTP 解析器提取请求体并解析 JSON）
-    handle_raw_data(request);
-    // 返回 HTTP 200 响应
-    const QByteArray response =
-        "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
-    socket->write(response);
-    socket->flush();
-    socket->disconnectFromHost();
-    socket->deleteLater();
-}
-
 // private slots 实现
 
 void DataListener::on_udp_ready_read() {
@@ -264,6 +250,18 @@ void DataListener::handle_raw_data(const QByteArray& raw) {
     emit data_received(obj);
     emit packet_received(source, type, payload);
     dispatch(source, type, payload);
+}
+
+void DataListener::finish_http_request(QTcpSocket* socket, const QByteArray& request) {
+    // 交给解析器与分发逻辑（HTTP 解析器提取请求体并解析 JSON）
+    handle_raw_data(request);
+    // 返回 HTTP 200 响应
+    const QByteArray response =
+        "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+    socket->write(response);
+    socket->flush();
+    socket->disconnectFromHost();
+    socket->deleteLater();
 }
 
 void DataListener::dispatch(const QString& source, const QString& type,

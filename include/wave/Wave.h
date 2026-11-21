@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -13,9 +11,9 @@
 #include <string>
 #include <vector>
 
-// 波形数据模型：raw 为设计层原始串，frames_v2 / frames_v3 为同一条波形在两代协议下的帧序列。
+// 波形数据模型：raw 为设计层原始串，frames_v2 / frames_v3 为同一条波形在两代协议下的帧序列
 // V2 帧为偶数长度 HEX，V3 帧固定 8 字节（16 个十六进制字符），每帧代表 100ms；
-// 帧布局见 include/README.md 的「关键协议与约定」。
+// 帧布局见 include/README.md 的「关键协议与约定」
 
 /// @brief 波形段落：在时长内对频率与强度做线性渐变（起止关键帧）
 struct WaveSection {

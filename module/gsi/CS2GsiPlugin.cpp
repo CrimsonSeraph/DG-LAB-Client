@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "CS2GsiPlugin.h"
 
@@ -15,44 +13,6 @@
 #include <cstdlib>
 #include <map>
 
-// 数值定义（public）
-
-std::vector<ModuleValue> CS2GsiPlugin::create_default_values() {
-    // 完整数值列表（参照官方 GSI 规范）：个人状态类数值队友数据不更新，团队/地图类始终更新
-    std::vector<ModuleValue> values;
-    // 个人状态类（最值参照官方 GSI 取值，写入时自动钳制到范围）
-    values.emplace_back("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth", 0, 100);
-    values.emplace_back("armor", "当前护甲", QueryPeriod::HALF_SECOND, "m_ArmorValue", 0, 100);
-    values.emplace_back("money", "金钱", QueryPeriod::TWO_SECONDS, "m_iMoney", 0, 16000);
-    values.emplace_back("team_num", "队伍编号", QueryPeriod::SECOND, "team", 2, 3);
-    values.emplace_back("has_helmet", "是否有头盔", QueryPeriod::FOUR_SECONDS, "m_bHasHelmet", 0, 1);
-    values.emplace_back("has_defuser", "是否有拆弹器", QueryPeriod::FOUR_SECONDS, "m_bHasDefuser", 0, 1);
-    values.emplace_back("flashed", "闪光致盲程度", QueryPeriod::SECOND, "flashed", 0, 255);
-    values.emplace_back("smoked", "烟雾遮蔽程度", QueryPeriod::SECOND, "smoked", 0, 255);
-    values.emplace_back("burning", "燃烧灼烧程度", QueryPeriod::SECOND, "burning", 0, 255);
-    values.emplace_back("round_kills", "当前回合击杀数", QueryPeriod::SECOND, "round_kills", 0, 255);
-    values.emplace_back("round_killhs", "当前回合爆头击杀数", QueryPeriod::SECOND, "round_killhs", 0, 255);
-    values.emplace_back("round_totaldmg", "当前回合总伤害", QueryPeriod::SECOND, "round_totaldmg", 0, 10000);
-    values.emplace_back("equip_value", "装备总价值", QueryPeriod::SECOND, "equip_value", 0, 65535);
-    values.emplace_back("kills", "总击杀数", QueryPeriod::SECOND, "kills", 0, 99999);
-    values.emplace_back("assists", "总助攻数", QueryPeriod::SECOND, "assists", 0, 99999);
-    values.emplace_back("deaths", "总死亡数", QueryPeriod::SECOND, "deaths", 0, 99999);
-    values.emplace_back("mvps", "MVP 次数", QueryPeriod::SECOND, "mvps", 0, 99999);
-    // 团队/地图/本地状态类（字符串字段映射为整数的数值单列在末尾）
-    values.emplace_back("ct_score", "CT 队伍得分", QueryPeriod::SECOND, "map.team_ct.score", 0, 999);
-    values.emplace_back("t_score", "T 队伍得分", QueryPeriod::SECOND, "map.team_t.score", 0, 999);
-    values.emplace_back("ct_consecutive_round_losses", "CT 连续失利次数", QueryPeriod::SECOND,
-        "map.team_ct.consecutive_round_losses", 0, 99);
-    values.emplace_back("t_consecutive_round_losses", "T 连续失利次数", QueryPeriod::SECOND,
-        "map.team_t.consecutive_round_losses", 0, 99);
-    values.emplace_back("bomb_state", "炸弹状态", QueryPeriod::SECOND, "bomb.state", 0, 4);
-    values.emplace_back("map_phase", "地图阶段", QueryPeriod::SECOND, "map.phase", 0, 6);
-    // 字符串/枚举映射类（映射表见 update_team_values 与 README「非数值映射」）
-    values.emplace_back("round_phase", "回合阶段", QueryPeriod::SECOND, "round.phase", 0, 2);
-    values.emplace_back("activity", "游戏活动状态", QueryPeriod::SECOND, "player.activity", 0, 2);
-    return values;
-}
-
 // 生命周期（public）
 
 PluginError CS2GsiPlugin::initialize() {
@@ -62,11 +22,11 @@ PluginError CS2GsiPlugin::initialize() {
     if (!host_) {
         return PluginError::NotInitialized;
     }
-    // 1) 注册完整数值列表到模块管理器（模块名 = 插件名，挂载到 A/B 通道）
+    // 先注册完整数值列表到模块管理器（模块名 = 插件名，挂载到 A/B 通道）
     host_->register_module_values(name(), create_default_values(), {"A", "B"});
-    // 2) 加载已记录的配置路径/目录/端口（user 配置 app.gsi 下）
+    // 再加载已记录的配置路径/目录/端口（user 配置 app.gsi 下）
     load_config_path();
-    // 3) 首次运行（无记录）或目录失效时：查找 CS 目录并生成配置文件
+    // 之后处理首次运行（无记录）或目录失效：查找 CS 目录并生成配置文件
     if (config_path_.empty() || !QFile::exists(QString::fromStdString(config_path_))) {
         QString cs_dir = find_cs_directory();
         if (cs_dir.isEmpty()) {
@@ -78,10 +38,10 @@ PluginError CS2GsiPlugin::initialize() {
         }
     }
     last_min_period_ms_ = host_->base_period_ms();
-    // 4) 注册 GSI 数据处理器（来源 CS2 GSI / 类型 gsi）
+    // 接着注册 GSI 数据处理器（来源 CS2 GSI / 类型 gsi）
     host_->register_data_handler(name(), "gsi",
         [this](const QJsonObject& data) { on_gsi_data(data); });
-    // 5) 启动 GSI 端口监听（接收 CS2 游戏数据）
+    // 最后启动 GSI 端口监听（接收 CS2 游戏数据）
     start_gsi_listener();
     initialized_ = true;
     PLUGIN_LOG(this, PluginLogLevel::Info, "CS2 GSI 插件初始化完成，配置文件: " << config_path_);
@@ -128,6 +88,44 @@ void CS2GsiPlugin::on_host_period_changed() {
     else {
         PLUGIN_LOG(this, PluginLogLevel::Info, "CS2 未运行，配置已更新（下次启动游戏自动加载）");
     }
+}
+
+// 数值定义（public）
+
+std::vector<ModuleValue> CS2GsiPlugin::create_default_values() {
+    // 完整数值列表（参照官方 GSI 规范）：个人状态类数值队友数据不更新，团队/地图类始终更新
+    std::vector<ModuleValue> values;
+    // 个人状态类（最值参照官方 GSI 取值，写入时自动钳制到范围）
+    values.emplace_back("health", "当前血量", QueryPeriod::QUARTER_SECOND, "m_iHealth", 0, 100);
+    values.emplace_back("armor", "当前护甲", QueryPeriod::HALF_SECOND, "m_ArmorValue", 0, 100);
+    values.emplace_back("money", "金钱", QueryPeriod::TWO_SECONDS, "m_iMoney", 0, 16000);
+    values.emplace_back("team_num", "队伍编号", QueryPeriod::SECOND, "team", 2, 3);
+    values.emplace_back("has_helmet", "是否有头盔", QueryPeriod::FOUR_SECONDS, "m_bHasHelmet", 0, 1);
+    values.emplace_back("has_defuser", "是否有拆弹器", QueryPeriod::FOUR_SECONDS, "m_bHasDefuser", 0, 1);
+    values.emplace_back("flashed", "闪光致盲程度", QueryPeriod::SECOND, "flashed", 0, 255);
+    values.emplace_back("smoked", "烟雾遮蔽程度", QueryPeriod::SECOND, "smoked", 0, 255);
+    values.emplace_back("burning", "燃烧灼烧程度", QueryPeriod::SECOND, "burning", 0, 255);
+    values.emplace_back("round_kills", "当前回合击杀数", QueryPeriod::SECOND, "round_kills", 0, 255);
+    values.emplace_back("round_killhs", "当前回合爆头击杀数", QueryPeriod::SECOND, "round_killhs", 0, 255);
+    values.emplace_back("round_totaldmg", "当前回合总伤害", QueryPeriod::SECOND, "round_totaldmg", 0, 10000);
+    values.emplace_back("equip_value", "装备总价值", QueryPeriod::SECOND, "equip_value", 0, 65535);
+    values.emplace_back("kills", "总击杀数", QueryPeriod::SECOND, "kills", 0, 99999);
+    values.emplace_back("assists", "总助攻数", QueryPeriod::SECOND, "assists", 0, 99999);
+    values.emplace_back("deaths", "总死亡数", QueryPeriod::SECOND, "deaths", 0, 99999);
+    values.emplace_back("mvps", "MVP 次数", QueryPeriod::SECOND, "mvps", 0, 99999);
+    // 团队/地图/本地状态类（字符串字段映射为整数的数值单列在末尾）
+    values.emplace_back("ct_score", "CT 队伍得分", QueryPeriod::SECOND, "map.team_ct.score", 0, 999);
+    values.emplace_back("t_score", "T 队伍得分", QueryPeriod::SECOND, "map.team_t.score", 0, 999);
+    values.emplace_back("ct_consecutive_round_losses", "CT 连续失利次数", QueryPeriod::SECOND,
+        "map.team_ct.consecutive_round_losses", 0, 99);
+    values.emplace_back("t_consecutive_round_losses", "T 连续失利次数", QueryPeriod::SECOND,
+        "map.team_t.consecutive_round_losses", 0, 99);
+    values.emplace_back("bomb_state", "炸弹状态", QueryPeriod::SECOND, "bomb.state", 0, 4);
+    values.emplace_back("map_phase", "地图阶段", QueryPeriod::SECOND, "map.phase", 0, 6);
+    // 字符串/枚举映射类（映射表见 update_team_values 与 README「非数值映射」）
+    values.emplace_back("round_phase", "回合阶段", QueryPeriod::SECOND, "round.phase", 0, 2);
+    values.emplace_back("activity", "游戏活动状态", QueryPeriod::SECOND, "player.activity", 0, 2);
+    return values;
 }
 
 // GSI 数据处理（private）
@@ -474,7 +472,7 @@ bool CS2GsiPlugin::is_process_running(const QString& process_name) {
 
 QJsonValue CS2GsiPlugin::extract_gsi_value(const QJsonObject& data, const QString& group,
     const QString& sub, const QString& field) {
-    // 1) 标准结构 data[group][sub][field]（如 player.state.health / map.team_ct.score）
+    // 先按标准结构取 data[group][sub][field]（如 player.state.health / map.team_ct.score）
     if (!sub.isEmpty() && data.contains(group) && data[group].isObject()) {
         const QJsonObject group_obj = data[group].toObject();
         if (group_obj.contains(sub) && group_obj[sub].isObject()) {
@@ -484,7 +482,7 @@ QJsonValue CS2GsiPlugin::extract_gsi_value(const QJsonObject& data, const QStrin
             }
         }
     }
-    // 2) 变体结构 data[group_sub][field]（如 player_state.health / player_match_stats.kills）
+    // 再按变体结构取 data[group_sub][field]（如 player_state.health / player_match_stats.kills）
     if (!sub.isEmpty()) {
         const QString flat = group + "_" + sub;
         if (data.contains(flat) && data[flat].isObject()) {
@@ -494,7 +492,7 @@ QJsonValue CS2GsiPlugin::extract_gsi_value(const QJsonObject& data, const QStrin
             }
         }
     }
-    // 3) 直接结构 data[group][field]（如 player.steamid / player.team / map.phase / bomb.state）
+    // 最后按直接结构取 data[group][field]（如 player.steamid / player.team / map.phase / bomb.state）
     if (data.contains(group) && data[group].isObject()) {
         const QJsonObject group_obj = data[group].toObject();
         if (group_obj.contains(field)) {

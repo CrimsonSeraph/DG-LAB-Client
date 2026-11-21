@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -17,7 +15,7 @@ class QTimer;
 
 // LogBridge - 界面日志桥接（QML 上下文属性 logBridge）
 // 职责：注册 DebugLog 输出通道收集运行日志供 QML 展示、按级别过滤、
-//      导出界面日志（手动日志），并启动自动日志记录。
+//      导出界面日志（手动日志），并启动自动日志记录
 class LogBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList messages READ messages NOTIFY messagesChanged)

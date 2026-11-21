@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -11,7 +9,7 @@
 
 // ModuleBridge - 模块页桥接（QML 上下文属性 moduleBridge）
 // 职责：汇总插件卡片与内置模块卡片、统一查询周期选项、被选中模块的数值列表，
-//      并转发统一周期设置与插件启用/禁用操作。
+//      并转发统一周期设置与插件启用/禁用操作
 class ModuleBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList modules READ modules NOTIFY dataChanged)

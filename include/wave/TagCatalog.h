@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -19,7 +17,7 @@ struct TagCategoryDef {
 // TagCatalog - 内置标签数据的唯一编辑入口
 // 内置分类（固定七类，名称与顺序不可调）、每个内置分类下的内置标签、官方波形按内置表
 // 自动挂载的标签，全部定义在 src/wave/TagCatalog.cpp 的两张代码表里；分类顺序决定
-// 波形上标签的显示顺序。维护内置标签数据只改这一处。
+// 波形上标签的显示顺序，维护内置标签数据只改这一处
 class TagCatalog {
 public:
     /// @brief 内置分类定义（固定七类，顺序即波形上标签的显示顺序）

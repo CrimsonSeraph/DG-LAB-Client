@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "BleDeviceManager.h"
 
@@ -234,6 +232,57 @@ void BleDeviceManager::close_all_input_links() {
     }
 }
 
+void BleDeviceManager::watch_link(IOutputDevice* device, const QString& mac) {
+    if (device == nullptr) {
+        return;
+    }
+    const QString key = LinkRegistry::normalize(mac);
+    connect(device, &IOutputDevice::outputStateChanged, this, [this, device, key]() {
+        if (device->connected() || !registry_.contains(key)) {
+            return;
+        }
+        // 设备自行掉线（断电 / 超距）：注销并销毁该 MAC 的实例，其它设备保持连接
+        LOG_MODULE("BleDeviceManager", "watch_link", LOG_INFO,
+            "链路自行掉线，已注销:" << key.toStdString());
+        close_link(key);
+    });
+}
+
+void BleDeviceManager::watch_coyote(CoyoteBleDevice* device, const QString& mac) {
+    if (device == nullptr) {
+        return;
+    }
+    const QString key = LinkRegistry::normalize(mac);
+    connect(device, &CoyoteBleDevice::statusChanged, this, [this, device, key]() {
+        status_text_.insert(key, device->status());
+        emit linkStatusChanged(device);
+    });
+    connect(device, &QObject::destroyed, this, [this, key]() {
+        registry_.remove(key);
+        status_text_.remove(key);
+        screen_sync_.remove(key);
+    });
+}
+
+void BleDeviceManager::watch_opossum(OpossumBleController* device, const QString& mac) {
+    if (device == nullptr) {
+        return;
+    }
+    const QString key = LinkRegistry::normalize(mac);
+    connect(device, &OpossumBleController::statusChanged, this, [this, device, key]() {
+        status_text_.insert(key, device->status());
+        emit linkStatusChanged(device);
+    });
+    connect(device, &OpossumBleController::screenSyncChanged, this, [this, device, key]() {
+        screen_sync_.insert(key, device->screen_sync_available());
+    });
+    connect(device, &QObject::destroyed, this, [this, key]() {
+        registry_.remove(key);
+        status_text_.remove(key);
+        screen_sync_.remove(key);
+    });
+}
+
 void BleDeviceManager::sync_input_link_state(const QString& mac) {
     const QString key = LinkRegistry::normalize(mac);
     InputLink* link = input_links_.value(key, nullptr);
@@ -284,55 +333,4 @@ void BleDeviceManager::sync_input_link_status(const QString& mac) {
         link->battery = civet->battery();
     }
     emit inputLinkStatusChanged(link);
-}
-
-void BleDeviceManager::watch_link(IOutputDevice* device, const QString& mac) {
-    if (device == nullptr) {
-        return;
-    }
-    const QString key = LinkRegistry::normalize(mac);
-    connect(device, &IOutputDevice::outputStateChanged, this, [this, device, key]() {
-        if (device->connected() || !registry_.contains(key)) {
-            return;
-        }
-        // 设备自行掉线（断电 / 超距）：注销并销毁该 MAC 的实例，其它设备保持连接
-        LOG_MODULE("BleDeviceManager", "watch_link", LOG_INFO,
-            "链路自行掉线，已注销:" << key.toStdString());
-        close_link(key);
-    });
-}
-
-void BleDeviceManager::watch_coyote(CoyoteBleDevice* device, const QString& mac) {
-    if (device == nullptr) {
-        return;
-    }
-    const QString key = LinkRegistry::normalize(mac);
-    connect(device, &CoyoteBleDevice::statusChanged, this, [this, device, key]() {
-        status_text_.insert(key, device->status());
-        emit linkStatusChanged(device);
-    });
-    connect(device, &QObject::destroyed, this, [this, key]() {
-        registry_.remove(key);
-        status_text_.remove(key);
-        screen_sync_.remove(key);
-    });
-}
-
-void BleDeviceManager::watch_opossum(OpossumBleController* device, const QString& mac) {
-    if (device == nullptr) {
-        return;
-    }
-    const QString key = LinkRegistry::normalize(mac);
-    connect(device, &OpossumBleController::statusChanged, this, [this, device, key]() {
-        status_text_.insert(key, device->status());
-        emit linkStatusChanged(device);
-    });
-    connect(device, &OpossumBleController::screenSyncChanged, this, [this, device, key]() {
-        screen_sync_.insert(key, device->screen_sync_available());
-    });
-    connect(device, &QObject::destroyed, this, [this, key]() {
-        registry_.remove(key);
-        status_text_.remove(key);
-        screen_sync_.remove(key);
-    });
 }

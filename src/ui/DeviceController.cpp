@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "DeviceController.h"
 
@@ -31,9 +29,9 @@
 
 namespace {
 
-    constexpr int MAX_STRENGTH = 200; ///< 设备强度上限
-    constexpr int MODE_SET = 2;       ///< 强度模式：设为（其余为相对增减）
-    constexpr const char* kTargetCoyote = "coyote"; ///< 输出目标：郊狼 V3 蓝牙直连
+    constexpr int MAX_STRENGTH = 200; // 设备强度上限
+    constexpr int MODE_SET = 2;       // 强度模式：设为（其余为相对增减）
+    constexpr const char* kTargetCoyote = "coyote"; // 输出目标：郊狼 V3 蓝牙直连
 
     // 通道输出目标配置键（app.output.<A|B>.target）
     QString output_target_key(int index) {
@@ -268,6 +266,13 @@ void DeviceController::notify_experimental_device(const QString& mac) {
     emit experimentalDeviceNotice(QStringLiteral("此设备连接为实验性，功能未经完整验证"));
 }
 
+void DeviceController::notify_experimental_device(IOutputDevice* device) {
+    if (device == nullptr || device->support_state() != IOutputDevice::SupportState::Experimental) {
+        return;
+    }
+    notify_experimental_device(device->device_address());
+}
+
 bool DeviceController::output_available() const {
     return connected_ || ble_ready();
 }
@@ -289,7 +294,7 @@ EventChannelConfig DeviceController::limits_for(const QString& mac, const QStrin
     if (device.isEmpty() || (!is_a && !is_b)) {
         return config;
     }
-    // 设备特有键直接读配置：配置文件改动由配置系统重读后进入内存，这里不再另存快照
+    // 设备特有键直接读配置：配置改动经配置系统重读后进入内存，本类不另存快照
     const nlohmann::json section = device_section_of(device);
     device_section_value(section, is_a ? "limit_a" : "limit_b", &config.limit);
     device_section_value(section, is_a ? "safety_a" : "safety_b", &config.safety);
@@ -549,12 +554,12 @@ bool DeviceController::v3_paired() const {
     return relay_ != nullptr && relay_->v3_paired();
 }
 
-int DeviceController::app_client_count() const {
-    return relay_ != nullptr ? static_cast<int>(relay_->client_count()) : 0;  ///< QML appClientCount 为 int，客户端数远小于 INT_MAX
-}
-
 bool DeviceController::v4_attached() const {
     return relay_ != nullptr && relay_->v4_attached();
+}
+
+int DeviceController::app_client_count() const {
+    return relay_ != nullptr ? static_cast<int>(relay_->client_count()) : 0;  // QML appClientCount 为 int，客户端数远小于 INT_MAX
 }
 
 QVariantList DeviceController::v4_devices() const {
@@ -860,13 +865,6 @@ int DeviceController::connection_order(const IOutputDevice* device) const {
     return it == connection_order_.constEnd() ? std::numeric_limits<int>::max() : it.value();
 }
 
-void DeviceController::notify_experimental_device(IOutputDevice* device) {
-    if (device == nullptr || device->support_state() != IOutputDevice::SupportState::Experimental) {
-        return;
-    }
-    notify_experimental_device(device->device_address());
-}
-
 void DeviceController::refresh_limits() {
     // 上下限来自配置系统（外部手改已由 ConfigManager 重读），这里只比较变化并广播
     const int limit_a = channel_limit(QStringLiteral("A"));
@@ -988,7 +986,7 @@ void DeviceController::tick_event_wave(int index, const QString& wave_name) {
         return;
     case EventWaveAction::START:
     case EventWaveAction::REPLACE:
-        // 事件波形优先：接管时丢弃规则侧登记，规则波形的停止计时不再生效
+        // 事件波形优先：接管时丢弃规则侧登记，规则波形的停止计时不生效
         rule_wave_[index] = RuleWaveState();
         last_refused_wave_[index].clear();
         start_event_wave(index, event_wave_[index].wave_name, frames);

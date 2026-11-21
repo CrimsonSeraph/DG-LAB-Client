@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -19,7 +17,7 @@ class QWebSocketServer;
 class QTimer;
 
 // DglabRelayServer - 应用内 DG-LAB WebSocket 中转服务（V3 / V4）
-// 端口、配对模型与消息集合见 include/README.md 的「关键协议与约定」。
+// 端口、配对模型与消息集合见 include/README.md 的「关键协议与约定」
 class DglabRelayServer : public QObject {
     Q_OBJECT
 

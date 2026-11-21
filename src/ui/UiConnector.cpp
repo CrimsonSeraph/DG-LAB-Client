@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "UiConnector.h"
 
@@ -43,7 +41,7 @@
 
 namespace {
 
-    /// @brief 页面切换按钮 objectName -> 页面索引（左侧导航与左下角面板入口共用）
+    // 页面切换按钮 objectName -> 页面索引（左侧导航与左下角面板入口共用）
     const QHash<QString, int>& nav_bindings() {
         static const QHash<QString, int> bindings = {
             {QStringLiteral("navHomeButton"), AppBridge::HomePage},
@@ -58,10 +56,10 @@ namespace {
         return bindings;
     }
 
-    /// @brief 输入类控件的类名：焦点落在这些控件（或其子项）里时，Enter 属于输入本身
-    /// @note 用 QObject::inherits 走元对象链判断，不依赖 QtQuick 私有头里的具体类；
-    ///       TextField 继承 TextInput，TextArea（QQuickTextArea）继承 TextEdit，
-    ///       SpinBox 的 contentItem 就是 TextInput，三种都覆盖到
+    // 输入类控件的类名：焦点落在这些控件（或其子项）里时，Enter 属于输入本身
+    // 用 QObject::inherits 走元对象链判断，不依赖 QtQuick 私有头里的具体类；
+    //       TextField 继承 TextInput，TextArea（QQuickTextArea）继承 TextEdit，
+    //       SpinBox 的 contentItem 就是 TextInput，三种都覆盖到
     const char* const k_text_entry_classes[] = {
         "QQuickTextInput", // TextInput / TextField / SpinBox 的 contentItem
         "QQuickTextEdit",  // TextEdit / TextArea
@@ -69,7 +67,7 @@ namespace {
         "QQuickComboBox",  // ComboBox：Enter 用于确认下拉选择，不该触发主操作
     };
 
-    /// @brief 焦点对象或其任一父级是否属于输入类控件
+    // 焦点对象或其任一父级是否属于输入类控件
     bool is_text_entry(QObject* object) {
         for (QObject* current = object; current != nullptr; current = current->parent()) {
             for (const char* class_name : k_text_entry_classes) {
@@ -81,12 +79,12 @@ namespace {
         return false;
     }
 
-    /// @brief 是否为规则编辑器窗口：它是独立顶层窗口，关闭事件与键位按 objectName 识别
+    // 是否为规则编辑器窗口：它是独立顶层窗口，关闭事件与键位按 objectName 识别
     bool is_rule_editor_window(QObject* watched) {
         return watched != nullptr && watched->objectName() == QLatin1String("ruleEditorDialog");
     }
 
-    /// @brief 读取 QML 样式单例的令牌值，避免在 C++ 里复制度量数字
+    // 读取 QML 样式单例的令牌值，避免在 C++ 里复制度量数字
     qreal qml_token(QObject* anchor, const char* singleton, const char* property, qreal fallback) {
         if (anchor == nullptr) {
             return fallback;
@@ -105,8 +103,8 @@ namespace {
         return value.isValid() ? value.toReal() : fallback;
     }
 
-    /// @brief 从 "channelAStartButton" / "miniWindowChannelAToggleButton" 这类名字中解析通道（A/B）
-    /// @note 大小写不敏感：既有的看板按钮是 "channelA..."，迷你窗按钮是 "...ChannelA..."
+    // 从 "channelAStartButton" / "miniWindowChannelAToggleButton" 这类名字中解析通道（A/B）
+    // 大小写不敏感：既有的看板按钮是 "channelA..."，迷你窗按钮是 "...ChannelA..."
     QString channel_of(const QString& object_name) {
         const qsizetype index = object_name.indexOf(QStringLiteral("channel"), 0, Qt::CaseInsensitive);
         if (index < 0 || index + 8 >= object_name.size()) {
@@ -115,17 +113,17 @@ namespace {
         return object_name.mid(index + 7, 1).toUpper();
     }
 
-    constexpr qsizetype kMiniWindowWaveFrames = 32; ///< 迷你窗滚动窗口帧数（每帧 100 ms）
+    constexpr qsizetype kMiniWindowWaveFrames = 32; // 迷你窗滚动窗口帧数（每帧 100 ms）
 
     // 强度指令参数取值，语义见 include/ble/CoyoteBleController.h:56：
     // setStrength(channel: 1=A / 2=B；mode: 0 减 / 1 增 / 2 设为；value: 步数或目标值)
-    constexpr int kStrengthChannelA = 1;     ///< 通道号：A
-    constexpr int kStrengthChannelB = 2;     ///< 通道号：B
-    constexpr int kStrengthModeDecrease = 0; ///< 强度模式：减少
-    constexpr int kStrengthModeIncrease = 1; ///< 强度模式：增加
-    constexpr int kStrengthStep = 1;         ///< 单次点击的调节步数
+    constexpr int kStrengthChannelA = 1;     // 通道号：A
+    constexpr int kStrengthChannelB = 2;     // 通道号：B
+    constexpr int kStrengthModeDecrease = 0; // 强度模式：减少
+    constexpr int kStrengthModeIncrease = 1; // 强度模式：增加
+    constexpr int kStrengthStep = 1;         // 单次点击的调节步数
 
-    /// @brief 取以 cursor 结尾的最近若干帧，序列不足时按实际长度取
+    // 取以 cursor 结尾的最近若干帧，序列不足时按实际长度取
     QVariantList rolling_window(const QVariantList& series, qint64 cursor) {
         QVariantList window;
         const qsizetype total = series.size();
@@ -140,7 +138,7 @@ namespace {
         return window;
     }
 
-    /// @brief HEX 文本解析：#RGB / #RRGGBB（可省 #），非法返回无效颜色
+    // HEX 文本解析：#RGB / #RRGGBB（可省 #），非法返回无效颜色
     QColor parse_hex_color(const QString& text) {
         QString value = text.trimmed();
         if (value.startsWith(QLatin1Char('#'))) {
@@ -162,7 +160,7 @@ namespace {
         return color.isValid() ? color : QColor();
     }
 
-    /// @brief 颜色转 #RRGGBB 回显文本（HEX 输入框与规范化共用同一格式）
+    // 颜色转 #RRGGBB 回显文本（HEX 输入框与规范化共用同一格式）
     QString color_hex_text(const QColor& color) {
         return color.name(QColor::HexRgb).toUpper();
     }
@@ -277,7 +275,7 @@ UiConnector::UiConnector(AppBridge* app, HomeBridge* home, ThemeManager* theme,
                 }
             });
         // device_.initialize() 早于本类构造，启动期（如中转服务端口占用）发出的 errorOccurred
-        // 没有接收者；在此用 lastError 补弹一次 Toast，不改动 initialize() 的时序与信号语义。
+        // 没有接收者；在此用 lastError 补弹一次 Toast，不改动 initialize() 的时序与信号语义
         const QString startup_error = device_->last_error();
         if (!startup_error.isEmpty() && app_ != nullptr) {
             app_->showToast(startup_error, AppBridge::StatusDanger);
@@ -594,7 +592,7 @@ void UiConnector::attach(QObject* root_object) {
     }
     connect_clicked(root_object, "logExportDirApplyButton", SLOT(on_log_export_dir_applied()));
     // 日志列表贴底跟随：用户滚动结束后按 atYEnd 维护 QML 侧 stickToBottom，
-    // 上滚回看历史时不跟新日志，滚回底部后恢复跟随。
+    // 上滚回看历史时不跟新日志，滚回底部后恢复跟随
     auto* log_list = root_object->findChild<QObject*>(QStringLiteral("logList"));
     if (log_list == nullptr) {
         LOG_MODULE("UiConnector", "attach", LOG_WARN, "未找到控件: logList");
@@ -618,217 +616,34 @@ void UiConnector::attach(QObject* root_object) {
     LOG_MODULE("UiConnector", "attach", LOG_INFO, "QML 连接已完成");
 }
 
-// 取 QML 上下文属性里的桥接对象（如注入的 eventBridge）：不引入新的构造参数，也不改装配入口
-QObject* UiConnector::context_object(const char* name) const {
-    if (root_.isNull()) {
-        return nullptr;
-    }
-    QQmlContext* context = qmlContext(root_.data());
-    if (context == nullptr) {
-        return nullptr;
-    }
-    return context->contextProperty(QString::fromLatin1(name)).value<QObject*>();
-}
-
-QObject* UiConnector::find(const char* object_name) const {
-    if (root_.isNull()) {
-        return nullptr;
-    }
-    return root_->findChild<QObject*>(QString::fromLatin1(object_name));
-}
-
-void UiConnector::apply_selected_ip(const QString& ip) {
-    if (device_ == nullptr || ip.isEmpty()) {
+void UiConnector::ask_confirm(const QString& title, const QString& message, bool danger,
+    std::function<void()> on_accept) {
+    if (confirm_dialog_.isNull()) {
+        LOG_MODULE("UiConnector", "ask_confirm", LOG_WARN,
+            "确认弹层缺失，待确认动作未执行: " + title.toStdString());
         return;
     }
-    auto* port_field = find("configPortField");
-    const int port = (port_field != nullptr) ? port_field->property("text").toInt() : device_->port();
-    // 先把地址写回地址栏，再走既有 setEndpoint：地址栏、绑定地址与二维码载荷不会分叉
-    if (auto* ip_field = find("configIpField")) {
-        ip_field->setProperty("text", ip);
-    }
-    device_->setEndpoint(ip, port > 0 ? port : device_->port());
-}
-
-void UiConnector::add_keyword_from_field(const char* field_name, bool whitelist) {
-    if (ip_selector_ == nullptr) {
-        return;
-    }
-    auto* field = find(field_name);
-    const QString keyword = (field != nullptr) ? field->property("text").toString().trimmed() : QString();
-    if (keyword.isEmpty()) {
-        if (app_ != nullptr) {
-            app_->showToast(QStringLiteral("关键词不能为空"), AppBridge::StatusWarning);
+    // 主窗口隐藏到托盘或最小化时先拉起：弹层是主窗口内的 Popup，主窗口不可见时弹层也看不见
+    auto* host_window = qobject_cast<QQuickWindow*>(root_.data());
+    if (host_window != nullptr && (!host_window->isVisible() || (host_window->windowState() & Qt::WindowMinimized) != 0)) {
+        if (!host_window->isVisible()) {
+            host_window->show();
         }
-        return;
-    }
-    const bool added = whitelist ? ip_selector_->add_whitelist_keyword(keyword)
-                                 : ip_selector_->add_blacklist_keyword(keyword);
-    if (!added) {
-        return;
-    }
-    if (field != nullptr) {
-        field->setProperty("text", QString());
-    }
-    ip_selector_->refresh_candidates();
-}
-
-void UiConnector::setup_mini_window(QObject* root_object) {
-    auto* window = root_object->findChild<QQuickWindow*>(QStringLiteral("miniWindow"));
-    if (window == nullptr) {
-        LOG_MODULE("UiConnector", "setup_mini_window", LOG_WARN,
-            "未找到迷你窗 miniWindow，迷你窗入口不可用");
-        return;
-    }
-    mini_window_ = window;
-
-    QScreen* primary = QGuiApplication::primaryScreen();
-    if (primary == nullptr) {
-        LOG_MODULE("UiConnector", "setup_mini_window", LOG_WARN, "无可用屏幕信息，迷你窗保持默认位置");
-        return;
-    }
-
-    // 位置取上次保存值，未保存过时落在主屏右上角；宽度由大小档位、高度由内容决定
-    const bool restored = home_ != nullptr && home_->mini_window_width() > 0;
-    const qreal margin = qml_token(root_object, "Metrics", "spacing3xl", 28.0);
-    const int width = std::max(1, window->width());
-    const int height = std::max(1, window->height());
-
-    QPoint position(0, 0);
-    if (restored) {
-        position = QPoint(home_->mini_window_x(), home_->mini_window_y());
-    }
-    QScreen* screen = QGuiApplication::screenAt(
-        QRect(position, QSize(width, height)).center());
-    if (screen == nullptr) {
-        // 落点不在任何屏幕上（拔掉外接屏 / 分辨率变更）：回到主屏
-        screen = primary;
-    }
-    const QRect area = screen->availableGeometry();
-    const int visible_width = std::min(width, area.width());
-    const int visible_height = std::min(height, area.height());
-    if (!restored) {
-        position = QPoint(static_cast<int>(area.right() - visible_width - margin * 2),
-            static_cast<int>(area.top() + margin * 2));
-    }
-    const int x = std::clamp(position.x(), area.left(),
-        std::max(area.left(), area.right() - visible_width + 1));
-    const int y = std::clamp(position.y(), area.top(),
-        std::max(area.top(), area.bottom() - visible_height + 1));
-
-    mini_window_save_timer_.setSingleShot(true);
-    mini_window_save_timer_.setInterval(400);
-    connect(&mini_window_save_timer_, &QTimer::timeout, this,
-        &UiConnector::save_mini_window_state);
-    connect(window, &QWindow::xChanged, this, &UiConnector::on_mini_window_geometry_changed);
-    connect(window, &QWindow::yChanged, this, &UiConnector::on_mini_window_geometry_changed);
-    connect(window, &QWindow::widthChanged, this, &UiConnector::on_mini_window_geometry_changed);
-    connect(window, &QWindow::heightChanged, this, &UiConnector::on_mini_window_geometry_changed);
-
-    // 波形滚动只在窗口可见时跑：100 ms 一拍，与波形帧长度一致（QML 侧不另开计时器）
-    mini_window_wave_timer_.setInterval(100);
-    connect(&mini_window_wave_timer_, &QTimer::timeout, this, &UiConnector::on_mini_window_wave_advanced);
-    connect(window, &QWindow::visibleChanged, this, &UiConnector::on_mini_window_visibility_changed);
-    if (wave_ != nullptr) {
-        connect(wave_, &WaveBridge::dataChanged, this, &UiConnector::on_mini_window_wave_reset);
-    }
-
-    // 只挪位置：宽高由 QML 绑定（大小档位 + 内容高度）决定，setGeometry 会把绑定打断
-    window->setPosition(x, y);
-    // 首次运行没有存档：把落点写回配置，下次启动从同一位置恢复
-    save_mini_window_state();
-    LOG_MODULE("UiConnector", "setup_mini_window", LOG_DEBUG,
-        "迷你窗位置恢复: " << x << "," << y << " " << width << "x" << height);
-}
-
-void UiConnector::save_mini_window_state() {
-    if (mini_window_.isNull() || home_ == nullptr) {
-        return;
-    }
-    home_->saveMiniWindowState(mini_window_->x(), mini_window_->y(),
-        mini_window_->width(), mini_window_->height());
-}
-
-void UiConnector::apply_mini_window_wave() {
-    if (home_ == nullptr || wave_ == nullptr) {
-        return;
-    }
-    home_->setMiniWindowWave(rolling_window(wave_->amplitude_a(), mini_window_wave_cursor_),
-        rolling_window(wave_->amplitude_b(), mini_window_wave_cursor_));
-}
-
-void UiConnector::connect_clicked(QObject* root_object, const char* object_name, const char* slot) {
-    auto* target = root_object->findChild<QObject*>(QString::fromLatin1(object_name));
-    if (target == nullptr) {
-        LOG_MODULE("UiConnector", "connect_clicked", LOG_WARN, std::string("未找到控件: ") + object_name);
-        return;
-    }
-    QObject::connect(target, SIGNAL(clicked()), this, slot);
-}
-
-void UiConnector::open_dialog(const char* object_name) {
-    auto* dialog = find(object_name);
-    if (dialog == nullptr) {
-        LOG_MODULE("UiConnector", "open_dialog", LOG_WARN, std::string("未找到对话框: ") + object_name);
-        return;
-    }
-    // 顶层窗口（规则编辑器）没有 Popup 的 open()：显示窗口，最小化时先还原
-    if (auto* window = qobject_cast<QQuickWindow*>(dialog)) {
-        if ((window->windowState() & Qt::WindowMinimized) != 0) {
-            window->showNormal();
+        if ((host_window->windowState() & Qt::WindowMinimized) != 0) {
+            host_window->showNormal();
         }
-        else {
-            window->show();
-        }
-        window->raise();
-        window->requestActivate();
-        return;
+        host_window->raise();
+        host_window->requestActivate();
     }
-    QMetaObject::invokeMethod(dialog, "open");
-}
-
-void UiConnector::close_dialog(const char* object_name) {
-    auto* dialog = find(object_name);
-    if (dialog != nullptr) {
-        QMetaObject::invokeMethod(dialog, "close");
-    }
-}
-
-void UiConnector::open_file_dialog(const char* object_name, const QString& suggested_path) {
-    auto* dialog = find(object_name);
-    if (dialog == nullptr) {
-        LOG_MODULE("UiConnector", "open_file_dialog", LOG_WARN,
-            std::string("未找到文件对话框: ") + object_name);
-        return;
-    }
-    // 保存对话框：打开前写入建议文件名（一次性写属性，QML 侧不对 currentFile 绑定）
-    if (!suggested_path.isEmpty()) {
-        dialog->setProperty("currentFile", QUrl::fromLocalFile(suggested_path));
-    }
-    QMetaObject::invokeMethod(dialog, "open");
-}
-
-void UiConnector::toggle_view_expansion(const char* property_name, const char* name_property) {
-    auto* item = sender();
-    auto* page = find("wavePage");
-    if (item == nullptr || page == nullptr) {
-        return;
-    }
-    const QString name = item->property(name_property).toString();
-    if (name.isEmpty()) {
-        return;
-    }
-    QMetaObject::invokeMethod(page, "toggleExpanded", Q_ARG(QVariant, QString::fromLatin1(property_name)),
-        Q_ARG(QVariant, name));
-}
-
-bool UiConnector::dialog_visible(const char* object_name) const {
-    QObject* dialog = find(object_name);
-    return dialog != nullptr && dialog->property("visible").toBool();
+    confirm_dialog_->setProperty("titleText", title);
+    confirm_dialog_->setProperty("messageText", message);
+    confirm_dialog_->setProperty("acceptDanger", danger);
+    confirm_callback_ = std::move(on_accept);
+    QMetaObject::invokeMethod(confirm_dialog_, "open");
 }
 
 bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
-    // 规则编辑器是顶层窗口：标题栏 × 与界面「关闭」按钮都落到窗口关闭事件上。
+    // 规则编辑器是顶层窗口：标题栏 × 与界面「关闭」按钮都落到窗口关闭事件上
     // 有未保存改动时否决本次关闭（ignore 后 closeEvent() 按否决状态收尾，与 QML 里
     // close.accepted = false 等价），并在编辑器窗口内弹三选确认；没有改动照常关闭
     if (event->type() == QEvent::Close && is_rule_editor_window(watched)) {
@@ -956,224 +771,6 @@ bool UiConnector::eventFilter(QObject* watched, QEvent* event) {
     return false;
 }
 
-void UiConnector::ask_confirm(const QString& title, const QString& message, bool danger,
-    std::function<void()> on_accept) {
-    if (confirm_dialog_.isNull()) {
-        LOG_MODULE("UiConnector", "ask_confirm", LOG_WARN,
-            "确认弹层缺失，待确认动作未执行: " + title.toStdString());
-        return;
-    }
-    // 主窗口隐藏到托盘或最小化时先拉起：弹层是主窗口内的 Popup，主窗口不可见时弹层也看不见
-    auto* host_window = qobject_cast<QQuickWindow*>(root_.data());
-    if (host_window != nullptr && (!host_window->isVisible() || (host_window->windowState() & Qt::WindowMinimized) != 0)) {
-        if (!host_window->isVisible()) {
-            host_window->show();
-        }
-        if ((host_window->windowState() & Qt::WindowMinimized) != 0) {
-            host_window->showNormal();
-        }
-        host_window->raise();
-        host_window->requestActivate();
-    }
-    confirm_dialog_->setProperty("titleText", title);
-    confirm_dialog_->setProperty("messageText", message);
-    confirm_dialog_->setProperty("acceptDanger", danger);
-    confirm_callback_ = std::move(on_accept);
-    QMetaObject::invokeMethod(confirm_dialog_, "open");
-}
-
-void UiConnector::on_confirm_accepted() {
-    // 先摘下并清空回调，再关闭、执行：关闭动作本身可能再次 ask_confirm（连续确认），
-    // 后关闭会把新弹层一起关掉；清空回调则保证一次点击只触发一次动作。
-    auto action = std::move(confirm_callback_);
-    confirm_callback_ = nullptr;
-    close_dialog("confirmDialog");
-    if (action) {
-        action();
-    }
-}
-
-void UiConnector::on_confirm_canceled() {
-    confirm_callback_ = nullptr;
-    close_dialog("confirmDialog");
-}
-
-void UiConnector::watch_items(QObject* root_object, const char* owner_name, const QString& item_name,
-    const char* slot) {
-    auto* owner = root_object->findChild<QObject*>(QString::fromLatin1(owner_name));
-    if (owner == nullptr) {
-        LOG_MODULE("UiConnector", "watch_items", LOG_WARN, std::string("未找到容器: ") + owner_name);
-        return;
-    }
-    // 列表用 contentItem 承载委托；普通布局项本身即可视子树根
-    QQuickItem* item = owner->property("contentItem").value<QQuickItem*>();
-    if (item == nullptr) {
-        item = qobject_cast<QQuickItem*>(owner);
-    }
-    if (item == nullptr) {
-        LOG_MODULE("UiConnector", "watch_items", LOG_WARN, std::string("容器无可视子树: ") + owner_name);
-        return;
-    }
-    ItemWatch watch;
-    watch.owner = item;
-    watch.item_name = item_name;
-    watch.slot = slot;
-    watches_.append(watch);
-    scan_dynamic_items(item, item_name, slot);
-    QObject::connect(item, SIGNAL(childrenChanged()), this, SLOT(on_tracked_children_changed()));
-}
-
-void UiConnector::scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot) {
-    const auto children = parent->childItems();
-    for (QQuickItem* child : children) {
-        if (child->objectName() == item_name && !connected_items_.contains(child)) {
-            connected_items_.insert(child);
-            // 旧式 SIGNAL 宏按签名精确匹配：MouseArea 的 clicked 带 QQuickMouseEvent* 参数，
-            // Button 系控件是无参 clicked()，两者都要覆盖。
-            const QMetaObject* meta = child->metaObject();
-            if (meta->indexOfSignal("clicked()") >= 0) {
-                QObject::connect(child, SIGNAL(clicked()), this, slot);
-            }
-            else if (meta->indexOfSignal("clicked(QQuickMouseEvent*)") >= 0) {
-                QObject::connect(child, SIGNAL(clicked(QQuickMouseEvent*)), this, slot);
-            }
-        }
-        scan_dynamic_items(child, item_name, slot);
-    }
-}
-
-void UiConnector::on_tracked_children_changed() {
-    for (const auto& watch : watches_) {
-        scan_dynamic_items(watch.owner, watch.item_name, watch.slot);
-    }
-}
-
-void UiConnector::on_check_update_clicked() {
-    if (update_ != nullptr) {
-        update_->on_check_update_clicked();
-    }
-}
-
-void UiConnector::on_panel_check_update_clicked() {
-    // 面板按钮一次动作两件事：先打开更新对话框展示状态，再触发一次检查
-    open_dialog("updateDialog");
-    on_check_update_clicked();
-}
-
-void UiConnector::on_update_download_clicked() {
-    if (update_ != nullptr) {
-        update_->on_start_download_clicked();
-    }
-}
-
-void UiConnector::on_update_apply_clicked() {
-    if (update_ != nullptr) {
-        ask_confirm(tr("重启并安装更新"), tr("应用将关闭并自动完成更新，是否继续？"), false,
-            [this]() {
-                update_->on_apply_update_clicked();
-            });
-    }
-}
-
-void UiConnector::on_update_open_release_clicked() {
-    if (update_ != nullptr) {
-        update_->open_release_url();
-    }
-}
-
-void UiConnector::on_update_dialog_close_clicked() {
-    // 关闭只收起对话框：下载状态在 UpdateBridge 里，重开后进度照常显示
-    close_dialog("updateDialog");
-}
-
-void UiConnector::on_home_mini_window_clicked() {
-    if (mini_window_.isNull()) {
-        if (app_ != nullptr) {
-            app_->showToast(QStringLiteral("迷你窗不可用"), AppBridge::StatusDanger);
-        }
-        return;
-    }
-    if ((mini_window_->windowState() & Qt::WindowMinimized) != 0) {
-        mini_window_->showNormal();
-    }
-    else {
-        mini_window_->show();
-    }
-    mini_window_->raise();
-    mini_window_->requestActivate();
-}
-
-void UiConnector::on_mini_window_lock_clicked() {
-    if (home_ != nullptr) {
-        home_->toggleMiniWindowLock();
-    }
-}
-
-void UiConnector::on_mini_window_close_clicked() {
-    if (mini_window_.isNull()) {
-        return;
-    }
-    save_mini_window_state();
-    mini_window_->hide();
-}
-
-void UiConnector::on_mini_window_geometry_changed() {
-    mini_window_save_timer_.start();
-}
-
-void UiConnector::on_mini_window_opacity_moved() {
-    auto* slider = find("miniWindowOpacitySlider");
-    if (slider == nullptr || home_ == nullptr) {
-        return;
-    }
-    // 拖动中即时生效：QML 的 Window.opacity 绑在 home.miniWindowOpacity 上，落盘交给合并计时器
-    home_->setMiniWindowOpacity(slider->property("value").toReal());
-    mini_window_save_timer_.start();
-}
-
-void UiConnector::on_mini_window_size_clicked() {
-    auto* button = sender();
-    if (button == nullptr || home_ == nullptr) {
-        return;
-    }
-    const QString name = button->objectName();
-    if (name.endsWith(QStringLiteral("SmallButton"))) {
-        home_->setMiniWindowSize(QStringLiteral("small"));
-    }
-    else if (name.endsWith(QStringLiteral("LargeButton"))) {
-        home_->setMiniWindowSize(QStringLiteral("large"));
-    }
-    else {
-        home_->setMiniWindowSize(QStringLiteral("medium"));
-    }
-    mini_window_save_timer_.start();
-}
-
-void UiConnector::on_mini_window_visibility_changed() {
-    if (mini_window_.isNull()) {
-        return;
-    }
-    if (!mini_window_->isVisible()) {
-        mini_window_wave_timer_.stop();
-        return;
-    }
-    mini_window_wave_cursor_ = 0;
-    apply_mini_window_wave();
-    mini_window_wave_timer_.start();
-}
-
-void UiConnector::on_mini_window_wave_reset() {
-    mini_window_wave_cursor_ = 0;
-    if (!mini_window_.isNull() && mini_window_->isVisible()) {
-        apply_mini_window_wave();
-    }
-}
-
-void UiConnector::on_mini_window_wave_advanced() {
-    ++mini_window_wave_cursor_;
-    apply_mini_window_wave();
-}
-
 void UiConnector::on_nav_button_clicked() {
     auto* button = sender();
     if (button == nullptr) {
@@ -1222,27 +819,6 @@ void UiConnector::on_plugin_detail_requested(const QString& plugin_key) {
     }
     page->setProperty("selectedFile", file_name);
     page->setProperty("detailVisible", true);
-}
-
-// 插件卡规则入口：按 sender 的插件标识切到该插件图（没有图文件时按已注册数值生成默认图），再打开编辑器
-void UiConnector::on_plugin_rule_entry_clicked() {
-    auto* button = sender();
-    if (button == nullptr || rule_graph_ == nullptr) {
-        return;
-    }
-    const QString plugin_id = button->property("pluginModule").toString();
-    if (plugin_id.isEmpty()) {
-        LOG_MODULE("UiConnector", "on_plugin_rule_entry_clicked", LOG_WARN,
-            "插件卡缺少插件标识，规则入口无动作");
-        return;
-    }
-    // 先切图再开弹窗：编辑器用 currentGraphPlugin 绑定左栏与画布，打开即停在该插件图上
-    const bool has_graph = button->property("ruleGraphExists").toBool();
-    rule_graph_->refreshModuleValues();
-    rule_graph_->loadPluginGraph(plugin_id);
-    open_dialog("ruleEditorDialog");
-    LOG_MODULE("UiConnector", "on_plugin_rule_entry_clicked", LOG_INFO,
-        "打开插件规则图: 插件=" << plugin_id.toStdString() << " 已有图文件=" << has_graph);
 }
 
 void UiConnector::on_rule_editor_clicked() {
@@ -1356,6 +932,22 @@ void UiConnector::on_rule_fit_view_clicked() {
     canvas->setProperty("panY", pan_y);
 }
 
+void UiConnector::on_confirm_accepted() {
+    // 先摘下并清空回调，再关闭、执行：关闭动作本身可能再次 ask_confirm（连续确认），
+    // 后关闭会把新弹层一起关掉；清空回调则保证一次点击只触发一次动作
+    auto action = std::move(confirm_callback_);
+    confirm_callback_ = nullptr;
+    close_dialog("confirmDialog");
+    if (action) {
+        action();
+    }
+}
+
+void UiConnector::on_confirm_canceled() {
+    confirm_callback_ = nullptr;
+    close_dialog("confirmDialog");
+}
+
 void UiConnector::on_channel_toggle_clicked() {
     auto* button = sender();
     if (button == nullptr || home_ == nullptr) {
@@ -1383,6 +975,257 @@ void UiConnector::on_home_default_device_activated(int index) {
     home_->setDefaultDeviceIndex(index);
 }
 
+void UiConnector::on_config_connect_clicked() {
+    if (device_ == nullptr) {
+        return;
+    }
+    auto* ip_field = find("configIpField");
+    auto* port_field = find("configPortField");
+    const QString ip = (ip_field != nullptr) ? ip_field->property("text").toString() : QString();
+    const int port = (port_field != nullptr) ? port_field->property("text").toInt() : 0;
+    if (!ip.isEmpty() && port > 0) {
+        device_->setEndpoint(ip, port);
+    }
+    if (device_->connected()) {
+        device_->disconnectDevice();
+    }
+    else {
+        device_->connectDevice();
+    }
+}
+
+void UiConnector::on_config_select_ip_clicked() {
+    if (ip_selector_ == nullptr) {
+        return;
+    }
+    ip_selector_->refresh_candidates();
+    auto* dialog = find("ipSelectDialog");
+    if (dialog != nullptr) {
+        dialog->setProperty("pendingIp", device_ != nullptr ? device_->ip() : ip_selector_->active_ip());
+    }
+    open_dialog("ipSelectDialog");
+}
+
+void UiConnector::on_ip_blacklist_add_clicked() {
+    add_keyword_from_field("ipBlacklistField", false);
+}
+
+void UiConnector::on_ip_blacklist_remove_clicked() {
+    auto* button = sender();
+    if (ip_selector_ == nullptr || button == nullptr) {
+        return;
+    }
+    if (ip_selector_->remove_blacklist_keyword(button->property("keyword").toString())) {
+        ip_selector_->refresh_candidates();
+    }
+}
+
+void UiConnector::on_ip_whitelist_add_clicked() {
+    add_keyword_from_field("ipWhitelistField", true);
+}
+
+void UiConnector::on_ip_whitelist_remove_clicked() {
+    auto* button = sender();
+    if (ip_selector_ == nullptr || button == nullptr) {
+        return;
+    }
+    if (ip_selector_->remove_whitelist_keyword(button->property("keyword").toString())) {
+        ip_selector_->refresh_candidates();
+    }
+}
+
+void UiConnector::on_ip_candidate_clicked() {
+    auto* item = sender();
+    auto* dialog = find("ipSelectDialog");
+    if (item == nullptr || dialog == nullptr) {
+        return;
+    }
+    dialog->setProperty("pendingIp", item->property("address").toString());
+}
+
+void UiConnector::on_ip_auto_clicked() {
+    if (ip_selector_ == nullptr) {
+        return;
+    }
+    // 恢复自动选择：清掉手动选中后立即按名单选一次并生效，对话框同时收起
+    ip_selector_->set_selected_ip(QString());
+    ip_selector_->refresh_candidates();
+    const QString ip = ip_selector_->active_ip();
+    auto* dialog = find("ipSelectDialog");
+    if (dialog != nullptr) {
+        dialog->setProperty("pendingIp", ip);
+    }
+    apply_selected_ip(ip);
+    close_dialog("ipSelectDialog");
+}
+
+void UiConnector::on_ip_select_confirm_clicked() {
+    auto* dialog = find("ipSelectDialog");
+    if (dialog == nullptr || ip_selector_ == nullptr) {
+        return;
+    }
+    const QString ip = dialog->property("pendingIp").toString();
+    if (ip.isEmpty()) {
+        return;
+    }
+    ip_selector_->set_selected_ip(ip);
+    apply_selected_ip(ip);
+    close_dialog("ipSelectDialog");
+}
+
+void UiConnector::on_ip_select_cancel_clicked() {
+    close_dialog("ipSelectDialog");
+}
+
+void UiConnector::on_theme_select_clicked() {
+    open_dialog("themePresetDialog");
+}
+
+void UiConnector::on_theme_custom_clicked() {
+    auto* dialog = find("customThemeDialog");
+    if (dialog == nullptr || theme_ == nullptr) {
+        return;
+    }
+    dialog->setProperty("customPrimary", theme_->primary());
+    dialog->setProperty("customSecondary", theme_->secondary());
+    open_dialog("customThemeDialog");
+}
+
+void UiConnector::on_theme_preset_clicked() {
+    auto* item = sender();
+    if (item == nullptr || theme_ == nullptr) {
+        return;
+    }
+    theme_->applyPreset(item->property("mode").toString());
+    close_dialog("themePresetDialog");
+}
+
+void UiConnector::on_custom_theme_save_clicked() {
+    auto* dialog = find("customThemeDialog");
+    if (dialog == nullptr || theme_ == nullptr) {
+        return;
+    }
+    theme_->applyCustom(dialog->property("customPrimary").value<QColor>(),
+        dialog->property("customSecondary").value<QColor>());
+    close_dialog("customThemeDialog");
+    // 自定义主题不落库、无持久化痕迹，只能靠 Toast 说明「已保存并应用」
+    if (app_ != nullptr) {
+        app_->showToast(QStringLiteral("已保存并应用自定义主题"), AppBridge::StatusSuccess);
+    }
+}
+
+// 主色取色入口：初始值取自定义主题对话框上的当前主色
+void UiConnector::on_custom_primary_clicked() {
+    open_color_dialog("primaryColorDialog", "customPrimary");
+}
+
+// 副色取色入口：初始值取自定义主题对话框上的当前副色
+void UiConnector::on_custom_secondary_clicked() {
+    open_color_dialog("secondaryColorDialog", "customSecondary");
+}
+
+void UiConnector::on_primary_color_accepted() {
+    auto* picker = sender();
+    auto* dialog = find("customThemeDialog");
+    if (picker != nullptr && dialog != nullptr) {
+        dialog->setProperty("customPrimary", picker->property("selectedColor"));
+    }
+}
+
+void UiConnector::on_secondary_color_accepted() {
+    auto* picker = sender();
+    auto* dialog = find("customThemeDialog");
+    if (picker != nullptr && dialog != nullptr) {
+        dialog->setProperty("customSecondary", picker->property("selectedColor"));
+    }
+}
+
+// 取色滑杆移动：按三条滑杆的当前值重算颜色
+void UiConnector::on_color_dialog_slider_moved() {
+    sync_color_dialog_from_hsv(color_dialog_of(sender()));
+}
+
+// 取色 HEX 输入变化：合法则立即生效，非法只给提示
+void UiConnector::on_color_dialog_hex_edited() {
+    auto* field = sender();
+    if (field == nullptr) {
+        return;
+    }
+    sync_color_dialog_from_hex(color_dialog_of(field), field->property("text").toString());
+}
+
+// 取色 HEX 编辑结束：把合法文本规范化成 #RRGGBB
+void UiConnector::on_color_dialog_hex_finished() {
+    normalize_color_dialog_hex(color_dialog_of(sender()));
+}
+
+// 取色确定：颜色已随交互写入 selectedColor，这里只收对话框
+void UiConnector::on_color_dialog_confirm_clicked() {
+    QObject* dialog = color_dialog_of(sender());
+    if (dialog != nullptr) {
+        QMetaObject::invokeMethod(dialog, "accept");
+    }
+}
+
+// 取色取消：只关闭对话框，不动自定义主题的当前颜色
+void UiConnector::on_color_dialog_cancel_clicked() {
+    QObject* dialog = color_dialog_of(sender());
+    if (dialog != nullptr) {
+        QMetaObject::invokeMethod(dialog, "close");
+    }
+}
+
+void UiConnector::on_module_period_applied() {
+    if (module_ == nullptr) {
+        return;
+    }
+    auto* combo = find("modulePeriodCombo");
+    module_->applyAllPeriod(combo != nullptr ? combo->property("currentIndex").toInt() : 0);
+}
+
+// 详情页选中插件变化时把模块标识交给模块桥接，供「数值」页签读取
+void UiConnector::on_plugin_detail_item_changed() {
+    if (module_ == nullptr) {
+        return;
+    }
+    auto* detail = sender();
+    if (detail == nullptr) {
+        return;
+    }
+    QString module_name = detail->property("moduleName").toString();
+    if (module_name.isEmpty()) {
+        // 模块标识为空时从 item 字段取同一份标识
+        const QVariantMap item = detail->property("item").value<QJSValue>().toVariant().toMap();
+        module_name = item.value(QStringLiteral("moduleName")).toString();
+    }
+    module_->selectModule(module_name);
+}
+
+// 插件卡规则入口：按 sender 的插件标识切到该插件图（没有图文件时按已注册数值生成默认图），再打开编辑器
+void UiConnector::on_plugin_rule_entry_clicked() {
+    auto* button = sender();
+    if (button == nullptr || rule_graph_ == nullptr) {
+        return;
+    }
+    const QString plugin_id = button->property("pluginModule").toString();
+    if (plugin_id.isEmpty()) {
+        LOG_MODULE("UiConnector", "on_plugin_rule_entry_clicked", LOG_WARN,
+            "插件卡缺少插件标识，规则入口无动作");
+        return;
+    }
+    // 先切图再开弹窗：编辑器用 currentGraphPlugin 绑定左栏与画布，打开即停在该插件图上
+    const bool has_graph = button->property("ruleGraphExists").toBool();
+    rule_graph_->refreshModuleValues();
+    rule_graph_->loadPluginGraph(plugin_id);
+    open_dialog("ruleEditorDialog");
+    LOG_MODULE("UiConnector", "on_plugin_rule_entry_clicked", LOG_INFO,
+        "打开插件规则图: 插件=" << plugin_id.toStdString() << " 已有图文件=" << has_graph);
+}
+
+void UiConnector::on_wave_select_clicked() {
+    open_dialog("waveSelectDialog");
+}
+
 void UiConnector::on_wave_channel_clicked() {
     auto* button = sender();
     if (button == nullptr || wave_ == nullptr) {
@@ -1397,10 +1240,6 @@ void UiConnector::on_wave_clear_clicked() {
         return;
     }
     wave_->clearWave(wave_->target_channel());
-}
-
-void UiConnector::on_wave_select_clicked() {
-    open_dialog("waveSelectDialog");
 }
 
 void UiConnector::on_wave_create_clicked() {
@@ -1708,8 +1547,8 @@ void UiConnector::on_wave_tag_category_create_clicked() {
     if (category.isEmpty()) {
         return;
     }
-    // 空名忽略；超长与重名由 WaveBridge 经 operationFailed 说明。
-    // 创建成功后标签分类整表重建，该分类的输入框随委托一起重建（文本自然清空）。
+    // 空名忽略；超长与重名由 WaveBridge 经 operationFailed 说明
+    // 创建成功后标签分类整表重建，该分类的输入框随委托一起重建（文本自然清空）
     wave_->createTagInCategory(category, button->property("tagName").toString());
 }
 
@@ -1755,6 +1594,21 @@ void UiConnector::on_ble_scan_clicked() {
     if (ble_ != nullptr) {
         ble_->startScan();
     }
+}
+
+void UiConnector::on_ble_strength_clicked() {
+    auto* button = sender();
+    if (button == nullptr || ble_ == nullptr) {
+        return;
+    }
+    const QString name = button->objectName();
+    const int channel = name.contains(QStringLiteral("StrengthA"))
+                            ? kStrengthChannelA
+                            : kStrengthChannelB;
+    const int mode = name.contains(QStringLiteral("Increase"))
+                         ? kStrengthModeIncrease
+                         : kStrengthModeDecrease;
+    ble_->setStrength(channel, mode, kStrengthStep);
 }
 
 void UiConnector::on_device_scan_action_clicked() {
@@ -1810,7 +1664,7 @@ void UiConnector::on_device_limit_value_modified() {
     const bool safety = name.contains(QStringLiteral("Safety"));
     device_->setDeviceLimit(limits_device_, channel, safety ? QStringLiteral("safety") : QStringLiteral("limit"),
         spin->property("value").toInt());
-    // 写入后刷新来源标记：该键已落盘，界面不再标「默认」
+    // 写入后刷新来源标记：该键已落盘，界面不标「默认」
     refresh_device_limits_fields();
 }
 
@@ -1844,29 +1698,465 @@ void UiConnector::on_device_channel_fallback_modified() {
                                     << " 安全上限=" << safety_value);
 }
 
-QVariantList UiConnector::limit_targets() const {
-    // 在线输出设备 + 已记忆设备（离线项标注「离线」）：规则编辑器通道节点的设备下拉共用同一份实现
-    return device_ == nullptr ? QVariantList() : device_->outputDeviceTargets();
+void UiConnector::on_log_export_clicked() {
+    if (log_ != nullptr) {
+        log_->exportLogs();
+    }
 }
 
-// 插件卡「创建规则 / 编辑规则」：把已有规则图的插件标识推给插件中心页，并重扫一次规则入口按钮
-void UiConnector::refresh_plugin_rule_entries() {
-    auto* page = find("pluginCenterPage");
-    if (page == nullptr) {
+void UiConnector::on_log_clear_clicked() {
+    if (log_ != nullptr) {
+        log_->clear();
+    }
+}
+
+void UiConnector::on_log_level_changed() {
+    if (log_ == nullptr) {
         return;
     }
-    QVariantList with_graphs;
-    if (rule_graph_ != nullptr) {
-        for (const QVariant& entry : rule_graph_->plugin_graphs()) {
-            const QVariantMap item = entry.toMap();
-            if (item.value(QStringLiteral("hasGraph")).toBool()) {
-                with_graphs.append(item.value(QStringLiteral("plugin")));
+    auto* combo = find("logLevelCombo");
+    log_->setLevelFilter(combo == nullptr ? 0 : combo->property("currentIndex").toInt());
+
+    on_log_refresh_clicked();
+}
+
+void UiConnector::on_log_export_level_changed() {
+    if (log_ == nullptr) {
+        return;
+    }
+    auto* combo = find("logExportLevelCombo");
+    log_->setExportLevel(combo == nullptr ? 0 : combo->property("currentIndex").toInt());
+}
+
+void UiConnector::on_log_export_range_changed() {
+    if (log_ == nullptr) {
+        return;
+    }
+    auto* combo = find("logExportRangeCombo");
+    log_->setExportRange(combo == nullptr ? 1 : combo->property("currentIndex").toInt());
+}
+
+void UiConnector::on_log_export_dir_applied() {
+    if (log_ == nullptr) {
+        return;
+    }
+    auto* field = find("logExportDirField");
+    if (field != nullptr) {
+        log_->setExportDir(field->property("text").toString());
+    }
+}
+
+void UiConnector::on_log_list_movement_ended() {
+    auto* list = sender();
+    if (list == nullptr) {
+        return;
+    }
+    // 滚动结束：到底部则恢复跟随，否则记住用户停留位置
+    const bool at_end = list->property("atYEnd").toBool();
+    list->setProperty("stickToBottom", at_end);
+    if (!at_end) {
+        log_scroll_y_ = list->property("contentY").toReal();
+    }
+}
+
+void UiConnector::on_log_messages_changed() {
+    auto* list = log_list_.data();
+    if (list == nullptr) {
+        return;
+    }
+    // 日志模型每次整体替换：ListView 会把第一个条目重新锚回顶部（contentY 归零）
+    // 等本轮事件循环把列表重新布局完，再按 stickToBottom 写回贴底或用户停留位置
+    QMetaObject::invokeMethod(list, [this, list]() {
+        if (list->property("stickToBottom").toBool()) {
+            list->setProperty("contentY",
+                qMax<qreal>(0.0,
+                    list->property("contentHeight").toReal() - list->property("height").toReal()));
+        }
+        else if (list->property("count").toInt() > 0) {
+            list->setProperty("contentY", log_scroll_y_);
+        } }, Qt::QueuedConnection);
+}
+
+void UiConnector::on_log_refresh_clicked() {
+    if (log_ != nullptr) {
+        QMetaObject::invokeMethod(log_, "refresh");
+    }
+}
+
+void UiConnector::on_tracked_children_changed() {
+    for (const auto& watch : watches_) {
+        scan_dynamic_items(watch.owner, watch.item_name, watch.slot);
+    }
+}
+
+void UiConnector::on_check_update_clicked() {
+    if (update_ != nullptr) {
+        update_->on_check_update_clicked();
+    }
+}
+
+void UiConnector::on_panel_check_update_clicked() {
+    // 面板按钮一次动作两件事：先打开更新对话框展示状态，再触发一次检查
+    open_dialog("updateDialog");
+    on_check_update_clicked();
+}
+
+void UiConnector::on_update_download_clicked() {
+    if (update_ != nullptr) {
+        update_->on_start_download_clicked();
+    }
+}
+
+void UiConnector::on_update_apply_clicked() {
+    if (update_ != nullptr) {
+        ask_confirm(tr("重启并安装更新"), tr("应用将关闭并自动完成更新，是否继续？"), false,
+            [this]() {
+                update_->on_apply_update_clicked();
+            });
+    }
+}
+
+void UiConnector::on_update_open_release_clicked() {
+    if (update_ != nullptr) {
+        update_->open_release_url();
+    }
+}
+
+void UiConnector::on_update_dialog_close_clicked() {
+    // 关闭只收起对话框：下载状态在 UpdateBridge 里，重开后进度照常显示
+    close_dialog("updateDialog");
+}
+
+void UiConnector::on_home_mini_window_clicked() {
+    if (mini_window_.isNull()) {
+        if (app_ != nullptr) {
+            app_->showToast(QStringLiteral("迷你窗不可用"), AppBridge::StatusDanger);
+        }
+        return;
+    }
+    if ((mini_window_->windowState() & Qt::WindowMinimized) != 0) {
+        mini_window_->showNormal();
+    }
+    else {
+        mini_window_->show();
+    }
+    mini_window_->raise();
+    mini_window_->requestActivate();
+}
+
+void UiConnector::on_mini_window_lock_clicked() {
+    if (home_ != nullptr) {
+        home_->toggleMiniWindowLock();
+    }
+}
+
+void UiConnector::on_mini_window_close_clicked() {
+    if (mini_window_.isNull()) {
+        return;
+    }
+    save_mini_window_state();
+    mini_window_->hide();
+}
+
+void UiConnector::on_mini_window_geometry_changed() {
+    mini_window_save_timer_.start();
+}
+
+void UiConnector::on_mini_window_opacity_moved() {
+    auto* slider = find("miniWindowOpacitySlider");
+    if (slider == nullptr || home_ == nullptr) {
+        return;
+    }
+    // 拖动中即时生效：QML 的 Window.opacity 绑在 home.miniWindowOpacity 上，落盘交给合并计时器
+    home_->setMiniWindowOpacity(slider->property("value").toReal());
+    mini_window_save_timer_.start();
+}
+
+void UiConnector::on_mini_window_size_clicked() {
+    auto* button = sender();
+    if (button == nullptr || home_ == nullptr) {
+        return;
+    }
+    const QString name = button->objectName();
+    if (name.endsWith(QStringLiteral("SmallButton"))) {
+        home_->setMiniWindowSize(QStringLiteral("small"));
+    }
+    else if (name.endsWith(QStringLiteral("LargeButton"))) {
+        home_->setMiniWindowSize(QStringLiteral("large"));
+    }
+    else {
+        home_->setMiniWindowSize(QStringLiteral("medium"));
+    }
+    mini_window_save_timer_.start();
+}
+
+void UiConnector::on_mini_window_visibility_changed() {
+    if (mini_window_.isNull()) {
+        return;
+    }
+    if (!mini_window_->isVisible()) {
+        mini_window_wave_timer_.stop();
+        return;
+    }
+    mini_window_wave_cursor_ = 0;
+    apply_mini_window_wave();
+    mini_window_wave_timer_.start();
+}
+
+void UiConnector::on_mini_window_wave_reset() {
+    mini_window_wave_cursor_ = 0;
+    if (!mini_window_.isNull() && mini_window_->isVisible()) {
+        apply_mini_window_wave();
+    }
+}
+
+void UiConnector::on_mini_window_wave_advanced() {
+    ++mini_window_wave_cursor_;
+    apply_mini_window_wave();
+}
+
+void UiConnector::on_market_refresh_clicked() {
+    if (market_ != nullptr) {
+        market_->refresh();
+    }
+}
+
+void UiConnector::on_market_action_clicked() {
+    // 卡片由 Repeater 生成：插件标识写在按钮的 pluginId 属性上，不按下标回调
+    auto* button = sender();
+    if (button == nullptr || market_ == nullptr) {
+        return;
+    }
+    const QString plugin_id = button->property("pluginId").toString();
+    if (plugin_id.isEmpty()) {
+        return;
+    }
+    market_->install(plugin_id);
+}
+
+void UiConnector::connect_clicked(QObject* root_object, const char* object_name, const char* slot) {
+    auto* target = root_object->findChild<QObject*>(QString::fromLatin1(object_name));
+    if (target == nullptr) {
+        LOG_MODULE("UiConnector", "connect_clicked", LOG_WARN, std::string("未找到控件: ") + object_name);
+        return;
+    }
+    QObject::connect(target, SIGNAL(clicked()), this, slot);
+}
+
+void UiConnector::open_dialog(const char* object_name) {
+    auto* dialog = find(object_name);
+    if (dialog == nullptr) {
+        LOG_MODULE("UiConnector", "open_dialog", LOG_WARN, std::string("未找到对话框: ") + object_name);
+        return;
+    }
+    // 顶层窗口（规则编辑器）没有 Popup 的 open()：显示窗口，最小化时先还原
+    if (auto* window = qobject_cast<QQuickWindow*>(dialog)) {
+        if ((window->windowState() & Qt::WindowMinimized) != 0) {
+            window->showNormal();
+        }
+        else {
+            window->show();
+        }
+        window->raise();
+        window->requestActivate();
+        return;
+    }
+    QMetaObject::invokeMethod(dialog, "open");
+}
+
+void UiConnector::close_dialog(const char* object_name) {
+    auto* dialog = find(object_name);
+    if (dialog != nullptr) {
+        QMetaObject::invokeMethod(dialog, "close");
+    }
+}
+
+bool UiConnector::dialog_visible(const char* object_name) const {
+    QObject* dialog = find(object_name);
+    return dialog != nullptr && dialog->property("visible").toBool();
+}
+
+void UiConnector::watch_items(QObject* root_object, const char* owner_name, const QString& item_name,
+    const char* slot) {
+    auto* owner = root_object->findChild<QObject*>(QString::fromLatin1(owner_name));
+    if (owner == nullptr) {
+        LOG_MODULE("UiConnector", "watch_items", LOG_WARN, std::string("未找到容器: ") + owner_name);
+        return;
+    }
+    // 列表用 contentItem 承载委托；普通布局项本身即可视子树根
+    QQuickItem* item = owner->property("contentItem").value<QQuickItem*>();
+    if (item == nullptr) {
+        item = qobject_cast<QQuickItem*>(owner);
+    }
+    if (item == nullptr) {
+        LOG_MODULE("UiConnector", "watch_items", LOG_WARN, std::string("容器无可视子树: ") + owner_name);
+        return;
+    }
+    ItemWatch watch;
+    watch.owner = item;
+    watch.item_name = item_name;
+    watch.slot = slot;
+    watches_.append(watch);
+    scan_dynamic_items(item, item_name, slot);
+    QObject::connect(item, SIGNAL(childrenChanged()), this, SLOT(on_tracked_children_changed()));
+}
+
+void UiConnector::scan_dynamic_items(QQuickItem* parent, const QString& item_name, const char* slot) {
+    const auto children = parent->childItems();
+    for (QQuickItem* child : children) {
+        if (child->objectName() == item_name && !connected_items_.contains(child)) {
+            connected_items_.insert(child);
+            // 旧式 SIGNAL 宏按签名精确匹配：MouseArea 的 clicked 带 QQuickMouseEvent* 参数，
+            // Button 系控件是无参 clicked()，两者都要覆盖
+            const QMetaObject* meta = child->metaObject();
+            if (meta->indexOfSignal("clicked()") >= 0) {
+                QObject::connect(child, SIGNAL(clicked()), this, slot);
+            }
+            else if (meta->indexOfSignal("clicked(QQuickMouseEvent*)") >= 0) {
+                QObject::connect(child, SIGNAL(clicked(QQuickMouseEvent*)), this, slot);
             }
         }
+        scan_dynamic_items(child, item_name, slot);
     }
-    page->setProperty("ruleGraphPlugins", with_graphs);
-    // 委托随搜索 / 分类重建后重新扫描：已连接过的按钮由 connected_items_ 去重，不会重复连接
-    on_tracked_children_changed();
+}
+
+QObject* UiConnector::find(const char* object_name) const {
+    if (root_.isNull()) {
+        return nullptr;
+    }
+    return root_->findChild<QObject*>(QString::fromLatin1(object_name));
+}
+
+// 取 QML 上下文属性里的桥接对象（如注入的 eventBridge）：不引入新的构造参数，也不改装配入口
+QObject* UiConnector::context_object(const char* name) const {
+    if (root_.isNull()) {
+        return nullptr;
+    }
+    QQmlContext* context = qmlContext(root_.data());
+    if (context == nullptr) {
+        return nullptr;
+    }
+    return context->contextProperty(QString::fromLatin1(name)).value<QObject*>();
+}
+
+void UiConnector::apply_selected_ip(const QString& ip) {
+    if (device_ == nullptr || ip.isEmpty()) {
+        return;
+    }
+    auto* port_field = find("configPortField");
+    const int port = (port_field != nullptr) ? port_field->property("text").toInt() : device_->port();
+    // 先把地址写回地址栏，再走既有 setEndpoint：地址栏、绑定地址与二维码载荷不会分叉
+    if (auto* ip_field = find("configIpField")) {
+        ip_field->setProperty("text", ip);
+    }
+    device_->setEndpoint(ip, port > 0 ? port : device_->port());
+}
+
+void UiConnector::add_keyword_from_field(const char* field_name, bool whitelist) {
+    if (ip_selector_ == nullptr) {
+        return;
+    }
+    auto* field = find(field_name);
+    const QString keyword = (field != nullptr) ? field->property("text").toString().trimmed() : QString();
+    if (keyword.isEmpty()) {
+        if (app_ != nullptr) {
+            app_->showToast(QStringLiteral("关键词不能为空"), AppBridge::StatusWarning);
+        }
+        return;
+    }
+    const bool added = whitelist ? ip_selector_->add_whitelist_keyword(keyword)
+                                 : ip_selector_->add_blacklist_keyword(keyword);
+    if (!added) {
+        return;
+    }
+    if (field != nullptr) {
+        field->setProperty("text", QString());
+    }
+    ip_selector_->refresh_candidates();
+}
+
+void UiConnector::setup_mini_window(QObject* root_object) {
+    auto* window = root_object->findChild<QQuickWindow*>(QStringLiteral("miniWindow"));
+    if (window == nullptr) {
+        LOG_MODULE("UiConnector", "setup_mini_window", LOG_WARN,
+            "未找到迷你窗 miniWindow，迷你窗入口不可用");
+        return;
+    }
+    mini_window_ = window;
+
+    QScreen* primary = QGuiApplication::primaryScreen();
+    if (primary == nullptr) {
+        LOG_MODULE("UiConnector", "setup_mini_window", LOG_WARN, "无可用屏幕信息，迷你窗保持默认位置");
+        return;
+    }
+
+    // 位置取上次保存值，未保存过时落在主屏右上角；宽度由大小档位、高度由内容决定
+    const bool restored = home_ != nullptr && home_->mini_window_width() > 0;
+    const qreal margin = qml_token(root_object, "Metrics", "spacing3xl", 28.0);
+    const int width = std::max(1, window->width());
+    const int height = std::max(1, window->height());
+
+    QPoint position(0, 0);
+    if (restored) {
+        position = QPoint(home_->mini_window_x(), home_->mini_window_y());
+    }
+    QScreen* screen = QGuiApplication::screenAt(
+        QRect(position, QSize(width, height)).center());
+    if (screen == nullptr) {
+        // 落点不在任何屏幕上（拔掉外接屏 / 分辨率变更）：回到主屏
+        screen = primary;
+    }
+    const QRect area = screen->availableGeometry();
+    const int visible_width = std::min(width, area.width());
+    const int visible_height = std::min(height, area.height());
+    if (!restored) {
+        position = QPoint(static_cast<int>(area.right() - visible_width - margin * 2),
+            static_cast<int>(area.top() + margin * 2));
+    }
+    const int x = std::clamp(position.x(), area.left(),
+        std::max(area.left(), area.right() - visible_width + 1));
+    const int y = std::clamp(position.y(), area.top(),
+        std::max(area.top(), area.bottom() - visible_height + 1));
+
+    mini_window_save_timer_.setSingleShot(true);
+    mini_window_save_timer_.setInterval(400);
+    connect(&mini_window_save_timer_, &QTimer::timeout, this,
+        &UiConnector::save_mini_window_state);
+    connect(window, &QWindow::xChanged, this, &UiConnector::on_mini_window_geometry_changed);
+    connect(window, &QWindow::yChanged, this, &UiConnector::on_mini_window_geometry_changed);
+    connect(window, &QWindow::widthChanged, this, &UiConnector::on_mini_window_geometry_changed);
+    connect(window, &QWindow::heightChanged, this, &UiConnector::on_mini_window_geometry_changed);
+
+    // 波形滚动只在窗口可见时跑：100 ms 一拍，与波形帧长度一致（QML 侧不另开计时器）
+    mini_window_wave_timer_.setInterval(100);
+    connect(&mini_window_wave_timer_, &QTimer::timeout, this, &UiConnector::on_mini_window_wave_advanced);
+    connect(window, &QWindow::visibleChanged, this, &UiConnector::on_mini_window_visibility_changed);
+    if (wave_ != nullptr) {
+        connect(wave_, &WaveBridge::dataChanged, this, &UiConnector::on_mini_window_wave_reset);
+    }
+
+    // 只挪位置：宽高由 QML 绑定（大小档位 + 内容高度）决定，setGeometry 会把绑定打断
+    window->setPosition(x, y);
+    // 首次运行没有存档：把落点写回配置，下次启动从同一位置恢复
+    save_mini_window_state();
+    LOG_MODULE("UiConnector", "setup_mini_window", LOG_DEBUG,
+        "迷你窗位置恢复: " << x << "," << y << " " << width << "x" << height);
+}
+
+void UiConnector::save_mini_window_state() {
+    if (mini_window_.isNull() || home_ == nullptr) {
+        return;
+    }
+    home_->saveMiniWindowState(mini_window_->x(), mini_window_->y(),
+        mini_window_->width(), mini_window_->height());
+}
+
+void UiConnector::apply_mini_window_wave() {
+    if (home_ == nullptr || wave_ == nullptr) {
+        return;
+    }
+    home_->setMiniWindowWave(rolling_window(wave_->amplitude_a(), mini_window_wave_cursor_),
+        rolling_window(wave_->amplitude_b(), mini_window_wave_cursor_));
 }
 
 void UiConnector::refresh_device_limits_fields() {
@@ -1921,269 +2211,57 @@ void UiConnector::refresh_device_limits_fields() {
     }
 }
 
-void UiConnector::on_log_export_clicked() {
-    if (log_ != nullptr) {
-        log_->exportLogs();
-    }
-}
-
-void UiConnector::on_log_clear_clicked() {
-    if (log_ != nullptr) {
-        log_->clear();
-    }
-}
-
-void UiConnector::on_log_list_movement_ended() {
-    auto* list = sender();
-    if (list == nullptr) {
+// 插件卡「创建规则 / 编辑规则」：把已有规则图的插件标识推给插件中心页，并重扫一次规则入口按钮
+void UiConnector::refresh_plugin_rule_entries() {
+    auto* page = find("pluginCenterPage");
+    if (page == nullptr) {
         return;
     }
-    // 滚动结束：到底部则恢复跟随，否则记住用户停留位置
-    const bool at_end = list->property("atYEnd").toBool();
-    list->setProperty("stickToBottom", at_end);
-    if (!at_end) {
-        log_scroll_y_ = list->property("contentY").toReal();
-    }
-}
-
-void UiConnector::on_log_messages_changed() {
-    auto* list = log_list_.data();
-    if (list == nullptr) {
-        return;
-    }
-    // 日志模型每次整体替换：ListView 会把第一个条目重新锚回顶部（contentY 归零）。
-    // 等本轮事件循环把列表重新布局完，再按 stickToBottom 写回贴底或用户停留位置。
-    QMetaObject::invokeMethod(list, [this, list]() {
-        if (list->property("stickToBottom").toBool()) {
-            list->setProperty("contentY",
-                qMax<qreal>(0.0,
-                    list->property("contentHeight").toReal() - list->property("height").toReal()));
+    QVariantList with_graphs;
+    if (rule_graph_ != nullptr) {
+        for (const QVariant& entry : rule_graph_->plugin_graphs()) {
+            const QVariantMap item = entry.toMap();
+            if (item.value(QStringLiteral("hasGraph")).toBool()) {
+                with_graphs.append(item.value(QStringLiteral("plugin")));
+            }
         }
-        else if (list->property("count").toInt() > 0) {
-            list->setProperty("contentY", log_scroll_y_);
-        } }, Qt::QueuedConnection);
-}
-
-void UiConnector::on_log_refresh_clicked() {
-    if (log_ != nullptr) {
-        QMetaObject::invokeMethod(log_, "refresh");
     }
+    page->setProperty("ruleGraphPlugins", with_graphs);
+    // 委托随搜索 / 分类重建后重新扫描：已连接过的按钮由 connected_items_ 去重，不会重复连接
+    on_tracked_children_changed();
 }
 
-void UiConnector::on_log_level_changed() {
-    if (log_ == nullptr) {
+QVariantList UiConnector::limit_targets() const {
+    // 在线输出设备 + 已记忆设备（离线项标注「离线」）：规则编辑器通道节点的设备下拉共用同一份实现
+    return device_ == nullptr ? QVariantList() : device_->outputDeviceTargets();
+}
+
+void UiConnector::open_file_dialog(const char* object_name, const QString& suggested_path) {
+    auto* dialog = find(object_name);
+    if (dialog == nullptr) {
+        LOG_MODULE("UiConnector", "open_file_dialog", LOG_WARN,
+            std::string("未找到文件对话框: ") + object_name);
         return;
     }
-    auto* combo = find("logLevelCombo");
-    log_->setLevelFilter(combo == nullptr ? 0 : combo->property("currentIndex").toInt());
-
-    on_log_refresh_clicked();
+    // 保存对话框：打开前写入建议文件名（一次性写属性，QML 侧不对 currentFile 绑定）
+    if (!suggested_path.isEmpty()) {
+        dialog->setProperty("currentFile", QUrl::fromLocalFile(suggested_path));
+    }
+    QMetaObject::invokeMethod(dialog, "open");
 }
 
-void UiConnector::on_log_export_level_changed() {
-    if (log_ == nullptr) {
-        return;
-    }
-    auto* combo = find("logExportLevelCombo");
-    log_->setExportLevel(combo == nullptr ? 0 : combo->property("currentIndex").toInt());
-}
-
-void UiConnector::on_log_export_range_changed() {
-    if (log_ == nullptr) {
-        return;
-    }
-    auto* combo = find("logExportRangeCombo");
-    log_->setExportRange(combo == nullptr ? 1 : combo->property("currentIndex").toInt());
-}
-
-void UiConnector::on_log_export_dir_applied() {
-    if (log_ == nullptr) {
-        return;
-    }
-    auto* field = find("logExportDirField");
-    if (field != nullptr) {
-        log_->setExportDir(field->property("text").toString());
-    }
-}
-
-void UiConnector::on_ble_strength_clicked() {
-    auto* button = sender();
-    if (button == nullptr || ble_ == nullptr) {
-        return;
-    }
-    const QString name = button->objectName();
-    const int channel = name.contains(QStringLiteral("StrengthA"))
-                            ? kStrengthChannelA
-                            : kStrengthChannelB;
-    const int mode = name.contains(QStringLiteral("Increase"))
-                         ? kStrengthModeIncrease
-                         : kStrengthModeDecrease;
-    ble_->setStrength(channel, mode, kStrengthStep);
-}
-
-void UiConnector::on_config_connect_clicked() {
-    if (device_ == nullptr) {
-        return;
-    }
-    auto* ip_field = find("configIpField");
-    auto* port_field = find("configPortField");
-    const QString ip = (ip_field != nullptr) ? ip_field->property("text").toString() : QString();
-    const int port = (port_field != nullptr) ? port_field->property("text").toInt() : 0;
-    if (!ip.isEmpty() && port > 0) {
-        device_->setEndpoint(ip, port);
-    }
-    if (device_->connected()) {
-        device_->disconnectDevice();
-    }
-    else {
-        device_->connectDevice();
-    }
-}
-
-void UiConnector::on_config_select_ip_clicked() {
-    if (ip_selector_ == nullptr) {
-        return;
-    }
-    ip_selector_->refresh_candidates();
-    auto* dialog = find("ipSelectDialog");
-    if (dialog != nullptr) {
-        dialog->setProperty("pendingIp", device_ != nullptr ? device_->ip() : ip_selector_->active_ip());
-    }
-    open_dialog("ipSelectDialog");
-}
-
-void UiConnector::on_ip_blacklist_add_clicked() {
-    add_keyword_from_field("ipBlacklistField", false);
-}
-
-void UiConnector::on_ip_blacklist_remove_clicked() {
-    auto* button = sender();
-    if (ip_selector_ == nullptr || button == nullptr) {
-        return;
-    }
-    if (ip_selector_->remove_blacklist_keyword(button->property("keyword").toString())) {
-        ip_selector_->refresh_candidates();
-    }
-}
-
-void UiConnector::on_ip_whitelist_add_clicked() {
-    add_keyword_from_field("ipWhitelistField", true);
-}
-
-void UiConnector::on_ip_whitelist_remove_clicked() {
-    auto* button = sender();
-    if (ip_selector_ == nullptr || button == nullptr) {
-        return;
-    }
-    if (ip_selector_->remove_whitelist_keyword(button->property("keyword").toString())) {
-        ip_selector_->refresh_candidates();
-    }
-}
-
-void UiConnector::on_ip_candidate_clicked() {
+void UiConnector::toggle_view_expansion(const char* property_name, const char* name_property) {
     auto* item = sender();
-    auto* dialog = find("ipSelectDialog");
-    if (item == nullptr || dialog == nullptr) {
+    auto* page = find("wavePage");
+    if (item == nullptr || page == nullptr) {
         return;
     }
-    dialog->setProperty("pendingIp", item->property("address").toString());
-}
-
-void UiConnector::on_ip_auto_clicked() {
-    if (ip_selector_ == nullptr) {
+    const QString name = item->property(name_property).toString();
+    if (name.isEmpty()) {
         return;
     }
-    // 恢复自动选择：清掉手动选中后立即按名单选一次并生效，对话框同时收起
-    ip_selector_->set_selected_ip(QString());
-    ip_selector_->refresh_candidates();
-    const QString ip = ip_selector_->active_ip();
-    auto* dialog = find("ipSelectDialog");
-    if (dialog != nullptr) {
-        dialog->setProperty("pendingIp", ip);
-    }
-    apply_selected_ip(ip);
-    close_dialog("ipSelectDialog");
-}
-
-void UiConnector::on_ip_select_confirm_clicked() {
-    auto* dialog = find("ipSelectDialog");
-    if (dialog == nullptr || ip_selector_ == nullptr) {
-        return;
-    }
-    const QString ip = dialog->property("pendingIp").toString();
-    if (ip.isEmpty()) {
-        return;
-    }
-    ip_selector_->set_selected_ip(ip);
-    apply_selected_ip(ip);
-    close_dialog("ipSelectDialog");
-}
-
-void UiConnector::on_ip_select_cancel_clicked() {
-    close_dialog("ipSelectDialog");
-}
-
-void UiConnector::on_theme_select_clicked() {
-    open_dialog("themePresetDialog");
-}
-
-void UiConnector::on_theme_custom_clicked() {
-    auto* dialog = find("customThemeDialog");
-    if (dialog == nullptr || theme_ == nullptr) {
-        return;
-    }
-    dialog->setProperty("customPrimary", theme_->primary());
-    dialog->setProperty("customSecondary", theme_->secondary());
-    open_dialog("customThemeDialog");
-}
-
-void UiConnector::on_theme_preset_clicked() {
-    auto* item = sender();
-    if (item == nullptr || theme_ == nullptr) {
-        return;
-    }
-    theme_->applyPreset(item->property("mode").toString());
-    close_dialog("themePresetDialog");
-}
-
-void UiConnector::on_custom_theme_save_clicked() {
-    auto* dialog = find("customThemeDialog");
-    if (dialog == nullptr || theme_ == nullptr) {
-        return;
-    }
-    theme_->applyCustom(dialog->property("customPrimary").value<QColor>(),
-        dialog->property("customSecondary").value<QColor>());
-    close_dialog("customThemeDialog");
-    // 自定义主题不落库、无持久化痕迹，只能靠 Toast 说明「已保存并应用」
-    if (app_ != nullptr) {
-        app_->showToast(QStringLiteral("已保存并应用自定义主题"), AppBridge::StatusSuccess);
-    }
-}
-
-// 主色取色入口：初始值取自定义主题对话框上的当前主色
-void UiConnector::on_custom_primary_clicked() {
-    open_color_dialog("primaryColorDialog", "customPrimary");
-}
-
-// 副色取色入口：初始值取自定义主题对话框上的当前副色
-void UiConnector::on_custom_secondary_clicked() {
-    open_color_dialog("secondaryColorDialog", "customSecondary");
-}
-
-void UiConnector::on_primary_color_accepted() {
-    auto* picker = sender();
-    auto* dialog = find("customThemeDialog");
-    if (picker != nullptr && dialog != nullptr) {
-        dialog->setProperty("customPrimary", picker->property("selectedColor"));
-    }
-}
-
-void UiConnector::on_secondary_color_accepted() {
-    auto* picker = sender();
-    auto* dialog = find("customThemeDialog");
-    if (picker != nullptr && dialog != nullptr) {
-        dialog->setProperty("customSecondary", picker->property("selectedColor"));
-    }
+    QMetaObject::invokeMethod(page, "toggleExpanded", Q_ARG(QVariant, QString::fromLatin1(property_name)),
+        Q_ARG(QVariant, name));
 }
 
 // 绑定自绘取色对话框：滑杆、HEX 输入与确定 / 取消全部在这里连接，QML 不写信号处理器
@@ -2224,41 +2302,6 @@ QObject* UiConnector::color_dialog_of(QObject* control) const {
         return nullptr;
     }
     return control->property("colorDialogOwner").value<QObject*>();
-}
-
-// 取色滑杆移动：按三条滑杆的当前值重算颜色
-void UiConnector::on_color_dialog_slider_moved() {
-    sync_color_dialog_from_hsv(color_dialog_of(sender()));
-}
-
-// 取色 HEX 输入变化：合法则立即生效，非法只给提示
-void UiConnector::on_color_dialog_hex_edited() {
-    auto* field = sender();
-    if (field == nullptr) {
-        return;
-    }
-    sync_color_dialog_from_hex(color_dialog_of(field), field->property("text").toString());
-}
-
-// 取色 HEX 编辑结束：把合法文本规范化成 #RRGGBB
-void UiConnector::on_color_dialog_hex_finished() {
-    normalize_color_dialog_hex(color_dialog_of(sender()));
-}
-
-// 取色确定：颜色已随交互写入 selectedColor，这里只收对话框
-void UiConnector::on_color_dialog_confirm_clicked() {
-    QObject* dialog = color_dialog_of(sender());
-    if (dialog != nullptr) {
-        QMetaObject::invokeMethod(dialog, "accept");
-    }
-}
-
-// 取色取消：只关闭对话框，不动自定义主题的当前颜色
-void UiConnector::on_color_dialog_cancel_clicked() {
-    QObject* dialog = color_dialog_of(sender());
-    if (dialog != nullptr) {
-        QMetaObject::invokeMethod(dialog, "close");
-    }
 }
 
 // 打开取色对话框：初始值取目标属性上的当前颜色，HEX 回显与三条滑杆随之就位
@@ -2345,49 +2388,4 @@ void UiConnector::normalize_color_dialog_hex(QObject* dialog) {
         return;
     }
     hex_field->setProperty("text", color_hex_text(color));
-}
-
-void UiConnector::on_module_period_applied() {
-    if (module_ == nullptr) {
-        return;
-    }
-    auto* combo = find("modulePeriodCombo");
-    module_->applyAllPeriod(combo != nullptr ? combo->property("currentIndex").toInt() : 0);
-}
-
-// 详情页选中插件变化时把模块标识交给模块桥接，供「数值」页签读取
-void UiConnector::on_plugin_detail_item_changed() {
-    if (module_ == nullptr) {
-        return;
-    }
-    auto* detail = sender();
-    if (detail == nullptr) {
-        return;
-    }
-    QString module_name = detail->property("moduleName").toString();
-    if (module_name.isEmpty()) {
-        // 模块标识为空时从 item 字段取同一份标识
-        const QVariantMap item = detail->property("item").value<QJSValue>().toVariant().toMap();
-        module_name = item.value(QStringLiteral("moduleName")).toString();
-    }
-    module_->selectModule(module_name);
-}
-
-void UiConnector::on_market_refresh_clicked() {
-    if (market_ != nullptr) {
-        market_->refresh();
-    }
-}
-
-void UiConnector::on_market_action_clicked() {
-    // 卡片由 Repeater 生成：插件标识写在按钮的 pluginId 属性上，不按下标回调
-    auto* button = sender();
-    if (button == nullptr || market_ == nullptr) {
-        return;
-    }
-    const QString plugin_id = button->property("pluginId").toString();
-    if (plugin_id.isEmpty()) {
-        return;
-    }
-    market_->install(plugin_id);
 }

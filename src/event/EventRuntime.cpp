@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "EventRuntime.h"
 
@@ -20,7 +18,7 @@
 
 namespace {
 
-    /// @brief 列表转运行期启用集合
+    // 列表转运行期启用集合
     std::set<std::string> to_event_set(const std::vector<std::string>& events) {
         return std::set<std::string>(events.begin(), events.end());
     }

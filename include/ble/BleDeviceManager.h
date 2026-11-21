@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -22,8 +20,8 @@ class OpossumBleController;
 class QBluetoothDeviceInfo;
 
 // 链路登记与默认设备评选：扫描入口（CoyoteBleController）只负责发现设备与型号识别，
-// BleDeviceManager 按 MAC 建立、登记与销毁驱动实例，并给出「当前已连接设备」快照。
-// 每台设备各自持有连接状态、电量、强度回执与波形进度，断开一台不影响其它台。
+// BleDeviceManager 按 MAC 建立、登记与销毁驱动实例，并给出「当前已连接设备」快照
+// 每台设备各自持有连接状态、电量、强度回执与波形进度，断开一台不影响其它台
 
 /// @brief 设备类型的默认设备优先级（数值越小越优先）：郊狼 > 负鼠 > 其它
 /// @param type 设备类型标识（coyote / opossum / unknown）
@@ -273,8 +271,8 @@ private:
 };
 
 // BleDeviceManager - 输出设备链路管理器（扫描之外的链路生命周期唯一归属）
-// 职责：按识别出的型号 new 出对应驱动（郊狼 / 负鼠），以 MAC 为键登记；断开时销毁并注销。
-// 没有任何互斥：多台设备可同时在线，各自的连接状态与电量互不覆盖。
+// 职责：按识别出的型号 new 出对应驱动（郊狼 / 负鼠），以 MAC 为键登记；断开时销毁并注销
+// 没有任何互斥：多台设备可同时在线，各自的连接状态与电量互不覆盖
 class BleDeviceManager : public QObject {
     Q_OBJECT
 

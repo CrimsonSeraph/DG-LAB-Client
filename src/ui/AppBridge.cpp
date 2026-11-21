@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "AppBridge.h"
 
@@ -9,7 +7,7 @@
 #include "AppVersion.h"
 
 namespace {
-/// @brief 一次性反馈浮层的驻留时长
+// 一次性反馈浮层的驻留时长
 constexpr int toast_duration_ms = 3000;
 } // namespace
 

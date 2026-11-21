@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -14,8 +12,8 @@
 #include <vector>
 
 // 波形导入导出：JSON（单个波形对象或波形数组）、.pulse（单波形纯文本）与 zip（多波形归档）
-// 三套格式的解析与生成。本模块只做文本 / 字节与数据结构之间的转换，不读写文件、不判定名称冲突；
-// 文件读写与冲突策略落在 WaveLibrary（plan_import / apply_import / export_json / export_pulse / export_zip）。
+// 三套格式的解析与生成，本模块只做文本 / 字节与数据结构之间的转换，不读写文件、不判定名称冲突；
+// 文件读写与冲突策略落在 WaveLibrary（plan_import / apply_import / export_json / export_pulse / export_zip）
 namespace wave_io {
 
     /// @brief zip 归档内的一个文件条目（条目名 + 解压后的内容）

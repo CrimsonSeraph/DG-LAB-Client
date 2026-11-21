@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "ModuleBannerImageProvider.h"
 
@@ -17,8 +15,8 @@
 
 namespace {
 
-    std::atomic<bool> g_illegal_id_logged{false}; ///< 非法 id 只记录一次，避免卡片重绘时刷屏
-    std::atomic<bool> g_missing_file_logged{false}; ///< 文件不可读只记录一次
+    std::atomic<bool> g_illegal_id_logged{false}; // 非法 id 只记录一次，避免卡片重绘时刷屏
+    std::atomic<bool> g_missing_file_logged{false}; // 文件不可读只记录一次
 
     // 检查 id 分段：非空、非当前目录、非上级目录、不含路径分隔符与盘符
     bool is_safe_component(const QString& component) {
@@ -29,7 +27,7 @@ namespace {
             && !component.contains(QLatin1Char(':'));
     }
 
-    // 单次写出失败原因，重复请求不再记录
+    // 单次写出失败原因，重复请求不重复记录
     void log_once(std::atomic<bool>& flag, const std::string& message) {
         if (!flag.exchange(true)) {
             LOG_MODULE("ModuleBannerImageProvider", "requestImage", LOG_DEBUG, message);

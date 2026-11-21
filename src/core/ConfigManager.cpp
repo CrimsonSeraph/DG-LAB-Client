@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "ConfigManager.h"
 
@@ -23,25 +21,25 @@
 
 // 配置文件监听状态：watcher 与去抖定时器由 ConfigManager 独占持有
 struct ConfigWatchState {
-    QFileSystemWatcher* watcher = nullptr; ///< 文件与目录监听器
-    QTimer* timer = nullptr;               ///< 去抖定时器（合并连续写盘事件）
-    QString file_path;                     ///< 被监听的配置文件
-    QString dir_path;                      ///< 配置文件所在目录（文件被删除后靠它重建监听）
+    QFileSystemWatcher* watcher = nullptr; // 文件与目录监听器
+    QTimer* timer = nullptr;               // 去抖定时器（合并连续写盘事件）
+    QString file_path;                     // 被监听的配置文件
+    QString dir_path;                      // 配置文件所在目录（文件被删除后靠它重建监听）
 };
 
 namespace {
 
-    constexpr int kReloadDebounceMs = 300;                     ///< 外部写盘去抖窗口（毫秒）
-    constexpr auto kSelfWriteWindow = std::chrono::seconds(5); ///< 自身写盘的判定时间窗
+    constexpr int kReloadDebounceMs = 300;                     // 外部写盘去抖窗口（毫秒）
+    constexpr auto kSelfWriteWindow = std::chrono::seconds(5); // 自身写盘的判定时间窗
 
     // 三方合并的统计：只用来决定日志，不参与合并判定
     struct MergeStats {
-        int adopted_disk = 0;                 ///< 采用磁盘值（外部新增 / 外部手改 / 外部删除）
-        int kept_memory_only = 0;             ///< 磁盘与基准都没有、只在内存里存在的新增键
-        int kept_local_change = 0;            ///< 双方都改过，按约定保留内存值
-        int kept_delete_conflict = 0;         ///< 磁盘删除但内存改过，保留内存值的冲突
-        std::string first_memory_only_key;     ///< 第一个内存新增键（拼日志用）
-        std::string first_delete_conflict_key; ///< 第一个删除冲突键（拼日志用）
+        int adopted_disk = 0;                 // 采用磁盘值（外部新增 / 外部手改 / 外部删除）
+        int kept_memory_only = 0;             // 磁盘与基准都没有、只在内存里存在的新增键
+        int kept_local_change = 0;            // 双方都改过，按约定保留内存值
+        int kept_delete_conflict = 0;         // 磁盘删除但内存改过，保留内存值的冲突
+        std::string first_memory_only_key;     // 第一个内存新增键（拼日志用）
+        std::string first_delete_conflict_key; // 第一个删除冲突键（拼日志用）
     };
 
     // 三方合并（基准是最后一次从磁盘读到的内容）：
@@ -256,7 +254,7 @@ bool ConfigManager::save() {
             LOG_MODULE("ConfigManager", "save", LOG_ERROR, "配置写入失败，保留内存数据: " << config_path_);
             return false;
         }
-        // 写盘后回读校验：只有磁盘确实拿到这份内容，才把它记成「已同步」。
+        // 写盘后回读校验：只有磁盘确实拿到这份内容，才把它记成「已同步」
         // 否则后续合并会把「从未落盘的键」当成磁盘已有，一次外部覆盖就会把它判成磁盘删除
         std::string verify_raw;
         nlohmann::json verify_parsed;

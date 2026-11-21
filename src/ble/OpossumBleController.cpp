@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "OpossumBleController.h"
 
@@ -25,7 +23,7 @@ namespace {
     const QBluetoothUuid kBatteryService(static_cast<quint16>(0x180A));
     const QBluetoothUuid kBatteryCharacteristic(static_cast<quint16>(0x1500));
 
-    constexpr int kB2AckTimeoutMs = 1500; ///< B2 写入回执等待上限
+    constexpr int kB2AckTimeoutMs = 1500; // B2 写入回执等待上限
 
 } // namespace
 

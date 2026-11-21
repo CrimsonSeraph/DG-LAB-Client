@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "Console.h"
 
@@ -13,17 +11,6 @@
 #else
 #include <iostream>
 #endif
-
-// 构造/析构（private）
-
-Console::Console()
-    : is_created_(false) {
-    // 构造函数不自动创建控制台
-}
-
-Console::~Console() {
-    destroy();
-}
 
 // 单例（public）
 
@@ -57,6 +44,17 @@ void Console::destroy() {
 #else
     is_created_ = false;
 #endif
+}
+
+// 构造/析构（private）
+
+Console::Console()
+    : is_created_(false) {
+    // 构造函数不自动创建控制台
+}
+
+Console::~Console() {
+    destroy();
 }
 
 // 私有辅助函数（private）

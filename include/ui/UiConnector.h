@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -33,7 +31,7 @@ class UpdateBridge;
 // UiConnector - QML 与 C++ 的连接集中点
 // QML 不写信号处理器（onClicked / Connections），每个交互控件都有稳定的 objectName，
 // 加载后由本类按 objectName 显式建立连接；列表 / 中继器 / 布局动态生成的委托由
-// watch_items() 沿可视子树扫描热区。约定与例外见 src/ui/README.md。
+// watch_items() 沿可视子树扫描热区，约定与例外见 src/ui/README.md
 class UiConnector : public QObject {
     Q_OBJECT
 

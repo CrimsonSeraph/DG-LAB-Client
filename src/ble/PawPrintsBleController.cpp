@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "PawPrintsBleController.h"
 
@@ -23,7 +21,7 @@ namespace {
     const QBluetoothUuid kWriteCharacteristic(static_cast<quint16>(0x150A));
     const QBluetoothUuid kNotifyCharacteristic(static_cast<quint16>(0x150B));
 
-    const char* kModelPawV11 = "47L120"; ///< 型号段（广播名 47L120300）
+    const char* kModelPawV11 = "47L120"; // 型号段（广播名 47L120300）
 
 } // namespace
 

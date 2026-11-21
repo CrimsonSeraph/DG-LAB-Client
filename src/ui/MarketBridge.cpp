@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "MarketBridge.h"
 
@@ -35,7 +33,7 @@ namespace {
     // 清单请求超时（毫秒）
     constexpr int kRequestTimeoutMs = 30000;
 
-    /// @brief 是否为绝对 http(s) 地址（与 ModuleBridge::bannerSource 同一套头图判定）
+    // 是否为绝对 http(s) 地址（与 ModuleBridge::bannerSource 同一套头图判定）
     bool is_remote_url(const QString& text) {
         if (text.isEmpty()) {
             return false;
@@ -45,13 +43,13 @@ namespace {
             && (url.scheme() == QStringLiteral("http") || url.scheme() == QStringLiteral("https"));
     }
 
-    /// @brief 读取 JSON 字符串字段（缺失或类型不符返回空串）
+    // 读取 JSON 字符串字段（缺失或类型不符返回空串）
     QString json_string(const QJsonObject& object, const char* key) {
         const QJsonValue value = object.value(QString::fromUtf8(key));
         return value.isString() ? value.toString() : QString();
     }
 
-    /// @brief 读取 JSON 字符串数组字段（跳过非字符串与空串）
+    // 读取 JSON 字符串数组字段（跳过非字符串与空串）
     QStringList json_string_list(const QJsonObject& object, const char* key) {
         QStringList list;
         const QJsonValue value = object.value(QString::fromUtf8(key));
@@ -71,7 +69,7 @@ namespace {
         return list;
     }
 
-    /// @brief 读取侧车 plugin.json 的指定字段；文件缺失或损坏返回空对象
+    // 读取侧车 plugin.json 的指定字段；文件缺失或损坏返回空对象
     QJsonObject read_sidecar(const QString& path) {
         QFile file(path);
         if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
@@ -86,7 +84,7 @@ namespace {
         return document.object();
     }
 
-    /// @brief 把版本串拆成数字段（去掉前导 v，任一段不是数字则返回空列表）
+    // 把版本串拆成数字段（去掉前导 v，任一段不是数字则返回空列表）
     QList<int> version_segments(const QString& version) {
         QString text = version.trimmed();
         if (text.startsWith(QLatin1Char('v')) || text.startsWith(QLatin1Char('V'))) {

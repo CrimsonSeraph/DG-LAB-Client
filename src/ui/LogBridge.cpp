@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "LogBridge.h"
 
@@ -19,7 +17,7 @@ namespace {
 
     constexpr int kMaxMessages = 400;
 
-    /// @brief 手动日志目录下最近写入的日志文件（LogExporter 每次导出写一个独立时间戳文件）
+    // 手动日志目录下最近写入的日志文件（LogExporter 每次导出写一个独立时间戳文件）
     QString newest_export_file(const QString& dir) {
         const QFileInfoList files = QDir(dir).entryInfoList({QStringLiteral("log_*.txt")}, QDir::Files, QDir::Time);
         return files.isEmpty() ? QString() : files.first().absoluteFilePath();
@@ -63,7 +61,7 @@ void LogBridge::initialize() {
     sink.callback = [this](const std::string& module, const std::string& method, LogLevel level,
                         const std::string& message) { on_log(module, method, level, message); };
     DebugLog::instance().register_log_sink("qt_ui", sink);
-    // 不再根据 level_filter_ 限制底层通道级别，否则切回 DEBUG 时历史日志找不回来
+    // 底层通道级别不按 level_filter_ 限制，切回 DEBUG 时仍可回看历史日志
     DebugLog::instance().set_log_sink_level("qt_ui", LOG_DEBUG);
 
     emit levelFilterChanged();
@@ -95,16 +93,6 @@ void LogBridge::clear() {
     emit messagesChanged();
 }
 
-void LogBridge::refresh() {
-    messages_.clear();
-    for (const QVariant& v : all_messages_) {
-        if (v.toMap().value(QStringLiteral("level")).toInt() >= level_filter_) {
-            messages_.append(v);
-        }
-    }
-    emit messagesChanged();
-}
-
 bool LogBridge::exportLogs() {
     QStringList lines;
     for (const auto& item : messages_) {
@@ -120,6 +108,16 @@ bool LogBridge::exportLogs() {
     last_export_path_ = newest_export_file(export_dir());
     emit exportChanged();
     return true;
+}
+
+void LogBridge::refresh() {
+    messages_.clear();
+    for (const QVariant& v : all_messages_) {
+        if (v.toMap().value(QStringLiteral("level")).toInt() >= level_filter_) {
+            messages_.append(v);
+        }
+    }
+    emit messagesChanged();
 }
 
 void LogBridge::setLevelFilter(int level) {

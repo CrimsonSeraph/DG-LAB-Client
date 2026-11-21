@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "WaveImportExport.h"
 
@@ -16,24 +14,24 @@
 
 namespace {
 
-    /// @brief .pulse 文本的固定前缀
+    // .pulse 文本的固定前缀
     const char* const PULSE_PREFIX = "Dungeonlab+pulse:";
 
-    /// @brief V2 帧的字段别名（按优先级取第一个存在的数组）
+    // V2 帧的字段别名（按优先级取第一个存在的数组）
     const char* const V2_KEYS[] = { "expectedV2", "framesV2", "frames_v2" };
-    /// @brief V3 帧的字段别名（按优先级；frames 为旧存储格式）
+    // V3 帧的字段别名（按优先级；frames 为旧存储格式）
     const char* const V3_KEYS[] = { "expectedV3", "framesV3", "frames_v3", "frames" };
-    /// @brief 标签字段的别名（按优先级；labels 为兼容别名）
+    // 标签字段的别名（按优先级；labels 为兼容别名）
     const char* const TAG_KEYS[] = { "tags", "labels" };
 
-    /// @brief 别名列表长度
+    // 别名列表长度
     constexpr int KEY_COUNT_V2 = static_cast<int>(sizeof(V2_KEYS) / sizeof(V2_KEYS[0]));
-    /// @brief 别名列表长度
+    // 别名列表长度
     constexpr int KEY_COUNT_V3 = static_cast<int>(sizeof(V3_KEYS) / sizeof(V3_KEYS[0]));
-    /// @brief 别名列表长度
+    // 别名列表长度
     constexpr int KEY_COUNT_TAG = static_cast<int>(sizeof(TAG_KEYS) / sizeof(TAG_KEYS[0]));
 
-    /// @brief 读取条目的字符串字段；缺失或类型不符返回空串
+    // 读取条目的字符串字段；缺失或类型不符返回空串
     std::string string_field(const nlohmann::json& item, const char* key) {
         const auto it = item.find(key);
         if (it == item.end() || !it->is_string()) {
@@ -42,7 +40,7 @@ namespace {
         return it->get<std::string>();
     }
 
-    /// @brief 按别名列表取第一个存在的数组字段；都没有返回 nullptr
+    // 按别名列表取第一个存在的数组字段；都没有返回 nullptr
     const nlohmann::json* find_array(const nlohmann::json& item, const char* const* keys, int key_count) {
         for (int index = 0; index < key_count; ++index) {
             const auto it = item.find(keys[index]);
@@ -53,7 +51,7 @@ namespace {
         return nullptr;
     }
 
-    /// @brief 逐帧规范化帧数组；任一帧不合规即整条失败并记录首个非法帧
+    // 逐帧规范化帧数组；任一帧不合规即整条失败并记录首个非法帧
     bool read_frames(const nlohmann::json& array, int byte_count, QStringList& frames, QString& bad_frame) {
         frames.clear();
         bad_frame.clear();
@@ -73,7 +71,7 @@ namespace {
         return true;
     }
 
-    /// @brief 帧序列转 JSON 字符串数组
+    // 帧序列转 JSON 字符串数组
     nlohmann::json frames_to_json(const QStringList& frames) {
         nlohmann::json array = nlohmann::json::array();
         for (const QString& frame : frames) {
@@ -82,7 +80,7 @@ namespace {
         return array;
     }
 
-    /// @brief 标签序列转 JSON 字符串数组
+    // 标签序列转 JSON 字符串数组
     nlohmann::json tags_to_json(const QStringList& tags) {
         nlohmann::json array = nlohmann::json::array();
         for (const QString& tag : tags) {
@@ -91,7 +89,7 @@ namespace {
         return array;
     }
 
-    /// @brief 解析单条目为波形；失败时写跳过原因并返回 false
+    // 解析单条目为波形；失败时写跳过原因并返回 false
     bool parse_entry(const nlohmann::json& item, int index, Wave& wave, QString& reason) {
         if (!item.is_object()) {
             reason = QStringLiteral("第 %1 条不是波形对象").arg(index);
@@ -136,7 +134,7 @@ namespace {
         return true;
     }
 
-    /// @brief 按 UTF-8 解码 zip 条目名；非法 UTF-8 回退本地 8 位编码（部分压缩工具写 GBK）
+    // 按 UTF-8 解码 zip 条目名；非法 UTF-8 回退本地 8 位编码（部分压缩工具写 GBK）
     QString decode_entry_name(const char* raw) {
         const QByteArray bytes(raw);
         const QString name = QString::fromUtf8(bytes);
@@ -146,7 +144,7 @@ namespace {
         return name;
     }
 
-    /// @brief 条目名是否含绝对路径或 .. 路径段（路径穿越）
+    // 条目名是否含绝对路径或 .. 路径段（路径穿越）
     bool unsafe_entry_name(const QString& name) {
         if (name.startsWith(QLatin1Char('/')) || name.startsWith(QLatin1Char('\\'))) {
             return true;

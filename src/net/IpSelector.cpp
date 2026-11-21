@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "IpSelector.h"
 
@@ -15,10 +13,10 @@
 
 namespace {
 
-    constexpr char CONFIG_BLACKLIST[] = "app.network.ip_blacklist"; ///< 黑名单配置键
-    constexpr char CONFIG_WHITELIST[] = "app.network.ip_whitelist"; ///< 白名单配置键
-    constexpr char CONFIG_SELECTED_IP[] = "app.network.selected_ip"; ///< 手动选中地址配置键
-    constexpr char FALLBACK_IP[] = "127.0.0.1";                     ///< 无有效网卡时的回退地址
+    constexpr char CONFIG_BLACKLIST[] = "app.network.ip_blacklist"; // 黑名单配置键
+    constexpr char CONFIG_WHITELIST[] = "app.network.ip_whitelist"; // 白名单配置键
+    constexpr char CONFIG_SELECTED_IP[] = "app.network.selected_ip"; // 手动选中地址配置键
+    constexpr char FALLBACK_IP[] = "127.0.0.1";                     // 无有效网卡时的回退地址
 
     // 默认黑名单：虚拟网卡、VPN 与蓝牙网络（覆盖 Hyper-V / VMware / WSL / Radmin / TAP）
     std::vector<std::string> default_blacklist() {

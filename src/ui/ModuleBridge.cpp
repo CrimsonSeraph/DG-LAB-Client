@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "ModuleBridge.h"
 
@@ -19,7 +17,7 @@
 
 namespace {
 
-    /// @brief 周期选项（文本 -> 毫秒），与 QueryPeriod 对应；文本直接用毫秒数值，避免口语量词
+    // 周期选项（文本 -> 毫秒），与 QueryPeriod 对应；文本直接用毫秒数值，避免口语量词
     const std::pair<const char*, int> kPeriodOptions[] = {
         { "250 ms", 250 },
         { "500 ms", 500 },

@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -21,10 +19,10 @@ class QTimer;
 
 // CivetBleController - 灵猫边缘控制传感器 V1 的输入侧蓝牙直连
 // GATT 与郊狼 V3 相同（服务 0x180C / 写 0x150A / 通知 0x150B），另有 0x180A / 0x1500 电量特征；
-// 指令与消息布局见 include/ble/CivetFrames.h。纯输入设备：不继承 IOutputDevice，
-// 不参与输出下发与默认设备评选；服务发现完成后立即写 50 指令开启气压上报，断连重连走同一条路径。
-// 设备需连按 5 次开机键才可被搜到，蓝牙名 47L124000。
-// 无实机验证：驱动按实验性上线。
+// 指令与消息布局见 include/ble/CivetFrames.h，纯输入设备：不继承 IOutputDevice，
+// 不参与输出下发与默认设备评选；服务发现完成后立即写 50 指令开启气压上报，断连重连走同一条路径
+// 设备需连按 5 次开机键才可被搜到，蓝牙名 47L124000
+// 无实机验证：驱动按实验性上线
 class CivetBleController : public QObject {
     Q_OBJECT
 

@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "RuleGraph.h"
 
@@ -30,7 +28,7 @@ namespace {
         QString inner;
     };
 
-    /// @brief 解析顶层 {} 占位符（不处理嵌套）
+    // 解析顶层 {} 占位符（不处理嵌套）
     QVector<PlaceholderInfo> parse_placeholders(const QString& text) {
         QVector<PlaceholderInfo> list;
         int depth = 0;
@@ -58,7 +56,7 @@ namespace {
         return list;
     }
 
-    /// @brief 从 {id:xxx(名称)} 中取出显示名
+    // 从 {id:xxx(名称)} 中取出显示名
     QString label_from_placeholder(const QString& inner) {
         if (inner.startsWith(QStringLiteral("id:"))) {
             const QString body = inner.mid(3);
@@ -78,9 +76,9 @@ namespace {
         return QString();
     }
 
-    constexpr int MAX_EVAL_DEPTH = 32; ///< 求值递归深度上限（防历史数据里的回环）
+    constexpr int MAX_EVAL_DEPTH = 32; // 求值递归深度上限（防历史数据里的回环）
 
-    /// @brief 去重并排序（依赖集合输出稳定）
+    // 去重并排序（依赖集合输出稳定）
     void sort_unique(std::vector<std::string>& values) {
         std::sort(values.begin(), values.end());
         values.erase(std::unique(values.begin(), values.end()), values.end());
@@ -244,147 +242,6 @@ QString RuleGraph::input_label(int id, int port) const {
     return QString();
 }
 
-int RuleGraph::add_node(const GraphNode& node) {
-    // 插件图的默认输出节点唯一：已存在时返回既有节点，不新增
-    if (node.type == GraphNodeType::DefaultOutput) {
-        const int existing = default_output_node();
-        if (existing > 0) {
-            return existing;
-        }
-    }
-    GraphNode copy = node;
-    copy.id = next_node_id_++;
-    nodes_.push_back(copy);
-    return copy.id;
-}
-
-bool RuleGraph::remove_node(int id) {
-    const auto it = std::find_if(nodes_.begin(), nodes_.end(), [id](const GraphNode& n) { return n.id == id; });
-    if (it == nodes_.end()) {
-        return false;
-    }
-    // 默认输出节点是插件图的出口，不可手动删除
-    if (it->type == GraphNodeType::DefaultOutput) {
-        LOG_MODULE("RuleGraph", "remove_node", LOG_WARN, "默认输出节点不可删除");
-        return false;
-    }
-    nodes_.erase(it);
-    edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
-                     [id](const GraphEdge& e) { return e.from == id || e.to == id; }),
-        edges_.end());
-    return true;
-}
-
-bool RuleGraph::move_node(int id, double x, double y) {
-    GraphNode* node = find_node(id);
-    if (node == nullptr) {
-        return false;
-    }
-    node->x = x;
-    node->y = y;
-    return true;
-}
-
-int RuleGraph::connect_nodes(int from, int to, int port) {
-    if (from == to || find_node(from) == nullptr || find_node(to) == nullptr) {
-        return -1;
-    }
-    if (would_create_cycle(from, to)) {
-        LOG_MODULE("RuleGraph", "connect_nodes", LOG_WARN, "忽略会形成环的连线");
-        return -1;
-    }
-    const GraphNode* target = find_node(to);
-    // 插件输出节点代表插件图的最终输出，没有输入端口
-    if (target != nullptr && target->type == GraphNodeType::PluginOutput) {
-        LOG_MODULE("RuleGraph", "connect_nodes", LOG_WARN, "插件输出节点不接受输入");
-        return -1;
-    }
-    // 通道 / 默认输出只允许一个来源
-    if (target != nullptr
-        && (target->type == GraphNodeType::Channel || target->type == GraphNodeType::DefaultOutput)) {
-        port = 0;
-        // 通道节点额外按「设备 + 通道」唯一：同设备同通道的其它通道节点上的入边一并断开
-        if (target->type == GraphNodeType::Channel) {
-            const int removed = supersede_channel_edges(to, channel_scope_key(to));
-            if (removed > 0) {
-                LOG_MODULE("RuleGraph", "connect_nodes", LOG_INFO,
-                    "同一设备同一通道只允许一条入边，已断开既有入边 "
-                        << removed << " 条: " << channel_scope_key(to).toStdString());
-            }
-        }
-        edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
-                         [to](const GraphEdge& e) { return e.to == to; }),
-            edges_.end());
-    }
-    else {
-        disconnect_port(to, port);
-    }
-    GraphEdge edge;
-    edge.id = next_edge_id_++;
-    edge.from = from;
-    edge.to = to;
-    edge.port = port;
-    edges_.push_back(edge);
-    return edge.id;
-}
-
-int RuleGraph::supersede_channel_edges(int keep_node_id, const QString& scope) {
-    if (scope.isEmpty()) {
-        return 0;
-    }
-    int removed = 0;
-    for (const auto& node : nodes_) {
-        if (node.id == keep_node_id || node.type != GraphNodeType::Channel) {
-            continue;
-        }
-        if (channel_scope_key(node.id) != scope) {
-            continue;
-        }
-        const auto before = edges_.size();
-        edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
-                         [id = node.id](const GraphEdge& e) { return e.to == id; }),
-            edges_.end());
-        removed += static_cast<int>(before - edges_.size());
-    }
-    return removed;
-}
-
-bool RuleGraph::disconnect_edge(int edge_id) {
-    const auto it = std::find_if(edges_.begin(), edges_.end(), [edge_id](const GraphEdge& e) { return e.id == edge_id; });
-    if (it == edges_.end()) {
-        return false;
-    }
-    edges_.erase(it);
-    return true;
-}
-
-bool RuleGraph::disconnect_port(int to, int port) {
-    const int edge_id = edge_at_port(to, port);
-    return edge_id >= 0 ? disconnect_edge(edge_id) : false;
-}
-
-bool RuleGraph::has_edge(int from, int to, int port) const {
-    return source_at_port(to, port) == from;
-}
-
-int RuleGraph::edge_at_port(int to, int port) const {
-    for (const auto& edge : edges_) {
-        if (edge.to == to && edge.port == port) {
-            return edge.id;
-        }
-    }
-    return -1;
-}
-
-int RuleGraph::source_at_port(int to, qsizetype port) const {
-    for (const auto& edge : edges_) {
-        if (edge.to == to && edge.port == port) {
-            return edge.from;
-        }
-    }
-    return -1;
-}
-
 int RuleGraph::default_output_node() const {
     for (const auto& node : nodes_) {
         if (node.type == GraphNodeType::DefaultOutput) {
@@ -445,38 +302,6 @@ void RuleGraph::add_output_reference(const QString& reference) {
         return;
     }
     node->references.append(reference);
-}
-
-void RuleGraph::normalize_output_nodes() {
-    int first = -1;
-    std::vector<int> duplicates;
-    for (const auto& node : nodes_) {
-        if (node.type != GraphNodeType::DefaultOutput) {
-            continue;
-        }
-        if (first < 0) {
-            first = node.id;
-        }
-        else {
-            duplicates.push_back(node.id);
-        }
-    }
-    if (duplicates.empty()) {
-        return;
-    }
-    LOG_MODULE("RuleGraph", "normalize_output_nodes", LOG_WARN,
-        "规则图存在多个默认输出节点，保留首个并丢弃 " << duplicates.size() << " 个重复项");
-    nodes_.erase(std::remove_if(nodes_.begin(), nodes_.end(),
-                     [&duplicates](const GraphNode& node) {
-                         return std::find(duplicates.begin(), duplicates.end(), node.id) != duplicates.end();
-                     }),
-        nodes_.end());
-    edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
-                     [&duplicates](const GraphEdge& edge) {
-                         return std::find(duplicates.begin(), duplicates.end(), edge.from) != duplicates.end()
-                             || std::find(duplicates.begin(), duplicates.end(), edge.to) != duplicates.end();
-                     }),
-        edges_.end());
 }
 
 GraphDependency RuleGraph::dependencies(int from_node_id) const {
@@ -586,148 +411,124 @@ std::optional<int> RuleGraph::evaluate(int node_id, const ValueResolver& resolve
     return evaluate_node(start, 0, resolve, plugin_outputs, memo);
 }
 
-std::optional<int> RuleGraph::evaluate_node(int node_id, int depth, const ValueResolver& resolve,
-    const std::map<QString, int>& plugin_outputs, std::map<int, std::optional<int>>& memo) const {
-    if (depth > MAX_EVAL_DEPTH) {
-        return std::nullopt;
+int RuleGraph::add_node(const GraphNode& node) {
+    // 插件图的默认输出节点唯一：已存在时返回既有节点，不新增
+    if (node.type == GraphNodeType::DefaultOutput) {
+        const int existing = default_output_node();
+        if (existing > 0) {
+            return existing;
+        }
     }
-    const auto cached = memo.find(node_id);
-    if (cached != memo.end()) {
-        return cached->second;
+    GraphNode copy = node;
+    copy.id = next_node_id_++;
+    nodes_.push_back(copy);
+    return copy.id;
+}
+
+bool RuleGraph::remove_node(int id) {
+    const auto it = std::find_if(nodes_.begin(), nodes_.end(), [id](const GraphNode& n) { return n.id == id; });
+    if (it == nodes_.end()) {
+        return false;
     }
-    // 先占位再递归：回环（历史数据里可能出现）按空值处理
-    memo[node_id] = std::nullopt;
-    const GraphNode* node = find_node(node_id);
+    // 默认输出节点是插件图的出口，不可手动删除
+    if (it->type == GraphNodeType::DefaultOutput) {
+        LOG_MODULE("RuleGraph", "remove_node", LOG_WARN, "默认输出节点不可删除");
+        return false;
+    }
+    nodes_.erase(it);
+    edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
+                     [id](const GraphEdge& e) { return e.from == id || e.to == id; }),
+        edges_.end());
+    return true;
+}
+
+bool RuleGraph::move_node(int id, double x, double y) {
+    GraphNode* node = find_node(id);
     if (node == nullptr) {
-        return std::nullopt;
+        return false;
     }
-
-    std::optional<int> result;
-    switch (node->type) {
-    case GraphNodeType::Module:
-        if (resolve != nullptr && !node->value_id.isEmpty()) {
-            result = resolve(node->value_id);
-        }
-        break;
-    case GraphNodeType::Rule:
-        if (node->enabled) {
-            std::vector<std::optional<int>> values;
-            const int count = input_count(node_id);
-            values.reserve(count);
-            for (int port = 0; port < count; ++port) {
-                values.push_back(input_value(node_id, port, depth, resolve, plugin_outputs, memo));
-            }
-            // 与总规则图的规则节点同一口径：Rule 的空值语义 + 模式钳位
-            const Rule rule(node->rule_name.toStdString(), "", node->mode,
-                node->expression.toStdString(), true, {}, 0);
-            result = rule.compute_value(values);
-        }
-        break;
-    case GraphNodeType::Operator: {
-        const std::optional<int> a = input_value(node_id, 0, depth, resolve, plugin_outputs, memo);
-        const std::optional<int> b = input_value(node_id, 1, depth, resolve, plugin_outputs, memo);
-        if (a.has_value() && b.has_value()) {
-            result = evaluate_number(
-                QStringLiteral("Math.floor((%1) %2 (%3))").arg(a.value()).arg(node->op).arg(b.value()));
-        }
-        break;
-    }
-    case GraphNodeType::Advanced: {
-        if (node->advanced == QStringLiteral("expression")) {
-            QString expression = node->expression;
-            const auto placeholders = parse_placeholders(expression);
-            bool filled = true;
-            // 从后往前替换，避免位置偏移
-            for (qsizetype i = placeholders.size() - 1; i >= 0; --i) {
-                const std::optional<int> value = input_value(node_id, static_cast<int>(i), depth,
-                    resolve, plugin_outputs, memo);
-                if (!value.has_value()) {
-                    filled = false;
-                    break;
-                }
-                expression.replace(placeholders.at(i).pos, placeholders.at(i).len,
-                    QString::number(value.value()));
-            }
-            if (filled && !placeholders.isEmpty()) {
-                result = evaluate_number(QStringLiteral("Math.floor(%1)").arg(expression));
-            }
-            break;
-        }
-        const std::optional<int> a = input_value(node_id, 0, depth, resolve, plugin_outputs, memo);
-        if (!a.has_value()) {
-            break;
-        }
-        if (node->advanced == QStringLiteral("abs")) {
-            result = evaluate_number(QStringLiteral("Math.floor(Math.abs(%1))").arg(a.value()));
-        }
-        else if (node->advanced == QStringLiteral("square")) {
-            result = evaluate_number(
-                QStringLiteral("Math.floor((%1) * (%1))").arg(a.value()));
-        }
-        else if (node->advanced == QStringLiteral("sqrt")) {
-            result = evaluate_number(QStringLiteral("Math.floor(Math.sqrt(%1))").arg(a.value()));
-        }
-        break;
-    }
-    case GraphNodeType::Channel:
-    case GraphNodeType::DefaultOutput:
-        result = input_value(node_id, 0, depth, resolve, plugin_outputs, memo);
-        break;
-    case GraphNodeType::PluginOutput: {
-        if (!plugin_id_.isEmpty()) {
-            // 插件图引用其它插件的输出：当前数据层不支持，按 0 处理
-            if (DebugLogUtil::should_log_once("rule-graph-plugin-output:" + plugin_id_.toStdString())) {
-                LOG_MODULE("RuleGraph", "evaluate", LOG_WARN,
-                    "插件规则图 " << plugin_id_.toStdString()
-                                  << " 引用了插件输出节点，当前不支持跨插件求值，按 0 处理");
-            }
-            result = 0;
-            break;
-        }
-        QString referenced = node->plugin_id;
-        if (referenced.isEmpty()) {
-            for (const auto& reference : node->references) {
-                const QString plugin_id = rule_graph_ref_plugin(reference);
-                if (!plugin_id.isEmpty()) {
-                    referenced = plugin_id;
-                    break;
-                }
-            }
-        }
-        const auto it = plugin_outputs.find(referenced);
-        if (referenced.isEmpty() || it == plugin_outputs.end()) {
-            // 插件图本帧无输出（数值缺失）：本节点按空值处理，不产出强度
-            if (DebugLogUtil::should_log_once("rule-graph-plugin-output-missing:" + referenced.toStdString())) {
-                LOG_MODULE("RuleGraph", "evaluate", LOG_WARN,
-                    "插件输出节点没有可用取值，按空值处理: " << referenced.toStdString());
-            }
-            break;
-        }
-        result = it->second;
-        break;
-    }
-    }
-    memo[node_id] = result;
-    return result;
+    node->x = x;
+    node->y = y;
+    return true;
 }
 
-std::optional<int> RuleGraph::input_value(int node_id, int port, int depth,
-    const ValueResolver& resolve, const std::map<QString, int>& plugin_outputs,
-    std::map<int, std::optional<int>>& memo) const {
-    const int source = source_at_port(node_id, port);
-    if (source <= 0) {
-        return std::nullopt;
+int RuleGraph::connect_nodes(int from, int to, int port) {
+    if (from == to || find_node(from) == nullptr || find_node(to) == nullptr) {
+        return -1;
     }
-    return evaluate_node(source, depth + 1, resolve, plugin_outputs, memo);
+    if (would_create_cycle(from, to)) {
+        LOG_MODULE("RuleGraph", "connect_nodes", LOG_WARN, "忽略会形成环的连线");
+        return -1;
+    }
+    const GraphNode* target = find_node(to);
+    // 插件输出节点代表插件图的最终输出，没有输入端口
+    if (target != nullptr && target->type == GraphNodeType::PluginOutput) {
+        LOG_MODULE("RuleGraph", "connect_nodes", LOG_WARN, "插件输出节点不接受输入");
+        return -1;
+    }
+    // 通道 / 默认输出只允许一个来源
+    if (target != nullptr
+        && (target->type == GraphNodeType::Channel || target->type == GraphNodeType::DefaultOutput)) {
+        port = 0;
+        // 通道节点额外按「设备 + 通道」唯一：同设备同通道的其它通道节点上的入边一并断开
+        if (target->type == GraphNodeType::Channel) {
+            const int removed = supersede_channel_edges(to, channel_scope_key(to));
+            if (removed > 0) {
+                LOG_MODULE("RuleGraph", "connect_nodes", LOG_INFO,
+                    "同一设备同一通道只允许一条入边，已断开既有入边 "
+                        << removed << " 条: " << channel_scope_key(to).toStdString());
+            }
+        }
+        edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
+                         [to](const GraphEdge& e) { return e.to == to; }),
+            edges_.end());
+    }
+    else {
+        disconnect_port(to, port);
+    }
+    GraphEdge edge;
+    edge.id = next_edge_id_++;
+    edge.from = from;
+    edge.to = to;
+    edge.port = port;
+    edges_.push_back(edge);
+    return edge.id;
 }
 
-std::optional<int> RuleGraph::evaluate_number(const QString& expression) {
-    if (expression.isEmpty()) {
-        return std::nullopt;
+bool RuleGraph::disconnect_edge(int edge_id) {
+    const auto it = std::find_if(edges_.begin(), edges_.end(), [edge_id](const GraphEdge& e) { return e.id == edge_id; });
+    if (it == edges_.end()) {
+        return false;
     }
-    // 借 Rule 的 QJSEngine 求值路径，取整与钳位口径和 valuePattern 保持一致（模式 0 不钳位）
-    const Rule rule("", "", 0, expression.toStdString(), true, {}, 0);
-    return rule.compute_value(std::vector<std::optional<int>>());
+    edges_.erase(it);
+    return true;
+}
+
+bool RuleGraph::disconnect_port(int to, int port) {
+    const int edge_id = edge_at_port(to, port);
+    return edge_id >= 0 ? disconnect_edge(edge_id) : false;
+}
+
+bool RuleGraph::has_edge(int from, int to, int port) const {
+    return source_at_port(to, port) == from;
+}
+
+int RuleGraph::edge_at_port(int to, int port) const {
+    for (const auto& edge : edges_) {
+        if (edge.to == to && edge.port == port) {
+            return edge.id;
+        }
+    }
+    return -1;
+}
+
+int RuleGraph::source_at_port(int to, qsizetype port) const {
+    for (const auto& edge : edges_) {
+        if (edge.to == to && edge.port == port) {
+            return edge.from;
+        }
+    }
+    return -1;
 }
 
 void RuleGraph::import_from_rules() {
@@ -1075,6 +876,150 @@ bool RuleGraph::save(const QString& rule_file) {
         (ok ? "规则图已写回规则文件" : "规则图写回失败"));
     return ok;
 }
+
+std::optional<int> RuleGraph::evaluate_node(int node_id, int depth, const ValueResolver& resolve,
+    const std::map<QString, int>& plugin_outputs, std::map<int, std::optional<int>>& memo) const {
+    if (depth > MAX_EVAL_DEPTH) {
+        return std::nullopt;
+    }
+    const auto cached = memo.find(node_id);
+    if (cached != memo.end()) {
+        return cached->second;
+    }
+    // 先占位再递归：回环（历史数据里可能出现）按空值处理
+    memo[node_id] = std::nullopt;
+    const GraphNode* node = find_node(node_id);
+    if (node == nullptr) {
+        return std::nullopt;
+    }
+
+    std::optional<int> result;
+    switch (node->type) {
+    case GraphNodeType::Module:
+        if (resolve != nullptr && !node->value_id.isEmpty()) {
+            result = resolve(node->value_id);
+        }
+        break;
+    case GraphNodeType::Rule:
+        if (node->enabled) {
+            std::vector<std::optional<int>> values;
+            const int count = input_count(node_id);
+            values.reserve(count);
+            for (int port = 0; port < count; ++port) {
+                values.push_back(input_value(node_id, port, depth, resolve, plugin_outputs, memo));
+            }
+            // 与总规则图的规则节点同一口径：Rule 的空值语义 + 模式钳位
+            const Rule rule(node->rule_name.toStdString(), "", node->mode,
+                node->expression.toStdString(), true, {}, 0);
+            result = rule.compute_value(values);
+        }
+        break;
+    case GraphNodeType::Operator: {
+        const std::optional<int> a = input_value(node_id, 0, depth, resolve, plugin_outputs, memo);
+        const std::optional<int> b = input_value(node_id, 1, depth, resolve, plugin_outputs, memo);
+        if (a.has_value() && b.has_value()) {
+            result = evaluate_number(
+                QStringLiteral("Math.floor((%1) %2 (%3))").arg(a.value()).arg(node->op).arg(b.value()));
+        }
+        break;
+    }
+    case GraphNodeType::Advanced: {
+        if (node->advanced == QStringLiteral("expression")) {
+            QString expression = node->expression;
+            const auto placeholders = parse_placeholders(expression);
+            bool filled = true;
+            // 从后往前替换，避免位置偏移
+            for (qsizetype i = placeholders.size() - 1; i >= 0; --i) {
+                const std::optional<int> value = input_value(node_id, static_cast<int>(i), depth,
+                    resolve, plugin_outputs, memo);
+                if (!value.has_value()) {
+                    filled = false;
+                    break;
+                }
+                expression.replace(placeholders.at(i).pos, placeholders.at(i).len,
+                    QString::number(value.value()));
+            }
+            if (filled && !placeholders.isEmpty()) {
+                result = evaluate_number(QStringLiteral("Math.floor(%1)").arg(expression));
+            }
+            break;
+        }
+        const std::optional<int> a = input_value(node_id, 0, depth, resolve, plugin_outputs, memo);
+        if (!a.has_value()) {
+            break;
+        }
+        if (node->advanced == QStringLiteral("abs")) {
+            result = evaluate_number(QStringLiteral("Math.floor(Math.abs(%1))").arg(a.value()));
+        }
+        else if (node->advanced == QStringLiteral("square")) {
+            result = evaluate_number(
+                QStringLiteral("Math.floor((%1) * (%1))").arg(a.value()));
+        }
+        else if (node->advanced == QStringLiteral("sqrt")) {
+            result = evaluate_number(QStringLiteral("Math.floor(Math.sqrt(%1))").arg(a.value()));
+        }
+        break;
+    }
+    case GraphNodeType::Channel:
+    case GraphNodeType::DefaultOutput:
+        result = input_value(node_id, 0, depth, resolve, plugin_outputs, memo);
+        break;
+    case GraphNodeType::PluginOutput: {
+        if (!plugin_id_.isEmpty()) {
+            // 插件图引用其它插件的输出：当前数据层不支持，按 0 处理
+            if (DebugLogUtil::should_log_once("rule-graph-plugin-output:" + plugin_id_.toStdString())) {
+                LOG_MODULE("RuleGraph", "evaluate", LOG_WARN,
+                    "插件规则图 " << plugin_id_.toStdString()
+                                  << " 引用了插件输出节点，当前不支持跨插件求值，按 0 处理");
+            }
+            result = 0;
+            break;
+        }
+        QString referenced = node->plugin_id;
+        if (referenced.isEmpty()) {
+            for (const auto& reference : node->references) {
+                const QString plugin_id = rule_graph_ref_plugin(reference);
+                if (!plugin_id.isEmpty()) {
+                    referenced = plugin_id;
+                    break;
+                }
+            }
+        }
+        const auto it = plugin_outputs.find(referenced);
+        if (referenced.isEmpty() || it == plugin_outputs.end()) {
+            // 插件图本帧无输出（数值缺失）：本节点按空值处理，不产出强度
+            if (DebugLogUtil::should_log_once("rule-graph-plugin-output-missing:" + referenced.toStdString())) {
+                LOG_MODULE("RuleGraph", "evaluate", LOG_WARN,
+                    "插件输出节点没有可用取值，按空值处理: " << referenced.toStdString());
+            }
+            break;
+        }
+        result = it->second;
+        break;
+    }
+    }
+    memo[node_id] = result;
+    return result;
+}
+
+std::optional<int> RuleGraph::input_value(int node_id, int port, int depth,
+    const ValueResolver& resolve, const std::map<QString, int>& plugin_outputs,
+    std::map<int, std::optional<int>>& memo) const {
+    const int source = source_at_port(node_id, port);
+    if (source <= 0) {
+        return std::nullopt;
+    }
+    return evaluate_node(source, depth + 1, resolve, plugin_outputs, memo);
+}
+
+std::optional<int> RuleGraph::evaluate_number(const QString& expression) {
+    if (expression.isEmpty()) {
+        return std::nullopt;
+    }
+    // 借 Rule 的 QJSEngine 求值路径，取整与钳位口径和 valuePattern 保持一致（模式 0 不钳位）
+    const Rule rule("", "", 0, expression.toStdString(), true, {}, 0);
+    return rule.compute_value(std::vector<std::optional<int>>());
+}
 QString RuleGraph::formula_of(int node_id, int depth) const {
     if (depth > 32) {
         return QStringLiteral("{}");
@@ -1173,4 +1118,57 @@ int RuleGraph::rule_index_of(const QString& rule_name) const {
     names.sort();
     const qsizetype index = names.indexOf(rule_name);
     return index < 0 ? -1 : static_cast<int>(index) + 1;
+}
+
+void RuleGraph::normalize_output_nodes() {
+    int first = -1;
+    std::vector<int> duplicates;
+    for (const auto& node : nodes_) {
+        if (node.type != GraphNodeType::DefaultOutput) {
+            continue;
+        }
+        if (first < 0) {
+            first = node.id;
+        }
+        else {
+            duplicates.push_back(node.id);
+        }
+    }
+    if (duplicates.empty()) {
+        return;
+    }
+    LOG_MODULE("RuleGraph", "normalize_output_nodes", LOG_WARN,
+        "规则图存在多个默认输出节点，保留首个并丢弃 " << duplicates.size() << " 个重复项");
+    nodes_.erase(std::remove_if(nodes_.begin(), nodes_.end(),
+                     [&duplicates](const GraphNode& node) {
+                         return std::find(duplicates.begin(), duplicates.end(), node.id) != duplicates.end();
+                     }),
+        nodes_.end());
+    edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
+                     [&duplicates](const GraphEdge& edge) {
+                         return std::find(duplicates.begin(), duplicates.end(), edge.from) != duplicates.end()
+                             || std::find(duplicates.begin(), duplicates.end(), edge.to) != duplicates.end();
+                     }),
+        edges_.end());
+}
+
+int RuleGraph::supersede_channel_edges(int keep_node_id, const QString& scope) {
+    if (scope.isEmpty()) {
+        return 0;
+    }
+    int removed = 0;
+    for (const auto& node : nodes_) {
+        if (node.id == keep_node_id || node.type != GraphNodeType::Channel) {
+            continue;
+        }
+        if (channel_scope_key(node.id) != scope) {
+            continue;
+        }
+        const auto before = edges_.size();
+        edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
+                         [id = node.id](const GraphEdge& e) { return e.to == id; }),
+            edges_.end());
+        removed += static_cast<int>(before - edges_.size());
+    }
+    return removed;
 }

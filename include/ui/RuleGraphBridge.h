@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -21,7 +19,7 @@ class DeviceController;
 
 // RuleGraphBridge - 规则可视化编辑器桥接（QML 上下文属性 ruleGraph）
 // 视图交互（拖动 / 连线 / 右键 / 快捷键）在 QML，图的增删改、复制粘贴、写回
-// 全部在本类完成；QML 只调用 Q_INVOKABLE 并绑定属性。
+// 全部在本类完成；QML 只调用 Q_INVOKABLE 并绑定属性
 class RuleGraphBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(QVariantList nodes READ nodes NOTIFY graphChanged)

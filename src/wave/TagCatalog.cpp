@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "TagCatalog.h"
 
@@ -11,9 +9,9 @@
 
 namespace {
 
-    // 内置分类与内置标签：七类固定，顺序即波形上标签的显示顺序。
-    // 各分类下的标签按官方 App 的标签清单逐条追加，未追加时为空列表。
-    // 「用户自定义」是内置分类（名字不可改）：用户在该分类下新建的标签属用户侧数据，不写在这里。
+    // 内置分类与内置标签：七类固定，顺序即波形上标签的显示顺序
+    // 各分类下的标签按官方 App 的标签清单逐条追加，未追加时为空列表
+    // 「用户自定义」是内置分类（名字不可改）：用户在该分类下新建的标签属用户侧数据，不写在这里
     const std::vector<TagCategoryDef>& category_table() {
         static const std::vector<TagCategoryDef> table = {
             {QStringLiteral("使用部位"), {
@@ -54,8 +52,8 @@ namespace {
         return table;
     }
 
-    // 官方波形名 → 内置标签：内置波形每次加载后按此表自动挂载，界面锁定不可移除。
-    // 条目按官方 App 的标签清单逐条追加，未追加时为空表。
+    // 官方波形名 → 内置标签：内置波形每次加载后按此表自动挂载，界面锁定不可移除
+    // 条目按官方 App 的标签清单逐条追加，未追加时为空表
     const std::map<QString, QStringList>& official_wave_tag_table() {
         static const std::map<QString, QStringList> table = {
             {QStringLiteral("信号灯"), {

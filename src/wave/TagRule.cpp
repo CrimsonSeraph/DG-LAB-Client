@@ -1,3 +1,6 @@
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
+
 #include "TagRule.h"
 
 #include "Wave.h"
@@ -16,10 +19,10 @@ namespace {
     constexpr int LOW_FREQ_AVG = 60;          // 低频：平均值偏高
     constexpr int MIXED_SPREAD = 80;          // 大幅变化，需结合平均值归边
 
-    /// @brief 标签在列表中的下标（大小写不敏感）
-    /// @param tags 标签列表
-    /// @param tag 待查找的标签
-    /// @return 标签下标；未找到返回 -1
+    // 标签在列表中的下标（大小写不敏感）
+    // 参数 tags：标签列表
+    // 参数 tag：待查找的标签
+    // 返回：标签下标；未找到返回 -1
     int index_of_tag(const QStringList& tags, const QString& tag) {
         for (int index = 0; index < tags.size(); ++index) {
             if (tags.at(index).compare(tag, Qt::CaseInsensitive) == 0) {
@@ -29,9 +32,9 @@ namespace {
         return -1;
     }
 
-    /// @brief 按时长判定波形应挂的“波形时长”标签
-    /// @param wave 波形
-    /// @return 时长分类标签；无帧（仅 raw）时返回空列表
+    // 按时长判定波形应挂的“波形时长”标签
+    // 参数 wave：波形
+    // 返回：时长分类标签；无帧（仅 raw）时返回空列表
     QStringList duration_tags(const Wave& wave) {
         if (wave.frame_count() <= 0) {
             return {}; // 只有 raw、没有帧：无法判断时长，不挂标签
@@ -43,9 +46,9 @@ namespace {
         return {QStringLiteral("5 分钟以上")};
     }
 
-    /// @brief 按来源判定波形应挂的“波形来源”标签
-    /// @param wave 波形
-    /// @return 经典波形（官方）/ 自定义波形（用户）
+    // 按来源判定波形应挂的“波形来源”标签
+    // 参数 wave：波形
+    // 返回：经典波形（官方）/ 自定义波形（用户）
     QStringList source_tags(const Wave& wave) {
         return {wave.is_official() ? QStringLiteral("经典波形")
                                    : QStringLiteral("自定义波形")};
@@ -59,9 +62,9 @@ namespace {
         int samples = 0;
     };
 
-    /// @brief 统计 V3 帧中的频率分布（每帧前 4 字节为频率）
-    /// @param wave 波形
-    /// @return 频率最小值、最大值、平均值与样本数；无可用帧时样本数为 0
+    // 统计 V3 帧中的频率分布（每帧前 4 字节为频率）
+    // 参数 wave：波形
+    // 返回：频率最小值、最大值、平均值与样本数；无可用帧时样本数为 0
     FreqStats analyze_frequencies(const Wave& wave) {
         FreqStats stats;
         if (wave.frames_v3.isEmpty()) {
@@ -86,9 +89,9 @@ namespace {
         return stats;
     }
 
-    /// @brief 按频率分布判定波形应挂的“频率风格”标签
-    /// @param wave 波形
-    /// @return 纯高频 / 高频 / 低频 / 混合；无可用帧时返回空列表
+    // 按频率分布判定波形应挂的“频率风格”标签
+    // 参数 wave：波形
+    // 返回：纯高频 / 高频 / 低频 / 混合；无可用帧时返回空列表
     QStringList frequency_style_tags(const Wave& wave) {
         const FreqStats stats = analyze_frequencies(wave);
         if (stats.samples == 0) {

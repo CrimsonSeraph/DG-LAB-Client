@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "ModuleManager.h"
 
@@ -60,7 +58,7 @@ namespace {
     // 插件动态库扩展名（比较时统一转小写）
     const char* const kLibrarySuffixes[] = { "dll", "so", "dylib" };
 
-    /// @brief SHA256 文本是否为小写十六进制 64 位
+    // SHA256 文本是否为小写十六进制 64 位
     bool is_sha256_text(const QString& text) {
         if (text.size() != 64) {
             return false;
@@ -75,7 +73,7 @@ namespace {
         return true;
     }
 
-    /// @brief 按 UTF-8 解码 zip 条目名；非法 UTF-8 回退本地 8 位编码（部分压缩工具写 GBK）
+    // 按 UTF-8 解码 zip 条目名；非法 UTF-8 回退本地 8 位编码（部分压缩工具写 GBK）
     QString decode_entry_name(const char* raw) {
         const QByteArray bytes(raw);
         const QString name = QString::fromUtf8(bytes);
@@ -85,7 +83,7 @@ namespace {
         return name;
     }
 
-    /// @brief 条目名是否含绝对路径或 .. 路径段（路径穿越）
+    // 条目名是否含绝对路径或 .. 路径段（路径穿越）
     bool unsafe_entry_name(const QString& name) {
         if (name.startsWith(QLatin1Char('/')) || name.startsWith(QLatin1Char('\\'))) {
             return true;
@@ -102,7 +100,7 @@ namespace {
         return false;
     }
 
-    /// @brief 是否为插件动态库文件（.dll / .so / .dylib）
+    // 是否为插件动态库文件（.dll / .so / .dylib）
     bool is_library_file(const QString& name) {
         const QString suffix = QFileInfo(name).suffix().toLower();
         for (const char* candidate : kLibrarySuffixes) {
@@ -113,7 +111,7 @@ namespace {
         return false;
     }
 
-    /// @brief 递归删除目录，目录不存在视为成功
+    // 递归删除目录，目录不存在视为成功
     bool remove_dir_tree(const QString& path) {
         QDir dir(path);
         if (!dir.exists()) {
@@ -122,7 +120,7 @@ namespace {
         return dir.removeRecursively();
     }
 
-    /// @brief 读取 JSON 对象文件；缺失、损坏或顶层非对象返回空对象
+    // 读取 JSON 对象文件；缺失、损坏或顶层非对象返回空对象
     QJsonObject read_json_object(const QString& path) {
         QFile file(path);
         if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
@@ -137,13 +135,13 @@ namespace {
         return document.object();
     }
 
-    /// @brief 读取 JSON 字符串字段（缺失或类型不符返回空串）
+    // 读取 JSON 字符串字段（缺失或类型不符返回空串）
     QString json_string(const QJsonObject& object, const char* key) {
         const QJsonValue value = object.value(QString::fromUtf8(key));
         return value.isString() ? value.toString() : QString();
     }
 
-    /// @brief 读取 JSON 字符串数组字段（跳过非字符串与空串）
+    // 读取 JSON 字符串数组字段（跳过非字符串与空串）
     QStringList json_string_list(const QJsonObject& object, const char* key) {
         QStringList list;
         const QJsonValue value = object.value(QString::fromUtf8(key));
@@ -163,7 +161,7 @@ namespace {
         return list;
     }
 
-    /// @brief 本地已装插件标识：<插件目录>/<目录>/plugin.json 的 id 与目录名都算（依赖按插件标识声明）
+    // 本地已装插件标识：<插件目录>/<目录>/plugin.json 的 id 与目录名都算（依赖按插件标识声明）
     QSet<QString> installed_plugin_ids(const QString& plugin_dir) {
         QSet<QString> ids;
         QDir root(plugin_dir);
@@ -183,7 +181,7 @@ namespace {
         return ids;
     }
 
-    /// @brief 依赖校验：暂存目录里 plugin.json 声明的依赖必须都已安装在插件目录
+    // 依赖校验：暂存目录里 plugin.json 声明的依赖必须都已安装在插件目录
     bool dependencies_satisfied(const QString& staging_top, const QString& plugin_dir, QString& missing) {
         missing.clear();
         const QStringList dependencies = json_string_list(
@@ -201,7 +199,7 @@ namespace {
         return true;
     }
 
-    /// @brief 把暂存目录整体替换到插件目录；失败时把旧版本挪回原位，插件目录保持安装前的样子
+    // 把暂存目录整体替换到插件目录；失败时把旧版本挪回原位，插件目录保持安装前的样子
     bool replace_plugin_dir(const QString& staging_top, const QString& target_dir, const QString& backup_dir,
         QString& error) {
         error.clear();
@@ -235,7 +233,7 @@ namespace {
         return true;
     }
 
-    /// @brief 解压插件包到暂存目录并校验结构；所有条目必须共享同一个顶层目录
+    // 解压插件包到暂存目录并校验结构；所有条目必须共享同一个顶层目录
     bool extract_plugin_archive(const QByteArray& archive, const QString& staging_root, QString& top_dir,
         QString& error) {
         top_dir.clear();
@@ -386,34 +384,6 @@ ModuleManager& ModuleManager::instance() {
     return manager;
 }
 
-// 构造/析构（private）
-
-ModuleManager::ModuleManager()
-    : QObject(nullptr) {
-    // 定时器由主线程驱动，调度查询基于最短周期
-    timer_ = new QTimer(this);
-    timer_->setTimerType(Qt::PreciseTimer);
-    connect(timer_, &QTimer::timeout, this, &ModuleManager::on_timer_tick);
-}
-
-ModuleManager::~ModuleManager() {
-    if (timer_) {
-        timer_->stop();
-    }
-    // 安装进行中：先等后台校验解压任务收尾，再清掉临时文件
-    if (install_watcher_ != nullptr && install_watcher_->isRunning()) {
-        install_watcher_->future().waitForFinished();
-    }
-    reset_install_state();
-    // 卸载所有已加载插件（反初始化并销毁实例）
-    for (auto& entry : plugins_) {
-        if (entry.state == PluginLoadState::Loaded) {
-            unload_plugin_entry(entry);
-        }
-    }
-    plugins_.clear();
-}
-
 // 初始化（public）
 
 void ModuleManager::init() {
@@ -494,17 +464,6 @@ int ModuleManager::get_module_min_period_ms(const std::string& module_name) cons
     return query_period_to_ms(QueryPeriod::SECOND);
 }
 
-std::vector<std::string> ModuleManager::get_modules_for_channel(const std::string& channel) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    std::vector<std::string> names;
-    for (const auto& module : modules_) {
-        if (module.is_mounted_on_channel(channel)) {
-            names.push_back(module.get_name());
-        }
-    }
-    return names;
-}
-
 std::string ModuleManager::find_module_by_value_id(const std::string& value_id) const {
     std::lock_guard<std::mutex> lock(mutex_);
     for (const auto& module : modules_) {
@@ -515,6 +474,17 @@ std::string ModuleManager::find_module_by_value_id(const std::string& value_id) 
         }
     }
     return "";
+}
+
+std::vector<std::string> ModuleManager::get_modules_for_channel(const std::string& channel) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::string> names;
+    for (const auto& module : modules_) {
+        if (module.is_mounted_on_channel(channel)) {
+            names.push_back(module.get_name());
+        }
+    }
+    return names;
 }
 
 // 周期设置（public）
@@ -1091,6 +1061,34 @@ void ModuleManager::on_install_task_finished() {
     finish_install(outcome.target, true, QString());
 }
 
+// 构造/析构（private）
+
+ModuleManager::ModuleManager()
+    : QObject(nullptr) {
+    // 定时器由主线程驱动，调度查询基于最短周期
+    timer_ = new QTimer(this);
+    timer_->setTimerType(Qt::PreciseTimer);
+    connect(timer_, &QTimer::timeout, this, &ModuleManager::on_timer_tick);
+}
+
+ModuleManager::~ModuleManager() {
+    if (timer_) {
+        timer_->stop();
+    }
+    // 安装进行中：先等后台校验解压任务收尾，再清掉临时文件
+    if (install_watcher_ != nullptr && install_watcher_->isRunning()) {
+        install_watcher_->future().waitForFinished();
+    }
+    reset_install_state();
+    // 卸载所有已加载插件（反初始化并销毁实例）
+    for (auto& entry : plugins_) {
+        if (entry.state == PluginLoadState::Loaded) {
+            unload_plugin_entry(entry);
+        }
+    }
+    plugins_.clear();
+}
+
 // 私有辅助函数实现（private）
 
 void ModuleManager::rebuild_scheduler() {
@@ -1106,6 +1104,16 @@ void ModuleManager::rebuild_scheduler() {
         "调度器已重建，基准周期: " << base_period_ms_ << "ms");
 }
 
+void ModuleManager::emit_period_changed() {
+    // 周期变化通知：先通知已加载插件（如 GSI 插件据此更新配置文件 throttle），再发出信号
+    for (const auto& entry : plugins_) {
+        if (entry.state == PluginLoadState::Loaded && entry.instance) {
+            entry.instance->on_host_period_changed();
+        }
+    }
+    emit period_changed();
+}
+
 bool ModuleManager::query_value_locked(Module& module, ModuleValue& value) {
     if (!data_source_) {
         // 无数据源：保持"未获取"状态，不产生变化
@@ -1117,16 +1125,6 @@ bool ModuleManager::query_value_locked(Module& module, ModuleValue& value) {
     bool changed = !value.get_has_value() || value.get_last_value() != new_value;
     value.set_last_value(new_value);
     return changed;
-}
-
-void ModuleManager::emit_period_changed() {
-    // 周期变化通知：先通知已加载插件（如 GSI 插件据此更新配置文件 throttle），再发出信号
-    for (const auto& entry : plugins_) {
-        if (entry.state == PluginLoadState::Loaded && entry.instance) {
-            entry.instance->on_host_period_changed();
-        }
-    }
-    emit period_changed();
 }
 
 // 插件扫描与加载（private）

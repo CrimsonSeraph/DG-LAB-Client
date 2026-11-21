@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -12,7 +10,7 @@
 
 // ModuleBannerImageProvider - 插件侧车头图提供者
 // 通过 image://modulebanner/<插件文件名>/<头图文件名> 读取插件安装目录下
-// <动态库主干名>/<头图文件名>；id 非法、文件缺失或不是图片时返回空图，QML 侧保持空态。
+// <动态库主干名>/<头图文件名>；id 非法、文件缺失或不是图片时返回空图，QML 侧保持空态
 class ModuleBannerImageProvider : public QQuickImageProvider {
 public:
     ModuleBannerImageProvider();

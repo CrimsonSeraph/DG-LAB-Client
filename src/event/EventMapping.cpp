@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "AppConfig.h"
 #include "EventMapping.h"
@@ -17,11 +15,11 @@
 
 namespace {
 
-    const char* const PLUGINS_KEY_PREFIX = "app.plugins."; ///< 映射键前缀
-    const char* const CHANNELS_KEY_PREFIX = "app.channels."; ///< 全局通道配置键前缀
-    const char* const PLUGINS_ROOT_KEY = "app.plugins";     ///< 旧通道配置所在的键（迁移来源）
-    const char* const USER_CONFIG_NAME = "user";           ///< 写入的配置层
-    const char* const IMPLICIT_OPTION_ID = "default";      ///< 无声明子选项事件的隐式映射键
+    const char* const PLUGINS_KEY_PREFIX = "app.plugins."; // 映射键前缀
+    const char* const CHANNELS_KEY_PREFIX = "app.channels."; // 全局通道配置键前缀
+    const char* const PLUGINS_ROOT_KEY = "app.plugins";     // 旧通道配置所在的键（迁移来源）
+    const char* const USER_CONFIG_NAME = "user";           // 写入的配置层
+    const char* const IMPLICIT_OPTION_ID = "default";      // 无声明子选项事件的隐式映射键
 
     // 模块默认通道归一（"A"/"B"/"AB"，其它回落 AB）
     std::string normalize_default_channel(const std::string& channel) {

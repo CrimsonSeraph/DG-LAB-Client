@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "WarThunderPlugin.h"
 
@@ -23,13 +21,13 @@ static const qint64 k_log_interval_ms = 1000;
 
 // 遥测数值来源与定标描述（与 README 数值表逐项对应）
 struct FieldSpec {
-    const char* value_id;     ///< 注册的数值 ID（侧车事件按此引用）
-    const char* display_name; ///< 数值中文名称（模块页展示）
-    const char* primary_key;  ///< 来源主键（规范化后比较）
-    const char* fallback_key; ///< 后备键，空串表示无后备
-    double factor;            ///< 定标倍数：原值 × factor 后四舍五入
-    int min_value;            ///< 写入下限（越界钳制）
-    int max_value;            ///< 写入上限（越界钳制）
+    const char* value_id;     // 注册的数值 ID（侧车事件按此引用）
+    const char* display_name; // 数值中文名称（模块页展示）
+    const char* primary_key;  // 来源主键（规范化后比较）
+    const char* fallback_key; // 后备键，空串表示无后备
+    double factor;            // 定标倍数：原值 × factor 后四舍五入
+    int min_value;            // 写入下限（越界钳制）
+    int max_value;            // 写入上限（越界钳制）
 };
 
 // 数值表：主键取不到数值时尝试后备键，两者都取不到就跳过该数值，保留上一次的值

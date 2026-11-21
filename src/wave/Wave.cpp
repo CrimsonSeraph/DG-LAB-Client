@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "Wave.h"
 
@@ -16,22 +14,22 @@ namespace {
         return std::clamp(value, low, high);
     }
 
-    /// @brief 线性插值
+    // 线性插值
     double lerp(double from, double to, double t) {
         return from + (to - from) * t;
     }
 
-    /// @brief 字节转两位大写 HEX
+    // 字节转两位大写 HEX
     QString hex_byte(int value) {
         return QString::number(clamp_int(value, 0, 255), 16).rightJustified(2, '0').toUpper();
     }
 
-    /// @brief 帧分隔符：空白与常见标点
+    // 帧分隔符：空白与常见标点
     bool is_separator(QChar ch) {
         return ch.isSpace() || ch == ',' || ch == ';' || ch == ':' || ch == '-' || ch == '_';
     }
 
-    /// @brief 单个字符是否十六进制数字
+    // 单个字符是否十六进制数字
     bool is_hex_digit(QChar ch) {
         return (ch >= QLatin1Char('0') && ch <= QLatin1Char('9'))
             || (ch >= QLatin1Char('a') && ch <= QLatin1Char('f'))

@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "AppConfig.h"
 
@@ -30,23 +28,6 @@ namespace fs = std::filesystem;
 AppConfig& AppConfig::instance() {
     static AppConfig instance;
     return instance;
-}
-
-// 构造与析构（private）
-
-AppConfig::AppConfig()
-    : multi_config_(nullptr)
-    , main_config_(nullptr)
-    , user_config_(nullptr)
-    , system_config_(nullptr)
-    , main_config_obj_()
-    , system_config_obj_()
-    , user_config_obj_() {
-    LOG_MODULE("AppConfig", "AppConfig", LOG_DEBUG, "AppConfig 构造函数被调用");
-}
-
-AppConfig::~AppConfig() {
-    LOG_MODULE("AppConfig", "~AppConfig", LOG_DEBUG, "AppConfig 析构函数被调用");
 }
 
 // 初始化与关闭（public）
@@ -421,6 +402,23 @@ bool AppConfig::import_config(const std::string& name, const std::string& file_p
     // 功能未实现
     LOG_MODULE("AppConfig", "import_config", LOG_ERROR, "导入功能未实现: " << name);
     return false;
+}
+
+// 构造与析构（private）
+
+AppConfig::AppConfig()
+    : multi_config_(nullptr)
+    , main_config_(nullptr)
+    , user_config_(nullptr)
+    , system_config_(nullptr)
+    , main_config_obj_()
+    , system_config_obj_()
+    , user_config_obj_() {
+    LOG_MODULE("AppConfig", "AppConfig", LOG_DEBUG, "AppConfig 构造函数被调用");
+}
+
+AppConfig::~AppConfig() {
+    LOG_MODULE("AppConfig", "~AppConfig", LOG_DEBUG, "AppConfig 析构函数被调用");
 }
 
 // 私有辅助函数实现（private）

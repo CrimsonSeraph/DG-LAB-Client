@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -81,8 +79,8 @@ using PluginLogCallback = std::function<void(PluginLogLevel level,
 
 // IPlugin - 插件纯虚基类
 // 所有可动态加载的模块必须实现本接口，并通过 extern "C" 的
-// create_plugin / destroy_plugin / get_plugin_api_version 导出。
-// 内存隔离与错误处理约定见 include/README.md 与 module/README.md。
+// create_plugin / destroy_plugin / get_plugin_api_version 导出
+// 内存隔离与错误处理约定见 include/README.md 与 module/README.md
 class PLUGIN_API IPlugin {
 public:
     virtual ~IPlugin() = default;

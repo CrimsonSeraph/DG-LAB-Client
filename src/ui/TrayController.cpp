@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "TrayController.h"
 
@@ -16,7 +14,7 @@
 
 namespace {
 
-    /// @brief 托盘图标：复用窗口图标资源，按托盘像素尺寸取多档
+    // 托盘图标：复用窗口图标资源，按托盘像素尺寸取多档
     QIcon tray_icon() {
         QIcon icon;
         icon.addFile(QStringLiteral(":/icon/assets/icon/dglab-client-256.png"));

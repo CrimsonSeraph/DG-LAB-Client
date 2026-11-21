@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -66,7 +64,7 @@ public:
     // 规则图（总规则图 + 插件级规则图）
     // 总规则图存放在规则文件的 "graph" 字段（默认 rules.json）；
     // 每个插件的规则图独立落盘为 config/rules/plugin_<插件标识>.json，内容为
-    // { version, plugin, kind: "pluginRuleGraph", graph, rules }。
+    // { version, plugin, kind: "pluginRuleGraph", graph, rules }
     /// @brief 插件级规则图文件名
     /// @param plugin_id 插件（模块）标识
     /// @return 文件名（如 "plugin_gsi.json"）

@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "HomeBridge.h"
 
@@ -19,9 +17,9 @@
 
 namespace {
 
-    constexpr qreal kMiniWindowOpacityMin = 0.3; ///< 迷你窗透明度下限（与滑杆量程一致）
+    constexpr qreal kMiniWindowOpacityMin = 0.3; // 迷你窗透明度下限（与滑杆量程一致）
 
-    /// @brief 透明度量化到两位小数（滑杆按 0.05 步进，避免 0.599999… 落盘）
+    // 透明度量化到两位小数（滑杆按 0.05 步进，避免 0.599999… 落盘）
     qreal quantize_opacity(qreal opacity) {
         return std::round(std::clamp(opacity, kMiniWindowOpacityMin, 1.0) * 100.0) / 100.0;
     }
@@ -35,7 +33,7 @@ HomeBridge::HomeBridge(DeviceController* device, QObject* parent)
 
 void HomeBridge::initialize() {
     if (device_ != nullptr) {
-        // 上限不再取 APP 回传值：它属于通道配置（app.channels.<通道>），由 DeviceController 同源提供
+        // 上限取自通道配置（app.channels.<通道>），由 DeviceController 同源提供，不取 APP 回传值
         connect(device_, &DeviceController::strengthFeedback, this,
             [this](int a_strength, int b_strength, int, int) {
                 const bool changed = a_strength != strength_a_ || b_strength != strength_b_;
@@ -111,16 +109,6 @@ int HomeBridge::default_device_index() const {
     return device_ == nullptr ? -1 : device_->default_device_index();
 }
 
-QString HomeBridge::wave_a() const {
-    const QString name = WaveLibrary::instance().current("A");
-    return name.isEmpty() ? QStringLiteral("未选择") : name;
-}
-
-QString HomeBridge::wave_b() const {
-    const QString name = WaveLibrary::instance().current("B");
-    return name.isEmpty() ? QStringLiteral("未选择") : name;
-}
-
 bool HomeBridge::running_a() const {
     return RuleManager::instance().get_channel_enabled("A");
 }
@@ -143,6 +131,16 @@ QVariantList HomeBridge::rules_a() const {
 
 QVariantList HomeBridge::rules_b() const {
     return build_rules(QStringLiteral("B"));
+}
+
+QString HomeBridge::wave_a() const {
+    const QString name = WaveLibrary::instance().current("A");
+    return name.isEmpty() ? QStringLiteral("未选择") : name;
+}
+
+QString HomeBridge::wave_b() const {
+    const QString name = WaveLibrary::instance().current("B");
+    return name.isEmpty() ? QStringLiteral("未选择") : name;
 }
 
 void HomeBridge::saveMiniWindowState(int x, int y, int width, int height) {
@@ -209,6 +207,37 @@ void HomeBridge::toggleChannel(const QString& channel) {
     emit dataChanged();
 }
 
+void HomeBridge::setChannelStrength(const QString& channel, int value) {
+    apply_strength(channel, value);
+}
+
+void HomeBridge::adjustChannelStrength(const QString& channel, int delta) {
+    const int current = (channel == QStringLiteral("A")) ? strength_a_ : strength_b_;
+    apply_strength(channel, current + delta);
+}
+
+void HomeBridge::requestWaveSelect(const QString& channel) {
+    emit channelWaveSelectRequested(channel);
+}
+
+void HomeBridge::toggleMiniWindowLock() {
+    mini_window_locked_ = !mini_window_locked_;
+    auto& config = AppConfig::instance();
+    config.set_value_with_name<bool>("app.ui.mini_window.locked", mini_window_locked_, "user");
+    config.save_all();
+    emit miniWindowLockedChanged();
+    LOG_MODULE("HomeBridge", "toggleMiniWindowLock", LOG_INFO,
+        (mini_window_locked_ ? "迷你窗已锁定" : "迷你窗已解锁"));
+}
+
+void HomeBridge::setDefaultDeviceIndex(int index) {
+    if (device_ == nullptr) {
+        return;
+    }
+    device_->setDefaultDeviceByIndex(index);
+    emit deviceChanged();
+}
+
 int HomeBridge::channel_index(const QString& channel) const {
     return channel == QStringLiteral("A") ? 1 : 2;
 }
@@ -244,37 +273,6 @@ void HomeBridge::apply_strength(const QString& channel, int value) {
     emit dataChanged();
 }
 
-void HomeBridge::setChannelStrength(const QString& channel, int value) {
-    apply_strength(channel, value);
-}
-
-void HomeBridge::adjustChannelStrength(const QString& channel, int delta) {
-    const int current = (channel == QStringLiteral("A")) ? strength_a_ : strength_b_;
-    apply_strength(channel, current + delta);
-}
-
-void HomeBridge::requestWaveSelect(const QString& channel) {
-    emit channelWaveSelectRequested(channel);
-}
-
-void HomeBridge::toggleMiniWindowLock() {
-    mini_window_locked_ = !mini_window_locked_;
-    auto& config = AppConfig::instance();
-    config.set_value_with_name<bool>("app.ui.mini_window.locked", mini_window_locked_, "user");
-    config.save_all();
-    emit miniWindowLockedChanged();
-    LOG_MODULE("HomeBridge", "toggleMiniWindowLock", LOG_INFO,
-        (mini_window_locked_ ? "迷你窗已锁定" : "迷你窗已解锁"));
-}
-
-void HomeBridge::setDefaultDeviceIndex(int index) {
-    if (device_ == nullptr) {
-        return;
-    }
-    device_->setDefaultDeviceByIndex(index);
-    emit deviceChanged();
-}
-
 QVariantList HomeBridge::build_modules(const QString& channel) const {
     QVariantList list;
     auto& modules = ModuleManager::instance();
@@ -285,26 +283,6 @@ QVariantList HomeBridge::build_modules(const QString& channel) const {
         list.append(item);
     }
     return list;
-}
-
-void HomeBridge::refresh_wave_state() {
-    const bool sending_a = device_ != nullptr && device_->wave_sending(QStringLiteral("A"));
-    const int frame_a = sending_a ? device_->wave_frame(QStringLiteral("A")) : 0;
-    const int frames_a = sending_a ? device_->wave_frames(QStringLiteral("A")) : 0;
-    const bool sending_b = device_ != nullptr && device_->wave_sending(QStringLiteral("B"));
-    const int frame_b = sending_b ? device_->wave_frame(QStringLiteral("B")) : 0;
-    const int frames_b = sending_b ? device_->wave_frames(QStringLiteral("B")) : 0;
-    if (sending_a == wave_sending_a_ && frame_a == wave_frame_a_ && frames_a == wave_frames_a_
-        && sending_b == wave_sending_b_ && frame_b == wave_frame_b_ && frames_b == wave_frames_b_) {
-        return;
-    }
-    wave_sending_a_ = sending_a;
-    wave_frame_a_ = frame_a;
-    wave_frames_a_ = frames_a;
-    wave_sending_b_ = sending_b;
-    wave_frame_b_ = frame_b;
-    wave_frames_b_ = frames_b;
-    emit waveStateChanged();
 }
 
 QVariantList HomeBridge::build_rules(const QString& channel) const {
@@ -328,4 +306,24 @@ QVariantList HomeBridge::build_rules(const QString& channel) const {
         list.append(item);
     }
     return list;
+}
+
+void HomeBridge::refresh_wave_state() {
+    const bool sending_a = device_ != nullptr && device_->wave_sending(QStringLiteral("A"));
+    const int frame_a = sending_a ? device_->wave_frame(QStringLiteral("A")) : 0;
+    const int frames_a = sending_a ? device_->wave_frames(QStringLiteral("A")) : 0;
+    const bool sending_b = device_ != nullptr && device_->wave_sending(QStringLiteral("B"));
+    const int frame_b = sending_b ? device_->wave_frame(QStringLiteral("B")) : 0;
+    const int frames_b = sending_b ? device_->wave_frames(QStringLiteral("B")) : 0;
+    if (sending_a == wave_sending_a_ && frame_a == wave_frame_a_ && frames_a == wave_frames_a_
+        && sending_b == wave_sending_b_ && frame_b == wave_frame_b_ && frames_b == wave_frames_b_) {
+        return;
+    }
+    wave_sending_a_ = sending_a;
+    wave_frame_a_ = frame_a;
+    wave_frames_a_ = frames_a;
+    wave_sending_b_ = sending_b;
+    wave_frame_b_ = frame_b;
+    wave_frames_b_ = frames_b;
+    emit waveStateChanged();
 }

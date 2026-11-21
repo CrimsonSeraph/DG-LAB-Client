@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -162,14 +160,14 @@ namespace civet_values {
 } // namespace civet_values
 
 // DeviceValueBridge - 单台输入设备驱动到数值模块的桥接（爪印 → paw_<后四位>，灵猫 → civet_<后四位>）
-// 一台设备一份桥接：模块名由链路管理器按 MAC 分配（paw_430C 之类），多台同型号不会互相覆盖。
+// 一台设备一份桥接：模块名由链路管理器按 MAC 分配（paw_430C 之类），多台同型号不会互相覆盖
 // 把驱动的通知信号写成数值（全部经 ModuleManager::set_value，自动钳制并触发 value_changed），
 // 并持有本实例模块的内置事件声明（由 EventRuntime::register_builtin_events 接进事件引擎）；
-// 断开时 shutdown() 注销数值模块、清除内置声明并清掉引擎运行期状态。
+// 断开时 shutdown() 注销数值模块、清除内置声明并清掉引擎运行期状态
 // 爪印 D0 的 10Hz 全量物理数据默认不写入数值（避免 10Hz 触发规则求值），
 // 只有配置 app.devices.paw.d0_values 为 true 时才落值；
 // 灵猫气压每 100ms 上报一次，只在变化达到 app.devices.civet.pressure_epsilon（单位 0.01 kPa）
-// 时才写 pressure / raw，其余上报丢弃并计数，避免 10Hz 触发规则求值。
+// 时才写 pressure / raw，其余上报丢弃并计数，避免 10Hz 触发规则求值
 class DeviceValueBridge : public QObject {
     Q_OBJECT
 
@@ -211,7 +209,7 @@ public:
     bool shut_down() const { return shut_down_; }
 
     /// @brief `paw` 模块的内置事件声明（按键按下 / 抬起）
-    /// @return 事件声明列表；头文件内联，便于单元测试在不链接驱动的情况下核对声明内容
+    /// @return 事件声明列表（声明在头文件内联，测试可不链接驱动核对）
     static std::vector<EventDefinition> builtin_events() {
         EventDefinition pressed;
         pressed.id = "button_pressed";

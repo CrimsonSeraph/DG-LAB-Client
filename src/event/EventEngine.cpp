@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "EventEngine.h"
 
@@ -23,7 +21,7 @@
 
 namespace {
 
-    const char* const CHANNELS[2] = {"A", "B"}; ///< 输出通道标识（索引 0=A，1=B）
+    const char* const CHANNELS[2] = {"A", "B"}; // 输出通道标识（索引 0=A，1=B）
 
     // 通道文本归一为 "A"/"B"（非法通道返回 false）
     bool normalize_channel_text(const std::string& text, std::string& channel) {

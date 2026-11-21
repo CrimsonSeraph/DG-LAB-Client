@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -13,7 +11,7 @@
 
 // OpossumFrames - 负鼠振动控制器 V1 的指令构造与波形转换（纯函数）
 // GATT 与郊狼 V3 相同（0x180C / 写 0x150A / 通知 0x150B），指令集见上游
-// DG-LAB-OPENSOURCE/opossum-vibrate-controller/README_CN.md。
+// DG-LAB-OPENSOURCE/opossum-vibrate-controller/README_CN.md
 namespace opossum_frames {
 
     constexpr quint8 kNoChange = 0xFF; ///< B3「该通道强度不改」

@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -23,8 +21,8 @@ class QTimer;
 
 // OpossumBleController - 负鼠振动控制器 V1 蓝牙直连（实现 IOutputDevice）
 // GATT 与郊狼 V3 相同（服务 0x180C / 写 0x150A / 通知 0x150B，电量 0x180A / 0x1500），
-// 指令集（B0 / B3 / B2）与波形转换为纯函数，见 include/ble/OpossumFrames.h。
-// 无实机验证：驱动支持程度固定为实验性。
+// 指令集（B0 / B3 / B2）与波形转换为纯函数，见 include/ble/OpossumFrames.h
+// 无实机验证：驱动支持程度固定为实验性
 class OpossumBleController : public IOutputDevice {
     Q_OBJECT
 

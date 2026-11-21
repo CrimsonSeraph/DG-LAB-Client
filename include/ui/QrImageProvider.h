@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -9,7 +7,7 @@
 #include <QString>
 
 // QrImageProvider - 应用内二维码图像提供者
-// 通过 image://dglabqr/<rev> 向 QML 提供配对链接的二维码（Nayuki qrcodegen，MIT）。
+// 通过 image://dglabqr/<rev> 向 QML 提供配对链接的二维码（Nayuki qrcodegen，MIT）
 class QrImageProvider : public QQuickImageProvider {
 public:
     QrImageProvider();

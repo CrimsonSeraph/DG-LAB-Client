@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "EventBridge.h"
 
@@ -22,7 +20,7 @@
 
 namespace {
 
-    constexpr int TRIGGER_LIMIT = 50; ///< 触发流水展示条数
+    constexpr int TRIGGER_LIMIT = 50; // 触发流水展示条数
 
     // 标准字符串转 QString（QML 直接消费）
     QString to_qstring(const std::string& text) {
@@ -245,7 +243,7 @@ void EventBridge::setChannelConfig(const QString& channel, int limit, int safety
 }
 
 void EventBridge::setChannelConfig(const QString& module, const QString& channel, int limit, int safety) {
-    // 兼容旧签名：module 参数不再参与存储，通道上限是全局值
+    // module 参数不参与存储，通道上限是全局值（保留既有签名供调用方沿用）
     Q_UNUSED(module);
     setChannelConfig(channel, limit, safety);
 }

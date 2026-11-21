@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #pragma once
 
@@ -54,7 +52,7 @@ struct WaveTagCategory {
 // WaveLibrary - 波形库（单例）
 // 负责波形库的加载/保存（默认 config/waves/waves.json）、官方内置波形资源
 // （assets/waves/official_waves.json，只读）与 A/B 通道当前波形记录；
-// 每条波形同时持有 V2 与 V3 帧，发送协议由配置 app.wave.protocol 决定。
+// 每条波形同时持有 V2 与 V3 帧，发送协议由配置 app.wave.protocol 决定
 class WaveLibrary : public QObject {
     Q_OBJECT
 
@@ -94,9 +92,9 @@ public:
     int duration_ms(const std::string& name) const;
 
     // 标签库按分类组织：内置七类（名称与顺序来自 TagCatalog，固定在前）与用户自建分类
-    // （排在其后，顺序可调）。标签名全库唯一，用名字引用；波形按名字持有标签。
+    // （排在其后，顺序可调），标签名全库唯一，用名字引用；波形按名字持有标签
     // 官方内置波形的标签 = 内置表自动挂载的内置标签 + 用户在 official_wave_tags 里的叠加标签：
-    // 前者界面锁定不可移除，后者可增删。
+    // 前者界面锁定不可移除，后者可增删
     /// @brief 内置标签（代码表 TagCatalog，用户不可删除）
     QStringList builtin_tags() const;
     /// @brief 用户标签全集（各分类下的用户新增标签，按分类顺序展开）
@@ -178,7 +176,7 @@ public:
     /// @param rename_to 重命名策略下的指定名称（仅单条导入时生效，空串则按序号自动生成）
     WaveImportResult apply_import(const WaveImportPlan& plan, WaveConflictPolicy policy,
         const QString& rename_to = QString());
-    /// @brief 生成与库中不重名的候选名称（名称 (2)、名称 (3)…）
+    /// @brief 生成与库中不重名的候选名称（重名时依次追加递增序号）
     std::string suggest_name(const std::string& name) const;
     /// @brief 导出指定波形为 JSON 文件；names 为空表示导出全部波形
     bool export_json(const QString& path, const std::vector<std::string>& names, QString& error,

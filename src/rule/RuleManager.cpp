@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "RuleManager.h"
 
@@ -22,14 +20,14 @@ namespace fs = std::filesystem;
 
 namespace {
 
-    /// @brief 合并并去重（依赖集合输出稳定）
+    // 合并并去重（依赖集合输出稳定）
     void merge_unique(std::vector<std::string>& target, const std::vector<std::string>& values) {
         target.insert(target.end(), values.begin(), values.end());
         std::sort(target.begin(), target.end());
         target.erase(std::unique(target.begin(), target.end()), target.end());
     }
 
-    /// @brief 规则图中指定通道的通道节点 id（无匹配返回 0）
+    // 规则图中指定通道的通道节点 id（无匹配返回 0）
     int channel_node_of(const RuleGraph& graph, const std::string& channel) {
         for (const auto& node : graph.nodes()) {
             if (node.type == GraphNodeType::Channel
@@ -48,17 +46,6 @@ RuleManager& RuleManager::instance() {
     static RuleManager manager;
     return manager;
 }
-
-// 构造/析构（private）
-
-RuleManager::RuleManager()
-    : QObject(nullptr) {
-    // 监听模块数值变化，触发值模式中引用该数值的规则计算（级联触发）
-    connect(&ModuleManager::instance(), &ModuleManager::value_changed,
-        this, &RuleManager::on_module_value_changed);
-}
-
-RuleManager::~RuleManager() = default;
 
 // 初始化（public）
 
@@ -220,46 +207,6 @@ bool RuleManager::has_plugin_rule_graph(const std::string& plugin_id) const {
 RuleGraph RuleManager::get_plugin_rule_graph(const std::string& plugin_id) const {
     std::lock_guard<std::mutex> lock(mutex_);
     return load_plugin_rule_graph_locked(plugin_id);
-}
-
-bool RuleManager::write_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph,
-    bool& cascade_dirty) {
-    cascade_dirty = false;
-    if (plugin_id.empty()) {
-        LOG_MODULE("RuleManager", "write_plugin_rule_graph", LOG_WARN, "插件标识为空，无法保存插件规则图");
-        return false;
-    }
-    bool saved = false;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        const std::string filename = get_plugin_graph_file(plugin_id);
-        nlohmann::json json;
-        try {
-            json = load_json_file(filename);
-        }
-        catch (const std::exception&) {
-            // 文件不存在：新建
-        }
-        if (!json.is_object()) {
-            json = nlohmann::json::object();
-        }
-        nlohmann::json graph_json = graph.to_json();
-        graph_json["plugin"] = plugin_id;
-        json["version"] = "1.0";
-        json["plugin"] = plugin_id;
-        json["kind"] = "pluginRuleGraph";
-        json["graph"] = graph_json;
-        json["rules"] = graph.to_rules_json();
-        saved = save_json_file(filename, json);
-        if (saved) {
-            scan_directory();
-            // 图已变化：按新图重算已启用来源的依赖集合（下一次求值同样读新图）
-            cascade_dirty = refresh_cascades_locked();
-            LOG_MODULE("RuleManager", "write_plugin_rule_graph", LOG_INFO,
-                "插件规则图已保存: " << filename);
-        }
-    }
-    return saved;
 }
 
 bool RuleManager::save_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph) {
@@ -531,6 +478,42 @@ void RuleManager::fill_dependency_events(
         dependency.events.end());
 }
 
+// 多图求值（public）
+
+void RuleManager::evaluate_graph_outputs() {
+    std::vector<QJsonObject> pending_commands;
+    std::vector<ResultEvent> pending_results;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        evaluate_graphs_locked(pending_commands, pending_results);
+    }
+    for (const auto& cmd : pending_commands) {
+        emit rule_command_ready(cmd);
+    }
+    for (const auto& [rule_name, ch, value] : pending_results) {
+        emit rule_result_changed(QString::fromStdString(rule_name),
+            QString::fromStdString(ch), value);
+    }
+}
+
+std::optional<int> RuleManager::get_plugin_graph_output(const std::string& plugin_id) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = plugin_graph_outputs_.find(plugin_id);
+    if (it == plugin_graph_outputs_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
+std::optional<int> RuleManager::get_graph_channel_output(const std::string& channel) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = channel_graph_outputs_.find(Rule::normalize_channel(channel));
+    if (it == channel_graph_outputs_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
+
 // 启用级联（public）
 
 bool RuleManager::set_graph_output_enabled(const std::string& graph_ref, bool enabled) {
@@ -579,42 +562,6 @@ std::vector<std::string> RuleManager::get_cascade_enabled_rules() const {
 std::vector<std::string> RuleManager::get_cascade_enabled_events() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return std::vector<std::string>(cascade_events_.begin(), cascade_events_.end());
-}
-
-// 多图求值（public）
-
-void RuleManager::evaluate_graph_outputs() {
-    std::vector<QJsonObject> pending_commands;
-    std::vector<ResultEvent> pending_results;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        evaluate_graphs_locked(pending_commands, pending_results);
-    }
-    for (const auto& cmd : pending_commands) {
-        emit rule_command_ready(cmd);
-    }
-    for (const auto& [rule_name, ch, value] : pending_results) {
-        emit rule_result_changed(QString::fromStdString(rule_name),
-            QString::fromStdString(ch), value);
-    }
-}
-
-std::optional<int> RuleManager::get_plugin_graph_output(const std::string& plugin_id) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    const auto it = plugin_graph_outputs_.find(plugin_id);
-    if (it == plugin_graph_outputs_.end()) {
-        return std::nullopt;
-    }
-    return it->second;
-}
-
-std::optional<int> RuleManager::get_graph_channel_output(const std::string& channel) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    const auto it = channel_graph_outputs_.find(Rule::normalize_channel(channel));
-    if (it == channel_graph_outputs_.end()) {
-        return std::nullopt;
-    }
-    return it->second;
 }
 
 // 规则加载（从配置管理器）（public）
@@ -783,6 +730,16 @@ std::string RuleManager::get_rule_parents_display(const std::string& rule_name) 
     return result;
 }
 
+std::optional<int> RuleManager::get_rule_last_result(const std::string& rule_name) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = rules_.find(rule_name);
+    if (it == rules_.end()) {
+        return std::nullopt;
+    }
+    auto lit = last_results_.find(it->second.get_index());
+    return lit != last_results_.end() ? lit->second : std::nullopt;
+}
+
 int RuleManager::get_rule_mode_applicability(const std::string& rule_name) const {
     std::lock_guard<std::mutex> lock(mutex_);
     auto it = rules_.find(rule_name);
@@ -810,16 +767,6 @@ int RuleManager::get_rule_mode_applicability(const std::string& rule_name) const
         return 2;
     }
     return 1;
-}
-
-std::optional<int> RuleManager::get_rule_last_result(const std::string& rule_name) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    auto it = rules_.find(rule_name);
-    if (it == rules_.end()) {
-        return std::nullopt;
-    }
-    auto lit = last_results_.find(it->second.get_index());
-    return lit != last_results_.end() ? lit->second : std::nullopt;
 }
 
 // 规则修改（public）
@@ -1097,43 +1044,16 @@ nlohmann::json RuleManager::load_json_file(const std::string& filename) const {
     return j;
 }
 
-// private slots 实现
+// 构造/析构（private）
 
-void RuleManager::on_module_value_changed(const QString& module_name, const QString& value_id,
-    int new_value) {
-    // 模块数值变化 → 触发值模式中引用该数值的规则计算
-    std::vector<QJsonObject> pending_commands;
-    std::vector<ResultEvent> pending_results;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = id_users_.find(value_id.toStdString());
-        if (it != id_users_.end()) {
-            std::vector<std::string> names;
-            for (int idx : it->second) {
-                auto nit = index_to_name_.find(idx);
-                if (nit != index_to_name_.end()) {
-                    names.push_back(nit->second);
-                }
-            }
-            for (const auto& name : names) {
-                std::vector<std::string> visiting;
-                // 仅启用且父级可用的规则参与计算
-                if (is_rule_effectively_enabled_locked(name, visiting)) {
-                    compute_rule_locked(name, pending_commands, pending_results);
-                }
-            }
-        }
-        // 多图求值沿用同一周期：模块数值变化即重算插件图与总规则图
-        evaluate_graphs_locked(pending_commands, pending_results);
-    }
-    for (const auto& cmd : pending_commands) {
-        emit rule_command_ready(cmd);
-    }
-    for (const auto& [rule_name2, ch, value] : pending_results) {
-        emit rule_result_changed(QString::fromStdString(rule_name2),
-            QString::fromStdString(ch), value);
-    }
+RuleManager::RuleManager()
+    : QObject(nullptr) {
+    // 监听模块数值变化，触发值模式中引用该数值的规则计算（级联触发）
+    connect(&ModuleManager::instance(), &ModuleManager::value_changed,
+        this, &RuleManager::on_module_value_changed);
 }
+
+RuleManager::~RuleManager() = default;
 
 // 私有辅助函数实现（private）
 
@@ -1162,6 +1082,19 @@ std::vector<std::string> RuleManager::plugin_graph_plugins_locked() const {
     return plugins;
 }
 
+nlohmann::json RuleManager::read_rule_graph_json_locked(const std::string& filename) const {
+    try {
+        const nlohmann::json json = load_json_file(filename);
+        if (json.is_object() && json.contains("graph") && json["graph"].is_object()) {
+            return json["graph"];
+        }
+    }
+    catch (const std::exception&) {
+        // 文件不存在或无图字段：由调用方退化处理
+    }
+    return nlohmann::json();
+}
+
 RuleGraph RuleManager::load_plugin_rule_graph_locked(const std::string& plugin_id) const {
     const nlohmann::json graph_json = read_rule_graph_json_locked(get_plugin_graph_file(plugin_id));
     if (graph_json.is_object()) {
@@ -1175,6 +1108,46 @@ RuleGraph RuleManager::load_plugin_rule_graph_locked(const std::string& plugin_i
     RuleGraph graph;
     graph.import_from_plugin(QString::fromStdString(plugin_id));
     return graph;
+}
+
+bool RuleManager::write_plugin_rule_graph(const std::string& plugin_id, const RuleGraph& graph,
+    bool& cascade_dirty) {
+    cascade_dirty = false;
+    if (plugin_id.empty()) {
+        LOG_MODULE("RuleManager", "write_plugin_rule_graph", LOG_WARN, "插件标识为空，无法保存插件规则图");
+        return false;
+    }
+    bool saved = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const std::string filename = get_plugin_graph_file(plugin_id);
+        nlohmann::json json;
+        try {
+            json = load_json_file(filename);
+        }
+        catch (const std::exception&) {
+            // 文件不存在：新建
+        }
+        if (!json.is_object()) {
+            json = nlohmann::json::object();
+        }
+        nlohmann::json graph_json = graph.to_json();
+        graph_json["plugin"] = plugin_id;
+        json["version"] = "1.0";
+        json["plugin"] = plugin_id;
+        json["kind"] = "pluginRuleGraph";
+        json["graph"] = graph_json;
+        json["rules"] = graph.to_rules_json();
+        saved = save_json_file(filename, json);
+        if (saved) {
+            scan_directory();
+            // 图已变化：按新图重算已启用来源的依赖集合（下一次求值同样读新图）
+            cascade_dirty = refresh_cascades_locked();
+            LOG_MODULE("RuleManager", "write_plugin_rule_graph", LOG_INFO,
+                "插件规则图已保存: " << filename);
+        }
+    }
+    return saved;
 }
 
 RuleGraph RuleManager::load_top_rule_graph_locked() const {
@@ -1313,7 +1286,7 @@ void RuleManager::evaluate_graphs_locked(std::vector<QJsonObject>& pending_comma
         return value->get_last_value();
     };
 
-    // 1) 先插件图：以每个插件图默认输出节点的上游子图求值
+    // 先插件图求值：以每个插件图默认输出节点的上游子图求值
     plugin_graph_outputs_.clear();
     std::map<QString, int> plugin_outputs;
     for (const auto& plugin_id : plugin_graph_plugins_locked()) {
@@ -1326,7 +1299,7 @@ void RuleManager::evaluate_graphs_locked(std::vector<QJsonObject>& pending_comma
         plugin_outputs[QString::fromStdString(plugin_id)] = value.value();
     }
 
-    // 2) 后总规则图：插件输出节点取上一步的值，通道节点据此得到强度
+    // 后总规则图求值：插件输出节点取上一步的值，通道节点据此得到强度
     channel_graph_outputs_.clear();
     const RuleGraph top = load_top_rule_graph_locked();
     for (const auto& node : top.nodes()) {
@@ -1352,25 +1325,12 @@ void RuleManager::evaluate_graphs_locked(std::vector<QJsonObject>& pending_comma
         cmd["channel"] = QString::fromStdString(channel);
         cmd["mode"] = 2; // 通道节点给出的是绝对强度（设为）
         cmd["value"] = value.value();
-        // 目标设备随命令带出：空串 = 跟随默认设备，非空 = 指定设备 MAC。
+        // 目标设备随命令带出：空串 = 跟随默认设备，非空 = 指定设备 MAC
         // 设备解析与「离线不输出」的判定在 DeviceController（设备名单的唯一持有者）完成
         cmd["device"] = node.target_device;
         pending_commands.push_back(cmd);
         pending_results.emplace_back(node.name.toStdString(), channel, value.value());
     }
-}
-
-nlohmann::json RuleManager::read_rule_graph_json_locked(const std::string& filename) const {
-    try {
-        const nlohmann::json json = load_json_file(filename);
-        if (json.is_object() && json.contains("graph") && json["graph"].is_object()) {
-            return json["graph"];
-        }
-    }
-    catch (const std::exception&) {
-        // 文件不存在或无图字段：由调用方退化处理
-    }
-    return nlohmann::json();
 }
 
 void RuleManager::scan_directory() {
@@ -1724,4 +1684,42 @@ std::optional<int> RuleManager::resolve_placeholder_locked(const Placeholder& pl
     }
     // EXTERNAL 占位符（{}）：无外部参数来源，视为空值（忽略该项）
     return std::nullopt;
+}
+
+// private slots 实现
+
+void RuleManager::on_module_value_changed(const QString& module_name, const QString& value_id,
+    int new_value) {
+    // 模块数值变化 → 触发值模式中引用该数值的规则计算
+    std::vector<QJsonObject> pending_commands;
+    std::vector<ResultEvent> pending_results;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = id_users_.find(value_id.toStdString());
+        if (it != id_users_.end()) {
+            std::vector<std::string> names;
+            for (int idx : it->second) {
+                auto nit = index_to_name_.find(idx);
+                if (nit != index_to_name_.end()) {
+                    names.push_back(nit->second);
+                }
+            }
+            for (const auto& name : names) {
+                std::vector<std::string> visiting;
+                // 仅启用且父级可用的规则参与计算
+                if (is_rule_effectively_enabled_locked(name, visiting)) {
+                    compute_rule_locked(name, pending_commands, pending_results);
+                }
+            }
+        }
+        // 多图求值沿用同一周期：模块数值变化即重算插件图与总规则图
+        evaluate_graphs_locked(pending_commands, pending_results);
+    }
+    for (const auto& cmd : pending_commands) {
+        emit rule_command_ready(cmd);
+    }
+    for (const auto& [rule_name2, ch, value] : pending_results) {
+        emit rule_result_changed(QString::fromStdString(rule_name2),
+            QString::fromStdString(ch), value);
+    }
 }

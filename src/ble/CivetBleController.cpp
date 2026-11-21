@@ -1,7 +1,5 @@
-/*
- * Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
- * SPDX-License-Identifier: GPL-3.0-only
- */
+// Copyright (c) 2026 CrimsonSeraph(ltyy.leoyu@gmail.com)
+// SPDX-License-Identifier: GPL-3.0-only
 
 #include "CivetBleController.h"
 
@@ -23,7 +21,7 @@ namespace {
     const QBluetoothUuid kBatteryService(static_cast<quint16>(0x180A));
     const QBluetoothUuid kBatteryCharacteristic(static_cast<quint16>(0x1500));
 
-    const char* kModelCivetV1 = "47L124"; ///< 型号段（广播名 47L124000）
+    const char* kModelCivetV1 = "47L124"; // 型号段（广播名 47L124000）
 
 } // namespace
 
