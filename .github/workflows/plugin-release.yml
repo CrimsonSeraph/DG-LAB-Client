@@ -251,51 +251,69 @@ jobs:
           PLATFORM: ${{ matrix.platform }}
         run: |
           set -euo pipefail
-          # 多配置生成器把产物放在 build/Release，单配置生成器放在 build
-          LIB=""
-          for suffix in dll so dylib; do
-            candidate=$(find build -maxdepth 3 -type f -name "${TARGET}.${suffix}" | head -n 1)
-            if [ -n "$candidate" ]; then
-              LIB="$candidate"
-              break
-            fi
-          done
-          if [ -z "$LIB" ]; then
-            echo "::error title=产物缺失::没有找到 ${TARGET} 的动态库"
-            find build -maxdepth 3 -name "${TARGET}*" | head -20
-            exit 1
-          fi
-          export LIB
-          # 侧车由 dgl_add_plugin 的 POST_BUILD 复制到动态库同级目录 module/<目标名>/plugin.json
-          export META_DIR="$(dirname "$LIB")/${TARGET}"
-          if [ ! -f "$META_DIR/plugin.json" ]; then
-            echo "::error title=侧车缺失::${META_DIR}/plugin.json 不存在，检查 dgl_add_plugin 的 META_DIR"
-            exit 1
-          fi
           mkdir -p dist
+          # 定位与打包都在 python 里做，避免依赖 find 的遍历顺序
+          # CMake 把插件复制到 <app 输出目录>/module/，构建树里同时还留着一份普通输出
+          # （build/Release/<目标名>.dll 或 build/<目标名>.so），只认 module/ 内的落点
           PYTHONIOENCODING=utf-8 python - <<'PY'
           import hashlib
           import json
           import os
           import pathlib
+          import sys
           import zipfile
 
-          plugin = os.environ["PLUGIN"]
           target = os.environ["TARGET"]
+          plugin = os.environ["PLUGIN"]
           version = os.environ["VERSION"]
           platform = os.environ["PLATFORM"]
-          lib = pathlib.Path(os.environ["LIB"])
-          meta_dir = pathlib.Path(os.environ["META_DIR"])
+          build_dir = pathlib.Path("build")
+          suffixes = (".dll", ".so", ".dylib")
+
+          def fail(title, message):
+              print("::error title=" + title + "::" + message)
+              print("排查：find build -maxdepth 5 -name '" + target + "*'")
+              for path in sorted(build_dir.rglob(target + "*")):
+                  print("  " + path.as_posix())
+              sys.exit(1)
+
+          # 侧车目录是 dgl_add_plugin 的既定落点 module/<目标名>/，路径最浅的一份优先
+          sidecars = sorted(
+              (
+                  path
+                  for path in build_dir.rglob("plugin.json")
+                  if path.parent.name == target and path.parent.parent.name == "module"
+              ),
+              key=lambda item: (len(item.parts), item.as_posix()),
+          )
+          if not sidecars:
+              fail("侧车缺失", "build 下没有 */module/" + target + "/plugin.json")
+          meta_dir = sidecars[0].parent
+
+          # 动态库可能在侧车目录内，也可能在上一级 module/ 下
+          library = None
+          for candidate in (meta_dir, meta_dir.parent):
+              for suffix in suffixes:
+                  path = candidate / (target + suffix)
+                  if path.is_file():
+                      library = path
+                      break
+              if library is not None:
+                  break
+          if library is None:
+              fail("产物缺失", "module/" + target + "/ 与 module/ 下都没有 " + target + " 的动态库")
+          print("侧车目录：" + meta_dir.as_posix())
+          print("动态库：" + library.as_posix())
 
           # 封面由插件仓库 banners/ 单独分发，不进 zip
           image_suffixes = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
           asset = pathlib.Path("dist") / "{}-{}-{}.zip".format(plugin, version, platform)
 
           with zipfile.ZipFile(asset, "w", zipfile.ZIP_DEFLATED) as bundle:
-              bundle.write(lib, "{}/{}".format(target, lib.name))
+              bundle.write(library, target + "/" + library.name)
               bundle.write(meta_dir / "plugin.json", target + "/plugin.json")
               for extra in sorted(meta_dir.rglob("*")):
-                  if not extra.is_file() or extra.name == "plugin.json":
+                  if not extra.is_file() or extra in (meta_dir / "plugin.json", library):
                       continue
                   if extra.suffix.lower() in image_suffixes or extra.name.startswith("banner"):
                       continue
@@ -316,13 +334,27 @@ jobs:
 
       - name: 记录校验和
         shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
         run: |
           set -euo pipefail
-          cd dist
-          for f in *.zip; do
-            sha256sum "$f" >> "SHA256SUMS-${{ matrix.platform }}.txt"
-          done
-          cat SHA256SUMS-*.txt
+          # macOS 没有 sha256sum，统一用 python 计算
+          PYTHONIOENCODING=utf-8 python - <<'PY'
+          import hashlib
+          import os
+          import pathlib
+
+          platform = os.environ["PLATFORM"]
+          lines = []
+          for archive in sorted(pathlib.Path("dist").glob("*.zip")):
+              digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+              lines.append(digest + "  " + archive.name)
+          if not lines:
+              raise SystemExit("::error title=产物缺失::dist 下没有 zip")
+          sums = pathlib.Path("dist") / ("SHA256SUMS-" + platform + ".txt")
+          sums.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          print("\n".join(lines))
+          PY
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
