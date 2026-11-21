@@ -107,7 +107,7 @@ src/ui/
 | 协议 | 提供器 | 说明 |
 | --- | --- | --- |
 | `image://dglabqr/<rev>` | `QrImageProvider` | 配对二维码，由 `DeviceController` 持有；载荷为官方终端二维码协议格式（官网下载地址 + `DGLAB-SOCKET` + `ws://<ip>:<V3 端口>/<终端 ID>`），`qrcodegen` 按内容自动提升版本 |
-| `image://modulebanner/<插件文件名>/<头图文件名>` | `ModuleBannerImageProvider` | 插件侧车头图：按 id 解析 `<插件扫描目录>/<dll 主干名>/<头图文件名>`（扫描目录取自 `ModuleManager::get_plugin_dir()`，不按程序目录另拼）；id 只允许「插件文件名 + 纯文件名」两段，含 `..`、盘符、路径分隔符或多余段一律拒绝；文件缺失或不是图片时返回空图，QML 侧保持空态 |
+| `image://modulebanner/<插件文件名>/<头图文件名>` | `ModuleBannerImageProvider` | 插件侧车头图：按 id 解析 `<插件扫描目录>/<dll 主干名>/<头图文件名>`（扫描目录取自 `ModuleManager::get_plugin_dir()`，不按程序目录另拼）；id 只允许「插件文件名 + 纯文件名」两段，含 `..`、盘符、路径分隔符或多余段一律拒绝；文件缺失或不是图片时返回空图，QML 侧保持空态。侧车 `banner` 写绝对 http(s) URL 时不进该提供器——由 `ModuleBridge::bannerSource()` 原样返回，`Image` 直接联网加载 |
 
 ## objectName 契约表
 
@@ -321,7 +321,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 
 已启用栏条目没有新增 objectName：「配置 →」热区同样调用 `app.openPluginDetail(fileName)`，走与首页看板相同的解析与降级路径；网格卡片的热区仍走页面内的 `openDetail()`（已在本页，无需再切页）。
 
-插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 两个页签（触发事件 / 数值）。头图区按 `item.fileName` 与侧车 `banner` 拼 `image://modulebanner/<插件文件名>/<banner>`（`banner` 是纯文件名，带 `/` 或 `:` 时按无图处理），图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页头操作区右侧依次是规则入口（`pluginDetailRuleEntryButton`，在启停按钮**左侧**，占位固定）与「停用插件 / 启用插件」；规则入口与插件卡同一口径（未启用不显示、按 `config/rules/plugin_<插件标识>.json` 是否存在切换「创建规则 / 编辑规则」 ），点击走与卡片相同的槽并在编辑器中直达该插件图。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。通道上限与安全上限不再在详情里编辑，改到设备管理页的「通道级回退值」卡（同一份 `app.channels.<A|B>`），界面上不再有模块级的 `channel` 下拉；该键（`app.plugins.<模块>.channel`）只剩兼容读取，事件落到哪个通道由事件映射的子选项与规则图通道节点决定。
+插件详情（`pages/plugin/PluginDetail.qml`）：头图区 + 两个页签（触发事件 / 数值）。头图源由 `moduleBridge.bannerSource(item.fileName, item.banner)` 给出（与插件卡同一份实现）：纯文件名拼 `image://modulebanner/<插件文件名>/<banner>`（文件名带 `/`、`\` 或 `:` 时按无图处理），绝对 http(s) URL 原样交给 `Image` 联网加载；图片未就绪或加载失败时 `Image` 不显示，保持 `Theme.surfaceAlt` 铺底，不出现破图；图片上叠一层取 `Theme.windowBg` / `Theme.transparentFill` 的水平渐变遮罩，保证左侧标题可读。页头操作区右侧依次是规则入口（`pluginDetailRuleEntryButton`，在启停按钮**左侧**，占位固定）与「停用插件 / 启用插件」；规则入口与插件卡同一口径（未启用不显示、按 `config/rules/plugin_<插件标识>.json` 是否存在切换「创建规则 / 编辑规则」 ），点击走与卡片相同的槽并在编辑器中直达该插件图。页签切换沿用该文件既有的 `onTabClicked`（插件中心批次遗留，见「信号处理器例外」）；「数值」页签只读绑定 `moduleBridge.selectedValues`，选中哪个插件由 C++ 侧决定——详情根项 `item` 变化时 `UiConnector::on_plugin_detail_item_changed()` 调 `ModuleBridge::selectModule()`，QML 不写处理器。通道上限与安全上限不再在详情里编辑，改到设备管理页的「通道级回退值」卡（同一份 `app.channels.<A|B>`），界面上不再有模块级的 `channel` 下拉；该键（`app.plugins.<模块>.channel`）只剩兼容读取，事件落到哪个通道由事件映射的子选项与规则图通道节点决定。
 
 | objectName | 行为 |
 | --- | --- |

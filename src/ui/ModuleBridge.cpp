@@ -28,6 +28,12 @@ namespace {
         { "4000 ms", 4000 }
     };
 
+    // 头图字段是否绝对 http(s) URL：只有这两种 scheme 直接当 Image.source 用
+    bool is_remote_banner(const QString& banner) {
+        return banner.startsWith(QStringLiteral("http://"), Qt::CaseInsensitive)
+            || banner.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive);
+    }
+
     // 标签列表转换为 QStringList（QML 直接消费）
     QStringList to_qstring_list(const std::vector<std::string>& values) {
         QStringList list;
@@ -264,4 +270,20 @@ void ModuleBridge::togglePlugin(const QString& file_name) {
 void ModuleBridge::selectModule(const QString& module_name) {
     selected_ = module_name;
     emit selectedChanged();
+}
+
+QString ModuleBridge::bannerSource(const QString& file_name, const QString& banner) const {
+    if (file_name.isEmpty() || banner.isEmpty()) {
+        return QString();
+    }
+    // 在线头图不进本地解析链：URL 原样交给 QML，不拼插件目录，也不进提供器的 id 校验
+    if (is_remote_banner(banner)) {
+        return banner;
+    }
+    // 纯文件名才走 image://modulebanner/<插件文件名>/<头图文件名>，带路径分隔符或盘符的按无图处理
+    if (banner.contains(QLatin1Char('/')) || banner.contains(QLatin1Char('\\'))
+        || banner.contains(QLatin1Char(':'))) {
+        return QString();
+    }
+    return QStringLiteral("image://modulebanner/") + file_name + QLatin1Char('/') + banner;
 }

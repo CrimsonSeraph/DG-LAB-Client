@@ -48,7 +48,7 @@ module/
 | `version` | string | 插件版本 |
 | `author` | string | 作者 |
 | `description` | string | 一句话简介 |
-| `banner` | string | 头图文件名（只写文件名，文件与该插件的侧车同目录），留空则不显示；宿主按 `image://modulebanner/<插件文件名>/<banner>` 读取 |
+| `banner` | string | 头图：纯文件名（文件与该插件的侧车同目录）或绝对 http(s) URL，留空则不显示；文件名由宿主按 `image://modulebanner/<插件文件名>/<banner>` 读取，URL 直接交给 `Image` 加载 |
 | `tags` | string[] | 标签 |
 
 侧车随插件在 `CMakeLists.txt` 中注册，`META_DIR` 必须指向 **侧车子目录**（不是插件源码目录）：
@@ -65,9 +65,9 @@ dgl_add_plugin(dgl_warthunder_plugin
 
 `dgl_add_plugin` 用 `copy_directory` 把 `META_DIR` 的内容整体复制到 `<exe>/module/<目标名>/`；若把插件源码目录当作 `META_DIR`，源码会被一起复制进部署目录。`META_DIR` 可写多个目录，未指定时只复制动态库。
 
-头图是侧车同目录的普通图片文件：放进 `module/<插件名>/meta/` 就会随整目录一起部署到 `<exe>/module/<目标名>/`（`copy_directory` 复制的是目录内容，不只 `plugin.json`），侧车只写文件名。宿主用 `image://modulebanner/<插件文件名>/<banner>` 读取该文件，文件缺失、不是图片或 `banner` 里带路径分隔符时按无图处理（插件卡与详情页都保持空态）。
+头图有两种来源。侧车同目录的普通图片文件放进 `module/<插件名>/meta/` 就会随整目录一起部署到 `<exe>/module/<目标名>/`（`copy_directory` 复制的是目录内容，不只 `plugin.json`），侧车只写文件名，宿主用 `image://modulebanner/<插件文件名>/<banner>` 读取；或者侧车写绝对 http(s) URL，宿主直接把 URL 当 `Image.source` 联网加载，不经过该提供器。文件缺失、不是图片、`banner` 里带路径分隔符或 URL 不是 http(s) 时按无图处理（插件卡与详情页都保持空态）。
 
-`module/gsi/meta/banner.png` 是本仓库自带的侧车头图样例（1200×400，程序绘制的反恐精英 2 头图），用于端到端验证头图渲染与整目录部署。
+本仓库不自带第三方游戏封面：CS2 与战争雷霆的头图由 [DG-LAB-Client-Plugin](https://github.com/CrimsonSeraph/DG-LAB-Client-Plugin) 仓库的 `banners/` 分发，侧车只写 URL；版权归属见 [../assets/banners/NOTICE.md](../assets/banners/NOTICE.md)。
 
 ### 事件声明（events）
 

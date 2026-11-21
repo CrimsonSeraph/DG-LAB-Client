@@ -44,6 +44,11 @@ public:
     Q_INVOKABLE void togglePlugin(const QString& file_name);
     /// @brief 选中模块（用于数值展示弹窗）
     Q_INVOKABLE void selectModule(const QString& module_name);
+    /// @brief 头图源：绝对 http(s) URL 原样返回，纯文件名交给 modulebanner 提供器
+    /// @param file_name 插件文件名（动态库文件名，提供器据此定位侧车目录）
+    /// @param banner 侧车 banner 字段原值
+    /// @return 可直接赋给 Image.source 的串；无图或不认识的写法返回空串
+    Q_INVOKABLE QString bannerSource(const QString& file_name, const QString& banner) const;
 
 signals:
     void dataChanged();

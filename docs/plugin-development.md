@@ -105,6 +105,8 @@ include 路径（`include/plugin`、`include/module`）、`PLUGIN_BUILD` 编译�
 }
 ```
 
+`banner` 有两种写法：纯文件名（图片与该插件的侧车同目录，随 `META_DIR` 一起部署，宿主按 `image://modulebanner/<插件文件名>/<文件名>` 读取）与绝对 http(s) URL（宿主直接把 URL 当 `Image.source` 联网加载，适合不随插件分发的大图，例如版权属于游戏厂商的封面）。相对路径、`file://` 等其他写法按无图处理。
+
 ### 7. 加载流程与状态
 
 1. 主程序启动时扫描插件目录（`*.dll`/`*.so`/`*.dylib`），**默认只扫描不加载**，插件中心卡片显示「未启用」与「启用」按钮；`app.module.scan_load=true` 时扫描即加载（调试用）。

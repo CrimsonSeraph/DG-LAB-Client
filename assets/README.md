@@ -6,6 +6,7 @@
 
 | 文件夹名称 | 描述 |
 | --- | --- |
+| `banners` | 第三方头图版权声明（`NOTICE.md`）：目录内不放图片，游戏封面由 DG-LAB-Client-Plugin 仓库分发 |
 | `dmg` | macOS DMG 背景 |
 | `font` | 存放界面图标字体（Font Awesome Free）与其许可文本，供 QML 组件 `AppIcon` 渲染导航等处的图标。 |
 | `icon` | 存放应用图标资源：源矢量 SVG、多尺寸 PNG 与 Windows 多尺寸 ICO，供窗口图标与可执行文件图标使用。 |

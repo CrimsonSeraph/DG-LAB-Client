@@ -23,18 +23,12 @@ Item {
     readonly property bool enabledState: root.item !== null && root.item.enabled === true
     // 头图遮罩不透明度：压暗图片左侧，保证叠在上面的文字可读
     readonly property real bannerScrimOpacity: 0.9
-    // 头图源：侧车 banner 只是文件名，交给 modulebanner 提供器按 <插件文件名>/<头图文件名> 解析
+    // 头图源与插件卡同一口径：绝对 http(s) URL 直接用，纯文件名走 modulebanner 提供器
     readonly property string bannerSource: {
         if (root.item === null || root.item.banner === undefined || root.item.fileName === undefined) {
             return "";
         }
-        const file = String(root.item.fileName);
-        const banner = String(root.item.banner);
-        if (file.length === 0 || banner.length === 0
-            || banner.indexOf("/") >= 0 || banner.indexOf(":") >= 0) {
-            return "";
-        }
-        return "image://modulebanner/" + file + "/" + banner;
+        return moduleBridge.bannerSource(String(root.item.fileName), String(root.item.banner));
     }
     // 选中插件已注册的数值项，由 C++ 侧 selectModule 后的刷新驱动
     readonly property var valueList: moduleBridge.selectedValues
