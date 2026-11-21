@@ -25,9 +25,9 @@
 
 namespace {
 
-    // 清单源地址的配置键与占位值（首次部署后由协调者回填真实地址）
+    // 清单源地址的配置键与缺省值（config 未配置时用这一份）
     const char* const kRegistryUrlKey = "app.market.registry_url";
-    const char* const kDefaultRegistryUrl = "https://dglab-registry.example.workers.dev/registry.json";
+    const char* const kDefaultRegistryUrl = "https://dglab-registry.crimsonseraph.top/registry.json";
     // 清单 schema 版本（阶段二按同一份契约生成）
     constexpr int kSchemaVersion = 1;
     // 清单请求超时（毫秒）
