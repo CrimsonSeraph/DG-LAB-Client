@@ -6,4 +6,4 @@ compatibility_date = "2025-06-01"
 
 [assets]
 directory = "public"
-binding = "ASSETS"
+# 纯静态 Worker 不能声明 assets binding，声明了 wrangler 会要求同时提供 main 脚本
