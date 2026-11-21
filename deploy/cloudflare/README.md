@@ -2,6 +2,8 @@
 
 托管两份清单的零构建静态资源 Worker。Worker 名已从 `dg-lab-plugin-registry` 改为 `dglab-registry`：它现在不只托管插件注册表，还托管应用更新清单。
 
+对外地址为自定义子域名 <https://dglab-registry.crimsonseraph.top>（routes 的 custom_domain 绑定，不暴露托管平台的账号子域）。
+
 Worker 形态是「显式脚本 + `ASSETS` 绑定」：`worker.js` 把每个请求转给 `env.ASSETS`，静态文件仍由 `wrangler deploy` 从本机直传，Cloudflare 侧不编译任何东西。
 
 ## 托管什么

@@ -6,6 +6,11 @@ name = "dglab-registry"
 main = "worker.js"
 compatibility_date = "2025-06-01"
 
+# 对外使用自定义子域名，不暴露托管平台的账号子域
+routes = [
+    { pattern = "dglab-registry.crimsonseraph.top", custom_domain = true }
+]
+
 [assets]
 directory = "public"
 binding = "ASSETS"
