@@ -369,3 +369,118 @@ jobs:
             ( cd dist && find . -maxdepth 1 -type f -exec basename {} \; | sort ) || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # 把两份清单一起部署到静态资源 Worker
+  # registry.json 由 scripts/gen_registry.py 生成，manifest.json 是 release job 的产物
+  # 直接上传会整体替换 Worker 的静态资源集合，两份清单必须同一次部署
+  # 独立 job：Release 已经建好，这一步失败不会改变已发布的 Release
+  publish:
+    name: 部署插件清单与更新清单
+    needs:
+      - release
+    if: ${{ needs.release.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      PLUGIN_REPO: CrimsonSeraph/DG-LAB-Client-Plugin
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+
+      # release job 的 tag output 不跨 job，这里重算一份
+      - name: 解析发布标签
+        id: tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "push" ]; then
+            TAG="$REF_NAME"
+          else
+            TAG="$INPUT_TAG"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error title=缺少 release_tag::手动触发时必须填写 release_tag（例如 v1.0.0）"
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "将部署标签：$TAG"
+
+      # manifest.json 的格式归 release job，这里只做字节级搬运
+      - name: 取更新清单 manifest.json（原样搬运）
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p deploy/cloudflare/public
+          gh release download "$TAG" --repo "$REPO" --pattern manifest.json --dir "$RUNNER_TEMP/manifest"
+          cp "$RUNNER_TEMP/manifest/manifest.json" deploy/cloudflare/public/manifest.json
+          python -m json.tool deploy/cloudflare/public/manifest.json > /dev/null
+
+          # 与 Release 资产登记的 digest 比字节，证明搬运过程没有重新序列化
+          DIGEST=$(gh api "repos/$REPO/releases/tags/$TAG" --jq '[.assets[] | select(.name == "manifest.json") | .digest] | first // ""')
+          ACTUAL=$(sha256sum deploy/cloudflare/public/manifest.json | awk '{print $1}')
+          BYTES=$(wc -c < deploy/cloudflare/public/manifest.json)
+          echo "manifest.json $BYTES 字节 sha256=$ACTUAL"
+          if [ -n "$DIGEST" ]; then
+            if [ "$DIGEST" != "sha256:$ACTUAL" ]; then
+              echo "::error title=manifest.json 与 Release 资产不一致::Release 登记 $DIGEST，本地 $ACTUAL"
+              exit 1
+            fi
+            echo "与 Release 资产 digest 一致：$DIGEST"
+          else
+            echo "::warning title=资产没有 digest::Release 资产未登记 digest，跳过字节比对"
+          fi
+
+      - name: 生成插件清单 registry.json
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_PLUGIN_RELEASE }}
+        run: |
+          set -euo pipefail
+          PYTHONIOENCODING=utf-8 python scripts/gen_registry.py --repo "$PLUGIN_REPO" --modules-dir module --out deploy/cloudflare/public/registry.json
+          python -m json.tool deploy/cloudflare/public/registry.json > /dev/null
+
+      - name: 部署静态资源 Worker
+        working-directory: deploy/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -eo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error title=缺少 secret::CLOUDFLARE_API_TOKEN 或 CLOUDFLARE_ACCOUNT_ID 未配置"
+            exit 1
+          fi
+          test -f public/registry.json || { echo "::error title=缺少 registry.json::public/ 下没有插件清单"; exit 1; }
+          test -f public/manifest.json || { echo "::error title=缺少 manifest.json::public/ 下没有更新清单"; exit 1; }
+          # wrangler deploy 直接从本机上传静态资源，Cloudflare 侧不跑构建
+          npx --yes wrangler@4 deploy
+
+      - name: 部署摘要
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          {
+            echo "### 静态资源 Worker"
+            echo ""
+            echo "- 发布标签：``${{ steps.tag.outputs.tag }}``"
+            echo "- 清单来源：manifest.json 取自 Release 资产，registry.json 由 scripts/gen_registry.py 生成"
+            echo ""
+            echo '```'
+            ( cd deploy/cloudflare/public && sha256sum manifest.json registry.json ) || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
