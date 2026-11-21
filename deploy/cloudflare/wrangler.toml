@@ -1,9 +1,11 @@
 # DG-LAB-Client 静态资源 Worker：插件清单与应用更新清单
 # 只托管 CI 生成的 public/ 目录，Cloudflare 侧不执行任何构建
 # directory 相对本文件所在目录解析，CI 先写好 public/ 里的两份清单再执行 wrangler deploy
+# 必须有 main 脚本：无脚本的纯 assets 形态在本环境上线后返回 1101
 name = "dglab-registry"
+main = "worker.js"
 compatibility_date = "2025-06-01"
 
 [assets]
 directory = "public"
-# 纯静态 Worker 不能声明 assets binding，声明了 wrangler 会要求同时提供 main 脚本
+binding = "ASSETS"

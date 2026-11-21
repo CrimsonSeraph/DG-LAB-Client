@@ -2,6 +2,8 @@
 
 托管两份清单的零构建静态资源 Worker。Worker 名已从 `dg-lab-plugin-registry` 改为 `dglab-registry`：它现在不只托管插件注册表，还托管应用更新清单。
 
+Worker 形态是「显式脚本 + `ASSETS` 绑定」：`worker.js` 把每个请求转给 `env.ASSETS`，静态文件仍由 `wrangler deploy` 从本机直传，Cloudflare 侧不编译任何东西。
+
 ## 托管什么
 
 | 文件 | 内容 | 格式归属 | 生成方 |
@@ -14,9 +16,18 @@
 ## 为什么是零 Cloudflare 构建
 
 - `wrangler deploy` 走 Direct Upload：本地读 `public/` 目录，把里面的文件作为静态资源直接推到 Cloudflare
-- Worker 只声明 `[assets]`，没有 `main` 脚本入口，也没有 `build` 命令或 Git 集成
+- Worker 的 `main` 只是一个转发脚本（`env.ASSETS.fetch(request)`），没有 `build` 命令，也没有 Git 集成
 - 因此不消耗 Cloudflare 的构建次数与构建时长，构建全部发生在 GitHub Actions 里
 - 与 Workers Builds 的区别：Workers Builds 会在 Cloudflare 侧检出仓库并跑一次构建，本方案不需要那条链路
+
+## 为什么必须有 main 脚本
+
+纯 assets、没有 main 脚本的 Worker 在这套环境下走不通，两种失败都实测过：
+
+- 声明了 `binding = "ASSETS"` 却没有 `main`：`wrangler deploy` 直接拒绝，报 `Cannot use assets with a binding in an assets-only Worker`，要求去掉 binding 或补上 main 脚本
+- 去掉 binding 的纯 assets 形态：上传能成功，但运行期每个请求都是 HTTP 500 `error code: 1101`
+
+所以两个 Worker 统一成「显式脚本 + `ASSETS` 绑定」：`worker.js` 只做一次 `env.ASSETS.fetch(request)` 转发，静态资源仍然由 direct upload 推上去
 
 ## 一次部署必须两份清单同时在场
 
@@ -26,7 +37,8 @@
 
 ```text
 deploy/cloudflare/
-├── wrangler.toml   # 只声明 [assets]，directory 指向 public/
+├── wrangler.toml   # main 指向 worker.js，[assets] directory 指向 public/
+├── worker.js       # 把请求转给 env.ASSETS，不做别的事
 ├── public/         # CI 生成，不入库
 │   ├── registry.json
 │   └── manifest.json
