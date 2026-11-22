@@ -2,8 +2,8 @@
   <img src="assets/icon/dglab-client-256.png" width="128" alt="DG-LAB-Client icon"/>
   <h1>DG-LAB-Client</h1>
   <img alt="version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FCrimsonSeraph%2FDG-LAB-Client%2Fmain%2Fconfig%2Fmain.json&query=%24.app.version&label=version&color=ff4d8d">
-  <img alt="GitHub License" src="https://img.shields.io/github/license/CrimsonSeraph/DG-LAB-Client">
-  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/CrimsonSeraph/DG-LAB-Client">
+  <img alt="GitHub License" src="https://img.shields.io/github/license/CrimsonSeraph/DG-LAB-Client?color=ff4d8d&style=flat">
+  <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/CrimsonSeraph/DG-LAB-Client?color=ff4d8d&style=flat">
   <p>一个基于 Qt/QML 的 DG-LAB 桌面客户端 · 自托管 WebSocket 中转 · 郊狼 V3 蓝牙直连</p>
 </div>
 

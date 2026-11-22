@@ -123,8 +123,9 @@ Item {
                             objectName: "aboutStarsBadge"
 
                             visible: status === Image.Ready
-                            source: "https://img.shields.io/github/stars/CrimsonSeraph/DG-LAB-Client?color=" + page.badgeColor
-                                    + "&style=flat"
+                            // 动态 stars 徽标的 SVG 含 rgba 透明矩形，Qt 的 SVG 渲染器会把它画成不透明白色
+                            // 因此改用静态徽标，数值在发版时与根 README 一并更新
+                            source: "https://img.shields.io/badge/stars-8-" + page.badgeColor + "?style=flat"
                             sourceSize.height: page.badgeHeight
                             asynchronous: true
                         }
