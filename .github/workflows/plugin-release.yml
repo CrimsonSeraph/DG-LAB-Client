@@ -456,6 +456,49 @@ jobs:
           gh release upload "$TAG" dist/*.zip --repo "$PLUGIN_REPO" --clobber
           gh release view "$TAG" --repo "$PLUGIN_REPO"
 
+      # Release 创建/资产上传之后，Releases API 里的 assets 还会有短暂不稳定期：
+      # 直接生成清单会把本次发布的插件当成「没有合规资产」整条跳过（gsi-v0.8.0 实发踩过），
+      # 因此先轮询到本次构建的四个平台 zip 都在，再交给 gen_registry.py
+      - name: 等待插件资产同步
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.PAT_PLUGIN_RELEASE }}
+          PLUGIN_REPO: ${{ env.PLUGIN_REPO }}
+          PLUGIN: ${{ needs.resolve.outputs.plugin }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          PLATFORMS="windows-x64 linux-x64 macos-x64 macos-arm64"
+          EXPECTED=0
+          for _platform in $PLATFORMS; do EXPECTED=$((EXPECTED + 1)); done
+          ATTEMPTS=${ASSET_WAIT_ATTEMPTS:-24}
+          INTERVAL=${ASSET_WAIT_INTERVAL_SECONDS:-5}
+          echo "等待 ${PLUGIN_REPO} 的 ${TAG} 资产同步：期望 ${EXPECTED} 个平台 zip，最多 ${ATTEMPTS} 次、每次 ${INTERVAL} 秒"
+          STARTED=$SECONDS
+          COUNT=0
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            # Release 可能还没建出来，取不到就按 0 个资产继续等
+            ASSETS=$(gh api "repos/${PLUGIN_REPO}/releases/tags/${TAG}" --jq '.assets[]?.name' 2>/dev/null || true)
+            COUNT=0
+            for platform in $PLATFORMS; do
+              if grep -qxF "${PLUGIN}-${VERSION}-${platform}.zip" <<< "$ASSETS"; then
+                COUNT=$((COUNT + 1))
+              fi
+            done
+            if [ "$COUNT" -ge "$EXPECTED" ]; then
+              echo "第 ${attempt} 次查询：${COUNT}/${EXPECTED} 个平台资产已就位，等待 $((SECONDS - STARTED)) 秒"
+              break
+            fi
+            if [ "$attempt" -lt "$ATTEMPTS" ]; then
+              echo "第 ${attempt} 次查询：${COUNT}/${EXPECTED} 个平台资产，${INTERVAL} 秒后重试"
+              sleep "$INTERVAL"
+            else
+              WAITED=$((SECONDS - STARTED))
+              echo "::error title=插件资产未同步::Release 资产在 ${WAITED} 秒内未同步（${PLUGIN_REPO} 的 ${TAG} 只见到 ${COUNT}/${EXPECTED} 个平台资产），已阻止生成清单以免漏掉本次发布的插件"
+              exit 1
+            fi
+          done
       - name: 生成 registry.json 并镜像封面
         shell: bash
         env:
