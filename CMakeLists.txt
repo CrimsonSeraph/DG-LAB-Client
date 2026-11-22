@@ -773,6 +773,38 @@ target_include_directories(${PROJECT_NAME}
 		${CMAKE_CURRENT_SOURCE_DIR}/third_party/qrcodegen
 )
 
+# 插件 SDK：宿主与插件共用的 C ABI 动态库
+# 只导出 extern "C" 函数，不导出 C++ 类、不跨模块传 STL 容器，也不链接宿主内部实现
+add_library(dglab_plugin_sdk SHARED
+	src/plugin/PathFinder.cpp
+	src/plugin/PythonRunner.cpp
+)
+target_compile_definitions(dglab_plugin_sdk PRIVATE DGLAB_SDK_BUILD)
+target_include_directories(dglab_plugin_sdk
+	PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include/plugin
+)
+# 只依赖 Qt::Core（PythonRunner 的 QProcess），不碰 GUI 与服务端模块
+target_link_libraries(dglab_plugin_sdk PRIVATE Qt::Core)
+if(WIN32)
+	# 注册表查询来自 advapi32
+	target_link_libraries(dglab_plugin_sdk PRIVATE advapi32)
+endif()
+# 默认可见性隐藏：只有带 DGLAB_SDK_EXPORT 的符号对外可见
+set_target_properties(dglab_plugin_sdk PROPERTIES
+	CXX_VISIBILITY_PRESET hidden
+	VISIBILITY_INLINES_HIDDEN ON
+)
+# 宿主链接同一个 SDK
+target_link_libraries(${PROJECT_NAME} PRIVATE dglab_plugin_sdk)
+# 构建后与可执行文件同级，本地运行才找得到
+add_custom_command(
+	TARGET dglab_plugin_sdk
+	POST_BUILD
+	COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:dglab_plugin_sdk>"
+		"$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+	COMMENT "Copying plugin SDK next to the application binary"
+)
+
 # 插件
 
 dgl_add_plugin(dgl_warthunder_plugin
@@ -794,6 +826,10 @@ dgl_add_plugin(dgl_gsi_plugin
 		Qt::Network
 	META_DIR module/gsi/meta
 )
+
+# 插件与宿主共用同一个 SDK 动态库；SDK 随应用分发，不打进插件 zip
+target_link_libraries(dgl_warthunder_plugin PRIVATE dglab_plugin_sdk)
+target_link_libraries(dgl_gsi_plugin PRIVATE dglab_plugin_sdk)
 
 # 单元测试
 # 纯函数测试只链接 Qt::Core，不含 ModuleManager / AppConfig / WaveLibrary
@@ -1379,6 +1415,16 @@ install(
 	BUNDLE DESTINATION .
 	LIBRARY DESTINATION ${DGLAB_APP_DIR}
 )
+
+# 插件 SDK 随应用分发：与可执行文件同级；macOS 放进 .app 内才会被 dmg/zip 打包
+if(APPLE)
+	install(TARGETS dglab_plugin_sdk LIBRARY DESTINATION "${PROJECT_NAME}.app/Contents/MacOS")
+else()
+	install(TARGETS dglab_plugin_sdk
+		RUNTIME DESTINATION ${DGLAB_APP_DIR}
+		LIBRARY DESTINATION ${DGLAB_APP_DIR}
+	)
+endif()
 install(
 	DIRECTORY python/
 	DESTINATION "${DGLAB_APP_DIR}/python"
