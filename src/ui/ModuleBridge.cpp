@@ -6,8 +6,15 @@
 #include "DebugLog.h"
 #include "ModuleManager.h"
 
+#include <QDir>
+#include <QFileInfo>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QSaveFile>
 #include <QSet>
 #include <QStringList>
+#include <QUrl>
 #include <QVariantMap>
 
 #include <iterator>
@@ -26,10 +33,65 @@ namespace {
         { "4000 ms", 4000 }
     };
 
+    // 头图缓存的并发下载上限：一屏卡片再多也只排这么多，其余等下一次界面刷新
+    constexpr int kMaxBannerDownloads = 4;
+    // 头图下载超时（毫秒）：卡片头图不值得等太久
+    constexpr int kBannerRequestTimeoutMs = 15000;
+
     // 头图字段是否绝对 http(s) URL：只有这两种 scheme 直接当 Image.source 用
     bool is_remote_banner(const QString& banner) {
         return banner.startsWith(QStringLiteral("http://"), Qt::CaseInsensitive)
             || banner.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive);
+    }
+
+    // 文件名要能直接进 image://modulebanner 的 id：非空、非当前/上级目录、不含分隔符与盘符
+    bool is_safe_banner_name(const QString& name) {
+        if (name.isEmpty() || name == QStringLiteral(".") || name == QStringLiteral("..")) {
+            return false;
+        }
+        return !name.contains(QLatin1Char('/')) && !name.contains(QLatin1Char('\\'))
+            && !name.contains(QLatin1Char(':'));
+    }
+
+    // 能直接拼进 image:// 的缓存文件名：只收 ASCII 字母数字与 . _ -，其它写法不进缓存
+    // 这样拼出来的 id 不需要再转义，也不会被 URL 解析吃掉字符
+    bool is_cacheable_banner_name(const QString& name) {
+        if (!is_safe_banner_name(name)) {
+            return false;
+        }
+        for (const QChar ch : name) {
+            const bool known = (ch >= QLatin1Char('a') && ch <= QLatin1Char('z'))
+                || (ch >= QLatin1Char('A') && ch <= QLatin1Char('Z'))
+                || (ch >= QLatin1Char('0') && ch <= QLatin1Char('9'))
+                || ch == QLatin1Char('.') || ch == QLatin1Char('_') || ch == QLatin1Char('-');
+            if (!known) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // 远程地址里的文件名（QUrl::fileName 已去掉查询串与末级分隔符）
+    QString remote_banner_name(const QString& banner) {
+        const QString name = QUrl(banner).fileName();
+        return is_cacheable_banner_name(name) ? name : QString();
+    }
+
+    // 写临时文件再原子改名（QSaveFile 自带暂存与提交），失败时不留半截文件
+    bool write_file_atomically(const QString& path, const QByteArray& payload) {
+        const QDir dir = QFileInfo(path).absoluteDir();
+        if (!dir.exists() && !QDir().mkpath(dir.absolutePath())) {
+            return false;
+        }
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly)) {
+            return false;
+        }
+        if (file.write(payload) != payload.size()) {
+            file.cancelWriting();
+            return false;
+        }
+        return file.commit();
     }
 
     // 标签列表转换为 QStringList（QML 直接消费）
@@ -270,13 +332,14 @@ void ModuleBridge::selectModule(const QString& module_name) {
     emit selectedChanged();
 }
 
-QString ModuleBridge::bannerSource(const QString& file_name, const QString& banner) const {
+QString ModuleBridge::bannerSource(const QString& file_name, const QString& banner) {
     if (file_name.isEmpty() || banner.isEmpty()) {
         return QString();
     }
-    // 在线头图不进本地解析链：URL 原样交给 QML，不拼插件目录，也不进提供器的 id 校验
+    // 在线头图先查本地缓存：命中就走提供器，未命中仍用远程地址显示并异步落盘
     if (is_remote_banner(banner)) {
-        return banner;
+        const QString cached = cached_banner_source(file_name, banner);
+        return cached.isEmpty() ? banner : cached;
     }
     // 纯文件名才走 image://modulebanner/<插件文件名>/<头图文件名>，带路径分隔符或盘符的按无图处理
     if (banner.contains(QLatin1Char('/')) || banner.contains(QLatin1Char('\\'))
@@ -284,4 +347,98 @@ QString ModuleBridge::bannerSource(const QString& file_name, const QString& bann
         return QString();
     }
     return QStringLiteral("image://modulebanner/") + file_name + QLatin1Char('/') + banner;
+}
+
+QString ModuleBridge::banner_cache_path(const QString& file_name, const QString& banner) {
+    const QString name = remote_banner_name(banner);
+    if (name.isEmpty()) {
+        return QString();
+    }
+    // 缓存目录与提供器的解析口径一致：插件扫描目录 + 动态库主干名
+    const QString plugin_dir = QString::fromStdString(ModuleManager::instance().get_plugin_dir());
+    const QString stem = QFileInfo(file_name).completeBaseName();
+    if (plugin_dir.isEmpty() || !is_safe_banner_name(stem)) {
+        return QString();
+    }
+    return QDir(plugin_dir).filePath(stem + QLatin1Char('/') + name);
+}
+
+QString ModuleBridge::cached_banner_source(const QString& file_name, const QString& banner) {
+    const QString path = banner_cache_path(file_name, banner);
+    if (path.isEmpty()) {
+        // 地址取不出可用文件名：保持原逻辑，直接联网显示，不落盘
+        return QString();
+    }
+    const QString source = QStringLiteral("image://modulebanner/") + file_name
+        + QLatin1Char('/') + QFileInfo(path).fileName();
+    if (banner_cached_.contains(path)) {
+        return source;
+    }
+    // 失败过或正在下载的目标不再重复发起，避免卡片重建时反复联网
+    if (banner_pending_.contains(path) || banner_failed_.contains(path)) {
+        return QString();
+    }
+    const QFileInfo info(path);
+    if (!info.isFile() || info.size() <= 0) {
+        start_banner_download(banner, path);
+        return QString();
+    }
+    banner_cached_.insert(path);
+    LOG_MODULE("ModuleBridge", "cached_banner_source", LOG_DEBUG,
+        "头图缓存命中: " << path.toStdString());
+    return source;
+}
+
+void ModuleBridge::start_banner_download(const QString& banner, const QString& path) {
+    if (banner_pending_.size() >= kMaxBannerDownloads) {
+        // 超出并发上限：不记失败，下一次界面刷新会再试
+        return;
+    }
+    if (banner_network_ == nullptr) {
+        banner_network_ = new QNetworkAccessManager(this);
+    }
+    QNetworkRequest request{QUrl(banner)};
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+    request.setTransferTimeout(kBannerRequestTimeoutMs);
+#endif
+    QNetworkReply* reply = banner_network_->get(request);
+    reply->setProperty("cachePath", path);
+    reply->setProperty("bannerUrl", banner);
+    banner_pending_.insert(path);
+    QObject::connect(reply, &QNetworkReply::finished, this, &ModuleBridge::on_banner_finished);
+    LOG_MODULE("ModuleBridge", "start_banner_download", LOG_DEBUG,
+        "开始下载头图缓存: " << banner.toStdString() << " → " << path.toStdString());
+}
+
+void ModuleBridge::on_banner_finished() {
+    auto* reply = qobject_cast<QNetworkReply*>(sender());
+    if (reply == nullptr) {
+        return;
+    }
+    reply->deleteLater();
+    const QString path = reply->property("cachePath").toString();
+    const QString url = reply->property("bannerUrl").toString();
+    if (path.isEmpty()) {
+        return;
+    }
+    banner_pending_.remove(path);
+    if (reply->error() != QNetworkReply::NoError) {
+        banner_failed_.insert(path);
+        LOG_MODULE("ModuleBridge", "on_banner_finished", LOG_WARN,
+            "头图缓存下载失败: " << url.toStdString() << "，原因: " << reply->errorString().toStdString());
+        return;
+    }
+    const QByteArray payload = reply->readAll();
+    if (payload.isEmpty() || !write_file_atomically(path, payload)) {
+        banner_failed_.insert(path);
+        LOG_MODULE("ModuleBridge", "on_banner_finished", LOG_WARN,
+            "头图缓存写入失败: " << path.toStdString());
+        return;
+    }
+    banner_cached_.insert(path);
+    LOG_MODULE("ModuleBridge", "on_banner_finished", LOG_INFO,
+        "头图已写入缓存: " << path.toStdString() << "，字节数: " << payload.size());
+    // 卡片与详情重新取源：bannerSource 这次会返回 image://modulebanner 的本地缓存
+    emit dataChanged();
 }

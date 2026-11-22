@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <QByteArray>
+#include <QElapsedTimer>
 #include <QHash>
 #include <QList>
 #include <QObject>
@@ -18,6 +20,8 @@ class QNetworkReply;
 // 职责：拉取插件清单、与本地已装版本比对给出 install / update / installed 三态，
 //      把安装入口转发给 ModuleManager（下载、校验、解压与替换都在那边完成），
 //      并把下载进度与安装结果回写到清单项上
+// 清单落盘：拉取成功后写 <config>/market/registry.json，启动只读这份缓存不联网，
+// 只有 refresh()（用户点刷新清单）才强制走网络并覆盖缓存
 class MarketBridge : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString sourceUrl READ source_url CONSTANT)
@@ -96,6 +100,11 @@ private:
         double progress = 0.0;       ///< 下载进度 0-1
     };
 
+    /// @brief 下载前被拒的安装：记一条警告并把失败结果发给界面
+    /// @param id 清单里的插件标识
+    /// @param reason 拒绝原因
+    void reject_install(const QString& id, const QString& reason);
+
     /// @brief 本地已装插件版本表
     /// @return 插件标识到版本的映射（侧车缺失时版本为空串，目录名与侧车 id 各登记一次）
     QHash<QString, QString> installed_versions() const;
@@ -107,6 +116,30 @@ private:
     /// @brief 按清单 JSON 重建条目；正在安装的项保留进度
     /// @param root 清单根对象
     void apply_manifest(const QJsonObject& root);
+
+    /// @brief 校验清单 JSON 并应用到条目表（网络与缓存两条路径共用）
+    /// @param payload 清单原文
+    /// @param fallback_time 清单缺 generatedAt 时用作清单时间的串
+    /// @param error 失败原因（成功时不变）
+    /// @return 应用成功返回 true
+    bool apply_manifest_payload(const QByteArray& payload, const QString& fallback_time, QString& error);
+
+    /// @brief 启动时读取清单缓存；缓存缺失或损坏都只按「无缓存」处理，不联网也不抛错
+    /// @return 读到了可用缓存返回 true
+    bool load_manifest_cache();
+
+    /// @brief 把清单写入缓存；内容与已有缓存一致时跳过写盘
+    /// @param payload 清单原文（写入前规范化为紧凑 JSON）
+    /// @return 已是最新或写入成功返回 true
+    bool store_manifest_cache(const QByteArray& payload);
+
+    /// @brief 清单缓存目录（配置目录下的 market 子目录，配置目录取 AppConfig 的 ./config）
+    /// @return 目录绝对路径
+    static QString resolve_cache_dir();
+
+    /// @brief 清单缓存文件路径（<缓存目录>/registry.json）
+    /// @return 文件绝对路径
+    QString manifest_cache_path() const;
 
     /// @brief 重算单项的三态、状态文案与按钮可用性
     /// @param item 清单项
@@ -126,6 +159,7 @@ private:
 
     QNetworkAccessManager* network_ = nullptr; ///< 清单请求的网络访问管理器（懒创建）
     QNetworkReply* manifest_reply_ = nullptr;  ///< 当前清单请求回复
+    QElapsedTimer fetch_timer_;                ///< 当前清单拉取的计时（只用于日志耗时）
     QList<MarketItem> items_;                  ///< 清单项（仅主线程访问）
     QString source_url_;                       ///< 清单源地址（config app.market.registry_url）
     QString updated_at_;                       ///< 清单生成时间（registry 的 generatedAt）

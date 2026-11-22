@@ -7,9 +7,11 @@
 #include "DebugLog.h"
 #include "ModuleManager.h"
 
+#include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -17,6 +19,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSaveFile>
 #include <QSysInfo>
 #include <QUrl>
 #include <QVariantMap>
@@ -28,6 +31,11 @@ namespace {
     // 清单源地址的配置键与缺省值（config 未配置时用这一份）
     const char* const kRegistryUrlKey = "app.market.registry_url";
     const char* const kDefaultRegistryUrl = "https://dglab-registry.crimsonseraph.top/registry.json";
+    // 清单缓存目录：配置目录（main.cpp 里 AppConfig::initialize("./config") 用的同一根）
+    // 下的 market 子目录，相对程序目录解析，不引入新的配置键
+    const char* const kConfigDirName = "config";
+    const char* const kMarketCacheDirName = "market";
+    const char* const kManifestCacheName = "registry.json";
     // 清单 schema 版本（阶段二按同一份契约生成）
     constexpr int kSchemaVersion = 1;
     // 清单请求超时（毫秒）
@@ -122,6 +130,8 @@ void MarketBridge::initialize() {
         &MarketBridge::on_install_progress);
     QObject::connect(&manager, &ModuleManager::plugin_install_finished, this,
         &MarketBridge::on_install_finished);
+    // 启动只读缓存：有缓存就直接显示条目与清单时间，不自动联网
+    load_manifest_cache();
 }
 
 QVariantList MarketBridge::plugins() const {
@@ -153,6 +163,8 @@ void MarketBridge::refresh() {
     }
     last_error_.clear();
     loading_ = true;
+    // 手动刷新永远走网络：缓存只在启动时读，不在这里回退
+    fetch_timer_.start();
     emit stateChanged();
     if (network_ == nullptr) {
         network_ = new QNetworkAccessManager(this);
@@ -169,23 +181,23 @@ void MarketBridge::refresh() {
 
 void MarketBridge::install(const QString& id) {
     if (!installing_id_.isEmpty()) {
-        emit installFinished(id, false, QStringLiteral("已有插件包正在安装，请稍候再试"));
+        reject_install(id, QStringLiteral("已有插件包正在安装，请稍候再试"));
         return;
     }
     MarketItem* item = find_item(id);
     if (item == nullptr) {
-        emit installFinished(id, false, QStringLiteral("插件 %1 不在市场清单里").arg(id));
+        reject_install(id, QStringLiteral("插件 %1 不在市场清单里").arg(id));
         return;
     }
     if (!item->has_variant || item->download_url.isEmpty()) {
         item->error = QStringLiteral("当前平台无可用包");
         refresh_item_state(*item, false);
         emit pluginsChanged();
-        emit installFinished(id, false, item->error);
+        reject_install(id, item->error);
         return;
     }
     if (item->status == QStringLiteral("installed")) {
-        emit installFinished(id, false, QStringLiteral("插件 %1 已是最新版本").arg(item->name));
+        reject_install(id, QStringLiteral("插件 %1 已是最新版本").arg(item->name));
         return;
     }
     // 依赖校验放在下载之前：缺依赖时连下载都不发起
@@ -197,7 +209,7 @@ void MarketBridge::install(const QString& id) {
         item->error = QStringLiteral("缺少依赖插件 %1").arg(dependency);
         refresh_item_state(*item, false);
         emit pluginsChanged();
-        emit installFinished(id, false, item->error);
+        reject_install(id, item->error);
         return;
     }
     item->error.clear();
@@ -217,41 +229,30 @@ void MarketBridge::on_manifest_reply() {
     }
     reply->deleteLater();
     loading_ = false;
+    const qint64 elapsed_ms = fetch_timer_.isValid() ? fetch_timer_.elapsed() : 0;
+    const QByteArray payload = reply->readAll();
+    QString error;
     if (reply->error() != QNetworkReply::NoError) {
-        last_error_ = QStringLiteral("获取插件清单失败: ") + reply->errorString();
+        error = QStringLiteral("获取插件清单失败: ") + reply->errorString();
+    }
+    // 网络失败只报错，不动已有条目与缓存：缓存过的清单继续显示
+    else {
+        const QString fallback = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"));
+        apply_manifest_payload(payload, fallback, error);
+    }
+    if (!error.isEmpty()) {
+        last_error_ = error;
+        LOG_MODULE("MarketBridge", "on_manifest_reply", LOG_WARN,
+            "插件清单刷新失败: " << error.toStdString() << "，耗时 " << elapsed_ms << "ms");
         emit stateChanged();
         emit refreshFinished(false, last_error_);
         return;
     }
-    QJsonParseError parse_error;
-    const QJsonDocument document = QJsonDocument::fromJson(reply->readAll(), &parse_error);
-    if (parse_error.error != QJsonParseError::NoError || !document.isObject()) {
-        last_error_ = QStringLiteral("插件清单格式错误：不是合法的 JSON 对象");
-        emit stateChanged();
-        emit refreshFinished(false, last_error_);
-        return;
-    }
-    const QJsonObject root = document.object();
-    if (root.value(QStringLiteral("schemaVersion")).toInt(-1) != kSchemaVersion) {
-        last_error_ = QStringLiteral("插件清单版本不受支持（期望 schemaVersion %1）").arg(kSchemaVersion);
-        emit stateChanged();
-        emit refreshFinished(false, last_error_);
-        return;
-    }
-    if (!root.value(QStringLiteral("plugins")).isArray()) {
-        last_error_ = QStringLiteral("插件清单缺少 plugins 数组");
-        emit stateChanged();
-        emit refreshFinished(false, last_error_);
-        return;
-    }
-    const QString generated_at = root.value(QStringLiteral("generatedAt")).toString().trimmed();
-    updated_at_ = generated_at.isEmpty()
-        ? QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm"))
-        : generated_at;
-    apply_manifest(root);
+    // 缓存写入失败不影响本次显示，只写一条警告
+    store_manifest_cache(payload);
     emit stateChanged();
     LOG_MODULE("MarketBridge", "on_manifest_reply", LOG_INFO,
-        "插件清单已更新，条目数: " << items_.size());
+        "插件清单刷新成功，条目数: " << items_.size() << "，耗时 " << elapsed_ms << "ms");
     emit refreshFinished(true, QString());
 }
 
@@ -295,9 +296,16 @@ void MarketBridge::on_install_finished(const QString& target, bool ok, const QSt
     }
     else {
         LOG_MODULE("MarketBridge", "on_install_finished", LOG_WARN,
-            "插件安装失败: " << error.toStdString());
+            "插件安装失败: " << id.toStdString() << "，原因: " << error.toStdString());
     }
     emit installFinished(id, ok, error);
+}
+
+void MarketBridge::reject_install(const QString& id, const QString& reason) {
+    // 下载链路之外的拒绝也要留痕：完成/失败日志只在网络与安装链路里发
+    LOG_MODULE("MarketBridge", "install", LOG_WARN,
+        "插件安装未发起: " << id.toStdString() << "，原因: " << reason.toStdString());
+    emit installFinished(id, false, reason);
 }
 
 QHash<QString, QString> MarketBridge::installed_versions() const {
@@ -417,6 +425,118 @@ void MarketBridge::apply_manifest(const QJsonObject& root) {
     }
     items_ = rebuilt;
     emit pluginsChanged();
+}
+
+bool MarketBridge::apply_manifest_payload(const QByteArray& payload, const QString& fallback_time,
+    QString& error) {
+    QJsonParseError parse_error;
+    const QJsonDocument document = QJsonDocument::fromJson(payload, &parse_error);
+    if (parse_error.error != QJsonParseError::NoError || !document.isObject()) {
+        error = QStringLiteral("插件清单格式错误：不是合法的 JSON 对象");
+        return false;
+    }
+    const QJsonObject root = document.object();
+    if (root.value(QStringLiteral("schemaVersion")).toInt(-1) != kSchemaVersion) {
+        error = QStringLiteral("插件清单版本不受支持（期望 schemaVersion %1）").arg(kSchemaVersion);
+        return false;
+    }
+    if (!root.value(QStringLiteral("plugins")).isArray()) {
+        error = QStringLiteral("插件清单缺少 plugins 数组");
+        return false;
+    }
+    const QString generated_at = root.value(QStringLiteral("generatedAt")).toString().trimmed();
+    updated_at_ = generated_at.isEmpty() ? fallback_time : generated_at;
+    apply_manifest(root);
+    return true;
+}
+
+bool MarketBridge::load_manifest_cache() {
+    const QString path = manifest_cache_path();
+    if (path.isEmpty()) {
+        return false;
+    }
+    QFile file(path);
+    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    const QByteArray payload = file.readAll();
+    file.close();
+    // 清单缺 generatedAt 时用缓存文件自身的写入时间，别把启动时间当成清单时间
+    const QString fallback = QFileInfo(path).lastModified().toString(QStringLiteral("yyyy-MM-dd HH:mm"));
+    QString error;
+    if (!apply_manifest_payload(payload, fallback, error)) {
+        // 损坏的缓存直接按无缓存处理，下一次成功刷新会整体覆盖它
+        LOG_MODULE("MarketBridge", "load_manifest_cache", LOG_WARN,
+            "插件清单缓存不可用: " << path.toStdString() << "，原因: " << error.toStdString());
+        return false;
+    }
+    LOG_MODULE("MarketBridge", "load_manifest_cache", LOG_INFO,
+        "已载入插件清单缓存，条目数: " << items_.size() << "，文件: " << path.toStdString());
+    return true;
+}
+
+bool MarketBridge::store_manifest_cache(const QByteArray& payload) {
+    const QString path = manifest_cache_path();
+    if (path.isEmpty()) {
+        return false;
+    }
+    QJsonParseError parse_error;
+    const QJsonDocument document = QJsonDocument::fromJson(payload, &parse_error);
+    if (parse_error.error != QJsonParseError::NoError || !document.isObject()) {
+        return false;
+    }
+    // 规范化成紧凑 JSON 再比对：空白与键顺序的变化不算内容变化，不重写文件
+    const QByteArray canonical = document.toJson(QJsonDocument::Compact);
+    if (QFile::exists(path)) {
+        QFile previous(path);
+        if (previous.open(QIODevice::ReadOnly)) {
+            const bool same = previous.readAll() == canonical;
+            previous.close();
+            if (same) {
+                LOG_MODULE("MarketBridge", "store_manifest_cache", LOG_DEBUG,
+                    "清单内容未变化，跳过写缓存: " << path.toStdString());
+                return true;
+            }
+        }
+    }
+    const QDir dir = QFileInfo(path).absoluteDir();
+    if (!dir.exists() && !QDir().mkpath(dir.absolutePath())) {
+        LOG_MODULE("MarketBridge", "store_manifest_cache", LOG_WARN,
+            "清单缓存目录不可创建: " << dir.absolutePath().toStdString());
+        return false;
+    }
+    // QSaveFile 写临时文件再原子改名：读到的缓存不会是半截文件
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        LOG_MODULE("MarketBridge", "store_manifest_cache", LOG_WARN,
+            "清单缓存不可写: " << path.toStdString());
+        return false;
+    }
+    if (file.write(canonical) != canonical.size() || !file.commit()) {
+        LOG_MODULE("MarketBridge", "store_manifest_cache", LOG_WARN,
+            "清单缓存写入失败: " << path.toStdString());
+        return false;
+    }
+    LOG_MODULE("MarketBridge", "store_manifest_cache", LOG_INFO,
+        "插件清单已写入缓存，条目数: " << items_.size() << "，字节数: " << canonical.size()
+            << "，文件: " << path.toStdString());
+    return true;
+}
+
+QString MarketBridge::resolve_cache_dir() {
+    // 配置目录沿用 AppConfig 的初始化约定（./config，相对程序目录），再挂 market 子目录
+    const QDir config_dir(QCoreApplication::applicationDirPath() + QStringLiteral("/")
+        + QString::fromUtf8(kConfigDirName));
+    const QString dir = config_dir.filePath(QString::fromUtf8(kMarketCacheDirName));
+    return QDir::cleanPath(dir);
+}
+
+QString MarketBridge::manifest_cache_path() const {
+    const QString dir = resolve_cache_dir();
+    if (dir.isEmpty()) {
+        return QString();
+    }
+    return QDir(dir).filePath(QString::fromUtf8(kManifestCacheName));
 }
 
 void MarketBridge::refresh_item_state(MarketItem& item, bool installing) const {
