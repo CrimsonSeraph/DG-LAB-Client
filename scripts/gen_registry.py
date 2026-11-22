@@ -5,6 +5,9 @@
 #   schemaVersion / generatedAt / plugins[] 与 variants[] 内的 id name version author
 #   description tags banner dependencies platform url sha256 size
 #
+# plugins[] 另有一个可选字段 sourceCommit：记录生成本份清单的主仓库提交，用于溯源；
+# 缺省不写，schemaVersion 仍是 1（可选字段不是破坏性变更）
+#
 # 用法：
 #   # 真实模式：读取插件仓库全部 Release，并把封面镜像进 Worker 的静态资源目录
 #   python scripts/gen_registry.py --repo CrimsonSeraph/DG-LAB-Client-Plugin \
@@ -64,6 +67,11 @@ PLUGIN_FIELDS = (
 )
 
 VARIANT_FIELDS = ("platform", "url", "sha256", "size")
+
+# plugins[] 的可选溯源字段，排在契约字段之后
+SOURCE_COMMIT_FIELD = "sourceCommit"
+PLUGIN_FIELDS_WITH_SOURCE_COMMIT = PLUGIN_FIELDS + (SOURCE_COMMIT_FIELD,)
+COMMIT_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 # 插件 tag 形如 warthunder-v0.1.0
 TAG_RE = re.compile(r"^(?P<plugin>[A-Za-z0-9][A-Za-z0-9_-]*)-v(?P<version>\d+\.\d+\.\d+)$")
@@ -316,8 +324,13 @@ def build_registry(
     metadata: Mapping[str, Mapping[str, Any]],
     resolve_hash: ShaResolver,
     generated_at: str,
+    source_commit: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """把 Release 列表整理成契约结构；同一插件只保留最新版本"""
+    """把 Release 列表整理成契约结构；同一插件只保留最新版本
+
+    source_commit 非空时给每个插件追加可选的 sourceCommit 字段（溯源用）；
+    留空则完全不写该字段。
+    """
     latest: Dict[str, Tuple[str, List[Dict[str, Any]]]] = {}
 
     for release in releases:
@@ -370,21 +383,20 @@ def build_registry(
                 "banner": "",
                 "dependencies": [],
             }
-        plugins.append(
-            {
-                "id": plugin_id,
-                "name": meta["name"],
-                "version": version,
-                "author": meta["author"],
-                "description": meta["description"],
-                "tags": list(meta["tags"]),
-                "banner": meta["banner"],
-                "dependencies": list(meta["dependencies"]),
-                "variants": sorted(
-                    variants, key=lambda item: PLATFORMS.index(item["platform"])
-                ),
-            }
-        )
+        entry: Dict[str, Any] = {
+            "id": plugin_id,
+            "name": meta["name"],
+            "version": version,
+            "author": meta["author"],
+            "description": meta["description"],
+            "tags": list(meta["tags"]),
+            "banner": meta["banner"],
+            "dependencies": list(meta["dependencies"]),
+            "variants": sorted(variants, key=lambda item: PLATFORMS.index(item["platform"])),
+        }
+        if source_commit:
+            entry[SOURCE_COMMIT_FIELD] = source_commit
+        plugins.append(entry)
 
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -416,8 +428,18 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
         if not isinstance(plugin, dict):
             problems.append(f"{where} 应为对象")
             continue
-        if tuple(plugin) != PLUGIN_FIELDS:
-            problems.append(f"{where} 字段应依次为 {list(PLUGIN_FIELDS)}，实际 {list(plugin)}")
+        if tuple(plugin) not in (PLUGIN_FIELDS, PLUGIN_FIELDS_WITH_SOURCE_COMMIT):
+            problems.append(
+                f"{where} 字段应依次为 {list(PLUGIN_FIELDS)}"
+                f"（可选追加 {SOURCE_COMMIT_FIELD}），实际 {list(plugin)}"
+            )
+        if SOURCE_COMMIT_FIELD in plugin:
+            source_commit = plugin[SOURCE_COMMIT_FIELD]
+            if not isinstance(source_commit, str) or not COMMIT_RE.match(source_commit):
+                problems.append(
+                    f"{where}.{SOURCE_COMMIT_FIELD} 应为小写十六进制提交号（7-40 位），"
+                    f"实际 {source_commit!r}"
+                )
         plugin_id = str(plugin.get("id") or "")
         seen_ids.append(plugin_id)
         if not TAG_RE.match(f"{plugin_id}-v0.0.0"):
@@ -478,6 +500,8 @@ def write_registry(registry: Mapping[str, Any], out_path: str) -> pathlib.Path:
 
 
 SELF_TEST_GENERATED_AT = "2026-11-22T05:00:00Z"
+# 自检用的假提交号：形状与 github.sha 一致，不指向任何真实提交
+SELF_TEST_SOURCE_COMMIT = "4f1c2b8a9d7e6350a1b2c3d4e5f60718293a4b5c"
 
 SELF_TEST_METADATA: Dict[str, Dict[str, Any]] = {
     "gsi": {
@@ -646,7 +670,11 @@ def _check(failures: List[str], ok: bool, message: str) -> None:
 
 def run_self_test() -> int:
     registry = build_registry(
-        _self_test_releases(), SELF_TEST_METADATA, _self_test_hash, SELF_TEST_GENERATED_AT
+        _self_test_releases(),
+        SELF_TEST_METADATA,
+        _self_test_hash,
+        SELF_TEST_GENERATED_AT,
+        SELF_TEST_SOURCE_COMMIT,
     )
     validate_registry(registry)
 
@@ -673,6 +701,30 @@ def run_self_test() -> int:
         failures,
         all(SHA256_RE.match(variant["sha256"]) for variant in plugins["warthunder"]["variants"]),
         "sha256 应是小写十六进制 64 位",
+    )
+    _check(
+        failures,
+        all(plugin.get(SOURCE_COMMIT_FIELD) == SELF_TEST_SOURCE_COMMIT for plugin in registry["plugins"]),
+        f"sourceCommit 已写入 {SELF_TEST_SOURCE_COMMIT}",
+    )
+    bare = build_registry(
+        _self_test_releases(), SELF_TEST_METADATA, _self_test_hash, SELF_TEST_GENERATED_AT
+    )
+    validate_registry(bare)
+    _check(
+        failures,
+        all(SOURCE_COMMIT_FIELD not in plugin for plugin in bare["plugins"]),
+        "不传 source_commit 时 plugins[] 不带该字段（可选字段，schemaVersion 仍为 1）",
+    )
+    _expect_registry_error(
+        failures,
+        f"{SOURCE_COMMIT_FIELD} 不是提交号时判为违约",
+        lambda: validate_registry(
+            {
+                **bare,
+                "plugins": [{**bare["plugins"][0], SOURCE_COMMIT_FIELD: "not-a-sha"}, *bare["plugins"][1:]],
+            }
+        ),
     )
 
     with tempfile.TemporaryDirectory() as workdir:
@@ -732,7 +784,8 @@ def run_self_test() -> int:
             print(f"  {item}", file=sys.stderr)
         return 1
     print(
-        "[self-test] 通过：契约校验 2 次，插件 2 个，变体 6 个，封面 2 张已镜像并改写到 Worker 域名"
+        "[self-test] 通过：契约两种形态均校验通过，插件 2 个，变体 6 个，"
+        "sourceCommit 按参数可选写入，封面 2 张已镜像并改写到 Worker 域名"
     )
     return 0
 
@@ -763,6 +816,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         default="fail",
         help="封面抓取失败时：fail 直接报错（默认），keep 降级保留原始 URL 并留一行提示",
     )
+    parser.add_argument(
+        "--source-commit",
+        default=os.environ.get("GITHUB_SHA") or "",
+        help="写进 plugins[].sourceCommit 的源码提交，默认读 GITHUB_SHA；留空则不写该字段",
+    )
     parser.add_argument("--self-test", action="store_true", help="用内置样例数据离线自检")
     args = parser.parse_args(argv)
 
@@ -787,6 +845,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             metadata,
             lambda asset: asset_hash(asset, args.token),
             utc_timestamp(),
+            args.source_commit or None,
         )
         if not registry["plugins"]:
             raise RegistryError(
@@ -806,6 +865,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return 2
 
     print(f"已写入 {target}：{len(registry['plugins'])} 个插件")
+    if args.source_commit:
+        print(f"sourceCommit：{args.source_commit}")
     for plugin in registry["plugins"]:
         platforms = ", ".join(variant["platform"] for variant in plugin["variants"])
         print(f"  {plugin['id']} {plugin['version']}（{platforms}）{plugin['banner']}")

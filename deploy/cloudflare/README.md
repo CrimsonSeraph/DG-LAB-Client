@@ -10,7 +10,7 @@ Worker 形态是「显式脚本 + `ASSETS` 绑定」：`worker.js` 把每个请�
 
 | 文件 | 内容 | 格式归属 | 生成方 |
 | --- | --- | --- | --- |
-| `registry.json` | 插件清单 | 宿主端插件市场契约（`schemaVersion` / `plugins[]` / `variants[]`），与客户端 `MarketBridge` 共用 | `scripts/gen_registry.py` |
+| `registry.json` | 插件清单 | 宿主端插件市场契约（`schemaVersion` / `plugins[]` / `variants[]`），与客户端 `MarketBridge` 共用；`plugins[]` 可带可选字段 `sourceCommit` 记录生成该清单的主仓库提交 | `scripts/gen_registry.py` |
 | `manifest.json` | 应用更新清单 | 由 `release-all.yml` 的 `release` job 定义，客户端 `UpdateManager` 解析（`version` / `release_notes` / `release_url` / `platforms`） | `release-all.yml` 的 `release` job 生成并作为 Release 资产上传 |
 | `banners/` | 插件封面图片 | 仅作静态文件托管，客户端只当普通图片 URL 使用 | `scripts/gen_registry.py` 从插件仓库 `banners/` 抓取 |
 
@@ -92,7 +92,7 @@ cd deploy/cloudflare
 npx wrangler@4 deploy
 ```
 
-`.github/workflows/plugin-release.yml` 的 `publish` job 负责插件清单与封面镜像，`.github/workflows/release-all.yml` 的 `publish` job 负责应用发版后的两份清单（同样会镜像封面，否则整份静态资源集合替换时线上封面会缺）
+`.github/workflows/plugin-release.yml` 的 `publish` job 负责插件清单与封面镜像（只用 `workflow_dispatch` 手动触发，主仓库不再打插件标签；清单里每个插件带 `sourceCommit` 记录触发时的主仓库提交），`.github/workflows/release-all.yml` 的 `publish` job 负责应用发版后的两份清单（同样会镜像封面，否则整份静态资源集合替换时线上封面会缺）
 
 ## 需要的 token 权限
 

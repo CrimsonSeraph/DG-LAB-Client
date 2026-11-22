@@ -1,12 +1,11 @@
 # DG-LAB-Client · 插件发布工作流
-# 触发方式：
-#   * push tag "*-v*"（形如 warthunder-v0.1.0）—— 只构建标签点名的那个插件
-#   * workflow_dispatch —— 手动指定插件与版本，等效于打同名标签
+# 触发方式：只有 workflow_dispatch —— 手动指定插件与版本
+#   主仓库不再打 <插件>-v<版本> 这类标签：标签只存在于主仓库，插件仓库里没有，
+#   会让插件仓库的 Release 标签悬空。发布标签由本工作流按输入拼成 <插件>-v<版本>，
+#   并显式 --target main 建在插件仓库自己的 main 上
 #
 # 与 release-all.yml 的分工：
-#   app 发布用 v* 标签（release-all.yml），插件发布用 <插件>-v<版本>；
-#   本工作流开头有显式守卫，遇到 v1.2.3 这类 app 标签直接失败，
-#   避免以后有人把插件标签模式改成通配后两头同时触发
+#   app 发布仍用 v* 标签触发，插件发布只用 dispatch，两条线互不触发
 #
 # 产物形态（与宿主端契约一致）：
 #   zip 根就是 <目标名>/ 子目录，内含动态库与 plugin.json，
@@ -19,9 +18,6 @@
 name: plugin-release
 
 on:
-  push:
-    tags:
-      - "*-v*"
   workflow_dispatch:
     inputs:
       plugin:
@@ -29,7 +25,7 @@ on:
         type: string
         required: true
       version:
-        description: "版本号，必须与 module/<插件>/meta/plugin.json 的 version 完全一致"
+        description: "版本号，必须与 module/<插件>/meta/plugin.json 的 version 完全一致（形如 0.2.0）"
         type: string
         required: true
 
@@ -50,70 +46,49 @@ env:
 
 jobs:
   resolve:
-    name: 解析标签与校验版本
+    name: 校验插件与版本
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      plugin: ${{ steps.tag.outputs.plugin }}
-      version: ${{ steps.tag.outputs.version }}
-      tag: ${{ steps.tag.outputs.tag }}
+      plugin: ${{ steps.verify.outputs.plugin }}
+      version: ${{ steps.verify.outputs.version }}
+      tag: ${{ steps.verify.outputs.tag }}
       target: ${{ steps.verify.outputs.target }}
     steps:
       - name: 拉取源码
         uses: actions/checkout@v4
 
-      - name: 解析标签并守卫归属
-        id: tag
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          REF_NAME: ${{ github.ref_name }}
-          INPUT_PLUGIN: ${{ inputs.plugin }}
-          INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT_NAME" = "push" ]; then
-            TAG="$REF_NAME"
-          else
-            TAG="${INPUT_PLUGIN}-v${INPUT_VERSION}"
-          fi
-          # v1.2.3 这类标签属于应用发布，插件工作流不得接手，防止误触发后重复发布
-          if [[ "$TAG" =~ ^v[0-9] ]]; then
-            echo "::error title=标签归属错误::${TAG} 属于应用发布，不构建插件"
-            exit 1
-          fi
-          if [[ ! "$TAG" =~ ^([A-Za-z0-9][A-Za-z0-9_-]*)-v([0-9]+[.][0-9]+[.][0-9]+)$ ]]; then
-            echo "::error title=标签格式错误::${TAG} 不是 <插件>-v<主>.<次>.<修订> 形式"
-            exit 1
-          fi
-          PLUGIN="${BASH_REMATCH[1]}"
-          VERSION="${BASH_REMATCH[2]}"
-          echo "plugin=$PLUGIN" >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "标签解析结果：插件 ${PLUGIN}，版本 ${VERSION}，发布标签 ${TAG}"
-
-      - name: 校验 plugin.json 版本与 CMake 目标
+      - name: 校验版本格式、plugin.json 与 CMake 目标
         id: verify
         shell: bash
         env:
-          PLUGIN: ${{ steps.tag.outputs.plugin }}
-          VERSION: ${{ steps.tag.outputs.version }}
+          PLUGIN: ${{ inputs.plugin }}
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          # 发布标签只由 dispatch 输入拼成，不再从 ref 解析，也不再有 tag 归属守卫
+          if [[ ! "$PLUGIN" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]]; then
+            echo "::error title=插件标识格式错误::${PLUGIN} 必须是 module/ 下的目录名（字母数字开头，可含 _ 与 -）"
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+[.][0-9]+[.][0-9]+$ ]]; then
+            echo "::error title=版本格式错误::${VERSION} 不是 <主>.<次>.<修订> 形式"
+            exit 1
+          fi
+          TAG="${PLUGIN}-v${VERSION}"
           META="module/${PLUGIN}/meta/plugin.json"
           if [ ! -f "$META" ]; then
-            echo "::error title=插件不存在::${META} 不存在，标签里的插件名必须是 module/ 下的目录名"
+            echo "::error title=插件不存在::${META} 不存在，输入的插件名必须是 module/ 下的目录名"
             exit 1
           fi
           META_ID=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8-sig"))["id"])' "$META")
           META_VERSION=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8-sig"))["version"])' "$META")
           if [ "$META_ID" != "$PLUGIN" ]; then
-            echo "::error title=标识不一致::${META} 的 id 是 ${META_ID}，标签里的插件名是 ${PLUGIN}"
+            echo "::error title=标识不一致::${META} 的 id 是 ${META_ID}，输入的插件名是 ${PLUGIN}"
             exit 1
           fi
           if [ "$META_VERSION" != "$VERSION" ]; then
-            echo "::error title=版本不一致::${META} 的 version 是 ${META_VERSION}，标签里的版本是 ${VERSION}，先把 plugin.json 改到同一版本再打标签"
+            echo "::error title=版本不一致::${META} 的 version 是 ${META_VERSION}，输入的版本是 ${VERSION}，先把 plugin.json 改到同一版本再发布"
             exit 1
           fi
           TARGET="dgl_${PLUGIN}_plugin"
@@ -121,8 +96,11 @@ jobs:
             echo "::error title=插件未注册::CMakeLists.txt 里没有 dgl_add_plugin(${TARGET} ...)"
             exit 1
           fi
+          echo "plugin=$PLUGIN" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
-          echo "校验通过：${TARGET} 的 plugin.json 版本为 ${META_VERSION}"
+          echo "校验通过：${PLUGIN} ${VERSION}（CMake 目标 ${TARGET}），发布标签 ${TAG}"
 
   build:
     name: 构建 ${{ matrix.platform }}
@@ -415,8 +393,8 @@ jobs:
           PLUGIN: ${{ needs.resolve.outputs.plugin }}
           TARGET: ${{ needs.resolve.outputs.target }}
           VERSION: ${{ needs.resolve.outputs.version }}
-          TAG: ${{ needs.resolve.outputs.tag }}
           REPO: ${{ github.repository }}
+          SOURCE_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           export META="module/${PLUGIN}/meta/plugin.json"
@@ -427,13 +405,14 @@ jobs:
           meta = json.load(open(os.environ["META"], encoding="utf-8-sig"))
           target = os.environ["TARGET"]
           repo = os.environ["REPO"]
-          tag = os.environ["TAG"]
+          # 插件发布由 dispatch 触发，主仓库没有对应的插件标签，只记录触发时的源码提交
+          commit = os.environ["SOURCE_COMMIT"]
           print(meta.get("description", "").strip())
           print()
           print("- 插件标识：" + str(meta.get("id")))
           print("- 版本：" + str(meta.get("version")))
           print("- 作者：" + str(meta.get("author", "")))
-          print("- 源码标签：[" + repo + "@" + tag + "](https://github.com/" + repo + "/tree/" + tag + ")")
+          print("- 源码提交：[" + commit + "](https://github.com/" + repo + "/commit/" + commit + ")")
           print()
           print("安装：把 zip 解压到程序目录的 module/ 下，保持 " + target + "/ 目录名不变")
           PY
@@ -454,13 +433,16 @@ jobs:
             exit 1
           fi
           TITLE="${PLUGIN} ${VERSION}"
-          # 幂等：同名 Release 已存在就只更新说明，资产由 upload --clobber 覆盖
+          # --target main 不能省：不给 --target 时 gh 用当前检出的提交建标签，
+          # 而那个提交只在主仓库、插件仓库里不存在，标签于是悬空（页面上显示无法连接）
+          # 幂等：同名 Release 已存在就只更新说明，资产由 upload --clobber 覆盖；
+          # 标签是既成事实，已经悬空的标签无法靠 edit 修正，需要在插件仓库删标签后重跑
           if gh release view "$TAG" --repo "$PLUGIN_REPO" >/dev/null 2>&1; then
             echo "Release 已存在，更新说明：$TAG"
             gh release edit "$TAG" --repo "$PLUGIN_REPO" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md"
           else
-            echo "Release 不存在，创建：$TAG"
-            gh release create "$TAG" --repo "$PLUGIN_REPO" --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md"
+            echo "Release 不存在，创建（target=main）：$TAG"
+            gh release create "$TAG" --repo "$PLUGIN_REPO" --target main --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md"
           fi
 
       - name: 上传资产（覆盖同名文件）
@@ -484,11 +466,13 @@ jobs:
           set -euo pipefail
           # 封面仍以插件仓库 banners/ 为唯一真源，这里抓取到 wrangler 的直传目录，
           # registry.json 里只保留 Worker 域名，客户端不再依赖 GitHub raw
+          # --source-commit 记录触发本次发布的源码提交，便于从 registry.json 溯源
           PYTHONIOENCODING=utf-8 python scripts/gen_registry.py \
             --repo "$PLUGIN_REPO" \
             --modules-dir module \
             --banner-dir deploy/cloudflare/public/banners \
             --banner-base-url "$BANNER_BASE_URL" \
+            --source-commit "$GITHUB_SHA" \
             --out deploy/cloudflare/public/registry.json
           python -m json.tool deploy/cloudflare/public/registry.json > /dev/null
           # 两道守卫：banner 必须指向 Worker 域名，镜像文件必须真的落盘，
@@ -593,13 +577,16 @@ jobs:
           PLUGIN: ${{ needs.resolve.outputs.plugin }}
           PLUGIN_REPO: ${{ env.PLUGIN_REPO }}
           BANNER_BASE_URL: ${{ env.BANNER_BASE_URL }}
+          SOURCE_COMMIT: ${{ github.sha }}
         run: |
           {
             echo "### 插件发布结果"
             echo ""
+            echo "- 触发方式：workflow_dispatch（主仓库不打插件标签）"
             echo "- 插件：${PLUGIN}"
-            echo "- 发布标签：${TAG}"
-            echo "- 插件仓库：https://github.com/${PLUGIN_REPO}/releases/tag/${TAG}"
+            echo "- 插件仓库标签：${TAG}（--target main，指向插件仓库自己的 main）"
+            echo "- 插件仓库 Release：https://github.com/${PLUGIN_REPO}/releases/tag/${TAG}"
+            echo "- 源码提交（主仓库）：${SOURCE_COMMIT}"
             echo "- 各平台：windows-x64 / linux-x64 / macos-x64 / macos-arm64"
             echo "- 封面：${BANNER_BASE_URL}/banners/（镜像自插件仓库 banners/，随本次部署上传到 Worker）"
           } >> "$GITHUB_STEP_SUMMARY"
