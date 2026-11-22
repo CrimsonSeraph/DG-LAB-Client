@@ -514,6 +514,57 @@ jobs:
             sed "s/^/    /" deploy/cloudflare/public/registry.json
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # 插件线同样要写出 manifest.json：wrangler deploy 是静态资源整体替换，
+      # 少了这一份就会把线上的 /manifest.json 一起抹掉（客户端自更新读的就是它）
+      - name: 取应用更新清单 manifest.json（原样搬运）
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          PUBLIC=deploy/cloudflare/public
+          mkdir -p "$PUBLIC" "$RUNNER_TEMP/manifest"
+          # 取最近一次带 manifest.json 资产的应用发布（草稿与不带该资产的都不算）
+          TAG=$(gh api "repos/${REPO}/releases?per_page=30" --jq '[.[] | select(.draft == false) | select(any(.assets[]?; .name == "manifest.json"))] | first | .tag_name // ""')
+          if [ -z "$TAG" ]; then
+            echo "::error title=未取到应用更新清单::未取到应用更新清单，已阻止部署以免抹掉线上 manifest.json（${REPO} 没有任何带 manifest.json 的应用 Release）"
+            exit 1
+          fi
+          if ! gh release download "$TAG" --repo "$REPO" --pattern manifest.json --dir "$RUNNER_TEMP/manifest"; then
+            echo "::error title=未取到应用更新清单::未取到应用更新清单，已阻止部署以免抹掉线上 manifest.json（下载 ${REPO} 的 ${TAG} 失败）"
+            exit 1
+          fi
+          if [ ! -f "$RUNNER_TEMP/manifest/manifest.json" ]; then
+            echo "::error title=未取到应用更新清单::未取到应用更新清单，已阻止部署以免抹掉线上 manifest.json（${TAG} 的资产里没有 manifest.json）"
+            exit 1
+          fi
+          # 原样字节搬运，不重新序列化
+          cp "$RUNNER_TEMP/manifest/manifest.json" "$PUBLIC/manifest.json"
+          if ! python -m json.tool "$PUBLIC/manifest.json" > /dev/null; then
+            echo "::error title=更新清单不是合法 JSON::${TAG} 的 manifest.json 解析失败，已阻止部署以免抹掉线上 manifest.json"
+            exit 1
+          fi
+          DIGEST=$(gh api "repos/${REPO}/releases/tags/${TAG}" --jq '[.assets[] | select(.name == "manifest.json") | .digest] | first // ""')
+          ACTUAL=$(sha256sum "$PUBLIC/manifest.json" | awk '{print $1}')
+          BYTES=$(wc -c < "$PUBLIC/manifest.json")
+          echo "manifest.json 取自 ${REPO}@${TAG}：${BYTES} 字节 sha256=${ACTUAL}"
+          if [ -n "$DIGEST" ]; then
+            if [ "$DIGEST" != "sha256:$ACTUAL" ]; then
+              echo "::error title=manifest.json 与 Release 资产不一致::Release 登记 ${DIGEST}，本地 ${ACTUAL}，已阻止部署"
+              exit 1
+            fi
+            echo "与 Release 资产 digest 一致：${DIGEST}"
+          else
+            echo "::warning title=资产没有 digest::Release 资产未登记 digest，只校验了字节数 ${BYTES}"
+          fi
+          {
+            echo "### 应用更新清单"
+            echo ""
+            echo "- 来源：${REPO} 的 Release ${TAG}（原样字节搬运，未重新序列化）"
+            echo "- 校验：${BYTES} 字节，sha256=${ACTUAL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: 部署静态资源 Worker
         working-directory: deploy/cloudflare
         env:
@@ -525,6 +576,12 @@ jobs:
             echo "::error title=缺少 secret::CLOUDFLARE_API_TOKEN 或 CLOUDFLARE_ACCOUNT_ID 未配置"
             exit 1
           fi
+          # public/ 会被整体替换上传：三样东西缺一个，线上那一份就会被抹掉
+          test -f public/registry.json || { echo "::error title=缺少 registry.json::public/ 下没有插件清单"; exit 1; }
+          test -f public/manifest.json || { echo "::error title=缺少 manifest.json::public/ 下没有更新清单，已阻止部署以免抹掉线上 manifest.json"; exit 1; }
+          mkdir -p public/banners
+          test -d public/banners || { echo "::error title=缺少 banners::public/ 下没有封面目录"; exit 1; }
+          echo "public/banners 封面 $(ls -1 public/banners | wc -l) 个"
           # wrangler deploy 直接从本机上传静态资源，Cloudflare 侧不跑构建
           npx --yes wrangler@4 deploy
 
