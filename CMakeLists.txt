@@ -804,6 +804,12 @@ add_custom_command(
 		"$<TARGET_FILE_DIR:${PROJECT_NAME}>"
 	COMMENT "Copying plugin SDK next to the application binary"
 )
+# 宿主与插件 SDK 同目录，用相对 RPATH 让安装后无需环境变量即可加载
+if(APPLE)
+	set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH "@loader_path")
+elseif(UNIX)
+	set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN")
+endif()
 
 # 插件
 

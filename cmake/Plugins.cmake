@@ -54,6 +54,14 @@ function(dgl_add_plugin _target)
 		COMMENT "Copying ${_target} to module directory"
 	)
 
+	# 插件与宿主共用插件 SDK，SDK 装在应用目录、插件装在应用目录的 module 子目录
+	# 因此插件需要指回上一级的 RPATH，否则打包与运行期都解析不到 SDK 动态库
+	if(APPLE)
+		set_target_properties(${_target} PROPERTIES INSTALL_RPATH "@loader_path/..")
+	elseif(UNIX)
+		set_target_properties(${_target} PROPERTIES INSTALL_RPATH "$ORIGIN/..")
+	endif()
+
 	# 只登记，不在这里 install
 	set_property(GLOBAL APPEND PROPERTY DGLAB_PLUGIN_TARGETS ${_target})
 	if(ARG_META_DIR)
