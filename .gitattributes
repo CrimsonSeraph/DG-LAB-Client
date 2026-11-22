@@ -11,6 +11,8 @@
 # 脚本必须保留 LF，否则在 Linux/macOS 上无法执行
 *.sh    text eol=lf
 *.bash  text eol=lf
+# Linux 桌面入口必须 LF：appimagetool 与 desktop-file-validate 都拒绝 CRLF
+*.desktop text eol=lf
 # 源码与文档：显式声明文本类型与编码
 *.cpp           text charset=utf-8
 *.h             text charset=utf-8
