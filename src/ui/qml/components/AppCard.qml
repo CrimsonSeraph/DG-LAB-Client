@@ -4,8 +4,10 @@ import QtQuick
 import QtQuick.Effects
 
 // 卡片容器：深色表面 + 细描边；头图解码完成时图片铺满卡片、标题叠在图片底部，并在图片上
-// 叠加自卡片高度约 55% 起由透明过渡到 90% 深底的渐变遮罩；banner 为空或图片加载失败时
-// 退回无图的居中态（与从来没有 banner 的卡片一致，不留空白头图槽）。
+// 叠加自卡片高度约 55% 起由透明过渡到 90% 深底的渐变遮罩。
+// 布局只取「是否声明了头图」（hasBanner），与头图是否解码完成无关：加载完成的那一刻
+// 不会出现标题对齐与内容垂直位置的跳动。banner 为空时退回整块居中的无图态。
+// 内部容器高度取 min(内容自然高度, 可用高度)，内容再高也被夹在父项之内，不会撑出卡片边界。
 // 高度由使用方决定：插件中心给统一高度令牌（ComponentStyle.pluginCardHeight），
 // 卡片自身只按内容给 implicitHeight，不再因有无头图给出两档高度。
 // 用法：AppCard { title: "礼物"; banner: "qrc:/img/gift.png"; status: "进行中" }
@@ -21,8 +23,10 @@ Rectangle {
 
     default property alias actions: actionsRow.data
 
+    // 布局开关：只看是否声明了头图（声明后坏图也走头图布局，加载完成时布局不会跳）
     readonly property bool hasBanner: root.banner.toString().length > 0
-    // 头图只有真正解码完成才占槽：坏图停在 Error 状态，卡片与无图时同一套居中布局
+    // 只负责头图自身的呈现：解码完成后才上圆角裁切图层，遮罩也只在这时出现。
+    // 不再参与布局判定，因此加载完成与否不影响任何一项排布。
     readonly property bool bannerReady: root.hasBanner && bannerImage.status === Image.Ready
     readonly property real scrimOpacity: 0.9
 
@@ -108,11 +112,31 @@ Rectangle {
             id: innerContainer
 
             width: parent.width
-            // 有头图时（贴底），撑满整个高度；无头图时，高度由内部内容决定（整体居中）
-            height: root.bannerReady ? parent.height : implicitHeight
 
-            anchors.verticalCenter: root.bannerReady ? undefined : parent.verticalCenter
-            anchors.top: root.bannerReady ? parent.top : undefined
+            // 自然高度 = 标题 + 描述 + 底部标签 / 状态 / 操作块。间距与下面 subtitleText 的
+            // anchors 外边距同源：只有相邻块存在时才留一个 Metrics.spacingMd。
+            // 只读内容、不读自身 height，也不读 anchors（在 implicitHeight 的绑定里读 anchors
+            // 会与 height 互相触发绑定循环）。
+            implicitHeight: {
+                let natural = bottomContainer.implicitHeight;
+                if (titleText.visible) {
+                    natural += titleText.implicitHeight + Metrics.spacingMd;
+                }
+                if (subtitleText.visible) {
+                    natural += subtitleText.implicitHeight;
+                    if (bottomContainer.implicitHeight > 0) {
+                        natural += Metrics.spacingMd;
+                    }
+                }
+                return natural;
+            }
+            // 有头图：铺满可用高度，底部块压在卡片下沿（与改动前一致）；
+            // 无头图：收成内容自然高度并夹在可用高度之内，整块垂直居中。
+            // 两种模式的取值都不超过父项高度，内容不可能越过卡片边界。
+            height: root.hasBanner ? parent.height : Math.min(implicitHeight, parent.height)
+
+            anchors.verticalCenter: root.hasBanner ? undefined : parent.verticalCenter
+            anchors.top: root.hasBanner ? parent.top : undefined
 
             // 顶部：标题（固定位置）
             Text {
@@ -125,7 +149,7 @@ Rectangle {
                 color: Theme.textPrimary
                 font.pixelSize: Typography.fontSubtitle
                 font.bold: true
-                horizontalAlignment: root.bannerReady ? Text.AlignLeft : Text.AlignHCenter
+                horizontalAlignment: root.hasBanner ? Text.AlignLeft : Text.AlignHCenter
                 elide: Text.ElideRight
             }
 
@@ -223,7 +247,7 @@ Rectangle {
                 text: root.subtitle
                 color: Theme.textSecondary
                 font.pixelSize: Typography.fontBody
-                horizontalAlignment: root.bannerReady ? Text.AlignLeft : Text.AlignHCenter
+                horizontalAlignment: root.hasBanner ? Text.AlignLeft : Text.AlignHCenter
 
                 // 【多行截断配置
                 wrapMode: Text.WordWrap

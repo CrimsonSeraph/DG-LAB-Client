@@ -354,7 +354,7 @@ C++ 侧配套：`ModuleManager::download_plugin(url, sha256)` 只接受 http(s) 
 
 「触发事件」表单的三个可写控件都经 `EventBridge::setEventConfig(module, eventId, wave, merge, weight, frames, dataType)` 写入，回显读 `EventBridge` 刷新后的 `events[]`：波形下拉第 0 项「默认（按当前设备）」写空串（该事件不附加波形），其余项写波形库里的波形名原文；「激活窗口（秒）」写入前乘 10 换算成 `frames`（1 秒 = 10 帧，1 帧 = 100ms）；「输出数据类型」按分段下标写 `strength` / `percent` / `wave`。
 
-关于页（`pages/AboutPage.qml`）：README 风格的软件信息与许可证说明。头部与项目 README 头部同构——本地图标 + 应用名 + 三个 shields 徽标 + 一句副标题；正文交给 `textFormat: Text.MarkdownText` 渲染，源是页面属性 `introBlocks`（按空行拼接的分段 Markdown，每段一个 `qsTr` 单元）。Markdown 渲染不支持图片，所以图标与徽标必须在头部用独立的 `Image` 排布，不进正文。
+关于页（`pages/AboutPage.qml`）：README 风格的软件信息与许可证说明。头部与项目 README 头部同构——本地图标 + 应用名 + 三个 shields 徽标 + 一句副标题；三个徽标取同一套远程参数（同一 `color`、显式 `style=flat`、都不挂 logo，色值放在页面属性 `badgeColor`），并排时配色与字形一致；正文交给 `textFormat: Text.MarkdownText` 渲染，源是页面属性 `introBlocks`（按空行拼接的分段 Markdown，每段一个 `qsTr` 单元）。Markdown 渲染不支持图片，所以图标与徽标必须在头部用独立的 `Image` 排布，不进正文。
 
 | objectName | 行为 |
 | --- | --- |
@@ -496,7 +496,7 @@ Qt 原生输入控件不随 `Theme` 变化，输入类控件统一使用 `compon
 | `AppSlider` | 连续值滑杆，可在右侧显示当前值 | `value` / `from` / `to`（`Slider` 别名）、`step`、`showValue`、`valueText`、`moved()` |
 | `AppTabs` | 顶部标签页切换条（`Row` + `Repeater`） | `model`、`currentIndex`、`tabClicked(index)` |
 | `AppChip` | 可选中标签片，用于筛选或状态片段 | `text`、`checked`、`clicked()` |
-| `AppCard` | 带横幅 / 标题 / 副标题 / 标签 / 状态与操作区的卡片 | `title`、`subtitle`、`banner`、`tags`、`status`、默认属性槽 `actions`、`hasBanner`（`banner` 非空）、`bannerReady`（`banner` 非空且 `Image` 真正 `Ready`，决定是否占头图槽与左右对齐；坏图或加载中退回无图的居中态，不留空白头图槽） |
+| `AppCard` | 带横幅 / 标题 / 副标题 / 标签 / 状态与操作区的卡片 | `title`、`subtitle`、`banner`、`tags`、`status`、默认属性槽 `actions`、`hasBanner`（`banner` 非空）、`bannerReady`（`banner` 非空且 `Image` 真正 `Ready`）。布局只认 `hasBanner`：有头图时标题靠左、内容贴顶，无头图时整块垂直居中，与头图是否解码完成无关，加载完成的那一刻不会跳；`bannerReady` 只负责头图圆角裁切图层与渐变遮罩是否出现。内部容器高度取 `min(内容自然高度, 可用高度)`，内容再多也不越过卡片边界 |
 | `AppField` | 表单行：标签 + 提示 + 内容槽 | `label`、`hint`、默认属性槽 `contentData` |
 | `AppSparkline` | 迷你曲线，接受原始点或帧数据 | `points`、`frames`、`maxValue`、`showAxisLabels` |
 | `AppStatusButton` | 带状态点的按钮（0 信息 / 1 成功 / 2 警示 / 3 危险） | `statusLevel`、`clicked()`（继承 `Button`） |

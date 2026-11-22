@@ -14,6 +14,9 @@ Item {
     // README 头部度量：图标边长与徽标高都从令牌派生，不写裸尺寸
     readonly property int iconSize: Metrics.spacing3xl * 3
     readonly property int badgeHeight: ComponentStyle.statusBadgeHeight
+    // 三个 shields 徽标共用的主色：这是远程资源 URL 的 color 参数（与仓库 README 头部
+    // version 徽标取同一个值），不是本地配色令牌，因此不来自 Theme。
+    readonly property string badgeColor: "ff4d8d"
 
     // 正文的 Markdown 源：一个元素是一段，段间空行成段。列表没有逐条拆行，
     // 保持每段一个翻译单元（qsTr 的粒度是整段而不是句子）
@@ -85,8 +88,11 @@ Item {
                         elide: Text.ElideRight
                     }
 
-                    // 三个 shields 徽标：远程动态图，离线或加载失败时就地隐藏，
-                    // 不占位也不留空框（Row 的隐式宽度随可见项收缩）
+                    // 三个 shields 徽标：数据源与仓库 README 头部一致（version / license / stars），
+                    // 并统一到同一套远程参数——同一个 color、显式同一个 style，都不挂 logo，
+                    // 因此并排时配色与字形一致（默认色随接口变化：license 是橙、stars 是灰）。
+                    // style 显式写 flat：stars 接口在缺省 style 时会忽略 color，只有带上 style 才上色。
+                    // 远程动态图：离线或加载失败时就地隐藏，不占位也不留空框（Row 的宽度随可见项收缩）
                     Row {
                         objectName: "aboutBadgeRow"
 
@@ -97,7 +103,8 @@ Item {
                             objectName: "aboutVersionBadge"
 
                             visible: status === Image.Ready
-                            source: "https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FCrimsonSeraph%2FDG-LAB-Client%2Fmain%2Fconfig%2Fmain.json&query=%24.app.version&label=version&color=ff4d8d"
+                            source: "https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FCrimsonSeraph%2FDG-LAB-Client%2Fmain%2Fconfig%2Fmain.json&query=%24.app.version&label=version&color="
+                                    + page.badgeColor + "&style=flat"
                             sourceSize.height: page.badgeHeight
                             asynchronous: true
                         }
@@ -106,7 +113,8 @@ Item {
                             objectName: "aboutLicenseBadge"
 
                             visible: status === Image.Ready
-                            source: "https://img.shields.io/github/license/CrimsonSeraph/DG-LAB-Client"
+                            source: "https://img.shields.io/github/license/CrimsonSeraph/DG-LAB-Client?color=" + page.badgeColor
+                                    + "&style=flat"
                             sourceSize.height: page.badgeHeight
                             asynchronous: true
                         }
@@ -115,7 +123,8 @@ Item {
                             objectName: "aboutStarsBadge"
 
                             visible: status === Image.Ready
-                            source: "https://img.shields.io/github/stars/CrimsonSeraph/DG-LAB-Client"
+                            source: "https://img.shields.io/github/stars/CrimsonSeraph/DG-LAB-Client?color=" + page.badgeColor
+                                    + "&style=flat"
                             sourceSize.height: page.badgeHeight
                             asynchronous: true
                         }
