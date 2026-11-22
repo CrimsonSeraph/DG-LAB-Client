@@ -123,6 +123,200 @@ include 路径（`include/plugin`、`include/module`）、`PLUGIN_BUILD` 编译�
 
 CS2 GSI 插件按 `player.steamid` 区分数据归属：首次收到有效数据时记录为本地玩家基准，之后比较——**一致为自身**（个人状态类数值正常更新：血量/护甲/金钱/闪光/烟雾/燃烧/回合击杀/爆头/总伤害/装备价值/总击杀/助攻/死亡/MVP 等），**不一致为队友**（个人数值不更新，仅团队/地图类数值更新：CT/T 得分、连续失利次数、炸弹状态、地图阶段）。字符串字段按固定集合映射为数字（如 `team` CT/T→3/2、`bomb.state`→1-4、`map.phase`→0-6），不固定的值放弃该字段。
 
+## 插件可用的 C++ 能力
+
+插件能用的 C++ 面只有 `include/plugin/`：`IPlugin` 接口、`IPluginHost` 宿主能力、`plugin_export.h` 导出宏，以及共享库 `dglab_plugin_sdk` 的两个 C ABI 入口（`PathFinder.h`、`PythonRunner.h`）。这一层是稳定 ABI，宿主只在必要时前进版本；其余头文件与 `src/**` 都是宿主内部实现，插件 include 进来之后会在宿主升级时以很难定位的方式崩。
+
+| 目录 | 归属 | 插件可否使用 |
+| --- | --- | --- |
+| `include/plugin/` | 插件接口与 SDK 头文件，稳定 ABI | 唯一允许 include 的目录 |
+| `include/module/ModuleValue.h` | 由 `PluginHost.h` 间接带入（`ModuleValue` 出现在接口签名里），随插件接口一起稳定 | 不直接 include，靠 `PluginHost.h` 带进来 |
+| `include/{core,rule,wave,ble,net,device,event}` 等其它子目录 | 宿主内部实现 | 禁止 |
+| `src/**` | 宿主内部实现 | 禁止 |
+
+`dglab_plugin_sdk` 是与宿主同构的共享库（Windows 为 `dglab_plugin_sdk.dll`），随应用分发、与可执行文件同级；插件动态库对它只留一条链接依赖，运行时用的是宿主进程里那一份，所以不会出现「宿主一套查找规则、插件一套查找规则」。构建时在插件目标上补一行：
+
+```cmake
+target_link_libraries(dgl_my_plugin PRIVATE dglab_plugin_sdk)
+```
+
+`dgl_add_plugin` 已把 `include/plugin` 加入包含路径，源码里 `#include "PathFinder.h"` 即可。
+
+### 查找游戏安装目录（`dglab_find_game_dir`）
+
+```cpp
+int dglab_find_game_dir(const char* game_id, DglabFindResult* out);
+```
+
+结果结构由调用方分配，SDK 只写定长成员：`int found` 是命中标志，`path[1024]` 与 `source[64]` 是两个定长缓冲（UTF-8 且 NUL 结尾）。支持的标识见 `src/plugin/PathFinder.cpp` 的 `kGameProfiles`：`cs2`、`csgo`（按 Steam 目录名 `Counter-Strike Global Offensive` 查找）、`warthunder`、`war-thunder`（`War Thunder`）。
+
+| 返回码 | 值 | 含义 |
+| --- | --- | --- |
+| `DGLAB_FIND_FOUND` | 1 | 命中，`path` 与 `source` 已填写 |
+| `DGLAB_FIND_NOT_FOUND` | 0 | 未命中，`found` 为 0 |
+| `DGLAB_SDK_ERROR_ARGUMENT` | -1 | 参数无效（`out` 为空指针、`game_id` 为空） |
+| `DGLAB_SDK_ERROR_TRUNCATED` | -2 | 路径超出 `path[1024]`，已按容量截断写入，此时 `found` 仍为 1 |
+| `DGLAB_SDK_ERROR_UNKNOWN_GAME` | -3 | `game_id` 不在支持表内 |
+| `DGLAB_SDK_ERROR_INTERNAL` | -4 | SDK 内部错误（异常已捕获，不穿过 ABI） |
+
+`source` 说明路径是怎么命中的，SDK 按内建优先级逐档尝试：
+
+| source | 命中档位 |
+| --- | --- |
+| `manual` | 显式覆盖：环境变量 `DGLAB_GAME_DIR_<大写下划线标识>`（如 `DGLAB_GAME_DIR_CS2`、`DGLAB_GAME_DIR_WAR_THUNDER`）指向存在的目录 |
+| `registry` | Steam 安装根的注册表/常见位置 |
+| `steam-vdf` | Steam 的 `libraryfolders.vdf` 登记的附加库 |
+| `known-path` | 非 Steam 安装的常见安装根 |
+
+最小用法（命中后先确认目录仍存在，截断码下 `path` 是裁过的）：
+
+```cpp
+#include "PathFinder.h"
+
+#include <QDir>
+#include <QString>
+
+QString CS2GsiPlugin::find_cs_directory() {
+    DglabFindResult found{};
+    const int code = dglab_find_game_dir("cs2", &found);
+    if (code == DGLAB_SDK_ERROR_ARGUMENT || code == DGLAB_SDK_ERROR_UNKNOWN_GAME ||
+        code == DGLAB_SDK_ERROR_INTERNAL) {
+        PLUGIN_LOG(this, PluginLogLevel::Warn, "查找游戏目录失败，错误码 " << code);
+        return QString();
+    }
+    if (found.found == 0) {
+        PLUGIN_LOG(this, PluginLogLevel::Info, "未找到 CS2 安装目录");
+        return QString();
+    }
+    const QString path = QDir::cleanPath(QString::fromUtf8(found.path));
+    if (!QDir(path).exists()) {
+        // 命中来源已经失效（用户卸载或移动了游戏），不静默采用
+        PLUGIN_LOG(this, PluginLogLevel::Warn, "SDK 返回的目录已不存在");
+        return QString();
+    }
+    PLUGIN_LOG(this, PluginLogLevel::Info, "找到游戏目录（来源 " << found.source << "）");
+    return path;
+}
+```
+
+### 运行 Python 脚本（`dglab_run_python`）
+
+```cpp
+int dglab_run_python(const char* interpreter, const char* script_path, const char* args,
+                     int timeout_ms, char* out_stdout, std::size_t out_stdout_cap,
+                     char* out_stderr, std::size_t out_stderr_cap);
+```
+
+- `interpreter` 是解释器路径，为空时回退到 `python`（走 `PATH`）；插件一般从宿主配置 `python.path` 取值，见[随插件分发的 Python 脚本](#随插件分发的-python-脚本)。
+- `args` 是传给脚本的参数字符串（UTF-8），按空白切分，双引号包住的部分保持整体，`script_path` 恒为第一个参数；可以传空指针。
+- `timeout_ms` 传 0 或负值取默认值 30000 ms。
+- stdout / stderr 各是一块调用方分配的缓冲，容量是**含结尾 NUL 的容量**；容量传 0 时对应指针可以传空指针（只关心退出码的场合）。
+
+| 返回码                         | 值   | 含义                                                    |
+| ------------------------------ | ---- | ------------------------------------------------------- |
+| `DGLAB_PYTHON_OK`              | 0    | 成功，stdout 已写入                                     |
+| —                              | 正数 | 子进程退出码，脚本自身失败                              |
+| `DGLAB_PYTHON_ERROR_ARGUMENT`  | -1   | 参数无效（`script_path` 为空，或容量大于 0 但缓冲为空） |
+| `DGLAB_PYTHON_ERROR_TRUNCATED` | -2   | 输出超出缓冲，已按容量截断写入                          |
+| `DGLAB_PYTHON_ERROR_TIMEOUT`   | -3   | 超时，进程已被 kill 并回收                              |
+| `DGLAB_PYTHON_ERROR_START`     | -4   | 解释器启动失败                                          |
+| `DGLAB_PYTHON_ERROR_CRASH`     | -5   | 子进程异常退出（崩溃）                                  |
+| `DGLAB_PYTHON_ERROR_INTERNAL`  | -6   | SDK 内部错误（异常已捕获，不穿过 ABI）                  |
+
+最小用法（解释器取宿主配置，脚本来自插件目录下的 `python/`）：
+
+```cpp
+#include "PluginHost.h"
+#include "PythonRunner.h"
+
+#include <QByteArray>
+#include <QCoreApplication>
+#include <cstddef>
+#include <string>
+
+// 运行 <插件目录>/python/read_stats.py，参数由调用方拼好
+std::string MyPlugin::run_script(const std::string& args) {
+    const std::string interpreter = host_->get_config_value("python.path", "python");
+    const QString script_path = QCoreApplication::applicationDirPath() +
+        QStringLiteral("/module/dgl_my_plugin/python/read_stats.py");
+    const QByteArray script = script_path.toUtf8();
+
+    char out[4096] = {};
+    char err[1024] = {};
+    const int code = dglab_run_python(interpreter.c_str(), script.constData(), args.c_str(), 5000,
+        out, sizeof(out), err, sizeof(err));
+    if (code == DGLAB_PYTHON_OK) return std::string(out);
+    if (code > 0) {
+        // 脚本自己失败：退出码加 stderr，通常就是 traceback
+        PLUGIN_LOG(this, PluginLogLevel::Warn, "脚本退出码 " << code << "：" << err);
+        return std::string();
+    }
+    PLUGIN_LOG(this, PluginLogLevel::Warn, "运行脚本失败，错误码 " << code << "：" << err);
+    return std::string();
+}
+```
+
+`QCoreApplication::applicationDirPath()` 拼的是默认扫描目录 `<程序目录>/module/`；把 `app.module.path` 改过的话，按同一配置值去定位。
+
+### 版本与 ABI 约定
+
+两个版本号各管一段，不要混用：
+
+| 版本号 | 定义位置 | 管什么 |
+| --- | --- | --- |
+| `PLUGIN_API_VERSION` | `include/plugin/plugin_export.h` | 插件接口集合（`IPlugin` / `IPluginHost` 的方法集），宿主加载时校验 |
+| `DGLAB_SDK_VERSION` | `include/plugin/PathFinder.h` | SDK 的 C ABI（函数签名与结果结构），`dglab_sdk_version()` 返回编译期值 |
+
+- **只有 `include/plugin/` 下的内容变化才递增 `PLUGIN_API_VERSION`**：`src/**` 与其它 include 子目录怎么改都不构成插件 ABI 变更。
+- 结果结构由调用方分配、SDK 只写定长缓冲，跨 ABI 不传 STL 容器，也不要求两边分配器一致。
+- 插件与宿主必须用同一工具链、同一 Qt 版本构建。
+- SDK 不要静态链接进插件：静态链会得到第二份副本，宿主升级后插件仍在跑旧代码。
+- 插件 zip 不打包 SDK，它随应用安装包分发、与可执行文件同级，见 [distribution.md](distribution.md)。
+
+## 随插件分发的 Python 脚本
+
+插件需要一点 Python 生态（解析文件、算数据、用现成库）时，不必把逻辑全塞进 C++，也不必自带解释器：把 `.py` 随插件发出去，运行时用 SDK 的 `dglab_run_python` 拉起宿主配置里那个解释器。
+
+### 目录约定
+
+| 位置 | 内容 |
+| --- | --- |
+| 源码 `module/<插件>/meta/python/<脚本>.py` | 随 `META_DIR` 一起被 `dgl_add_plugin` 复制到 `<构建目录>/module/<目标名>/python/` |
+| 安装后 `<程序目录>/module/<目标名>/python/<脚本>.py` | 插件运行时的脚本目录，`<目标名>` 即动态库主干名（如 `dgl_gsi_plugin`） |
+| 插件 zip 内 `<目标名>/python/<脚本>.py` | 打包脚本把侧车目录下的非图片文件递归打进 zip，`.py` 自然随行 |
+
+插件 zip 只装你的东西：动态库、侧车与脚本。解释器与 `dglab_plugin_sdk` 都由应用提供，跟随应用安装目录，不随 zip 分发。
+
+### 解释器来源
+
+宿主配置 `python.path`（`config/main.json` 的 `python.path`，默认 `python`），插件通过 `IPluginHost::get_config_value("python.path", "python")` 取现值后原样传给 `dglab_run_python`：
+
+```cpp
+const std::string interpreter = host_->get_config_value("python.path", "python");
+```
+
+传空串时 SDK 回退到 `python`（走 `PATH`），所以「用户没配」与「用户配了系统 python」走同一条路径。不要把运行器再包一层 dll：SDK 已经在宿主进程里，多一层只多一份调用约定与超时逻辑，宿主升级 SDK 后还会与新 ABI 打架。
+
+### 超时与输出缓冲
+
+- `timeout_ms` 传 0 或负值取 SDK 默认值 30000 ms；解释器启动本身另有 5000 ms 上限，超时后 kill 并再等 2000 ms 回收，不留僵尸进程。
+- stdout / stderr 各是一块调用方分配的缓冲，容量是**含结尾 NUL 的容量**；容量传 0 时对应指针可以传空指针（只关心退出码的场合）。
+- 输出超过容量时按 `容量 - 1` 截断并补 NUL，返回 `DGLAB_PYTHON_ERROR_TRUNCATED`。这不是失败：脚本已经跑完，只是内容被裁掉，下次把缓冲放大或让脚本少打印。
+- 两个缓冲互相独立，不要把同一块内存同时传给 stdout 与 stderr。
+
+### 失败处理
+
+返回码分三层，处置方式也不同：
+
+| 返回码 | 含义 | 处置 |
+| --- | --- | --- |
+| `DGLAB_PYTHON_OK`（0） | 成功 | 读 stdout |
+| 正数 | 子进程退出码 | 脚本自身失败，stderr 里通常是 traceback；记警告并跳过本次数据更新 |
+| `DGLAB_PYTHON_ERROR_TIMEOUT` / `START` / `CRASH` | 超时 / 解释器起不来 / 崩溃 | 记警告，本周期不重试，等下一次调度再试，避免把调度器拖住 |
+| `DGLAB_PYTHON_ERROR_ARGUMENT` / `INTERNAL` | 参数写错 / SDK 内部错误 | 记错误；参数类问题属于插件 bug，应在开发期修掉 |
+
+实践上让脚本把结果打成一行 JSON 交给 `print`，插件侧解析失败就按「本次无数据」处理，比让脚本写临时文件再读更少踩坑。
+
 ## 相关文档
 
 - [community_plugin_template/README.md](community_plugin_template/README.md)：最小可编译模板与侧车样例

@@ -6,7 +6,7 @@
 
 - **C++ 编译器**: 支持 C++20 标准（如 GCC 10+、Clang 12+、MSVC 2022）
 - **Qt 6**: Core、Gui、Network、Qml、Quick、QuickControls2、QuickDialogs2、WebSockets、Bluetooth、Widgets（系统托盘菜单）、Concurrent
-- **Python**（可选）: 仅 GSI 插件的 `PathFinder.py`（查找 CS 游戏目录）需要
+- **Python**（可选）: 仅用于打包可选的 Python 第三方包（`PYTHON_PACKAGES_DIR`）；插件自带的 Python 脚本运行时由宿主配置 `python.path` 指定的解释器执行，构建阶段不需要
 
 > 推荐使用 VS2022/2026（MSVC）进行 Windows 开发，Linux/macOS 可使用 GCC 或 Clang。👉 遇到依赖问题？请查看 [常见问题 - 编译与运行](faq.md#编译与运行)
 
@@ -20,7 +20,7 @@
 
 ## Python 包依赖
 
-**不再需要**。原先的 WebSocket 通信与二维码生成已改为应用内实现（`DglabRelayServer` + 内嵌 `qrcodegen`），无需安装 `websockets` / `qrcode`。仅在使用 CS2 GSI 插件时需要系统中有 Python 解释器运行 `PathFinder.py`。
+**不再需要**。原先的 WebSocket 通信与二维码生成已改为应用内实现（`DglabRelayServer` + 内嵌 `qrcodegen`），无需安装 `websockets` / `qrcode`。游戏目录查找也改为插件 SDK 的 `dglab_find_game_dir`，宿主自身不运行 Python；只有插件自带 Python 脚本时，才需要宿主配置 `python.path` 指向一个可用的解释器（脚本只依赖标准库即可）。
 
 ## 快速开始
 
@@ -54,7 +54,8 @@ cmake --build . --config Release
 编译完成后，可执行文件位于 `build/Release`（Windows）或 `build`（Linux/macOS）目录下。运行时需要确保以下目录与可执行文件同级:
 
 - `config/`: 包含 `main.json`、`system.json`、`user.json`、规则子目录（`config/rules/`）与波形库目录（`config/waves/`，官方内置波形的只读资源在 `assets/waves/`）
-- `python/`: 可选，仅 `PathFinder.py`（GSI 插件查找游戏目录用）
+- `python/`: 可选，宿主提供的 Python 资源目录；插件自带的脚本随插件落在 `module/<目标名>/python/` 下
+- `dglab_plugin_sdk` 共享库与可执行文件同级，插件运行时链接的就是这一份（构建后自动复制）
 - `assets/`: 包含资源文件（如图片）
 - Qt 运行时（DLL / 平台插件 / QML 模块）由构建后自动 `windeployqt` 部署到可执行文件目录
 

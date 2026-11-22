@@ -78,7 +78,7 @@
     - C++ 类：`PascalCase`
     - 变量/函数：`snake_case`
     - 常量/宏：`UPPER_CASE`
-    - Python 脚本文件名：`PascalCase`（如 `PathFinder.py`）
+    - Python 脚本文件名：`PascalCase`（如 `SomeTool.py`）
     - Qt 虚函数（如 `paintEvent`）保持 Qt 原有风格。
 - 头文件：使用 `#pragma once`。
 - 头文件分区顺序：`public:` → `protected:` → `private:` → `signals:` → `private slots:`。每个分区内部按规则排列。
@@ -118,16 +118,16 @@ Closes #42
 ```
 
 ```
-fix(python): handle missing Steam library gracefully
+fix(ble): 设备断开后不再保留失效的回执状态
 
-Prevent PathFinder.py from aborting when the Steam library file is absent.
+断开时清空该 MAC 的回执与强度记录，重连后不会沿用旧值。
 ```
 
 ### 4. 测试要求
 
 - 确保你的修改可以通过编译（至少使用 MSVC 和 GCC 之一）。
 - 如果添加了新功能，请尽量在本地手动测试主要场景。
-- 对于影响 GSI 插件的修改，请测试 `PathFinder.py` 能找到游戏目录，且插件能生成 GSI 配置并接收数据。
+- 对于影响游戏目录查找的修改，请确认插件能定位游戏目录、生成 GSI 配置并接收数据。
 - 目前项目未配置自动化单元测试，CI 会执行编译检查；欢迎补充测试用例。
 
 ### 5. 提交 PR

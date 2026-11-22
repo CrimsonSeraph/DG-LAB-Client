@@ -11,7 +11,7 @@ DG-LAB-Client 是一个为 DG-LAB（地牢实验室）设备设计的桌面客�
 项目采用 **C++20 + Qt6/QML** 实现，分为 `core`（配置/日志）、`module`（数值与插件）、`rule`（规则与规则图）、`wave`（波形）、`ble`（蓝牙）、`net`（WebSocket 中转）与 `ui`（界面桥接 + QML）七层，依赖单向。整体架构如下:
 
 - **C++ 主程序**: 负责界面桥接、多级配置（main/system/user）、规则与规则图、波形库、日志系统与传输调度。
-- **内置 WebSocket 中转服务**: 应用自身托管 DG-LAB 中转服务（V3 端口 9999 / V4 端口 9998），由 DG-LAB APP 扫码配对，应用直接下发强度/波形/清除指令并接收回传；配对二维码由内嵌 `qrcodegen` 生成，载荷按官方终端二维码协议拼成 `https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<局域网 IP>:<V3 端口>/<终端 ID>`（恰好两个 `#`，SOCKET 地址后不带额外路径），缺少官网下载地址或 `DGLAB-SOCKET` 标签时 APP 无法识别。`Bridge.py` / `WebSocketCore.py` 已退出 WebSocket 链路（Python 仅保留给插件工具 `PathFinder.py`）。
+- **内置 WebSocket 中转服务**: 应用自身托管 DG-LAB 中转服务（V3 端口 9999 / V4 端口 9998），由 DG-LAB APP 扫码配对，应用直接下发强度/波形/清除指令并接收回传；配对二维码由内嵌 `qrcodegen` 生成，载荷按官方终端二维码协议拼成 `https://www.dungeon-lab.com/app-download.php#DGLAB-SOCKET#ws://<局域网 IP>:<V3 端口>/<终端 ID>`（恰好两个 `#`，SOCKET 地址后不带额外路径），缺少官网下载地址或 `DGLAB-SOCKET` 标签时 APP 无法识别。`Bridge.py` / `WebSocketCore.py` 已退出 WebSocket 链路，Python 不再是宿主依赖：游戏目录查找由插件 SDK 的 `dglab_find_game_dir` 承担，`python/` 目录只留给插件自带的脚本。
 - **规则引擎**: 支持加载带占位符 `{}` 的 JSON 规则文件，动态填入参数（例如从外部数据模块接收的数值），生成最终命令。规则可指定通道（A/B）、模式（0~4）和值计算表达式（支持四则运算、括号）。
 - **数据扩展机制（插件化）**: 通过动态库插件（`module/`）从不同外部源获取数据——现已内置 CS2 GSI 插件（从 CS2 游戏读取状态数据），未来可扩展更多插件；主程序仅负责接收数值序列并按规则处理，不关心数据具体含义，实现灵活的社区扩展。
 
@@ -34,7 +34,7 @@ DG-LAB-Client/
 ├── licenses/                   # 第三方许可证文本（LGPLv3）
 ├── module/                     # 动态库插件源码：example、gsi（见 module/README.md）
 ├── packaging/                  # Linux/macOS 桌面快捷
-├── python/                     # PathFinder.py：供 CS2 GSI 插件查找游戏目录
+├── python/                     # 可选 Python 资源目录（插件脚本随插件分发，宿主不内置脚本）
 ├── screenshot/                 # 文档用截图（pages：当前界面四页）
 ├── src/                        # C++ 源文件，与 include/ 一一对应（见 src/README.md）
 │   └── ui/qml/                 # QML 界面：MainWindow、pages/、home/、dialogs/、components/、style/

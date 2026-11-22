@@ -29,7 +29,7 @@ Could not find a package configuration file provided by "Qt6" or "Qt5"
 **解决方案**:
 
 - 主程序自身不再运行 Python：WebSocket 通信与二维码生成均已改为应用内实现，`Bridge.py` / `WebSocketCore.py` 已移除，因此不再需要 `pip install websockets qrcode[pil]`。
-- 只有 CS2 GSI 插件需要系统 Python：确认 `python`（Linux/macOS 下为 `python3`）在 PATH 中，或通过配置项 `python.path` 指定解释器路径。`python/PathFinder.py` 只依赖标准库，无需安装第三方包。 </details>
+- 只有插件自带的 Python 脚本才需要系统 Python：确认 `python`（Linux/macOS 下为 `python3`）在 PATH 中，或通过配置项 `python.path` 指定解释器路径。脚本只依赖标准库即可，无需 `pip install`。 </details>
 
 <details>
 <summary><b>Q3: nlohmann/json 下载失败</b></summary>

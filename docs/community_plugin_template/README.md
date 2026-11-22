@@ -96,10 +96,66 @@ dgl_add_plugin(dgl_my_plugin
 
 宿主按「动态库主干名」定位侧车：`<exe>/module/<动态库主干名>/plugin.json`。`dgl_add_plugin` 已把主干名固定为等于目标名（`PREFIX ""`，无 `lib` 前缀），所以目录名就是 `dgl_my_plugin`。
 
+## 调用插件 SDK 与运行自带脚本
+
+`dglab_plugin_sdk` 是与宿主共用的共享库，随应用分发、与可执行文件同级（插件 zip 不带它）。模板插件要调用 SDK，先给插件目标补一行链接：
+
+```cmake
+target_link_libraries(dgl_my_plugin PRIVATE dglab_plugin_sdk)
+```
+
+`dgl_add_plugin` 已经把 `include/plugin` 放进包含路径，源码里直接 `#include "PathFinder.h"` / `#include "PythonRunner.h"`。
+
+### 查找游戏安装目录
+
+```cpp
+#include "PathFinder.h"
+
+DglabFindResult found{};
+const int code = dglab_find_game_dir("cs2", &found);
+if (code == DGLAB_FIND_FOUND) {
+    // found.path 是游戏安装目录，found.source 是命中来源
+    // 来源取 manual / registry / steam-vdf / known-path 之一
+}
+```
+
+支持的标识（`cs2`、`csgo`、`warthunder`、`war-thunder`）、全部返回码与 `source` 含义见 [插件开发](../plugin-development.md) 的「插件可用的 C++ 能力」。
+
+### 运行自带的 Python 脚本
+
+脚本放 `meta/python/` 下，构建后随 `META_DIR` 落到 `<exe>/module/<目标名>/python/`，运行时由 SDK 拉起宿主配置里的解释器：
+
+```cpp
+#include "PluginHost.h"
+#include "PythonRunner.h"
+
+#include <QByteArray>
+#include <QCoreApplication>
+#include <cstddef>
+#include <string>
+
+std::string MyPlugin::run_script() {
+    const std::string interpreter = host_->get_config_value("python.path", "python");
+    const QString script_path = QCoreApplication::applicationDirPath() +
+        QStringLiteral("/module/dgl_my_plugin/python/read_stats.py");
+    const QByteArray script = script_path.toUtf8();
+
+    char out[4096] = {};
+    char err[1024] = {};
+    const int code = dglab_run_python(interpreter.c_str(), script.constData(), nullptr, 5000, out,
+        sizeof(out), err, sizeof(err));
+    if (code == DGLAB_PYTHON_OK) return std::string(out);
+    PLUGIN_LOG(this, PluginLogLevel::Warn, "运行脚本失败，错误码 " << code << "：" << err);
+    return std::string();
+}
+```
+
+`dgl_my_plugin` 换成你自己的插件目标名。超时、输出截断与各错误码的处置见 [插件开发](../plugin-development.md) 的「随插件分发的 Python 脚本」。
+
 ## 构建约束
 
 - 插件类**不继承 `QObject`**、不使用 `Q_OBJECT`：插件构建不经过 moc，定时器/网络/WebSocket 一律用 lambda 表达式连接（`QObject::connect(sender, signal, context, lambda)`），`context` 用对应的 `QObject` 指针。
-- 只使用 `include/plugin` 与 `include/module` 暴露的接口；跨模块 `new`/`delete` 属未定义行为。
+- 只 include `include/plugin` 下的头文件（`ModuleValue` 等由 `PluginHost.h` 带入，不直接 include `include/module` 与其它宿主内部目录）；跨模块 `new`/`delete` 属未定义行为。
 - 失败返回 `PluginError` 错误码，不抛异常；日志统一走 `PLUGIN_LOG(this, 级别, 内容)`。
 
 接口与宿主能力的完整说明见 [`module/README.md`](../../module/README.md)，工程级插件开发指南见根 [`README.md`](../../README.md) 的「插件开发指南」小节。

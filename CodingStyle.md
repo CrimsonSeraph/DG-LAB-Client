@@ -13,7 +13,7 @@
 ├── config/       # 配置文件（.json）
 ├── docs/         # 开发文档（主题令牌等）
 ├── licenses/     # 第三方许可证文本
-├── python/       # Python 脚本（PathFinder.py，供 GSI 插件使用）
+├── python/       # 插件附带的 Python 脚本（宿主提供调用能力）
 └── third_party/  # 内嵌第三方源码（qrcodegen）
 ```
 

@@ -134,4 +134,4 @@ C++ 侧提供桥接对象与连接集中点，QML 只做绑定与渲染；界面
 - **Qt 6**（Core、Gui、Network、Qml、Quick、QuickControls2、QuickDialogs2、WebSockets、Bluetooth）
 - **nlohmann/json**（配置与规则解析，仅头文件）
 - **qrcodegen**（`third_party/qrcodegen`，MIT，二维码生成）
-- **Python**（可选，仅 GSI 插件的 `PathFinder.py` 使用）
+- **Python**（可选，仅插件自带的 Python 脚本需要；游戏目录查找由插件 SDK 的 `dglab_find_game_dir` 完成，不依赖本机 Python）

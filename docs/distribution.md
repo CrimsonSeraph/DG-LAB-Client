@@ -76,6 +76,20 @@ warthunder-0.1.0-windows-x64.zip
 
 打包脚本会校验根目录必须是 `<目标名>/` 且必须含 `plugin.json`，否则报「zip 结构错误」。侧车目录里的其它附属文件会一并打进 `<目标名>/` 下，但图片后缀与 `banner*` 文件名被刻意过滤掉——封面不随 zip 分发，见下文。
 
+### 插件目录里的 python/ 子目录
+
+插件自带 Python 脚本时，脚本放插件目录的 `python/` 下，与动态库、`plugin.json` 同级：
+
+```text
+<目标名>/
+├── <目标名>.dll        # 动态库
+├── plugin.json         # 侧车展示元数据
+└── python/
+    └── read_stats.py   # 插件自带的脚本
+```
+
+打包脚本把侧车目录（`META_DIR`）下的非图片文件递归打进 `<目标名>/`，所以源码里放在 `module/<插件>/meta/python/` 的脚本会原样落位；`.py` 不在图片过滤名单里，不会被裁掉。zip 里只装插件自己的东西——动态库、侧车与脚本，既不含解释器，也不含 `dglab_plugin_sdk`。解释器路径由插件从宿主配置 `python.path` 读取，运行时约定见 [plugin-development.md](plugin-development.md) 的「随插件分发的 Python 脚本」。
+
 ### 发布到插件仓库
 
 `publish` job 在插件仓库创建或更新同名标签的 Release，用 `gh release upload --clobber` 上传四份 zip。插件源码与动态库的产物不进主仓库的 Release，主仓库只做构建。
@@ -108,6 +122,16 @@ warthunder-0.1.0-windows-x64.zip
 `release` job 用固定通配各挑一个文件：Windows 取 `DG-LAB-Client-*-win64*.exe`（NSIS 安装包）、macOS 取 `DG-LAB-Client-*-macos-universal.dmg`、Linux 取 `DG-LAB-Client-*-linux-x64.AppImage`。匹配不到任一推荐包就整个 job 失败，不会退化成「随便挑一个」。
 
 Release 里同时上传的 `zip`、`7z`、`tar.gz`、`tgz`、`deb`、`rpm`、`msi`、`pkg` 是给用户手动下载的替代格式，不参与自更新：客户端只看 `manifest.json` 里那一个 `file`/`url`。想换推荐包形态，改的是 `release` job 里的挑包规则，不是往 Release 里多塞一个文件。
+
+### 插件 SDK 随应用分发
+
+宿主与插件共用同一个共享库 `dglab_plugin_sdk`（Windows `dglab_plugin_sdk.dll`、Linux `libdglab_plugin_sdk.so`、macOS `libdglab_plugin_sdk.dylib`）。它属于应用产物，不属于插件产物：
+
+- 构建后与可执行文件同级（macOS 落在 `DG-LAB-Client.app/Contents/MacOS/`），安装规则把它一并装进安装目录。
+- 各平台安装包（NSIS exe / dmg / AppImage）与手动下载的 zip、7z、tar.gz、deb、rpm、msi 都带着它。
+- 插件动态库对它只有一条链接依赖，运行时绑定到宿主进程里那一份；**插件 zip 不打包它**，也不要为插件单独发布一份 SDK 副本——两份副本各持一套版本，宿主升级后插件仍在跑旧 ABI。
+
+插件作者在 `CMakeLists.txt` 里给插件目标补一行 `target_link_libraries(<目标名> PRIVATE dglab_plugin_sdk)`，其余仍交给 `dgl_add_plugin`，见 [plugin-development.md](plugin-development.md) 的「插件可用的 C++ 能力」。
 
 ## 两份清单的分工
 
@@ -198,11 +222,12 @@ binding = "ASSETS"
 | 线上每个请求 HTTP 500 `error code: 1101` | 部署成了无脚本的纯 assets Worker | 同上，恢复「脚本 + ASSETS 绑定」形态 |
 | 部署后另一份清单 404 | 只上传了一份清单，`public/` 被整体替换 | 两份清单同时写好再 deploy |
 | 某份清单在线上 404 | 最近一次 deploy 的 `public/` 里没有这个文件，整体替换把它删了 | 补齐 `public/` 后重新 `wrangler deploy`；两条线都要确认该带的文件都带着 |
+| 插件启用后无法加载，提示缺少 `dglab_plugin_sdk` | 手动解压插件时只放了 `<目标名>/`，或用了被裁过的残包 | 重跑应用安装包，确认 SDK 与可执行文件同级；不要单独复制 SDK |
 | 插件已发布但市场里看不到 | 资产命名不符 `<插件>-<版本>-<平台>.zip`，或 tag 不合契约 | 按契约重命名资产并重传 |
 
 ## 贡献者最小操作清单
 
-1. 在 `module/<插件>/` 下写插件源码，侧车目录放 `plugin.json`，在 `CMakeLists.txt` 里用 `dgl_add_plugin(dgl_<插件>_plugin ... META_DIR module/<插件>/meta)` 注册。
+1. 在 `module/<插件>/` 下写插件源码，侧车目录放 `plugin.json`，在 `CMakeLists.txt` 里用 `dgl_add_plugin(dgl_<插件>_plugin ... META_DIR module/<插件>/meta)` 注册。用到 SDK 就补 `target_link_libraries(<目标名> PRIVATE dglab_plugin_sdk)`；自带 Python 脚本放 `module/<插件>/meta/python/`。
 2. 侧车 `id` 与 `module/` 下的目录名一致，`version` 与本轮要打的标签版本一致。
 3. 封面：把图片传到插件仓库 `banners/`，侧车 `banner` 填其绝对 https URL；插件发布时会镜像到 Worker 并改写清单地址，图片本身不随 zip 分发。
 4. 推送代码，打标签 `<插件>-v<主>.<次>.<修订>` 并 push。
