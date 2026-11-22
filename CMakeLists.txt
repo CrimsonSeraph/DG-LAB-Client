@@ -1160,6 +1160,7 @@ if(DGLAB_BUILD_TESTS)
 			Qt::Network
 			Qt::Qml
 			Qt::Bluetooth
+			Qt::Concurrent
 			nlohmann_json
 			miniz
 	)
