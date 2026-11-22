@@ -4,9 +4,9 @@
 
 版本号格式遵循 [语义化版本 2.0.0](https://semver.org/lang/zh-CN/)
 
-> **注意**: 当前版本为 v2.5.0（版本号唯一来源为 `config/main.json` 的 `app.version`），正在逐步修复、完善功能。
+> **注意**: 当前版本为 v2.6.0（版本号唯一来源为 `config/main.json` 的 `app.version`），正在逐步修复、完善功能。
 
-## [v2.6.0] - 2026-11-22
+## [v2.6.0] - 2026-11-23
 
 > **变动**: [v2.5.0...v2.6.0](https://github.com/CrimsonSeraph/DG-LAB-Client/compare/v2.5.0...v2.6.0)
 
