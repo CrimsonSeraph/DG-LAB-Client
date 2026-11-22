@@ -40,6 +40,7 @@
 | [docs/features.md](docs/features.md) | 连接、插件中心、看板、迷你窗与托盘、波形、日志、主题、自动更新 |
 | [docs/devices.md](docs/devices.md) | 郊狼 / 负鼠 / 爪印 / 灵猫支持矩阵、默认设备与每设备上下限 |
 | [docs/build.md](docs/build.md) | 依赖、构建、测试、环境事实与验收清单 |
+| [docs/distribution.md](docs/distribution.md) | 插件与应用怎么发布、产物落到哪里、registry / manifest 清单与 Worker 部署 |
 | [docs/faq.md](docs/faq.md) | 常见问题：编译运行、配置、规则引擎、配对、通用、更新 |
 | [docs/screenshots.md](docs/screenshots.md) | 截图清单与 [screenshot/README.md](screenshot/README.md) 的分工 |
 | [docs/plugin-development.md](docs/plugin-development.md) | 插件接口、宿主能力、侧车元数据与构建示例 |
