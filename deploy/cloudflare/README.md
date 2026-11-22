@@ -1,6 +1,6 @@
 # 静态资源 Worker（dglab-registry）
 
-托管两份清单的零构建静态资源 Worker。Worker 名已从 `dg-lab-plugin-registry` 改为 `dglab-registry`：它现在不只托管插件注册表，还托管应用更新清单。
+托管两份清单与插件封面的零构建静态资源 Worker。Worker 名已从 `dg-lab-plugin-registry` 改为 `dglab-registry`：它现在不只托管插件注册表，还托管应用更新清单与插件封面。
 
 对外地址为自定义子域名 <https://dglab-registry.crimsonseraph.top>（routes 的 custom_domain 绑定，不暴露托管平台的账号子域）。
 
@@ -12,8 +12,26 @@ Worker 形态是「显式脚本 + `ASSETS` 绑定」：`worker.js` 把每个请�
 | --- | --- | --- | --- |
 | `registry.json` | 插件清单 | 宿主端插件市场契约（`schemaVersion` / `plugins[]` / `variants[]`），与客户端 `MarketBridge` 共用 | `scripts/gen_registry.py` |
 | `manifest.json` | 应用更新清单 | 由 `release-all.yml` 的 `release` job 定义，客户端 `UpdateManager` 解析（`version` / `release_notes` / `release_url` / `platforms`） | `release-all.yml` 的 `release` job 生成并作为 Release 资产上传 |
+| `banners/` | 插件封面图片 | 仅作静态文件托管，客户端只当普通图片 URL 使用 | `scripts/gen_registry.py` 从插件仓库 `banners/` 抓取 |
 
-本目录不参与任何清单的生成，`public/` 里的两份文件都是 CI 写好之后原样上传的。更新清单的格式归 `release` job 所有，`publish` job 只从 Release 取回同一份字节，因此 Worker 上的 `manifest.json` 与 `https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json` 始终一致。
+本目录不参与任何清单的生成，`public/` 里的清单都是 CI 写好之后原样上传的（封面图片同样是 CI 镜像过去的，见下一节）。更新清单的格式归 `release` job 所有，`publish` job 只从 Release 取回同一份字节，因此 Worker 上的 `manifest.json` 与 `https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json` 始终一致。
+
+## 封面由本 Worker 托管
+
+插件仓库 `CrimsonSeraph/DG-LAB-Client-Plugin` 的 `banners/` 是封面的唯一真源，本仓库不保存任何封面副本，也不手工上传。发布时 `scripts/gen_registry.py` 按 `plugins[].banner` 抓取每张图片，写进 `public/banners/<文件名>`，并把该字段改写成 Worker 上的地址：
+
+```text
+https://dglab-registry.crimsonseraph.top/banners/<文件名>
+```
+
+对外基地址就是上面这个自定义域名（即 `--banner-base-url` 的缺省值），客户端因此只认 Worker 域名，不再访问 GitHub raw。
+
+约束：
+
+- 只接受 http/https 源地址；文件名要过白名单（字母数字 `._-` 加图片后缀），含路径分隔符或 `..` 的直接判违约
+- 目标文件已存在且字节数一致时不重写，重复运行不会产生改动
+- 抓取失败默认让整条流水线失败；传 `--banner-on-error keep` 才降级为保留原始 URL，并在 stderr 留一行「提示：降级」
+- 每次发布镜像的都是 `registry.json` 引用的**全部**封面，所以 `public/banners/` 与清单里出现的地址集合始终一一对应；清单不再引用的旧封面随下一次部署一起消失
 
 ## 为什么是零 Cloudflare 构建
 
@@ -35,6 +53,8 @@ Worker 形态是「显式脚本 + `ASSETS` 绑定」：`worker.js` 把每个请�
 
 `wrangler deploy` 会把 `public/` 当作 Worker 的完整静态资源集合整体替换：少放一个文件就会把线上那一份删掉。所以 `plugin-release.yml` 与 `release-all.yml` 的部署步骤都是先把两份清单写齐再上传，任何一份缺失都直接失败。
 
+封面同理，但不需要额外保管：两个 job 都会先跑 `scripts/gen_registry.py`，它每次都把 `registry.json` 引用的全部封面重新镜像进 `public/banners/`（已在且大小一致则跳过写入），所以一次部署上传的封面集合与清单里的地址集合始终一致，不会出现「清单指向一张线上不存在的图」。
+
 ## 目录
 
 ```text
@@ -43,7 +63,10 @@ deploy/cloudflare/
 ├── worker.js       # 把请求转给 env.ASSETS，不做别的事
 ├── public/         # CI 生成，不入库
 │   ├── registry.json
-│   └── manifest.json
+│   ├── manifest.json
+│   └── banners/    # 从插件仓库 banners/ 镜像来的封面图片
+│       ├── gsi.jpg
+│       └── warthunder.jpg
 └── README.md
 ```
 
@@ -52,11 +75,13 @@ deploy/cloudflare/
 ## 生成与部署
 
 ```bash
-# 插件清单（需要能读插件仓库 Release 的 token）
+# 插件清单 + 封面镜像（需要能读插件仓库 Release 的 token）
 export GITHUB_TOKEN=...
 python scripts/gen_registry.py \
   --repo CrimsonSeraph/DG-LAB-Client-Plugin \
   --modules-dir module \
+  --banner-dir deploy/cloudflare/public/banners \
+  --banner-base-url https://dglab-registry.crimsonseraph.top \
   --out deploy/cloudflare/public/registry.json
 
 # 应用更新清单：从 Release 取回 release job 的产物，不重新生成也不改字段
@@ -67,7 +92,7 @@ cd deploy/cloudflare
 npx wrangler@4 deploy
 ```
 
-`.github/workflows/plugin-release.yml` 的 `publish` job 负责插件清单，`.github/workflows/release-all.yml` 的 `publish` job 负责应用发版后的两份清单
+`.github/workflows/plugin-release.yml` 的 `publish` job 负责插件清单与封面镜像，`.github/workflows/release-all.yml` 的 `publish` job 负责应用发版后的两份清单（同样会镜像封面，否则整份静态资源集合替换时线上封面会缺）
 
 ## 需要的 token 权限
 
@@ -90,6 +115,6 @@ npx wrangler@4 dev
 
 ## 访问方式
 
-首次 `wrangler deploy` 会创建 Worker 并给出 `*.workers.dev` 地址，`registry.json` 与 `manifest.json` 都在该地址根路径下
+首次 `wrangler deploy` 会创建 Worker 并给出 `*.workers.dev` 地址，`registry.json`、`manifest.json` 与 `banners/` 都在该地址根路径下
 
-宿主端拉取插件注册表时用这个地址；换自定义域名只需在 Cloudflare 面板加一条 Workers Route，本文件不用改。客户端更新走的是 Release 资产里的 `manifest.json`，不依赖本 Worker。
+宿主端拉取插件注册表时用这个地址，插件封面走同一域名下的 `/banners/`；换自定义域名只需在 Cloudflare 面板加一条 Workers Route，并同步 `--banner-base-url` 与 `plugin-release.yml` 的 `BANNER_BASE_URL`，本文件不用改。客户端更新走的是 Release 资产里的 `manifest.json`，不依赖本 Worker。

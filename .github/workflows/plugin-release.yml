@@ -44,6 +44,9 @@ env:
   QT_VERSION: "6.9.3"
   PYTHON_VERSION: "3.10"
   PLUGIN_REPO: CrimsonSeraph/DG-LAB-Client-Plugin
+  # 封面对外基地址：registry Worker 的自定义域名。registry.json 的 banner 全部指向这里，
+  # 客户端因此不再访问 GitHub raw
+  BANNER_BASE_URL: https://dglab-registry.crimsonseraph.top
 
 jobs:
   resolve:
@@ -471,15 +474,40 @@ jobs:
           gh release upload "$TAG" dist/*.zip --repo "$PLUGIN_REPO" --clobber
           gh release view "$TAG" --repo "$PLUGIN_REPO"
 
-      - name: 生成 registry.json
+      - name: 生成 registry.json 并镜像封面
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_PLUGIN_RELEASE }}
           PLUGIN_REPO: ${{ env.PLUGIN_REPO }}
+          BANNER_BASE_URL: ${{ env.BANNER_BASE_URL }}
         run: |
           set -euo pipefail
-          PYTHONIOENCODING=utf-8 python scripts/gen_registry.py --repo "$PLUGIN_REPO" --modules-dir module --out deploy/cloudflare/public/registry.json
+          # 封面仍以插件仓库 banners/ 为唯一真源，这里抓取到 wrangler 的直传目录，
+          # registry.json 里只保留 Worker 域名，客户端不再依赖 GitHub raw
+          PYTHONIOENCODING=utf-8 python scripts/gen_registry.py \
+            --repo "$PLUGIN_REPO" \
+            --modules-dir module \
+            --banner-dir deploy/cloudflare/public/banners \
+            --banner-base-url "$BANNER_BASE_URL" \
+            --out deploy/cloudflare/public/registry.json
           python -m json.tool deploy/cloudflare/public/registry.json > /dev/null
+          # 两道守卫：banner 必须指向 Worker 域名，镜像文件必须真的落盘，
+          # 否则 wrangler deploy 会把地址传上去却找不到对应文件
+          BANNERS=$(python -c 'import json; print("\n".join(p["banner"] for p in json.load(open("deploy/cloudflare/public/registry.json", encoding="utf-8"))["plugins"]))')
+          for banner in $BANNERS; do
+            case "$banner" in
+              "$BANNER_BASE_URL"/banners/*) ;;
+              *)
+                echo "::error title=封面未改写到 Worker::${banner} 不是 ${BANNER_BASE_URL}/banners/ 开头的地址"
+                exit 1
+                ;;
+            esac
+            if [ ! -f "deploy/cloudflare/public/banners/${banner##*/}" ]; then
+              echo "::error title=封面缺失::public/banners 下没有 ${banner##*/}"
+              exit 1
+            fi
+          done
+          ls -lh deploy/cloudflare/public/banners || true
           {
             echo "### 插件注册表"
             echo ""
@@ -507,6 +535,7 @@ jobs:
           TAG: ${{ needs.resolve.outputs.tag }}
           PLUGIN: ${{ needs.resolve.outputs.plugin }}
           PLUGIN_REPO: ${{ env.PLUGIN_REPO }}
+          BANNER_BASE_URL: ${{ env.BANNER_BASE_URL }}
         run: |
           {
             echo "### 插件发布结果"
@@ -515,4 +544,5 @@ jobs:
             echo "- 发布标签：${TAG}"
             echo "- 插件仓库：https://github.com/${PLUGIN_REPO}/releases/tag/${TAG}"
             echo "- 各平台：windows-x64 / linux-x64 / macos-x64 / macos-arm64"
+            echo "- 封面：${BANNER_BASE_URL}/banners/（镜像自插件仓库 banners/，随本次部署上传到 Worker）"
           } >> "$GITHUB_STEP_SUMMARY"

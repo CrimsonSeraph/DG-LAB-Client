@@ -6,12 +6,18 @@
 #   description tags banner dependencies platform url sha256 size
 #
 # 用法：
-#   # 真实模式：读取插件仓库全部 Release
+#   # 真实模式：读取插件仓库全部 Release，并把封面镜像进 Worker 的静态资源目录
 #   python scripts/gen_registry.py --repo CrimsonSeraph/DG-LAB-Client-Plugin \
-#       --modules-dir module --out deploy/cloudflare/public/registry.json
+#       --modules-dir module \
+#       --banner-dir deploy/cloudflare/public/banners \
+#       --banner-base-url https://dglab-registry.crimsonseraph.top \
+#       --out deploy/cloudflare/public/registry.json
 #
 #   # 自检模式：用内置样例数据离线跑通，不访问网络
 #   python scripts/gen_registry.py --self-test
+#
+# 封面：插件仓库 banners/ 仍是唯一真源。本脚本把 plugins[].banner 指向的图片抓取到
+# --banner-dir，并把字段改写成 <banner-base-url>/banners/<文件名>，对客户端只暴露 Worker 域名
 #
 # 只用 Python 3 标准库，不引入第三方依赖
 """生成插件注册表 registry.json"""
@@ -21,12 +27,15 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import hashlib
+import http.client
 import json
 import os
 import pathlib
 import re
 import sys
+import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -65,6 +74,12 @@ API_ROOT = "https://api.github.com"
 USER_AGENT = "dg-lab-client-gen-registry"
 CHUNK_SIZE = 1 << 20
 
+# 封面对外的唯一下载基地址：registry Worker 的自定义域名
+DEFAULT_BANNER_BASE_URL = "https://dglab-registry.crimsonseraph.top"
+
+# 封面文件名白名单：不允许路径分隔符，也不允许除了图片后缀之外的形态
+BANNER_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*\.(jpg|jpeg|png|webp|gif|avif)$", re.IGNORECASE)
+
 
 class RegistryError(RuntimeError):
     """可预期的失败，main 捕获后打印成一行中文错误，不抛栈"""
@@ -72,6 +87,10 @@ class RegistryError(RuntimeError):
 
 def _warn(message: str) -> None:
     print(f"警告：{message}", file=sys.stderr)
+
+
+def _info(message: str) -> None:
+    print(f"提示：{message}", file=sys.stderr)
 
 
 def utc_timestamp() -> str:
@@ -191,6 +210,90 @@ def _download_sha256(url: str, token: Optional[str]) -> Tuple[str, int]:
     except urllib.error.URLError as exc:
         raise RegistryError(f"下载资产失败（网络不可用？）：{exc.reason} {url}") from exc
     return digest.hexdigest(), size
+
+BannerFetcher = Callable[[str], bytes]
+
+
+def banner_filename(url: str) -> str:
+    """从封面地址解析出白名单化的文件名；路径分隔符、.. 与奇怪后缀一律拒绝"""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        raise RegistryError(f"封面地址只接受 http/https：{url}")
+    name = parts.path.rsplit("/", 1)[-1]
+    if not name:
+        raise RegistryError(f"封面地址里没有文件名：{url}")
+    if "/" in name or "\\" in name or ".." in name or name in (".", ".."):
+        raise RegistryError(f"封面文件名含路径分隔符或 ..，拒绝落盘：{url}")
+    if not BANNER_NAME_RE.match(name):
+        raise RegistryError(f"封面文件名不在白名单内（字母数字 ._- 加图片后缀）：{name}")
+    return name
+
+
+def fetch_banner(url: str) -> bytes:
+    """抓取封面原始字节，只走 http/https"""
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        raise RegistryError(f"封面地址只接受 http/https：{url}")
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.read()
+    except urllib.error.HTTPError as exc:
+        raise RegistryError(f"下载封面失败：HTTP {exc.code} {url}") from exc
+    except urllib.error.URLError as exc:
+        raise RegistryError(f"下载封面失败（网络不可用？）：{exc.reason} {url}") from exc
+    except (OSError, http.client.HTTPException) as exc:
+        # TLS 握手失败、连接被重置、响应被截断都属于这一类，统一折成一行中文错误
+        raise RegistryError(f"下载封面失败：{exc} {url}") from exc
+    except ValueError as exc:
+        raise RegistryError(f"封面地址无法解析：{url}") from exc
+
+
+def mirror_banners(
+    plugins: List[Dict[str, Any]],
+    banner_dir: str,
+    banner_base_url: str,
+    fetch: BannerFetcher,
+    on_error: str = "fail",
+) -> Tuple[List[str], List[str]]:
+    """把 plugins[].banner 抓取到 banner_dir 并改写成对外地址
+
+    返回（已改写的地址列表，降级保留原始地址的列表）。on_error 为 fail 时
+    任何抓取失败都抛 RegistryError；为 keep 时保留原始 URL 并留一行提示。
+    """
+    base = banner_base_url.strip().rstrip("/")
+    if urllib.parse.urlsplit(base).scheme not in ("http", "https"):
+        raise RegistryError(f"--banner-base-url 只接受 http/https：{banner_base_url}")
+
+    root = pathlib.Path(banner_dir)
+    rewritten: List[str] = []
+    kept: List[str] = []
+    for plugin in plugins:
+        source = str(plugin.get("banner") or "").strip()
+        if not source:
+            _info(f"{plugin.get('id')} 没有封面，跳过镜像")
+            continue
+        try:
+            name = banner_filename(source)
+            payload = fetch(source)
+            root.mkdir(parents=True, exist_ok=True)
+            target = root / name
+            reused = target.is_file() and target.stat().st_size == len(payload)
+            if not reused:
+                target.write_bytes(payload)
+            plugin["banner"] = f"{base}/banners/{name}"
+            state = "已存在且大小一致，跳过写入" if reused else "新写入"
+            _info(
+                f"镜像成功（{state}）：{source} -> {plugin['banner']}"
+                f"（{len(payload)} 字节）"
+            )
+            rewritten.append(plugin["banner"])
+        except RegistryError as exc:
+            if on_error != "keep":
+                raise
+            _info(f"降级：保留原始封面地址，{exc}")
+            kept.append(source)
+    return rewritten, kept
 
 
 def asset_hash(asset: Mapping[str, Any], token: Optional[str]) -> Tuple[str, int]:
@@ -327,6 +430,9 @@ def validate_registry(registry: Mapping[str, Any]) -> None:
             problems.append(f"{where}.tags 应为数组")
         if not isinstance(plugin.get("dependencies"), list):
             problems.append(f"{where}.dependencies 应为数组")
+        banner = str(plugin.get("banner") or "")
+        if banner and not banner.startswith("https://"):
+            problems.append(f"{where}.banner 必须留空或是 https 地址：{banner!r}")
 
         variants = plugin.get("variants")
         if not isinstance(variants, list) or not variants:
@@ -447,6 +553,96 @@ def _self_test_hash(asset: Mapping[str, Any]) -> Tuple[str, int]:
     name = str(asset.get("name") or "").encode("utf-8")
     return hashlib.sha256(name).hexdigest(), int(asset.get("size") or 0)
 
+SELF_TEST_BANNER_BYTES: Dict[str, bytes] = {
+    "gsi.jpg": b"\xff\xd8\xff\xe0" + b"gsi-cover-sample" * 8,
+    "warthunder.jpg": b"\xff\xd8\xff\xe0" + b"warthunder-cover-sample" * 8,
+}
+
+
+def _write_banner_fixtures(fixture_dir: pathlib.Path) -> Dict[str, pathlib.Path]:
+    """自检用本地文件冒充插件仓库 banners/ 里的封面"""
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+    fixtures: Dict[str, pathlib.Path] = {}
+    for name, payload in SELF_TEST_BANNER_BYTES.items():
+        path = fixture_dir / name
+        path.write_bytes(payload)
+        fixtures[name] = path
+    return fixtures
+
+
+def _local_banner_fetch(fixtures: Mapping[str, pathlib.Path]) -> BannerFetcher:
+    """抓取替身：按 URL 文件名读本地样例文件，全程不联网"""
+
+    def fetch(url: str) -> bytes:
+        name = urllib.parse.urlsplit(url).path.rsplit("/", 1)[-1]
+        path = fixtures.get(name)
+        if path is None:
+            raise RegistryError(f"下载封面失败：HTTP 404 {url}")
+        return path.read_bytes()
+
+    return fetch
+
+
+def _expect_registry_error(failures: List[str], message: str, action: Callable[[], None]) -> None:
+    try:
+        action()
+    except RegistryError as exc:
+        print(f"[self-test] 断言通过：{message}（{exc}）")
+    else:
+        failures.append(f"{message}，但实际没有报错")
+
+
+def _self_test_banner_guards(failures: List[str], banner_dir: str) -> None:
+    """白名单与失败降级：这些路径都不联网，失败时也落不了盘"""
+
+    def fetch(url: str) -> bytes:
+        raise RegistryError(f"下载封面失败：HTTP 404 {url}")
+
+    dotted = "https://raw.githubusercontent.com/CrimsonSeraph/DG-LAB-Client-Plugin/main/banners/.."
+    _expect_registry_error(
+        failures,
+        "封面文件名含 .. 时拒绝落盘",
+        lambda: mirror_banners(
+            [{"id": "gsi", "banner": dotted}], banner_dir, DEFAULT_BANNER_BASE_URL, fetch
+        ),
+    )
+    _expect_registry_error(
+        failures,
+        "非 http/https 封面地址被拒绝",
+        lambda: mirror_banners(
+            [{"id": "gsi", "banner": "ftp://example.com/banners/gsi.jpg"}],
+            banner_dir,
+            DEFAULT_BANNER_BASE_URL,
+            fetch,
+        ),
+    )
+
+    missing = "https://raw.githubusercontent.com/CrimsonSeraph/DG-LAB-Client-Plugin/main/banners/missing.jpg"
+    degraded = {"id": "gsi", "banner": missing}
+    rewritten, kept = mirror_banners(
+        [degraded], banner_dir, DEFAULT_BANNER_BASE_URL, fetch, on_error="keep"
+    )
+    if rewritten:
+        failures.append("抓取失败降级时不应改写 banner")
+    elif degraded["banner"] != missing or kept != [missing]:
+        failures.append(f"降级必须保留原始 URL，实际 {degraded['banner']!r} / {kept}")
+    else:
+        print(f"[self-test] 断言通过：抓取失败降级保留原始 URL {missing}")
+    _expect_registry_error(
+        failures,
+        "抓取失败且未降级时给出中文错误",
+        lambda: mirror_banners(
+            [{"id": "gsi", "banner": missing}], banner_dir, DEFAULT_BANNER_BASE_URL, fetch
+        ),
+    )
+
+
+def _check(failures: List[str], ok: bool, message: str) -> None:
+    if ok:
+        print(f"[self-test] 断言通过：{message}")
+    else:
+        failures.append(message)
+
 
 def run_self_test() -> int:
     registry = build_registry(
@@ -456,17 +652,78 @@ def run_self_test() -> int:
 
     failures: List[str] = []
     plugins = {plugin["id"]: plugin for plugin in registry["plugins"]}
-    if [plugin["id"] for plugin in registry["plugins"]] != ["gsi", "warthunder"]:
-        failures.append("plugins 应按 id 排序为 gsi / warthunder")
-    if plugins.get("warthunder", {}).get("version") != "0.2.0":
-        failures.append("warthunder 应保留最新版本 0.2.0")
-    if "nightly" in plugins:
-        failures.append("不合规 tag nightly-2024 不应进入注册表")
+    _check(
+        failures,
+        [plugin["id"] for plugin in registry["plugins"]] == ["gsi", "warthunder"],
+        "plugins 应按 id 排序为 gsi / warthunder",
+    )
+    _check(
+        failures,
+        plugins.get("warthunder", {}).get("version") == "0.2.0",
+        "warthunder 应保留最新版本 0.2.0",
+    )
+    _check(failures, "nightly" not in plugins, "不合规 tag nightly-2024 不应进入注册表")
     platforms = [variant["platform"] for variant in plugins["warthunder"]["variants"]]
-    if platforms != ["windows-x64", "linux-x64", "macos-arm64"]:
-        failures.append(f"variants 应按契约平台顺序排序，实际 {platforms}")
-    if not all(SHA256_RE.match(variant["sha256"]) for variant in plugins["warthunder"]["variants"]):
-        failures.append("sha256 应是小写十六进制 64 位")
+    _check(
+        failures,
+        platforms == ["windows-x64", "linux-x64", "macos-arm64"],
+        f"variants 应按契约平台顺序排序，实际 {platforms}",
+    )
+    _check(
+        failures,
+        all(SHA256_RE.match(variant["sha256"]) for variant in plugins["warthunder"]["variants"]),
+        "sha256 应是小写十六进制 64 位",
+    )
+
+    with tempfile.TemporaryDirectory() as workdir:
+        work = pathlib.Path(workdir)
+        banner_dir = work / "public" / "banners"
+        fixtures = _write_banner_fixtures(work / "fixtures")
+        fetch = _local_banner_fetch(fixtures)
+
+        rewritten, kept = mirror_banners(
+            registry["plugins"], str(banner_dir), DEFAULT_BANNER_BASE_URL, fetch
+        )
+        _check(
+            failures,
+            len(rewritten) == 2 and not kept,
+            f"两个封面都镜像并改写，实际改写 {len(rewritten)} 个、保留 {len(kept)} 个",
+        )
+        for plugin_id, name in (("gsi", "gsi.jpg"), ("warthunder", "warthunder.jpg")):
+            mirrored = banner_dir / name
+            expected_bytes = fixtures[name].read_bytes()
+            _check(
+                failures,
+                mirrored.is_file() and mirrored.read_bytes() == expected_bytes,
+                f"镜像成功：{plugin_id} 的封面写入 {mirrored.as_posix()}（{len(expected_bytes)} 字节，与源文件逐字节一致）",
+            )
+            expected = f"{DEFAULT_BANNER_BASE_URL}/banners/{name}"
+            _check(
+                failures,
+                plugins[plugin_id]["banner"] == expected,
+                f"URL 已改写为 {expected}",
+            )
+
+        # 第二遍：文件已存在且大小一致，应当跳过写入，改写结果保持稳定
+        again, again_kept = mirror_banners(
+            registry["plugins"], str(banner_dir), DEFAULT_BANNER_BASE_URL, fetch
+        )
+        _check(
+            failures,
+            again == rewritten and not again_kept,
+            "封面已存在且大小一致时跳过写入，URL 保持稳定",
+        )
+        validate_registry(registry)
+
+        broken = json.loads(json.dumps(registry))
+        broken["plugins"][0]["banner"] = "http://raw.githubusercontent.com/x/y.jpg"
+        _expect_registry_error(
+            failures,
+            "registry.json 里非 https 的 banner 判为违约",
+            lambda: validate_registry(broken),
+        )
+
+        _self_test_banner_guards(failures, str(work / "guards"))
 
     print(json.dumps(registry, ensure_ascii=False, indent=2))
     if failures:
@@ -475,7 +732,7 @@ def run_self_test() -> int:
             print(f"  {item}", file=sys.stderr)
         return 1
     print(
-        "[self-test] 通过：契约校验 1 次，插件 2 个，变体 6 个，sha256 与排序均符合 registry.json 契约"
+        "[self-test] 通过：契约校验 2 次，插件 2 个，变体 6 个，封面 2 张已镜像并改写到 Worker 域名"
     )
     return 0
 
@@ -489,6 +746,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--token",
         default=os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"),
         help="GitHub token，默认读 GITHUB_TOKEN / GH_TOKEN",
+    )
+    parser.add_argument(
+        "--banner-dir",
+        default=os.path.join("deploy", "cloudflare", "public", "banners"),
+        help="封面镜像落盘目录，默认 deploy/cloudflare/public/banners（wrangler 的静态资源目录）",
+    )
+    parser.add_argument(
+        "--banner-base-url",
+        default=DEFAULT_BANNER_BASE_URL,
+        help=f"封面对外下载基地址，默认 {DEFAULT_BANNER_BASE_URL}",
+    )
+    parser.add_argument(
+        "--banner-on-error",
+        choices=("fail", "keep"),
+        default="fail",
+        help="封面抓取失败时：fail 直接报错（默认），keep 降级保留原始 URL 并留一行提示",
     )
     parser.add_argument("--self-test", action="store_true", help="用内置样例数据离线自检")
     args = parser.parse_args(argv)
@@ -519,6 +792,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             raise RegistryError(
                 f"{args.repo} 的 Release 里没有 <插件>-v<版本> 形式的 tag 或 <插件>-<版本>-<平台>.zip 资产"
             )
+        mirrored, kept = mirror_banners(
+            registry["plugins"],
+            args.banner_dir,
+            args.banner_base_url,
+            fetch_banner,
+            args.banner_on_error,
+        )
         validate_registry(registry)
         target = write_registry(registry, args.out)
     except RegistryError as exc:
@@ -528,7 +808,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     print(f"已写入 {target}：{len(registry['plugins'])} 个插件")
     for plugin in registry["plugins"]:
         platforms = ", ".join(variant["platform"] for variant in plugin["variants"])
-        print(f"  {plugin['id']} {plugin['version']}（{platforms}）")
+        print(f"  {plugin['id']} {plugin['version']}（{platforms}）{plugin['banner']}")
+    if mirrored:
+        print(f"封面 {len(mirrored)} 张已镜像到 {args.banner_dir}，对外基地址 {args.banner_base_url}")
+    if kept:
+        print(
+            f"提示：{len(kept)} 个插件保留原始封面地址（--banner-on-error keep），"
+            "客户端仍会回落到原始地址",
+            file=sys.stderr,
+        )
     return 0
 
 
