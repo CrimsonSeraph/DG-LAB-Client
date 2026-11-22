@@ -870,6 +870,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(rule_graph_eval_test PRIVATE Qt::Concurrent)
 	target_include_directories(rule_graph_eval_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
@@ -902,6 +903,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(event_engine_module_test PRIVATE Qt::Concurrent)
 	target_include_directories(event_engine_module_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
@@ -1011,6 +1013,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(paw_device_test PRIVATE Qt::Concurrent)
 	target_include_directories(paw_device_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
@@ -1061,6 +1064,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(civet_device_test PRIVATE Qt::Concurrent)
 	target_include_directories(civet_device_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
@@ -1111,6 +1115,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(input_link_test PRIVATE Qt::Concurrent)
 	target_include_directories(input_link_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
@@ -1191,6 +1196,7 @@ if(DGLAB_BUILD_TESTS)
 			Qt::Core
 			Qt::Network
 			Qt::Qml
+			Qt::Concurrent
 			nlohmann_json
 			miniz
 	)
@@ -1228,6 +1234,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(wave_import_export_test PRIVATE Qt::Concurrent)
 	target_include_directories(wave_import_export_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
@@ -1262,6 +1269,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(wave_zip_test PRIVATE Qt::Concurrent)
 	target_include_directories(wave_zip_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
@@ -1297,6 +1305,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(wave_tag_test PRIVATE Qt::Concurrent)
 	target_include_directories(wave_tag_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
@@ -1331,6 +1340,7 @@ if(DGLAB_BUILD_TESTS)
 			nlohmann_json
 			miniz
 	)
+	target_link_libraries(config_reload_test PRIVATE Qt::Concurrent)
 	target_include_directories(config_reload_test
 		PRIVATE
 			${DGLAB_GENERATED_DIR}
