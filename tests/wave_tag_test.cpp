@@ -8,6 +8,8 @@
 // 内置标签不可删且不落盘、删除标签 / 删除分类的移除语义、JSON 导出含 tags 且可再导入、
 // 官方波形的内置表自动挂载与用户叠加标签（可增删、内置部分锁定）、
 // version 1 标签库到 version 2 的无损迁移、波形上标签按分类顺序的显示顺序。
+// 期望值按当前产品行为写全：波形标签里还含 TagRule 自动判定的时长 / 频率风格 / 来源三类
+// （用例波形多为 1~2 帧、频率字节恒为 0x0A，判为「10 秒以下 / 纯高频 / 自定义波形」）。
 // 全部用例在临时目录内构造，不触碰仓库 config/
 
 #include "AppConfig.h"
@@ -400,10 +402,15 @@ namespace {
         wave.frames_v3 = {QStringLiteral("0A0A0A0A00000000"), QStringLiteral("0A0A0A0A14141414")};
         wave.tags = {QStringLiteral(" 节奏 "), QStringLiteral("节奏"), QStringLiteral("ELEC")};
         CHECK_TRUE(name, library.save(wave));
-        CHECK_STRINGS(name, tag_list({"节奏", "ELEC"}), tags_of(library, "标签波形"));
+        // 规则自动判定的三类标签挂在前，用户标签排在后
+        CHECK_STRINGS(name,
+            tag_list({"10 秒以下", "纯高频", "自定义波形", "节奏", "ELEC"}),
+            tags_of(library, "标签波形"));
 
         library.reload();
-        CHECK_STRINGS(name, tag_list({"节奏", "ELEC"}), tags_of(library, "标签波形"));
+        CHECK_STRINGS(name,
+            tag_list({"10 秒以下", "纯高频", "自定义波形", "节奏", "ELEC"}),
+            tags_of(library, "标签波形"));
 
         const nlohmann::json stored = parse_text(read_text_file(
             QString::fromStdString(waves_dir + "/waves.json")));
@@ -411,9 +418,9 @@ namespace {
         if (stored.contains("waves") && stored["waves"].contains("标签波形")) {
             const nlohmann::json& entry = stored["waves"]["标签波形"];
             CHECK_TRUE(name, entry.contains("tags") && entry["tags"].is_array());
-            CHECK_INT(name, 2, entry.contains("tags") ? static_cast<int>(entry["tags"].size()) : -1);
+            CHECK_INT(name, 5, entry.contains("tags") ? static_cast<int>(entry["tags"].size()) : -1);
         }
-        std::printf("[INFO] 波形标签 round-trip：写盘再读回后为 [节奏, ELEC]\n");
+        std::printf("[INFO] 波形标签 round-trip：写盘再读回后为 [10 秒以下, 纯高频, 自定义波形, 节奏, ELEC]\n");
     }
 
     // 旧 waves.json（条目里没有 tags 字段）读入不报错，标签按空处理
@@ -434,12 +441,13 @@ namespace {
         const Wave* legacy = library.get("旧波形");
         CHECK_TRUE(name, legacy != nullptr);
         if (legacy != nullptr) {
-            CHECK_INT(name, 0, static_cast<int>(legacy->tags.size()));
+            // 文件里没有 tags 字段：没有用户标签，只剩规则自动判定的三类
+            CHECK_STRINGS(name, tag_list({"10 秒以下", "纯高频", "自定义波形"}), legacy->tags);
             CHECK_INT(name, 1, static_cast<int>(legacy->frames_v3.size()));
         }
         // 放宽：内置波形属于可扩展清单，数量只校验下界，新增官方波形不必改测试
         CHECK_INT_AT_LEAST(name, 16, library.official_count());
-        std::printf("[INFO] 旧 waves.json（无 tags 字段）读入正常：标签为空，官方波形照常 %d 个\n",
+        std::printf("[INFO] 旧 waves.json（无 tags 字段）读入正常：无用户标签（只剩自动判定标签），官方波形照常 %d 个\n",
             library.official_count());
     }
 
@@ -464,9 +472,12 @@ namespace {
         const WaveImportResult result = library.apply_import(plan, WaveConflictPolicy::Skip);
         CHECK_INT(name, 2, result.added);
 
-        CHECK_STRINGS(name, tag_list({"官方", "Sub", "Bass"}),
+        CHECK_STRINGS(name,
+            tag_list({"10 秒以下", "纯高频", "自定义波形", "官方", "Sub", "Bass"}),
             tags_of(library, "导入甲"));
-        CHECK_STRINGS(name, tag_list({"Trippy"}), tags_of(library, "导入乙"));
+        CHECK_STRINGS(name,
+            tag_list({"10 秒以下", "纯高频", "自定义波形", "Trippy"}),
+            tags_of(library, "导入乙"));
 
         // 内置标签不写入标签库；重名（大小写不同）不重复登记，登记进「用户自定义」分类
         // 放宽：分类下的标签清单可随内置标签表扩展，过滤内置标签后再逐条比较
@@ -506,8 +517,10 @@ namespace {
         QString error;
         CHECK_INT(name, 2, library.remove_tag(QStringLiteral("sub"), &error));
         CHECK_TRUE(name, error.isEmpty());
-        CHECK_STRINGS(name, tag_list({"Bass"}), tags_of(library, "用甲"));
-        CHECK_STRINGS(name, QStringList(), tags_of(library, "用乙"));
+        CHECK_STRINGS(name, tag_list({"10 秒以下", "纯高频", "自定义波形", "Bass"}),
+            tags_of(library, "用甲"));
+        CHECK_STRINGS(name, tag_list({"10 秒以下", "纯高频", "自定义波形"}),
+            tags_of(library, "用乙"));
         CHECK_TRUE(name, !library.custom_tags().contains(QStringLiteral("Sub")));
         CHECK_STRING(name, QString(), library.category_of_tag(QStringLiteral("Sub")));
         // Bass 只从「用甲」上留下，标签库条目仍保留（移除波形上的标签不删库）
@@ -536,7 +549,7 @@ namespace {
         if (exported.is_array() && !exported.empty()) {
             const nlohmann::json& entry = exported.at(0);
             CHECK_TRUE(name, entry.contains("tags") && entry["tags"].is_array());
-            CHECK_INT(name, 2, entry.contains("tags") ? static_cast<int>(entry["tags"].size()) : -1);
+            CHECK_INT(name, 5, entry.contains("tags") ? static_cast<int>(entry["tags"].size()) : -1);
             CHECK_TRUE(name, entry.contains("name") && entry.contains("raw") && entry.contains("expectedV2") && entry.contains("expectedV3"));
         }
 
@@ -547,9 +560,10 @@ namespace {
         CHECK_INT(name, 1, static_cast<int>(plan.waves.size()));
         const WaveImportResult result = library.apply_import(plan, WaveConflictPolicy::Skip);
         CHECK_INT(name, 1, result.added);
-        CHECK_STRINGS(name, tag_list({"Bass", "Trippy"}),
+        CHECK_STRINGS(name,
+            tag_list({"10 秒以下", "纯高频", "自定义波形", "Bass", "Trippy"}),
             tags_of(library, "导出波形"));
-        std::printf("[INFO] JSON 导出含 tags 字段，再导入后标签为 [Bass, Trippy]\n");
+        std::printf("[INFO] JSON 导出含 tags 字段，再导入后标签为 [10 秒以下, 纯高频, 自定义波形, Bass, Trippy]\n");
     }
 
     // 官方波形的内置标签由内置表自动挂载且锁定不可移除，用户叠加的标签可增删
@@ -708,7 +722,8 @@ namespace {
         CHECK_STRINGS(name,
             filter_builtin_tags(library, tag_list({"官方节奏"})),
             filter_builtin_tags(library, tags_of(library, "呼吸")));
-        CHECK_STRINGS(name, QStringList(), tags_of(library, "联动用户波形"));
+        CHECK_STRINGS(name, tag_list({"10 秒以下", "纯高频", "自定义波形"}),
+            tags_of(library, "联动用户波形"));
         CHECK_INT(name, 0, library.tag_usage(QStringLiteral("官方联动")));
         CHECK_TRUE(name, !library.all_tags().contains(QStringLiteral("官方联动")));
 
@@ -780,7 +795,8 @@ namespace {
         CHECK_INT(name, -1, category_index(library, QStringLiteral("临时分类")));
         CHECK_STRING(name, QString(), library.category_of_tag(QStringLiteral("临时标签")));
         CHECK_INT(name, 0, library.tag_usage(QStringLiteral("临时标签")));
-        CHECK_STRINGS(name, QStringList(), tags_of(library, "分类用户"));
+        CHECK_STRINGS(name, tag_list({"10 秒以下", "纯高频", "自定义波形"}),
+            tags_of(library, "分类用户"));
         CHECK_TRUE(name, !library.all_tags().contains(QStringLiteral("临时标签")));
         CHECK_STRINGS(name, QStringList(), stored_category_tags(waves_dir, QStringLiteral("临时分类")));
 
@@ -805,12 +821,17 @@ namespace {
         wave.frames_v3 = {QStringLiteral("0A0A0A0A32323232")};
         wave.tags = tag_list({"展示乙一", "野生标签", "展示甲一", "部位甲"});
         CHECK_TRUE(name, library.save(wave));
-        CHECK_STRINGS(name, tag_list({"部位甲", "展示甲一", "展示乙一", "野生标签"}),
+        // 部位甲属「使用部位」，自动标签属「频率风格 / 波形时长 / 波形来源」，都在内置分类区
+        CHECK_STRINGS(name,
+            tag_list({"部位甲", "纯高频", "10 秒以下", "自定义波形", "展示甲一", "展示乙一",
+                "野生标签"}),
             library.tags_in_display_order("排序波形"));
         // 调整自建分类顺序后显示顺序跟着变
         CHECK_TRUE(name, library.move_category(QStringLiteral("展示乙"),
                              library.builtin_category_count()));
-        CHECK_STRINGS(name, tag_list({"部位甲", "展示乙一", "展示甲一", "野生标签"}),
+        CHECK_STRINGS(name,
+            tag_list({"部位甲", "纯高频", "10 秒以下", "自定义波形", "展示乙一", "展示甲一",
+                "野生标签"}),
             library.tags_in_display_order("排序波形"));
         // 不存在的波形
         CHECK_STRINGS(name, QStringList(), library.tags_in_display_order("没有这个波形"));
