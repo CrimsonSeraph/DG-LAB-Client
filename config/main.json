@@ -15,6 +15,9 @@
         "module": {
             "path": "./module",
             "scan_load": false
+        },
+        "update": {
+            "manifest_url": "https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json"
         }
     },
     "python": {

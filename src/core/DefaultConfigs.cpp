@@ -32,6 +32,9 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
                 {"module", {
                     {"path", "./module"},
                     {"scan_load", false}
+                }},
+                {"update", {
+                    {"manifest_url", "https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json"}
                 }}
             }},
             {"python", {
@@ -89,6 +92,10 @@ nlohmann::json DefaultConfigs::get_default_config(const std::string& config_name
                 }},
                 {"output", {
                     {"default_device", ""}
+                }},
+                {"update", {
+                    // 启动静默检查更新的上次执行时间（Unix 秒），一天内不再重复提示
+                    {"last_check", 0}
                 }}
             }},
             {"version", "1.0"},

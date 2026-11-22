@@ -66,6 +66,10 @@ public:
     /// @note release_url 为空时静默返回，不弹提示
     Q_INVOKABLE void open_release_url();
 
+    /// @brief 安排启动后的静默检查更新
+    /// @note 距上次自动检查不足一天时直接跳过，只排一个延迟回调，不阻塞启动
+    void schedule_startup_check();
+
 public slots:
     /// @brief 用户点击检查更新
     void on_check_update_clicked();
@@ -80,6 +84,7 @@ private:
     UpdateManager* manager_; // 更新管理器
     bool checking_;          // 是否正在检查更新
     bool downloading_;       // 是否正在下载
+    bool silent_check_;      // 当前检查是否为启动静默检查（不弹失败提示）
     bool ready_to_install_;  // 是否已准备好安装
     int progress_;           // 下载进度（0-100）
     QString error_message_;  // 当前错误信息
@@ -114,4 +119,7 @@ private slots:
     /// @brief 发生错误
     /// @param error 错误信息
     void on_error_occurred(const QString& error);
+
+    /// @brief 静默检查的延迟触发点
+    void on_startup_check_timer();
 };

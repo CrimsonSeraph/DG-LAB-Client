@@ -3,6 +3,7 @@
 
 #include "UpdateManager.h"
 
+#include "AppConfig.h"
 #include "AppVersion.h"
 #include "DebugLog.h"
 
@@ -22,13 +23,29 @@
 #include <QTimer>
 #include <QVersionNumber>
 #include <QtConcurrent>
+#include <string>
+
+namespace {
+
+// 更新清单地址的配置键与缺省值，缺省值与 DefaultConfigs 的 app.update.manifest_url 保持一致
+const char* const kManifestUrlKey = "app.update.manifest_url";
+const char* const kDefaultManifestUrl =
+    "https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json";
+// 清单请求硬超时（毫秒）：早于 Qt 6.7 没有 setTransferTimeout，各版本都靠这一层兜底
+constexpr int kCheckTimeoutMs = 30'000;
+
+} // namespace
 
 UpdateManager::UpdateManager(QObject* parent)
     : QObject(parent)
     , network_manager_(new QNetworkAccessManager(this))
     , current_download_reply_(nullptr)
     , current_check_reply_(nullptr)
-    , manifest_url_("https://github.com/CrimsonSeraph/DG-LAB-Client/releases/latest/download/manifest.json") {
+    , manifest_url_(kDefaultManifestUrl) {
+    // 网络挂起时自行中止，避免检查一直停在未完成状态
+    check_timeout_timer_.setSingleShot(true);
+    check_timeout_timer_.setInterval(kCheckTimeoutMs);
+    connect(&check_timeout_timer_, &QTimer::timeout, this, &UpdateManager::on_check_timeout);
 }
 
 UpdateManager::~UpdateManager() {
@@ -56,6 +73,10 @@ void UpdateManager::check_for_updates() {
     LOG_MODULE("UpdateManager", "check_for_updates", LOG_INFO, "开始检查更新...");
     current_error_.clear();
 
+    // 每次检查都重读配置，改完配置文件重启即可生效，无需重新编译
+    manifest_url_ = configured_manifest_url();
+    LOG_MODULE("UpdateManager", "check_for_updates", LOG_DEBUG, "更新清单地址: " + manifest_url_);
+
     // 重置上一轮结果
     remote_version_.clear();
     release_notes_.clear();
@@ -76,6 +97,7 @@ void UpdateManager::check_for_updates() {
         current_check_reply_ = nullptr;
         on_manifest_reply(reply);
     });
+    check_timeout_timer_.start();
 }
 
 void UpdateManager::start_download() {
@@ -159,6 +181,7 @@ QString UpdateManager::update_flag_path() {
 }
 
 void UpdateManager::on_manifest_reply(QNetworkReply* reply) {
+    check_timeout_timer_.stop();
     reply->deleteLater();
     if (reply->error() != QNetworkReply::NoError) {
         current_error_ = reply->errorString();
@@ -218,6 +241,22 @@ void UpdateManager::on_manifest_reply(QNetworkReply* reply) {
         current_error_ = "当前平台没有可用的更新包";
         emit error_occurred(current_error_);
     }
+}
+
+void UpdateManager::on_check_timeout() {
+    if (current_check_reply_ == nullptr) {
+        return;
+    }
+    LOG_MODULE("UpdateManager", "on_check_timeout", LOG_WARN, "检查更新超时，中止本次请求");
+    // 中止后 finished 仍会到达，统一由 on_manifest_reply 的失败分支收尾
+    current_check_reply_->abort();
+}
+
+QString UpdateManager::configured_manifest_url() const {
+    const std::string configured =
+        AppConfig::instance().get_value<std::string>(kManifestUrlKey, std::string(kDefaultManifestUrl));
+    const QString url = QString::fromStdString(configured).trimmed();
+    return url.isEmpty() ? QString::fromUtf8(kDefaultManifestUrl) : url;
 }
 
 bool UpdateManager::close_download_file() {

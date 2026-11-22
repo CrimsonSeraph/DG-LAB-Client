@@ -288,6 +288,9 @@ int main(int argc, char* argv[]) {
     tray.attach(qobject_cast<QQuickWindow*>(engine.rootObjects().first()), connector.mini_window());
     LOG_MODULE("main", "main", LOG_DEBUG, "QML 主界面已加载");
 
+    // 启动静默检查更新：延迟执行、一天最多一次，失败不弹错误
+    update_bridge.schedule_startup_check();
+
     // 首次运行的一次性提示：Windows 11 默认把新建的托盘图标收进折叠区，应用无法程序化强制显示，
     // 只能引导用户自己把它拖到常显区域；提示记录写入 app.ui.tray_hint_shown，只提示一次
     if (tray.available() && !config.get_value<bool>("app.ui.tray_hint_shown", false)) {

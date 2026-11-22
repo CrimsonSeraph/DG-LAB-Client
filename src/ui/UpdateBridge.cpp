@@ -3,16 +3,32 @@
 
 #include "UpdateBridge.h"
 
+#include "AppConfig.h"
+#include "DebugLog.h"
 #include "UpdateManager.h"
 
+#include <QDateTime>
 #include <QDesktopServices>
+#include <QTimer>
 #include <QUrl>
+
+namespace {
+
+// 启动静默检查的延迟，避开启动高峰
+constexpr int kStartupCheckDelayMs = 60'000;
+// 静默检查的最小间隔（秒），一天最多打扰一次
+constexpr qint64 kStartupCheckIntervalSecs = 24 * 60 * 60;
+// 上次自动检查时间的配置键（Unix 秒，写在 user 层）
+const char* const kLastCheckKey = "app.update.last_check";
+
+} // namespace
 
 UpdateBridge::UpdateBridge(UpdateManager* manager, QObject* parent)
     : QObject(parent)
     , manager_(manager)
     , checking_(false)
     , downloading_(false)
+    , silent_check_(false)
     , ready_to_install_(false)
     , progress_(0) {
     Q_ASSERT(manager_ != nullptr);
@@ -43,6 +59,18 @@ void UpdateBridge::open_release_url() {
     }
 }
 
+void UpdateBridge::schedule_startup_check() {
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    const qint64 last = AppConfig::instance().get_value<qint64>(kLastCheckKey, 0);
+    if (last > 0 && now - last < kStartupCheckIntervalSecs) {
+        LOG_MODULE("UpdateBridge", "schedule_startup_check", LOG_DEBUG, "距上次自动检查不足一天，跳过本次静默检查");
+        return;
+    }
+    LOG_MODULE("UpdateBridge", "schedule_startup_check", LOG_INFO,
+        QString("启动 %1 秒后执行静默检查更新").arg(kStartupCheckDelayMs / 1000));
+    QTimer::singleShot(kStartupCheckDelayMs, this, &UpdateBridge::on_startup_check_timer);
+}
+
 void UpdateBridge::on_check_update_clicked() {
     if (checking_ || downloading_) return;
     checking_ = true;
@@ -69,12 +97,15 @@ void UpdateBridge::on_apply_update_clicked() {
 }
 
 void UpdateBridge::on_update_available(bool available) {
+    const bool silent = silent_check_;
+    silent_check_ = false;
     checking_ = false;
     emit state_changed();
     if (available) {
+        // 静默检查发现新版本同样只发非打扰的 Toast 提示
         emit toast_requested(tr("发现新版本: %1").arg(manager_->remote_version()), 1); // 1 = info
     }
-    else if (error_message_.isEmpty()) {
+    else if (!silent && error_message_.isEmpty()) {
         emit toast_requested(tr("当前已是最新版本"), 1);
     }
 }
@@ -107,9 +138,33 @@ void UpdateBridge::on_download_finished(bool success, const QString& error) {
 }
 
 void UpdateBridge::on_error_occurred(const QString& error) {
+    const bool silent = silent_check_;
+    silent_check_ = false;
     checking_ = false;
     downloading_ = false;
+    if (silent) {
+        // 启动静默检查失败不打扰用户，失败原因已由 UpdateManager 记入日志
+        emit state_changed();
+        return;
+    }
     error_message_ = error;
     emit state_changed();
     emit toast_requested(error, 3);
+}
+
+void UpdateBridge::on_startup_check_timer() {
+    if (checking_ || downloading_) {
+        LOG_MODULE("UpdateBridge", "on_startup_check_timer", LOG_DEBUG, "已有检查或下载在进行，跳过本次静默检查");
+        return;
+    }
+    // 发起前就落盘时间戳：本次即使失败也计入，保证一天最多打扰一次
+    AppConfig::instance().set_value_with_name<qint64>(
+        kLastCheckKey, QDateTime::currentSecsSinceEpoch(), "user");
+    AppConfig::instance().save_all();
+
+    LOG_MODULE("UpdateBridge", "on_startup_check_timer", LOG_INFO, "开始静默检查更新");
+    silent_check_ = true;
+    checking_ = true;
+    emit state_changed();
+    manager_->check_for_updates();
 }

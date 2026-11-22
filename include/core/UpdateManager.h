@@ -7,6 +7,7 @@
 #include <QNetworkAccessManager>
 #include <QObject>
 #include <QString>
+#include <QTimer>
 
 class QNetworkReply;
 class QFile;
@@ -61,8 +62,9 @@ private:
     QNetworkReply* current_check_reply_;     // 当前正在进行的请求的网络回复
     QNetworkReply* current_download_reply_;  // 当前下载请求回复
     QFile* download_file_ = nullptr;         // 下载临时文件句柄（整个下载过程只打开一次）
+    QTimer check_timeout_timer_;             // 清单请求硬超时计时器
 
-    QString manifest_url_;       // 更新清单 URL
+    QString manifest_url_;       // 更新清单 URL（取自配置 app.update.manifest_url）
     QString remote_version_;     // 远程版本号
     QString release_notes_;      // 更新说明
     QString download_url_;       // 更新包下载 URL
@@ -76,6 +78,13 @@ private:
     /// @brief 处理更新清单请求响应
     /// @param reply 网络回复对象
     void on_manifest_reply(QNetworkReply* reply);
+
+    /// @brief 检查请求超时，中止挂起的请求并交回统一失败分支
+    void on_check_timeout();
+
+    /// @brief 读取配置中的更新清单地址
+    /// @return 配置为空时回退到内置缺省地址
+    QString configured_manifest_url() const;
 
     /// @brief 关闭并释放下载临时文件句柄
     /// @return 数据刷新到磁盘成功返回 true
