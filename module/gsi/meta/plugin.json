@@ -1,7 +1,7 @@
 {
     "id": "gsi",
     "name": "CSGO 2 | 反恐精英 2",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "author": "CrimsonSeraph",
     "description": "通过游戏状态集成读取 CS2 对局数据，输出血量、护甲、金钱、回合、炸弹与比赛阶段等数值\n注意：该插件通过向 CSGO2 游戏目录写入文件以启用此功能，需要在游戏启动前启动该插件；且此项服务启用后，持续到关闭游戏后停止",
     "banner": "https://raw.githubusercontent.com/CrimsonSeraph/DG-LAB-Client-Plugin/main/banners/gsi.jpg",
