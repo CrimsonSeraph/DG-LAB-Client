@@ -185,6 +185,21 @@ ApplicationWindow {
                     }
                 }
 
+                // 导航顺序按使用频率排：市场紧跟其来源页（插件中心），枚举值与 pageStack 顺序不动
+                NavButton {
+                    id: navMarketButton
+
+                    objectName: "navMarketButton"
+                    text: qsTr("插件市场")
+                    selected: app.currentPage === root.pageMarket
+                    width: parent.width
+                    contentItem: NavItemContent {
+                        glyph: "f54e" // store
+                        label: navMarketButton.text
+                        highlighted: navMarketButton.selected
+                    }
+                }
+
                 NavButton {
                     id: navWaveButton
 
@@ -224,20 +239,6 @@ ApplicationWindow {
                         glyph: "f15c" // file-lines
                         label: navLogButton.text
                         highlighted: navLogButton.selected
-                    }
-                }
-
-                NavButton {
-                    id: navMarketButton
-
-                    objectName: "navMarketButton"
-                    text: qsTr("插件市场")
-                    selected: app.currentPage === root.pageMarket
-                    width: parent.width
-                    contentItem: NavItemContent {
-                        glyph: "f54e" // store
-                        label: navMarketButton.text
-                        highlighted: navMarketButton.selected
                     }
                 }
             }

@@ -40,15 +40,15 @@ src/ui/
 │   ├── pages/
 │   │   ├── HomePage.qml        # 主页看板：设备 / 通道 / 插件 / 触发流水（导航第 1 项）
 │   │   ├── home/              # 看板卡片：设备状态、通道行与通道卡、已启用插件、触发流水
-│   │   ├── PluginCenterPage.qml # 插件中心：搜索 / 分类 / 网格与列表、已启用栏、同页插件详情（导航第 2 项）
-│   │   ├── WavePage.qml        # 波形设置：目标通道、A/B 波形预览、波形库入口、标签分类展开栏与可折叠波形列表（导航第 3 项）
-│   │   ├── MiniGamePage.qml    # 小游戏（导航第 4 项，当前为骨架）
-│   │   ├── LogPage.qml         # 日志：列表、级别过滤与手动导出选项（导航第 5 项）
-│   │   ├── DevicePage.qml      # 设备管理：蓝牙扫描、已连接链路、默认设备、按设备通道上下限与通道级回退值（导航第 6 项）
-│   │   ├── MarketPage.qml      # 插件市场：registry 清单、安装 / 更新三态与下载进度（导航第 7 项）
+│   │   ├── PluginCenterPage.qml # 插件中心：搜索 / 分类 / 网格与列表、已启用栏、同页插件详情（导航第 3 项）
+│   │   ├── MarketPage.qml      # 插件市场：registry 清单、安装 / 更新三态与下载进度，卡片与插件中心同为两列网格（导航第 4 项）
+│   │   ├── WavePage.qml        # 波形设置：目标通道、A/B 波形预览、波形库入口、标签分类展开栏与可折叠波形列表（导航第 5 项）
+│   │   ├── MiniGamePage.qml    # 小游戏（导航第 6 项，当前为骨架）
+│   │   ├── LogPage.qml         # 日志：列表、级别过滤与手动导出选项（导航第 7 项）
+│   │   ├── DevicePage.qml      # 设备管理：蓝牙扫描、已连接链路、默认设备、按设备通道上下限与通道级回退值（导航第 2 项）
 │   │   ├── ConfigPage.qml      # 设置：连接（中转表单 + 扫码配对）与主题（仅经左下角面板入口可达）
 │   │   ├── plugin/            # 插件中心：插件卡、插件详情、事件映射面板
-│   │   └── AboutPage.qml       # 关于（仅经左下角面板入口可达）
+│   │   └── AboutPage.qml       # 关于：README 风格头部（图标 + 标题 + 徽标）+ Markdown 正文与许可证（仅经左下角面板入口可达）
 │   ├── components/
 │   │   ├── GlassCard.qml       # 卡片容器
 │   │   ├── AppButton.qml       # 通用按钮（primary / danger / outline）
@@ -101,7 +101,7 @@ src/ui/
 | `logBridge` | `LogBridge` | 运行日志列表与界面级别过滤、手动导出（导出级别 / 范围 / 目录经 `setExportLevel` / `setExportRange` / `setExportDir` 写入 `user.json` 的 `app.log.manual.*`）、自动日志启动 |
 | `ruleGraph` | `RuleGraphBridge` | 规则图节点/连线、模块数值面板、节点编辑与保存写回 |
 | `Theme` | `ThemeManager`（QML 单例） | 主题令牌（17 套预设 + 自定义主/副色），`presets` / `applyPreset` / `applyCustom`；令牌清单与预设色值见 [docs/theme.md](../../docs/theme.md) |
-| `updateBridge` | `UpdateBridge` | 检查更新、下载更新包（进度 / 错误）、重启并安装；安装经 `confirmDialog` 确认 |
+| `updateBridge` | `UpdateBridge` | 检查更新（界面手动入口，以及启动后延迟 60 秒的静默检查：清单地址读配置 `app.update.manifest_url`，缺省为主仓库 Release 上的 `manifest.json`；上次自动检查记在 `app.update.last_check`，一天最多一次；发现新版本只发 Toast，失败与无更新不提示）、下载更新包（进度 / 错误）、重启并安装；安装经 `confirmDialog` 确认 |
 | `tray` | `TrayController` | 系统托盘：图标与三项菜单（显示主窗口 / 显示迷你窗 / 退出）、双击图标恢复主窗口，以及主窗口关闭的落点（托盘可用则隐藏到托盘，不可用则退出） |
 
 图像提供器（由 `main.cpp` 注册到 `QQmlApplicationEngine`）：
@@ -117,17 +117,17 @@ src/ui/
 
 导航与左下角面板：
 
-左侧导航按「主页 / 设备管理 / 插件中心 / 波形设置 / 小游戏 / 日志 / 插件市场」排列（新页追加在末尾，既有导航项顺序与文案不变）；导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
+左侧导航按「主页 / 设备管理 / 插件中心 / 插件市场 / 波形设置 / 小游戏 / 日志」排列：插件市场紧跟它的来源页插件中心。导航顺序只是界面排列，与 `AppBridge::Page` 的枚举值无关——枚举值决定 `pageStack` 的条目索引，导航项按下后去哪一页由 `objectName` 查表得到，两者互不牵制，因此移动导航项不需要改枚举、也不需要改 `pageStack`；导航项与面板入口的 `objectName` 全部由 `UiConnector` 的 `nav_bindings()` 映射表统一接管（objectName → `AppBridge::Page`），QML 不写 `onClicked`；面板内的设备连接状态为只读绑定，口径与看板一致：蓝牙已连接链路数 `ble.connectedLinkCount`（输出链路逐台累加 + 已连上的输入设备），加上 App 在线客户端数 `device.appClientCount`，合计即「已连接设备 ×N」，不产生交互。
 
 | objectName | 行为 |
 | --- | --- |
 | `navHomeButton` | 主页（`AppBridge::HomePage`） |
-| `navDeviceButton` | 设备管理（`DevicePage`，图标 `f2db` microchip）：`AppBridge::Page::DevicePage = 7`，`ModulePage = 2` 的占位槽与既有页索引均未改动，`pageStack` 追加 `DevicePage` 条目 |
+| `navDeviceButton` | 设备管理（`DevicePage`，图标 `f2db` microchip，导航第 2 项）：`AppBridge::Page::DevicePage = 7`，`ModulePage = 2` 的占位槽与既有页索引均未改动，`pageStack` 追加 `DevicePage` 条目 |
 | `navPluginCenterButton` | 插件中心（`PluginCenterPage`） |
 | `navWaveButton` | 波形设置（`WavePage`） |
 | `navMiniGameButton` | 小游戏（`MiniGamePage`） |
 | `navLogButton` | 日志（`LogPage`） |
-| `navMarketButton` | 插件市场（`MarketPage`，图标 `f54e` store）：`AppBridge::Page::MarketPage = 8` 追加在枚举末尾，既有页索引（含 `DevicePage = 7`）与上面六项导航的顺序、文案不变，`pageStack` 末尾追加 `MarketPage` 条目 |
+| `navMarketButton` | 插件市场（`MarketPage`，图标 `f54e` store，导航第 4 项，紧跟 `navPluginCenterButton`）：`AppBridge::Page::MarketPage = 8` 与 `pageStack` 末条 `MarketPage` 都是既有枚举 / 既有条目，本次只移动导航项在 `Column` 里的位置，页索引与 `app.navigate()` 的实参不变 |
 | `panelSettingsButton` / `panelAboutButton` | 左下角面板「设置」→ `ConfigPage`、「关于」→ `AboutPage` |
 | `panelCheckUpdateButton` | 左下角面板「检查更新」→ `UiConnector::on_panel_check_update_clicked()`：先打开 `updateDialog`，再调用既有的 `UpdateBridge::on_check_update_clicked()`（同一入口，不复制检查逻辑）；`checking` / `downloading` 期间置灰，结果由 Toast 与对话框内状态回执 |
 | `mainWindow` / `pageStack` / `statusBar` / `panelFooter` | 窗口根项、内容区页栈、底部状态栏、左下常驻面板容器 |
@@ -262,7 +262,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 
 爪印连接成功后状态行显示「爪印已连接（实验性输入设备）」；50 指令未被 `51` 确认时显示「爪印未确认 50 指令」并弹一次 danger Toast。爪印不参与 `ble.connected`（默认设备的输出链路快照，决定通道强度与默认设备评选），但会计入 `ble.connectedLinkCount` 的蓝牙链路数，并出现在设备管理页「已连接设备」列表里（行内多一段「模块 paw_<后四位>」）。灵猫同为一类：连接中显示「正在连接灵猫…（需连按 5 次开机键才可被搜到）」，成功后显示「灵猫已连接（实验性输入设备）」，气压上报（首帧 D0）未确认时显示「灵猫未确认 50 指令」并弹一次 danger Toast；灵猫同样不进 `ble.connected` 与默认设备评选。多台同型号按 MAC 各建一个实例（数值模块 `paw_<后四位>` / `civet_<后四位>`），本批没有新增 QML 信号处理器与提示控件。
 
-插件市场（`pages/MarketPage.qml`，导航第 7 项，`AppBridge::Page::MarketPage = 8`）：清单驱动的插件安装页。条目来自 `registry.json`（`schemaVersion` 1，字段名与共享契约一致），三态由本地已装版本比对得出——没有本地版本为 `install`、远程版本更新为 `update`、其余为 `installed`；安装中的项取 `installing`，此时 `progress` 随下载前进、操作按钮置灰。
+插件市场（`pages/MarketPage.qml`，导航第 4 项，`AppBridge::Page::MarketPage = 8`）：清单驱动的插件安装页，卡片与插件中心同一套两列网格。条目来自 `registry.json`（`schemaVersion` 1，字段名与共享契约一致），三态由本地已装版本比对得出——没有本地版本为 `install`、远程版本更新为 `update`、其余为 `installed`；安装中的项取 `installing`，此时 `progress` 随下载前进、操作按钮置灰。
 
 | objectName | 行为 |
 | --- | --- |
@@ -273,7 +273,7 @@ C++ 侧配套：`DeviceController::limitsFor(mac, channel)`（读 limit / safety
 | `marketSourceText` | 清单源地址（`market.sourceUrl`，只读，过长时中间省略） |
 | `marketUpdatedText` | 清单时间行（`market.updatedAt`，从未获取过时为「尚未获取清单」） |
 | `marketLoadingText` / `marketEmptyText` / `marketErrorText` | 拉取中提示 / 空清单提示（非加载中、无错误、清单为空时可见）/ 最近一次刷新失败原因（`market.lastError`，危险色）：三者互斥，均只读 |
-| `marketList` | 卡片列表容器（`ColumnLayout` 内的 `Repeater`，模型 `market.plugins`）：`UiConnector::watch_items()` 沿它扫描每张卡上的操作按钮 |
+| `marketList` | 卡片网格（`GridLayout`，`columns: 2`、行数不限、`columnSpacing` / `rowSpacing` 取 `Metrics.cardSpacing`，内含 `Repeater`，模型 `market.plugins`）：与 `pluginCardGrid` 的网格视图同一套度量——卡片 `Layout.fillWidth` 撑满格宽、`Layout.alignment: Qt.AlignTop` 按统一高度顶对齐，窄窗口下仍是两列（不对宽度分档，与插件中心的行为一致）。`UiConnector::watch_items()` 沿它扫描每张卡上的操作按钮 |
 | `marketCard` | 单项卡片（`AppCard`，统一高度 `ComponentStyle.pluginCardHeight`）：头图取 `modelData.banner`，标签取 `modelData.tags`，状态行优先显示 `modelData.error`、否则 `modelData.statusText`。头图判定不在 QML 里做：`MarketBridge` 已按与 `ModuleBridge::bannerSource()` 相同的口径判过 scheme，只把绝对 http(s) 地址透出，其它写法给空串（`AppCard` 退回无图居中态） |
 | `marketActionButton` | 每项一个操作按钮（`AppButton`，带 `pluginId` 属性）：文案取 `modelData.actionText`（安装 / 更新 / 已安装 / 安装中… / 不可用），`enabled` 取 `modelData.actionEnabled`；点击由 `watch_items` 连到 `UiConnector::on_market_action_clicked()`，从 sender 的 `pluginId` 调 `MarketBridge::install(id)` |
 | `marketProgress` | 每项一个下载进度条（`ProgressBar`，值取 `modelData.progress`，`status === "installing"` 时可见），底色与填充分别取 `Theme.surfaceAlt` / `Theme.accent` |
@@ -354,14 +354,22 @@ C++ 侧配套：`ModuleManager::download_plugin(url, sha256)` 只接受 http(s) 
 
 「触发事件」表单的三个可写控件都经 `EventBridge::setEventConfig(module, eventId, wave, merge, weight, frames, dataType)` 写入，回显读 `EventBridge` 刷新后的 `events[]`：波形下拉第 0 项「默认（按当前设备）」写空串（该事件不附加波形），其余项写波形库里的波形名原文；「激活窗口（秒）」写入前乘 10 换算成 `frames`（1 秒 = 10 帧，1 帧 = 100ms）；「输出数据类型」按分段下标写 `strength` / `percent` / `wave`。
 
-关于页（`pages/AboutPage.qml`）：软件介绍与许可证说明。
+关于页（`pages/AboutPage.qml`）：README 风格的软件信息与许可证说明。头部与项目 README 头部同构——本地图标 + 应用名 + 三个 shields 徽标 + 一句副标题；正文交给 `textFormat: Text.MarkdownText` 渲染，源是页面属性 `introBlocks`（按空行拼接的分段 Markdown，每段一个 `qsTr` 单元）。Markdown 渲染不支持图片，所以图标与徽标必须在头部用独立的 `Image` 排布，不进正文。
 
 | objectName | 行为 |
 | --- | --- |
-| `aboutVersionText` / `aboutDescriptionText` | 版本号与面向普通用户的中文介绍（说明这是什么软件、手机 App 扫码与蓝牙直连两种连接方式、规则与波形、游戏插件；与版本号同色阶 `Theme.textSecondary`）：只读 |
+| `aboutScrollView` | 页面滚动容器（窗口高度不足时整页滚动，`ScrollBar.AsNeeded`） |
+| `aboutBrandBlock` | 头部整块（居中）：图标 → 应用名 → 徽标行 → 副标题 |
+| `aboutAppIcon` | 应用图标，源为随包分发的 `qrc:/icon/assets/icon/dglab-client-128.png`（QRC 资源，离线可用，不联网）；边长取令牌派生值 `Metrics.spacing3xl * 3` |
+| `aboutAppTitle` | 应用名（`app.appName`，`Typography.fontTitle` 加粗，超长右侧省略） |
+| `aboutBadgeRow` / `aboutVersionBadge` / `aboutLicenseBadge` / `aboutStarsBadge` | 三个 shields 徽标（版本动态图 / 许可证 / Stars），URL 与项目 README 头部一致（徽标配色写在这些远程 URL 上，不是 QML 颜色令牌）；远程 SVG，`visible: status === Image.Ready`——离线或加载失败时隐藏，`Row` 的隐式宽度只算可见项，因此不留空框；高 `ComponentStyle.statusBadgeHeight`，解码依赖部署在 `imageformats/qsvg` 的 Qt SVG 插件（`windeployqt` 随 `Qt6Svg` 一并部署） |
+| `aboutSubtitleText` | 一句副标题（Qt/QML 桌面客户端 · 自建中转 · 郊狼 V3 蓝牙直连），与 README 副标题同义 |
+| `aboutIntroText` | 正文（`Text.MarkdownText`，正文色 `Theme.textSecondary`、`linkColor` 取 `Theme.accent`）：中性的定位与功能介绍——连上设备的两条路径、强度与波形、规则与事件、插件与插件市场、迷你窗与托盘、主题。只读 |
 | `aboutLicenseText` | 许可证叙述：GPL-3.0-only |
 | `aboutDependenciesText` | 第三方依赖叙述：Qt 6 |
 | `aboutRepositoryText` | 仓库地址 |
+
+历史条目 `aboutVersionText` / `aboutDescriptionText` 已移除：版本号改由页头副标题 `v<版本>`（本地 `app.appVersion`，离线可见）承载，介绍改由 `aboutIntroText` 的 Markdown 正文承载。
 
 一次性反馈与常驻摘要分工：一次性结果文案一律走 `app.showToast()`；状态栏只显示 QML 侧组合的常驻摘要。
 

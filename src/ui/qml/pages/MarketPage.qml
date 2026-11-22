@@ -96,10 +96,14 @@ Item {
                         font.pixelSize: Typography.fontBody
                     }
 
-                    ColumnLayout {
+                    // 与插件中心同一套网格：固定两列、行数不限，卡片各按统一高度顶对齐；
+                    // 窄窗口下两列照旧（不对宽度分档），与插件中心的行为一致
+                    GridLayout {
                         objectName: "marketList"
                         Layout.fillWidth: true
-                        spacing: Metrics.cardSpacing
+                        columns: 2
+                        columnSpacing: Metrics.cardSpacing
+                        rowSpacing: Metrics.cardSpacing
 
                         Repeater {
                             model: market.plugins
@@ -107,6 +111,8 @@ Item {
                             delegate: AppCard {
                                 objectName: "marketCard"
                                 Layout.fillWidth: true
+                                // GridLayout 默认把同行单元格拉齐，短卡会被撑出空白
+                                Layout.alignment: Qt.AlignTop
                                 Layout.preferredHeight: ComponentStyle.pluginCardHeight
                                 title: modelData.name
                                 subtitle: modelData.description
