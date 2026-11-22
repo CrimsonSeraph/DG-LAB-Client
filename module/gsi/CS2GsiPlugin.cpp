@@ -3,7 +3,8 @@
 
 #include "CS2GsiPlugin.h"
 
-#include <QCoreApplication>
+#include "PathFinder.h"
+
 #include <QDir>
 #include <QFile>
 #include <QProcess>
@@ -12,6 +13,26 @@
 
 #include <cstdlib>
 #include <map>
+
+namespace {
+
+// SDK 负返回码转可读原因
+const char* find_error_reason(int code) {
+    switch (code) {
+    case DGLAB_SDK_ERROR_ARGUMENT:
+        return "参数无效";
+    case DGLAB_SDK_ERROR_TRUNCATED:
+        return "路径超出结果容量";
+    case DGLAB_SDK_ERROR_UNKNOWN_GAME:
+        return "SDK 不支持该游戏标识";
+    case DGLAB_SDK_ERROR_INTERNAL:
+        return "SDK 内部错误";
+    default:
+        return "未知错误码";
+    }
+}
+
+} // namespace
 
 // 生命周期（public）
 
@@ -28,7 +49,9 @@ PluginError CS2GsiPlugin::initialize() {
     load_config_path();
     // 之后处理首次运行（无记录）或目录失效：查找 CS 目录并生成配置文件
     if (config_path_.empty() || !QFile::exists(QString::fromStdString(config_path_))) {
-        QString cs_dir = find_cs_directory();
+        // 配置里已有手动指定的目录时优先复用，只有缺失时才走 SDK 自动查找
+        QString cs_dir =
+            cs_dir_.empty() ? find_cs_directory() : QString::fromStdString(cs_dir_);
         if (cs_dir.isEmpty()) {
             PLUGIN_LOG(this, PluginLogLevel::Warn, "未找到 CS 游戏目录，暂不生成 GSI 配置文件");
         }
@@ -250,25 +273,30 @@ void CS2GsiPlugin::update_team_values(const QJsonObject& data) {
 // 路径与配置（private）
 
 QString CS2GsiPlugin::find_cs_directory() {
-    // 通过 PathFinder.py 查找 CS 目录（Steam 模式，非交互，返回第一个匹配）
-    QStringList args;
-    args << "--mode" << "steam"
-         << "--steam-game" << "Counter-Strike Global Offensive"
-         << "--type" << "directory"
-         << "--no-interactive";
-    QString output = run_path_finder(args);
-    QString result = output.trimmed();
-    // PathFinder 结果输出为完整路径（可能含换行，取第一行）
-    const qsizetype newline = result.indexOf('\n');
-    if (newline > 0) {
-        result = result.left(newline);
+    // 交给插件 SDK 自动查找：cs2 档案按显式覆盖、Steam 各库、常见安装根的顺序命中
+    DglabFindResult found{};
+    const int code = dglab_find_game_dir("cs2", &found);
+    if (code == DGLAB_FIND_FOUND) {
+        const QString result = QDir::cleanPath(QString::fromUtf8(found.path));
+        if (QDir(result).exists()) {
+            cs_dir_ = result.toStdString();
+            PLUGIN_LOG(this, PluginLogLevel::Info,
+                "找到 CS 游戏目录: " << cs_dir_ << "（来源 " << found.source << "）");
+            return result;
+        }
+        // SDK 命中的路径随后不可用，按未命中处理，不静默采用
+        PLUGIN_LOG(this, PluginLogLevel::Warn,
+            "SDK 返回的 CS 游戏目录已不存在: " << QString::fromUtf8(found.path).toStdString());
+        return QString();
     }
-    if (!result.isEmpty() && QDir(result).exists()) {
-        cs_dir_ = QDir::cleanPath(result).toStdString();
-        PLUGIN_LOG(this, PluginLogLevel::Info, "找到 CS 游戏目录: " << cs_dir_);
-        return QString::fromStdString(cs_dir_);
+    if (code == DGLAB_FIND_NOT_FOUND) {
+        // 未命中：回落到用户手动指定目录的分支（app.gsi.cs_dir）
+        PLUGIN_LOG(this, PluginLogLevel::Warn,
+            "SDK 未找到 CS 游戏目录，可在配置 app.gsi.cs_dir 中手动指定");
+        return QString();
     }
-    PLUGIN_LOG(this, PluginLogLevel::Warn, "未能通过 PathFinder 找到 CS 游戏目录");
+    PLUGIN_LOG(this, PluginLogLevel::Warn, "SDK 查找 CS 游戏目录失败: "
+            << find_error_reason(code) << "（错误码 " << code << "）");
     return QString();
 }
 
@@ -405,29 +433,6 @@ void CS2GsiPlugin::load_config_path() {
         config_path_.clear();
         port_ = 0;
     }
-}
-
-QString CS2GsiPlugin::run_path_finder(const QStringList& args) {
-    // 使用宿主配置中的 Python 解释器运行 PathFinder.py
-    std::string python = host_ ? host_->get_config_value("python.path", "python") : "python";
-    QString script = QCoreApplication::applicationDirPath() + "/python/PathFinder.py";
-    QProcess process;
-    QStringList full_args;
-    full_args << script << args;
-    process.start(QString::fromStdString(python), full_args);
-    if (!process.waitForFinished(20000)) {
-        PLUGIN_LOG(this, PluginLogLevel::Warn, "PathFinder 执行超时");
-        process.kill();
-        return QString();
-    }
-    QString output = QString::fromUtf8(process.readAllStandardOutput());
-    if (process.exitCode() != 0 && output.trimmed().isEmpty()) {
-        PLUGIN_LOG(this, PluginLogLevel::Warn,
-            "PathFinder 执行失败: "
-                << QString::fromUtf8(process.readAllStandardError()).trimmed().toStdString());
-        return QString();
-    }
-    return output;
 }
 
 bool CS2GsiPlugin::is_process_running(const QString& process_name) {

@@ -8,13 +8,12 @@
 #include <QJsonObject>
 #include <QJsonValue>
 #include <QString>
-#include <QStringList>
 
 #include <string>
 #include <vector>
 
 // CS2GsiPlugin - CS2 Game State Integration 插件
-// 通过 PathFinder 查找 CS 游戏目录、生成 GSI 配置文件（gamestate_integration_dglab.cfg）、
+// 通过插件 SDK 查找 CS 游戏目录、生成 GSI 配置文件（gamestate_integration_dglab.cfg）、
 // 监听 GSI 数据并区分自身/队友数据归属后写入数值模块（完整数值列表参照官方 GSI 规范）
 class CS2GsiPlugin : public IPlugin {
 public:
@@ -72,8 +71,8 @@ private:
     void update_team_values(const QJsonObject& data);
 
     // 路径与配置
-    /// @brief 通过 PathFinder.py 查找 CS 游戏目录
-    /// @return CS 目录绝对路径，未找到返回空字符串
+    /// @brief 通过插件 SDK 的 dglab_find_game_dir 查找 CS 游戏目录
+    /// @return CS 目录绝对路径，未找到或 SDK 报错返回空字符串
     QString find_cs_directory();
 
     /// @brief 生成（或更新）GSI 配置文件（随机端口，buffer/throttle 由最小查询周期决定）
@@ -102,11 +101,6 @@ private:
 
     /// @brief 从宿主 user 配置（app.gsi 下）加载已记录配置
     void load_config_path();
-
-    /// @brief 调用 PathFinder.py 执行查找（QProcess 运行 python 脚本）
-    /// @param args PathFinder 命令行参数
-    /// @return 标准输出文本
-    QString run_path_finder(const QStringList& args);
 
     /// @brief 检查指定名称的进程是否在运行（Windows tasklist / Unix ps）
     /// @param process_name 进程名

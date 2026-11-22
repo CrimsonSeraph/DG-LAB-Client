@@ -1,6 +1,6 @@
 # 反恐精英 2 插件（gsi）
 
-通过 CS2 官方 Game State Integration 读取对局数据：插件用 PathFinder 定位游戏目录、生成 `gamestate_integration_dglab.cfg`、监听本机端口接收游戏推送，把玩家、队伍、地图与炸弹状态写成 `CS2 GSI 模块` 的数值，供规则引擎与事件引擎引用。
+通过 CS2 官方 Game State Integration 读取对局数据：插件经插件 SDK 的 `dglab_find_game_dir` 定位游戏目录、生成 `gamestate_integration_dglab.cfg`、监听本机端口接收游戏推送，把玩家、队伍、地图与炸弹状态写成 `CS2 GSI 模块` 的数值，供规则引擎与事件引擎引用。
 
 侧车 `meta/plugin.json` 声明 31 个事件，全部引用本插件真实注册的数值 ID。
 
